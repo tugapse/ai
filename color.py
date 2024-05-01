@@ -9,3 +9,6 @@ class Color:
 
 def format_text(text, color=Color.RESET):
     return f"{color}{text}{Color.RESET}"
+
+def pformat_text(text, color=Color.RESET):
+    print (f"{color}{text}{Color.RESET}")
