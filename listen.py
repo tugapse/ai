@@ -13,7 +13,7 @@ RECORD_SECONDS = 10
 
 LINE_CLEAR = '\x1b[2K' # <-- ANSI sequence
  
-class Microfone(AsyncExecutor):
+class Microphone(AsyncExecutor):
 
     def __init__(self, 
                  max_record_seconds= RECORD_SECONDS,

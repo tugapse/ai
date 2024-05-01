@@ -25,7 +25,7 @@ class Chat(Events):
         self.assistant_prompt = "Assistant: "
         self.max_chat_log = 30
         self.cache_messages = True
-        self._add_message(ChatRoles.SYSTEM, """Tu és Ema uma asistente virtual, Responde apenas usando o portugues  """ )
+
 
     def _add_message(self, role, message):
         if self.cache_messages:
