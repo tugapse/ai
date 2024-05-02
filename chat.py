@@ -1,5 +1,8 @@
+import threading
+import time
 from events import Events
 from color import Color,format_text
+import functions
 
 class ChatRoles:
     USER = "user"
@@ -25,7 +28,7 @@ class Chat(Events):
         self.assistant_prompt = "Assistant: "
         self.max_chat_log = 30
         self.cache_messages = True
-
+        self.current_prompt = ""
 
     def _add_message(self, role, message):
         if self.cache_messages:
@@ -46,14 +49,13 @@ class Chat(Events):
     def process_loop_frame(self):
         """ This function runs a frame in the chat loop """
         if self.running_command:
-            user_input = input('')
+            user_input = input()
             self.output_requested(user_input)
             return  # Skip the rest of the loop and go to next iteration
         elif self.waiting_for_response:
             return
         else:
-            user_input = input(format_text('User: ',Color.GREEN)+Color.BLUE)
-
+            user_input = input(format_text(self.user_prompt, Color.GREEN)+Color.BLUE)
         
         if user_input.startswith('/'):
             self.run_command(user_input)
@@ -64,10 +66,11 @@ class Chat(Events):
 
     def send_chat(self, message):
         self.waiting_for_response = True
-        self._add_message('user', message)
+        self._add_message(ChatRoles.USER, message)
         self.trigger(self.EVENT_CHAT_SENT, message)
 
     def output_requested(self, message):
+        
         self.trigger(self.EVENT_OUTPUT_REQUESTED, message)
 
     def start_command(self, message):

@@ -124,6 +124,3 @@ def all_tools_info():
     for tool in All_TOOLS:
         result += str(tool)
     return result
-
-for tool in All_TOOLS:
-    print(str(tool))

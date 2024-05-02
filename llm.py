@@ -3,6 +3,7 @@ import ollama
 from chat import ChatRoles
 from events import Events
 
+
 class LLMBot(Events):
 
     STREAMING_FINISHED_EVENT = "streaming_finished"
@@ -13,7 +14,7 @@ class LLMBot(Events):
         self.model_name = model
         self.system_prompt = system_prompt
 
-    def chat(self, messages, stream=True): 
+    def chat(self, messages:list, stream=True): 
         new_messages = self.check_system_prompt(messages)
         response = ollama.chat(model=self.model_name, messages=new_messages,stream=stream) 
         if stream:
@@ -30,9 +31,8 @@ class LLMBot(Events):
         if ChatRoles.SYSTEM not in [obj['role'] for obj in messages]:
             messages.insert(0,{'role':ChatRoles.SYSTEM,'content':self.system_prompt})
         return messages
+    
+    def create_message(self, role:ChatRoles, message:str):
+        return {'role':role,'content':message}
 
-    # def stream(self, query, stream=True): 
-    #     for chunks in ollama.generate(model=self.model_name, prompt=query, stream=stream): 
-    #         self.trigger(self.STREAMING_TOKEN_EVENT,chunks)
-    #         yield chunks 
-    #     self.trigger(self.STREAMING_FINISHED_EVENT)
+    
