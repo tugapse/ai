@@ -1,23 +1,28 @@
 import os
 
 from chat import Chat
-from tools import ToolSelector
+from tools import ToolSelector, all_tools_info
 from command_executor import CommandExecutor
 from llm import LLMBot
 from listen import Microphone,ExecutorResult
 from color import Color, format_text, pformat_text
 import functions as func
+from dotenv import load_dotenv
 
+load_dotenv()
 
 system_prompt = None
 model_name = "llama3:instruct"
 _model_chat_name = model_name.split(":")[0]
+
 func.set_console_title("Ai assistant: " + _model_chat_name)
-os.system("clear")
+func.clear_console()
+
+
 pformat_text(f"Starting { _model_chat_name } assistant...",Color.PURPLE)
  
 with  open('./prompt_templates/tugapse.md', 'r') as file:
-    system_prompt = file.read()
+    system_prompt = file.read().replace("{{TOOLS_INFO}}", all_tools_info())
     
 
 
@@ -27,24 +32,30 @@ microphone = Microphone()
 tool_inspector = ToolSelector(model_name)
 
 active_executor:CommandExecutor = None
+token_states = {
+    'printing_block':False
+}
 
 
 # llm = LLMbot("llama3:instruct")
+def process_token(token):
+    result = token
+    if '``' in token:
+        if token_states.get('printing_block',False):
+            result = token + Color.RESET
+            token_states['printing_block'] = False
+        else:
+            result = token + Color.YELLOW
+            token_states['printing_block'] = True
+    return result
 
 def start_chat(user_input):
 
     outs = llm.chat(chat.messages)
     print(format_text("Assistant:", Color.PURPLE)+Color.RESET,end= " ")
-    printing_block = False
     for text in outs:
-        if '``' in text:
-            if printing_block:
-                text = text + Color.RESET
-                printing_block = False
-            else:
-                text = text + Color.YELLOW
-                printing_block = True
-        chat.current_message += text
+        new_token = process_token(text)
+        chat.current_message += new_token
         print(text, end="", flush=True)
     print(Color.RESET, end="")
 

@@ -5,6 +5,9 @@ from chat import ChatRoles
 from llm import LLMBot
 from color import Color,pformat_text
 import json
+import os
+
+
 
 
 class ToolSelector(LLMBot):
@@ -24,13 +27,35 @@ class ToolSelector(LLMBot):
             return result['tool'] is not None
         return False
 
+class BaseTool:
+    def __init__(self,tool, name,description, examples=None) -> None:
+        self.tool= tool
+        self.name = name
+        self.description = description
+        self.examples = examples
 
-class FileLister:
+    def run(data):
+        raise NotImplementedError("Hey, don't forget to implement the run")
+    
+    def __repr__(self) -> str:
+        return f"""
+TOOL : {self.tool}
+TOOL Name: {self.name}
+TOOL Description: {self.description}
+TOOL Examples: {self.examples}
+    ---"""
 
-    def __init__(self, directory):
+class FileLister(BaseTool):
 
-        self.directory = directory
+    def __init__(self):
+        super().__init__(
+            "list_dir"
+            "Directory Lister",
+            "List all files and folder in a directory",
+             "{'tool':'list_dir','data':'directory_to_get_files'}")
 
+    def run(self, directory):
+        self.list_files(directory)
 
     def list_files(self, extension=None):
 
@@ -50,3 +75,55 @@ class FileLister:
                     files.append(filename)
 
         return files
+
+
+import requests
+import json
+from os import environ
+
+class OpenWeatherAPI(BaseTool):
+    def __init__(self, api_key=None):
+        super().__init__(
+            "weather_search"
+            "Open Weather api",
+            "gets weather forecast for current weather in any location",
+            "{'tool':'weather_search','data':'location_to_check'}")
+        self.api_key = api_key or environ.get("OPENWEATHER_API_KEY")
+
+    def run(self,city):
+        self.get_current_weather(city)
+        
+    def get_current_weather(self, city):
+        url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&units=metric&appid={self.api_key}"
+        response = requests.get(url)
+        data = json.loads(response.text)
+        return data
+
+    def get_forecast(self, city, days):
+        url = f"http://api.openweathermap.org/data/2.5/forecast?q={city}&units=metric&appid={self.api_key}"
+        response = requests.get(url)
+        data = json.loads(response.text)
+        forecast_data = []
+        for i in range(len(data["list"])):
+            if i % 8 == 0:   # Get the forecast every 3 hours
+                forecast_data.append({
+                     "date": data["list"][i]["dt_txt"],
+                     "temperature": data["list"][i]["main"]["temp"],
+                     "condition": data["list"][i]["weather"][0]["description"]
+                 })
+        return forecast_data
+
+        
+All_TOOLS = [
+    FileLister(),
+    OpenWeatherAPI()
+]
+
+def all_tools_info():
+    result = ""
+    for tool in All_TOOLS:
+        result += str(tool)
+    return result
+
+for tool in All_TOOLS:
+    print(str(tool))
