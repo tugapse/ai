@@ -24,8 +24,8 @@ class Chat(Events):
         self.waiting_for_response = False
         self.messages= []
         self.current_message = ""
-        self.user_prompt = "User: "
-        self.assistant_prompt = "Assistant: "
+        self.user_prompt = "  User:"
+        self.assistant_prompt = "  Assistant:"
         self.max_chat_log = 30
         self.cache_messages = True
         self.current_prompt = ""
@@ -55,8 +55,13 @@ class Chat(Events):
         elif self.waiting_for_response:
             return
         else:
-            user_input = input(format_text(self.user_prompt, Color.GREEN)+Color.BLUE)
-        
+            print(format_text(self.user_prompt,Color.BLUE) , end=" ",flush=True)
+            user_input = input()
+
+        if len(user_input.strip()) == 0:
+            print("\r",end="",flush=True)
+            return
+
         if user_input.startswith('/'):
             self.run_command(user_input)
         elif user_input.lower() in self.terminate_tokens:

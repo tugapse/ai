@@ -1,5 +1,6 @@
 import ollama
 
+import tools
 from chat import ChatRoles
 from events import Events
 
