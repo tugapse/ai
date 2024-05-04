@@ -3,9 +3,4 @@ __pycache__/*
 test*.wav
 .env
 logs/*
-teste_file_md
-teste_file.md
-teste_file.txt
-teste_file2.md
-teste_file3.md
-teste_file4.md
+tests/*

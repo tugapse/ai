@@ -137,12 +137,12 @@ def print_initial_info(prog:Program, args):
     print(f"{Color.RESET}--------------------------")
     
         
-def ask(llm:LLMBot,text:str):
+def ask(llm:LLMBot, text:str, args=None):
     message = llm.create_message(ChatRoles.USER,text)
     print("Loading ..")
     for response in llm.chat([message]):
         print(response, end="",flush=True)
-    print("  =======  ")
+    print("")
 
 def read_file(filename)->str:
     if not os.path.exists(filename):
@@ -163,8 +163,9 @@ if __name__ == "__main__":
     prog.init()
 
     if args.file:
-        text = read_file(args.file)
-        args.msg = text + "" + args.msg if args.msg else ""
+        text_file = read_file(args.file)
+        file_message = f"File: {args.file} \n\n  ```{text_file}``` \n\n {args.msg} "
+        args.msg = file_message
         
     if args.msg:
         ask(prog.llm, args.msg)

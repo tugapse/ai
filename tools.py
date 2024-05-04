@@ -43,7 +43,7 @@ TOOL : {self.tool}
 TOOL Name: {self.name}
 TOOL Description: {self.description}
 TOOL Examples: {self.examples}
-    ---"""
+---"""
 
 class FileLister(BaseTool):
 
