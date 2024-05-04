@@ -139,10 +139,10 @@ def print_initial_info(prog:Program, args):
     print(f"{Color.RESET}--------------------------")
     
         
-def ask(llm:LLMBot, text:str , messages:list, args=None):
+def ask(llm:LLMBot, text:str , messages:list = None, args=None):
     message = llm.create_message(ChatRoles.USER,text)
     print("Loading ..")
-    for response in llm.chat(message or[message]):
+    for response in llm.chat(messages or[message]):
         print(response, end="",flush=True)
     print("")
 
@@ -152,7 +152,13 @@ def read_file(filename)->str:
         pformat_text("File not found > " + filename,Color.RED)
         exit(1)
     return Path(filename).read_text()
-                      
+
+
+
+
+
+
+  
 if __name__ == "__main__":
     prog = Program()
     args = load_args()
@@ -178,7 +184,7 @@ if __name__ == "__main__":
     if args.file:
         text_file = read_file(args.file)
         prog.chat._add_message(ChatRoles.USER, f"File: {args.file} \n\n  ```{text_file}```")
-        
+
     if args.msg:
         if args.file:
             args.msg =  f"File: {args.file} \n\n  ```{text_file}``` \n\n {args.msg} "
