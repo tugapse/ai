@@ -4,3 +4,4 @@ test*.wav
 .env
 logs/*
 tests/*
+testes/*

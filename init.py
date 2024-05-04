@@ -173,12 +173,15 @@ if __name__ == "__main__":
         task = read_file(args.task_file)
         args.msg = task
 
+    text_file=""
     if args.file:
         text_file = read_file(args.file)
-        file_message = f"File: {args.file} \n\n  ```{text_file}``` \n\n {args.msg} "
-        args.msg = file_message
+        prog.chat._add_message(ChatRoles.USER, f"File: {args.file} \n\n  ```{text_file}```")
         
+
     if args.msg:
+        if args.file:
+            args.msg =  f"File: {args.file} \n\n  ```{text_file}``` \n\n {args.msg} "
         ask(prog.llm, args.msg)
         exit(0)
         
