@@ -79,7 +79,7 @@ class Program:
         self.llm = LLMBot( self.model_name, system_prompt=self.system_prompt)
         self.microphone = Microphone()
         self.tool_inspector = ToolSelector(self.model_name)
-        self.command_interceptor = ChatCommandInterceptor(self.chat, self.config['LOGS']['CHAT'])
+        self.command_interceptor = ChatCommandInterceptor(self.chat, self.config['PATHS']['CHAT_LOG'])
         self.active_executor:CommandExecutor = None
         self.token_states = {
             'printing_block':False
@@ -123,6 +123,8 @@ def load_args():
     parser.add_argument('--system-file', type=str, help='pass a prompt filename')
     parser.add_argument('--list-models', action="store_true", help='See a list of models available')
     parser.add_argument('--file', type=str, help='Load a file and pass it as a message')
+    parser.add_argument('--task', type=str, help='name of the template inside prompt_templates/task, do not insert .md')
+    parser.add_argument('--task-file', type=str, help='name of the template inside prompt_templates/task, do not insert .md')
 
     return parser.parse_args()
 
@@ -146,7 +148,7 @@ def ask(llm:LLMBot, text:str, args=None):
 
 def read_file(filename)->str:
     if not os.path.exists(filename):
-        pformat_text("File not found!!",Color.RED)
+        pformat_text("File not found > " + filename,Color.RED)
         exit(1)
     return Path(filename).read_text()
     
@@ -161,6 +163,15 @@ if __name__ == "__main__":
     prog.load_config(args)
     prog.clear_on_init = args.msg is not None
     prog.init()
+
+    if args.task:
+        filename = os.path.join(prog.config['PATHS']['TASK_USER_PROMPT'],args.task.replace(".md","")+".md")
+        task = read_file(filename)
+        args.msg = task
+
+    if args.task_file:
+        task = read_file(args.task_file)
+        args.msg = task
 
     if args.file:
         text_file = read_file(args.file)
