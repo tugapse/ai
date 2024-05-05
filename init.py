@@ -1,5 +1,8 @@
+import glob
 import os
 import json
+from itertools import count
+
 import readline
 import argparse
 from dotenv import load_dotenv
@@ -123,6 +126,8 @@ def load_args():
     parser.add_argument('--system-file', type=str, help='pass a prompt filename')
     parser.add_argument('--list-models', action="store_true", help='See a list of models available')
     parser.add_argument('--file', type=str, help='Load a file and pass it as a message')
+    parser.add_argument('--load-folder', type=str, help='Load multiple files from folder and pass them as a message with file location and file content')
+    parser.add_argument('--extension', type=str, help='Provides File extension for folder files search')
     parser.add_argument('--task', type=str, help='name of the template inside prompt_templates/task, do not insert .md')
     parser.add_argument('--task-file', type=str, help='name of the template inside prompt_templates/task, do not insert .md')
 
@@ -139,13 +144,26 @@ def print_initial_info(prog:Program, args):
     print(f"{Color.RESET}--------------------------")
     
         
-def ask(llm:LLMBot, text:str , messages:list = None, args=None):
-    message = llm.create_message(ChatRoles.USER,text)
-    print("Loading ..")
-    for response in llm.chat(messages or[message]):
-        print(response, end="",flush=True)
-    print("")
+def ask(llm:LLMBot, text:[str, list[str]], args=None):
 
+    if isinstance(text, str):
+        message = [llm.create_message(ChatRoles.USER,text)]
+        print("Prompt has " + str(len(text)/4) + " tokens in a " + str(len(text)) + "chars string")
+    elif isinstance(text, list):
+        message = text
+        txt_len = 0
+
+        for line in text:
+            txt_len = txt_len + len(line['content'])
+        print("Prompt has " + str(txt_len / 4) + " tokens in a " +str(txt_len) + "chars string")
+    else:
+        print("Unsupported text type")
+
+    print("Loading ֍ ֍ ֍\n")
+
+    for response in llm.chat(message, True, {'nadaver': 10} ):
+        print(response, end="",flush=True)
+    print("\nK, thanks, bey!")
 
 def read_file(filename)->str:
     if not os.path.exists(filename):
@@ -154,11 +172,21 @@ def read_file(filename)->str:
     return Path(filename).read_text()
 
 
+def read_folder_files(folder_path)->list:
+    output = list()
 
+    if not os.path.exists(folder_path):
+        pformat_text("Folder not found > " + folder_path,Color.RED)
+        exit(1)
+    elif not args.extension:
+        pformat_text("Additional argument required for load-files: extension", Color.RED)
+        pformat_text("→ Missing file extension to look for in folder (eg: --extension '.txt')", Color.YELLOW)
+        exit(1)
+    else:
+        for filename in glob.glob(os.path.join(folder_path , "*" + args.extension)):
+            output.append( { 'filename': filename,'content': Path(filename).read_text() } )
+    return output
 
-
-
-  
 if __name__ == "__main__":
     prog = Program()
     args = load_args()
@@ -184,6 +212,19 @@ if __name__ == "__main__":
     if args.file:
         text_file = read_file(args.file)
         prog.chat._add_message(ChatRoles.USER, f"File: {args.file} \n\n  ```{text_file}```")
+
+    if args.load_folder:
+        files = read_folder_files(args.load_folder)
+        messages = list()
+
+        for file in files:
+            messages.append(prog.llm.create_message(ChatRoles.USER, f"Filename: {file['filename']} \n File Content:\n```{file['content']}\n"))
+
+        messages.append(prog.llm.create_message(ChatRoles.USER,  args.msg))
+        print(messages)
+    
+        ask(prog.llm, messages)
+        exit(0)
 
     if args.msg:
         if args.file:
