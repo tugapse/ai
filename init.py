@@ -17,6 +17,7 @@ from color import Color, format_text, pformat_text
 import functions as func
 
 from pathlib import Path
+import cli_args
 
 
 class Program:
@@ -144,93 +145,37 @@ def print_initial_info(prog:Program, args):
     print(f"{Color.RESET}--------------------------")
     
         
-def ask(llm:LLMBot, text:[str, list[str]], args=None):
+def ask(llm:LLMBot, input_message:[str, list[str]], args=None):
 
-    if isinstance(text, str):
-        message = [llm.create_message(ChatRoles.USER,text)]
-        print("Prompt has " + str(len(text)/4) + " tokens in a " + str(len(text)) + "chars string")
-    elif isinstance(text, list):
-        message = text
+    if isinstance(input_message, str):
+        message = [llm.create_message(ChatRoles.USER,input_message)]
+        print("Prompt has " + str(len(input_message)/4) + " tokens in a " + str(len(input_message)) + "chars string")
+    elif isinstance(input_message, list):
+        message = input_message
         txt_len = 0
-
-        for line in text:
-            txt_len = txt_len + len(line['content'])
+        for line in input_message:
+            txt_len = txt_len + len(line['content'] or "")
         print("Prompt has " + str(txt_len / 4) + " tokens in a " +str(txt_len) + "chars string")
     else:
         print("Unsupported text type")
 
-    print("Loading ֍ ֍ ֍\n")
+    print("Loading ֍ ֍ ֍")
 
-    for response in llm.chat(message, True, {'nadaver': 10} ):
+    for response in llm.chat(message, True):
         print(response, end="",flush=True)
     print("\nK, thanks, bey!")
 
-def read_file(filename)->str:
-    if not os.path.exists(filename):
-        pformat_text("File not found > " + filename,Color.RED)
-        exit(1)
-    return Path(filename).read_text()
 
-
-def read_folder_files(folder_path)->list:
-    output = list()
-
-    if not os.path.exists(folder_path):
-        pformat_text("Folder not found > " + folder_path,Color.RED)
-        exit(1)
-    elif not args.extension:
-        pformat_text("Additional argument required for load-files: extension", Color.RED)
-        pformat_text("→ Missing file extension to look for in folder (eg: --extension '.txt')", Color.YELLOW)
-        exit(1)
-    else:
-        for filename in glob.glob(os.path.join(folder_path , "*" + args.extension)):
-            output.append( { 'filename': filename,'content': Path(filename).read_text() } )
-    return output
 
 if __name__ == "__main__":
     prog = Program()
     args = load_args()
-
-    if args.list_models: 
-        os.system("ollama list")
-        exit(0)
-        
     prog.load_config(args)
     prog.clear_on_init = args.msg is not None
     prog.init()
 
-    if args.task:
-        filename = os.path.join(prog.config['PATHS']['TASK_USER_PROMPT'],args.task.replace(".md","")+".md")
-        task = read_file(filename)
-        args.msg = task
+    cli_args_processor = cli_args.CliArgs(prog, ask=ask)
+    cli_args_processor.parse_args(prog=prog, args=args)
 
-    if args.task_file:
-        task = read_file(args.task_file)
-        args.msg = task
-
-    text_file=""
-    if args.file:
-        text_file = read_file(args.file)
-        prog.chat._add_message(ChatRoles.USER, f"File: {args.file} \n\n  ```{text_file}```")
-
-    if args.load_folder:
-        files = read_folder_files(args.load_folder)
-        messages = list()
-
-        for file in files:
-            messages.append(prog.llm.create_message(ChatRoles.USER, f"Filename: {file['filename']} \n File Content:\n```{file['content']}\n"))
-
-        messages.append(prog.llm.create_message(ChatRoles.USER,  args.msg))
-        print(messages)
-    
-        ask(prog.llm, messages)
-        exit(0)
-
-    if args.msg:
-        if args.file:
-            args.msg =  f"File: {args.file} \n\n  ```{text_file}``` \n\n {args.msg} "
-        ask(prog.llm, args.msg)
-        exit(0)
-        
     print_initial_info(prog,args)
     prog.main()   

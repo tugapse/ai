@@ -37,7 +37,7 @@ class LLMBot(Events):
         }
         self.llm_options = {
             'num_ctx': 16384,  # Default: 2048
-            'temperature':0
+            'temperature':0.0
         }
 
     def chat(self, messages:list, stream:bool=True, options:object = {}):
