@@ -57,7 +57,7 @@ class LLMBot(Events):
 
         for key in request_options_cleaner:
             del request_options[key]
-
+        print(f"{Color.RESET}")
         response = ollama.chat(model=self.model_name, messages=new_messages,stream=stream, options= request_options)
 
         if stream:
