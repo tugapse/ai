@@ -1,6 +1,6 @@
 {
     "MODEL_NAME":"llama3:instruct",
-    "SYSTEM_PROMPT_FILE":"/home/fabio/playground/ai/prompt_templates/simple_prompt.md",
+    "SYSTEM_PROMPT_FILE":"./prompt_templates/simple_prompt.md",
     "PATHS":{
         "CHAT_LOG":"./logs/chat/",
         "TASK_USER_PROMPT":"./prompt_templates/task/",

@@ -15,19 +15,23 @@ class LLMBot(Events):
         self.model_name = model
         self.system_prompt = system_prompt
 
-    def chat(self, messages:list, stream=True): 
+    def chat(self, messages:list, stream=True):
         new_messages = self.check_system_prompt(messages)
-        response = ollama.chat(model=self.model_name, messages=new_messages,stream=stream) 
+
+        opt = {}
+        opt['num_ctx'] = 16384
+        response = ollama.chat(model=self.model_name, messages=new_messages,stream=stream, options=opt)
+
         if stream:
             for chunks in response:
-                yield chunks[ 'message' ][ 'content' ] 
+                yield chunks[ 'message' ][ 'content' ]
             self.trigger(self.STREAMING_FINISHED_EVENT)
 
         else:
             self.trigger(self.STREAMING_FINISHED_EVENT)
             yield response
 
-
+        exit(0)
     def check_system_prompt(self,messages:list):
         if ChatRoles.SYSTEM not in [obj['role'] for obj in messages]:
             messages.insert(0,{'role':ChatRoles.SYSTEM,'content':self.system_prompt})

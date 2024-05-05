@@ -21,7 +21,7 @@ class ToolSelector(LLMBot):
         if("'tool':" in text or '"tool":' in text):
             pformat_text("Checking for tool request ...",Color.RED)
             new_messages = self.check_system_prompt([{'role':ChatRoles.USER,'content':text}])
-            res = ollama.chat(model=self.model_name, messages=new_messages, stream=False) 
+            res = ollama.chat(model=self.model_name, messages=new_messages, stream=False)
             result = json.loads(res['message']['content'])
         
             return result['tool'] is not None
