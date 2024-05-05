@@ -163,7 +163,7 @@ def ask(llm:LLMBot, text:[str, list[str]], args=None):
 
     print("Loading ֍ ֍ ֍\n")
 
-    for response in llm.chat(message ):
+    for response in llm.chat(message, True, {'nadaver': 10} ):
         print(response, end="",flush=True)
     print("\nK, thanks, bey!")
 
