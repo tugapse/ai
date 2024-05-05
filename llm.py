@@ -20,7 +20,7 @@ class LLMBot(Events):
         #Ollama Options Documentation
         # -> https://github.com/ollama/ollama/blob/main/docs/modelfile.md#parameter
         self.llm_options_params_type = {
-            'mirostat': 'int',
+            'mirostat': int,
             'mirostat_eta': float,
             'mirostat_tau': float,
             'num_ctx': int,
@@ -37,6 +37,7 @@ class LLMBot(Events):
         }
         self.llm_options = {
             'num_ctx': 16384,  # Default: 2048
+            'temperature':0
         }
 
     def chat(self, messages:list, stream:bool=True, options:object = {}):
@@ -69,7 +70,6 @@ class LLMBot(Events):
             self.trigger(self.STREAMING_FINISHED_EVENT)
             yield response
 
-        exit(0)
     def check_system_prompt(self,messages:list):
         if ChatRoles.SYSTEM not in [obj['role'] for obj in messages]:
             messages.insert(0,{'role':ChatRoles.SYSTEM,'content':self.system_prompt})
