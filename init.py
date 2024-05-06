@@ -164,7 +164,8 @@ def ask(llm:LLMBot, input_message:[str, list[str]], args=None):
     if prog.write_to_file: func.write_to_file(prog.output_filename,"")
     
     for response in llm.chat(message, True):
-        print(response, end="",flush=True)
+        new_token = prog.process_token(response)
+        print(new_token, end="",flush=True)
         if prog.write_to_file:
             func.write_to_file(prog.output_filename,response,func.FILE_MODE_APPEND)
     print("")
