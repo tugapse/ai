@@ -1,60 +1,67 @@
-
 **Ai Assistant Documentation**
 =============================
 
-### Introduction
+Introduction
+-------------
 
-This AI assistant allows users to interact with a language model using natural language commands. It provides various features for loading config files, setting system prompts, executing tasks, reading and executing files, and handling direct questions from users.
+The Ai Assistant is a powerful tool that enables users to interact with AI models and perform various tasks. This documentation provides an overview of the Ai Assistant, its features, and how to use it.
 
-### Command-Line Arguments
+Getting Started
+----------------
 
-To use the AI assistant, you can run the script with various command-line arguments. Here are some examples:
+To get started with the Ai Assistant, follow these steps:
 
-#### Basic Usage
+1. **Install the Ai Assistant**: You can install the Ai Assistant by cloning this repository or downloading the zip file from GitHub.
+2. **Load the Configuration File**: The Ai Assistant requires a configuration file (config.json) to function properly. This file contains settings such as the AI model name, system prompt file, and output file.
+3. **Run the Ai Assistant**: Once you have loaded the configuration file, you can run the Ai Assistant by executing the `main.py` script.
 
-* `--list-models`: List available models for use
-* `--model <model_name>`: Specify a model to use (e.g., "bloom-64b1a0")
-* `--system <prompt_name>`: Pass a system prompt name (e.g., "my_system_prompt")
-* `--system-file <filename>`: Pass a system prompt filename (e.g., "path/to/my/system/prompt.md")
+Using the Ai Assistant
+----------------------
 
-#### Task Execution
+The Ai Assistant provides several features that enable users to interact with AI models. Here are some of the key features:
 
-* `--task <task_name>`: Execute a task with the specified name (e.g., "my_task")
-* `--task-file <filename>`: Execute a task by loading a file (e.g., "path/to/my/task/file.md")
+* **Chat Mode**: The Ai Assistant allows users to engage in a conversation with an AI model. Users can type messages, and the AI model will respond accordingly.
+* **File Input**: Users can input files (text or JSON) as prompts for the AI model.
+* **Model Selection**: The Ai Assistant supports multiple AI models. Users can select the desired model using the `--model` option.
+* **System Prompt**: The Ai Assistant uses a system prompt file to generate responses from the AI model.
 
-#### File Handling
+Commands and Options
+--------------------
 
-* `--file <filename>`: Load and execute a file
-* `--msg`: Pass a direct question to the AI assistant (e.g., "What is the meaning of life?")
+The Ai Assistant provides several commands and options that enable users to customize its behavior. Here are some of the key commands:
 
-### Examples
+* **-m, --msg**: Direct question for the AI model.
+* **-model, --m**: Select a specific AI model.
+* **-system, --s**: Pass a prompt name or file path.
+* **-system-file, --sf**: Pass a system prompt file path.
+* **-list-models, -lm**: List all available AI models.
+* **-file, -f**: Load a file and pass it as a message.
+* **-load-folder, -lf**: Load multiple files from a folder and pass them as messages with file location and content.
+* **-extension, -e**: Provide the file extension for folder files search.
+* **-task, -t**: Name of the template inside prompt_templates/task (do not insert .md).
+* **-task-file, -tf**: Name of the template inside prompt_templates/task (do not insert .md).
+* **-output-file, -of**: File name where the output of automatic actions will be saved.
 
-Here are some examples of how you can use this AI assistant:
+Example Usage
+--------------
 
-```bash
-# List available models
-$ python ai_assistant.py --list-models
+Here is an example of how to use the Ai Assistant:
 
-# Use a specific model
-$ python ai_assistant.py --model <model_name>
-
-# Set system prompt from file
-$ python ai_assistant.py --system-file my_system_prompt.md
-
-# Execute task with specified name
-$ python ai_assistant.py --task my_task
-
-# Pass a direct question to the AI assistant
-$ python ai_assistant.py --msg "What is the meaning of life?"
+```
+python main.py --msg "Hello, AI model!" --model "my_model" --system "prompt.md"
 ```
 
-### Functionality
+This command tells the Ai Assistant to load the `config.json` file, select the `my_model` AI model, and use the `prompt.md` system prompt file. The user can then engage in a conversation with the AI model by typing messages.
 
-The AI assistant includes the following functionality:
+Troubleshooting
+----------------
 
-* Loading config files
-* Setting system prompts
-* Executing tasks
-* Reading and executing files
-* Handling direct questions from users
-* Creating messages for the language model
+If you encounter any issues while using the Ai Assistant, refer to the troubleshooting section below:
+
+* **Error: Unable to load configuration file**: Make sure that the `config.json` file is present in the same directory as the `main.py` script.
+* **Error: Invalid AI model selection**: Check that the selected AI model exists and is correctly configured.
+
+Conclusion
+----------
+
+The Ai Assistant is a powerful tool that enables users to interact with AI models. With its various features and options, it provides a flexible way to perform tasks and engage in conversations with AI models. By following this documentation, you should be able to get started with the Ai Assistant and start using it effectively.

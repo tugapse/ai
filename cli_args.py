@@ -10,6 +10,7 @@ class CliArgs:
     def parse_args(self,prog,args)-> None:
 
         self._is_list_models(args)
+        self._has_output_files(prog, args)
         self._has_task(prog, args)
         self._has_task_file(args)
         self._has_folder(prog, args)
@@ -21,6 +22,11 @@ class CliArgs:
             os.system("ollama list")
             exit(0)
 
+    def _has_output_files(self,prog, args):
+        if args.output_file:
+            prog.write_to_file = True
+            prog.output_filename = args.output_file
+            
     def _has_message(self, prog, args):
         if args.msg:
             prog.chat.messages.append(self.create_message(ChatRoles.USER,args.msg))

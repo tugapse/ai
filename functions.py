@@ -1,5 +1,8 @@
 import os
 from pathlib import Path
+import pathlib
+FILE_MODE_APPEND = "a"
+FILE_MODE_CREATE = "w"
 
 from color import Color, pformat_text
 
@@ -50,3 +53,8 @@ def read_file(filename)->str:
         pformat_text("File not found > " + filename,Color.RED)
         exit(1)
     return Path(filename).read_text()
+
+def write_to_file(filename,content,file_mode=FILE_MODE_CREATE):
+    with open(pathlib.Path(filename), file_mode) as f:
+        f.write(content)
+        f.flush()

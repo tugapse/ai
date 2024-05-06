@@ -1,10 +1,3 @@
-Given the code provided:
+Given the provided code, create comprehensive documentation in Markdown format for use on GitHub. Pay special attention to the usage instructions, providing detailed explanations and examples for all functionality.
 
-Use your Expertise to analyze to create the documentation in .md format to be used in github.
-
-give special attention with the description on how to use it.
-
-Give as much detail as possible.
-Add examples on how to use ALL the functionality
-
-Do the Previous instructions 3 times, on each iteration analyze what you wrote, check if you missed or made any mistake and improve it.
+Repeat the previous instructions three times. After each iteration, analyze what you’ve written, check for any mistakes, and make improvements.

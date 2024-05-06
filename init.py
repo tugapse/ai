@@ -36,6 +36,8 @@ class Program:
             'printing_block':False
         }
         self.clear_on_init  = True
+        self.write_to_file = False
+        self.output_filename = None
 
     def process_token(self,token):
         result = token
@@ -49,10 +51,14 @@ class Program:
         return result
 
     def start_chat(self,user_input):
-        pformat_text("  Loading ..\r", Color.YELLOW, end="")
+        started_response = False
+        print(Color.YELLOW+"  Loading ..\r", end="")
         outs = self.llm.chat(self.chat.messages)
-        print(format_text(self.chat.assistant_prompt, Color.PURPLE)+Color.RESET, end= " ")
         for text in outs:
+            if not started_response:
+                print(format_text(self.chat.assistant_prompt, Color.PURPLE)+Color.RESET, end= " ")
+                started_response = True
+                
             new_token = self.process_token(text)
             self.chat.current_message += text
             print(new_token, end="", flush=True)
@@ -60,11 +66,6 @@ class Program:
     def llm_stream_finished(self,data):
         print("\n")
         self.chat.chat_finished()
-        # message =self.chat.messages[-1]
-        # text = message['content']
-        # if command := self.tool_inspector.check_tool_request(text): 
-        #     self.chat.hide_loading()
-        #     print(command)
 
     def output_requested(self,):
         if self.active_executor : self.active_executor.output_requested()
@@ -117,8 +118,7 @@ class Program:
         self.load_events()
         self.chat.loop()
 
-
-        
+    
 def load_args():
     parser = argparse.ArgumentParser(description='AI Assistant')
     parser.add_argument('--msg', type=str, help='Direct question')
@@ -131,11 +131,11 @@ def load_args():
     parser.add_argument('--extension', type=str, help='Provides File extension for folder files search')
     parser.add_argument('--task', type=str, help='name of the template inside prompt_templates/task, do not insert .md')
     parser.add_argument('--task-file', type=str, help='name of the template inside prompt_templates/task, do not insert .md')
+    parser.add_argument('--output-file', type=str, help='filename where the output of automatic actions will be saved')
 
     return parser.parse_args()
 
 def print_initial_info(prog:Program, args):
-
     func.clear_console()
     func.set_console_title("Ai assistant: " + prog.model_chat_name)
     system_p_file = prog.config['SYSTEM_PROMPT_FILE'].split("/")[-1]
@@ -144,7 +144,6 @@ def print_initial_info(prog:Program, args):
     print(f"# Using {Color.YELLOW}{ system_p_file }{Color.GREEN} file")
     print(f"{Color.RESET}--------------------------")
     
-        
 def ask(llm:LLMBot, input_message:[str, list[str]], args=None):
 
     if isinstance(input_message, str):
@@ -161,11 +160,15 @@ def ask(llm:LLMBot, input_message:[str, list[str]], args=None):
 
     print("Loading ֍ ֍ ֍")
 
+    # ensure to clean the file
+    if prog.write_to_file: func.write_to_file(prog.output_filename,"")
+    
     for response in llm.chat(message, True):
-        print(response, end="",flush=True)
-    print("\nK, thanks, bey!")
-
-
+        new_token = prog.process_token(response)
+        print(new_token, end="",flush=True)
+        if prog.write_to_file:
+            func.write_to_file(prog.output_filename,response,func.FILE_MODE_APPEND)
+    print("")
 
 if __name__ == "__main__":
     prog = Program()
