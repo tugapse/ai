@@ -12,8 +12,10 @@ import os
 
 class ToolSelector(LLMBot):
     
-    def __init__(self, model, system_prompt=None):
-        with  open('./prompt_templates/tool_selector.md', 'r') as file:
+    def __init__(self, model, config, system_prompt=None):
+        with  open(os.path.join(
+            config['SYSTEM_PROMPT_FOLDER'],
+            './prompt_templates/tool_selector.md'), 'r') as file:
             system_prompt = file.read()
         super().__init__(model, system_prompt)
 
@@ -113,14 +115,3 @@ class OpenWeatherAPI(BaseTool):
                  })
         return forecast_data
 
-        
-All_TOOLS = [
-    FileLister(),
-    OpenWeatherAPI()
-]
-
-def all_tools_info():
-    result = ""
-    for tool in All_TOOLS:
-        result += str(tool)
-    return result

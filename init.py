@@ -2,44 +2,64 @@ import glob
 import os
 import json
 from itertools import count
-
 import readline
 import argparse
 from dotenv import load_dotenv
-
 from chat import Chat, ChatRoles
 from command_interceptor import ChatCommandInterceptor
-from tools import ToolSelector, all_tools_info
 from command_executor import CommandExecutor
 from llm import LLMBot
-from listen import Microphone,ExecutorResult
+from listen import Microphone, ExecutorResult
 from color import Color, format_text, pformat_text
 import functions as func
-
 from pathlib import Path
 import cli_args
 
-
 class Program:
-    def __init__(self,) -> None: 
-        self.config = None       
-        self.model_name :str
+    """
+    Main program class for the AI assistant.
+    
+    Attributes:
+        config (dict): Configuration settings.
+        model_name (str): The name of the model to use.
+        system_prompt (str): The system prompt file.
+        model_chat_name (str): The chat name for the model.
+        chat (Chat): The chat object.
+        command_interceptor (ChatCommandInterceptor): The command interceptor.
+        llm (LLMBot): The language model bot.
+        microphone (Microphone): The microphone object.
+        active_executor (CommandExecutor): The active executor.
+        token_states (dict): Token states for formatting output.
+    """
+
+    def __init__(self) -> None:
+        """
+        Initializes the program with default settings.
+        """
+        self.config = None
+        self.model_name :str = None
         self.system_prompt :str = None
         self.model_chat_name :str = None
-        self.chat : Chat = None
+        self.chat = Chat()
         self.command_interceptor = None
-        self.llm : LLMBot = None
-        self.microphone : Microphone= None
-        self.tool_inspector : ToolSelector = None
+        self.llm = LLMBot(None, system_prompt=None)
+        self.microphone = Microphone()
         self.active_executor:CommandExecutor = None
-        self.token_states = {
-            'printing_block':False
-        }
+        self.token_states = {'printing_block':False}
         self.clear_on_init  = True
         self.write_to_file = False
         self.output_filename = None
 
-    def process_token(self,token):
+    def process_token(self, token):
+        """
+        Processes a token and formats it for output.
+        
+        Args:
+            token (str): The token to process.
+        
+        Returns:
+            str: The processed token.
+        """
         result = token
         if '``' in token:
             if self.token_states.get('printing_block') == False:
@@ -50,7 +70,13 @@ class Program:
                 self.token_states['printing_block'] = False
         return result
 
-    def start_chat(self,user_input):
+    def start_chat(self, user_input):
+        """
+        Starts a chat session with the language model.
+        
+        Args:
+            user_input (str): The user's input message.
+        """
         started_response = False
         print(Color.YELLOW+"  Loading ..\r", end="")
         outs = self.llm.chat(self.chat.messages)
@@ -63,51 +89,68 @@ class Program:
             self.chat.current_message += text
             print(new_token, end="", flush=True)
 
-    def llm_stream_finished(self,data):
+    def llm_stream_finished(self, data):
+        """
+        Handles the finished event for the language model stream.
+        
+        Args:
+            data (ExecutorResult): The result of the executor.
+        """
         print("\n")
         self.chat.chat_finished()
 
-    def output_requested(self,):
-        if self.active_executor : self.active_executor.output_requested()
+    def output_requested(self):
+        """
+        Requests output from the active executor.
+        """
+        if self.active_executor: self.active_executor.output_requested()
 
-    def init(self): 
-
+    def init(self):
+        """
+        Initializes the program with configuration settings.
+        """
         self.model_name :str = self.config["MODEL_NAME"]
-        self.model_chat_name :str = self.model_name.split(":")[0]
-     
+        self.model_chat_name :str = self.model_name.split(":")[0] 
 
         self.system_prompt :str = None
         with  open(self.config["SYSTEM_PROMPT_FILE"], 'r') as file:
-            self.system_prompt = file.read()
-    
+            self.system_prompt = file.read()    
+        
         self.chat  = Chat()
         self.llm = LLMBot( self.model_name, system_prompt=self.system_prompt)
         self.microphone = Microphone()
-        self.tool_inspector = ToolSelector(self.model_name)
         self.command_interceptor = ChatCommandInterceptor(self.chat, self.config['PATHS']['CHAT_LOG'])
         self.active_executor:CommandExecutor = None
-        self.token_states = {
-            'printing_block':False
-        }
+        self.token_states = {'printing_block':False}
 
     def load_events(self):
+        """
+        Loads events for the chat and language model.
+        """
         self.chat.add_event(self.chat.EVENT_CHAT_SENT, self.start_chat)
         self.chat.add_event(self.chat.EVENT_OUTPUT_REQUESTED, self.output_requested)
         self.llm.add_event(self.llm.STREAMING_FINISHED_EVENT,self.llm_stream_finished)
+
+    def load_config(self, args):
+        """
+        Loads configuration settings from a file.
         
-    def load_config(self,args):
+        Args:
+            args (argparse.Namespace): The command-line arguments.
+        """
         load_dotenv()
-        with  open("./config.json", 'r') as file:
-            self.config = json.loads(file.read())
+        root = os.path.dirname(__file__)
+        with  open(os.path.join(root,"config.json"), 'r') as file:
+            file_content = file.read().replace("{root_dir}",root)
+            self.config = json.loads(file_content)
             
-        # override with arguments    
+         # override with arguments    
         if args.model: self.config['MODEL_NAME'] = args.model
 
         if args.system: 
             filepath = os.path.join(
-                os.path.dirname(__file__), "prompt_templates", 
-                args.system.replace(".md","")+".md")
-            
+                os.path.dirname(__file__), "templates", 
+                args.system.replace(".md","")+".md")            
             if os.path.exists(filepath): self.config['SYSTEM_PROMPT_FILE'] = filepath 
 
         if args.system_file: 
@@ -115,11 +158,19 @@ class Program:
             if os.path.exists(filepath): self.config['SYSTEM_PROMPT_FILE'] = filepath 
             
     def main(self):
+        """
+        Runs the program's main loop.
+        """
         self.load_events()
         self.chat.loop()
 
-    
 def load_args():
+    """
+    Loads command-line arguments for the program.
+    
+    Returns:
+        argparse.Namespace: The parsed command-line arguments.
+    """
     parser = argparse.ArgumentParser(description='AI Assistant')
     parser.add_argument('--msg', type=str, help='Direct question')
     parser.add_argument('--model', type=str, help='Model to use')
@@ -136,6 +187,13 @@ def load_args():
     return parser.parse_args()
 
 def print_initial_info(prog:Program, args):
+    """
+    Prints initial information about the program.
+    
+    Args:
+        prog (Program): The program object.
+        args (argparse.Namespace): The command-line arguments.
+    """
     func.clear_console()
     func.set_console_title("Ai assistant: " + prog.model_chat_name)
     system_p_file = prog.config['SYSTEM_PROMPT_FILE'].split("/")[-1]
@@ -143,9 +201,16 @@ def print_initial_info(prog:Program, args):
     print(f"# Starting {Color.YELLOW}{ prog.model_chat_name }{Color.GREEN} assistant")
     print(f"# Using {Color.YELLOW}{ system_p_file }{Color.GREEN} file")
     print(f"{Color.RESET}--------------------------")
-    
-def ask(llm:LLMBot, input_message:[str, list[str]], args=None):
 
+def ask(llm:LLMBot, input_message:[str, list[str]], args=None):
+    """
+    Asks the language model a question.
+    
+    Args:
+        llm (LLMBot): The language model bot.
+        input_message ([str, list[str]]): The user's input message.
+        args (argparse.Namespace): The command-line arguments.
+    """
     if isinstance(input_message, str):
         message = [llm.create_message(ChatRoles.USER,input_message)]
         print("Prompt has " + str(len(input_message)/4) + " tokens in a " + str(len(input_message)) + "chars string")
@@ -160,7 +225,7 @@ def ask(llm:LLMBot, input_message:[str, list[str]], args=None):
 
     print("Loading ֍ ֍ ֍")
 
-    # ensure to clean the file
+     # ensure to clean the file
     if prog.write_to_file: func.write_to_file(prog.output_filename,"")
     
     for response in llm.chat(message, True):
@@ -181,4 +246,4 @@ if __name__ == "__main__":
     cli_args_processor.parse_args(prog=prog, args=args)
 
     print_initial_info(prog,args)
-    prog.main()   
+    prog.main()

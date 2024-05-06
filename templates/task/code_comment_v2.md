@@ -10,7 +10,6 @@ Pay special attention to describing how to use the code and provide relevant exa
 * Use code comments (appropriate to the language) to document each relevant part of the code.
 * Describe the purpose, usage, and any important considerations for each component.
 * Include examples (both basic and advanced) to illustrate how to use the code.
-
 ## Specifics:
 * For classes:
     * Explain the purpose of each class.
@@ -21,8 +20,7 @@ Pay special attention to describing how to use the code and provide relevant exa
 * For functions/methods:
         *   Describe the input parameters (if any) and their meanings.
         *   Explain the return values (if applicable).
-
-    * Show usage examples.
+        * Show usage examples.
 * For CLI arguments:
     * List all available arguments and their descriptions.
     * Include examples of running the code with different arguments.
@@ -31,3 +29,4 @@ Pay special attention to describing how to use the code and provide relevant exa
 * Aim for detailed comments that cover all aspects of the code.
 * Consider edge cases, error handling, and best practices.
 * Remember that the goal is to create documentation that helps users understand and utilize the code effectively.
+* DO NOT remove or reorganize any line of code or functionality.

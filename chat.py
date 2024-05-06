@@ -1,5 +1,3 @@
-import threading
-import time
 from events import Events
 from color import Color, format_text
 import functions
