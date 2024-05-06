@@ -39,10 +39,10 @@ class BaseTool:
     
     def __repr__(self) -> str:
         return f"""
-TOOL : {self.tool}
-TOOL Name: {self.name}
-TOOL Description: {self.description}
-TOOL Examples: {self.examples}
+Tool id : {self.tool}
+Tool Name: {self.name}
+Tool Description: {self.description}
+Tool Examples: {self.examples}
 ---"""
 
 class FileLister(BaseTool):

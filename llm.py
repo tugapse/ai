@@ -36,8 +36,8 @@ class LLMBot(Events):
 
         }
         self.llm_options = {
-            'num_ctx': 16384,  # Default: 2048
-            'temperature':0.0
+            'num_ctx': 4096,  # Default: 2048
+            'temperature':0.2
         }
 
     def chat(self, messages:list, stream:bool=True, options:object = {}):
@@ -58,7 +58,7 @@ class LLMBot(Events):
 
         for key in request_options_cleaner:
             del request_options[key]
-        print(f"{Color.RESET}")
+        print(f"{Color.RESET}",end="")
         response = ollama.chat(model=self.model_name, messages=new_messages,stream=stream, options= request_options)
 
         if stream:
