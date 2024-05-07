@@ -1,67 +1,138 @@
-**Ai Assistant Documentation**
-=============================
+# AI Assistant
+================
+A conversational AI assistant built with Python and Ollama.
 
-Introduction
--------------
-
-The Ai Assistant is a powerful tool that enables users to interact with AI models and perform various tasks. This documentation provides an overview of the Ai Assistant, its features, and how to use it.
-
-Getting Started
+## Features
 ----------------
+### Natural Language Processing (NLP)
+The AI assistant uses natural language processing (NLP) to understand and respond to user input. This allows for more accurate and helpful responses, as well as the ability to handle complex queries and conversations.
 
-To get started with the Ai Assistant, follow these steps:
+### Contextual Understanding
+The AI assistant is designed to understand context and follow a conversation. This means that it can keep track of what has been discussed previously and use this information to inform its responses.
 
-1. **Install the Ai Assistant**: You can install the Ai Assistant by cloning this repository or downloading the zip file from GitHub.
-2. **Load the Configuration File**: The Ai Assistant requires a configuration file (config.json) to function properly. This file contains settings such as the AI model name, system prompt file, and output file.
-3. **Run the Ai Assistant**: Once you have loaded the configuration file, you can run the Ai Assistant by executing the `main.py` script.
+### Multiple Models and Prompts
+The AI assistant supports multiple models and prompts, allowing users to choose the best one for their needs. This includes options such as:
 
-Using the Ai Assistant
-----------------------
+* Large language model: This is a powerful model that can handle complex queries and conversations.
+* Small language model: This is a smaller model that is better suited for simple queries and conversations.
+* General conversation prompt: This is a general-purpose prompt that can be used to start a conversation on any topic.
 
-The Ai Assistant provides several features that enable users to interact with AI models. Here are some of the key features:
+### File and Folder Support
+The AI assistant supports loading files and folders, allowing users to pass in large amounts of text data. This can be useful for tasks such as:
 
-* **Chat Mode**: The Ai Assistant allows users to engage in a conversation with an AI model. Users can type messages, and the AI model will respond accordingly.
-* **File Input**: Users can input files (text or JSON) as prompts for the AI model.
-* **Model Selection**: The Ai Assistant supports multiple AI models. Users can select the desired model using the `--model` option.
-* **System Prompt**: The Ai Assistant uses a system prompt file to generate responses from the AI model.
+* Analyzing large datasets
+* Generating reports or summaries
+* Creating chatbots or virtual assistants
 
-Commands and Options
---------------------
+### Output Options
+The AI assistant provides several output options, including:
 
-The Ai Assistant provides several commands and options that enable users to customize its behavior. Here are some of the key commands:
+* Text: The default output format is plain text.
+* JSON: The AI assistant can also output its responses in JSON format.
+* CSV: The AI assistant can also output its responses in CSV format.
 
-* **-m, --msg**: Direct question for the AI model.
-* **-model, --m**: Select a specific AI model.
-* **-system, --s**: Pass a prompt name or file path.
-* **-system-file, --sf**: Pass a system prompt file path.
-* **-list-models, -lm**: List all available AI models.
-* **-file, -f**: Load a file and pass it as a message.
-* **-load-folder, -lf**: Load multiple files from a folder and pass them as messages with file location and content.
-* **-extension, -e**: Provide the file extension for folder files search.
-* **-task, -t**: Name of the template inside prompt_templates/task (do not insert .md).
-* **-task-file, -tf**: Name of the template inside prompt_templates/task (do not insert .md).
-* **-output-file, -of**: File name where the output of automatic actions will be saved.
+## Installation
+-----------------
+To install this project, simply run the following command:
+```bash
+pip install -r requirements.txt
+```
 
-Example Usage
+## Usage
+--------------
+To use this program, simply run the `init.py` file from the command line. You can then interact with the AI assistant by typing commands and prompts.
+
+Example usage:
+```bash
+$ python init.py
+Welcome to the AI Assistant! What would you like to talk about?
+```
+## CLI Options
+----------------
+The AI assistant provides several command-line interface (CLI) options that allow you to customize its behavior. These options include:
+
+* `--msg <message>`: Direct question
+* `--model <model_name>`: Model to use
+* `--system <prompt_name>`: Pass a prompt name
+* `--system-file <filename>`: Pass a prompt filename
+* `--list-models`: See a list of models available
+* `--file <filename>`/`--files <filename>`: Load a file and pass it as a message
+* `--load-folder <folder_name>`/`--folder <folder_name>`: Load multiple files from folder and pass them as a message with file location and file content
+* `--extension <extension>`/`--ext <extension>`: Provides File extension for folder files search
+* `--task <template_name>`/`--task-file <filename>`: Name of the template inside prompt_templates/task, do not insert .md
+* `--output-file <filename>`: Filename where the output of automatic actions will be saved
+
+You can use these options to customize the behavior of the AI assistant when you run it from the command line. For example:
+
+### Example 1: Passing a direct question with a specific model
+```
+$ python init.py --msg "What's the weather like today?" --model "large_language_model"
+```
+This will pass the message "What's the weather like today?" directly to the AI assistant using the "large_language_model" model.
+
+### Example 2: Using a prompt name with a specific template
+```
+$ python init.py --system "general_conversation" --task "template_name"
+```
+This will use the "general_conversation" prompt and the specified template instead of the default template.
+
+### Example 3: Loading a file and passing it as a message with a specific model
+```
+$ python init.py --file "example.txt" --model "small_language_model"
+```
+This will load the contents of the "example.txt" file and pass it as a message to the AI assistant using the "small_language_model" model.
+
+### Example 4: Loading multiple files from a folder and passing them as messages with a specific template
+```
+$ python init.py --load-folder "path/to/folder" --task "template_name"
+```
+This will load all the files in the specified folder and pass their contents as separate messages to the AI assistant using the specified template.
+
+### Example 5: Providing a file extension for folder files search with a specific model
+```
+$ python init.py --extension ".txt" --model "medium_language_model"
+```
+This will specify that only files with the ".txt" extension should be searched for in the folder, and use the "medium_language_model" model.
+
+### Example 6: Saving output to a file with a specific template
+```
+$ python init.py --output-file "output.txt" --task "template_name"
+```
+This will save the output of the AI assistant to a file named "output.txt", using the specified template instead of the default template.
+
+## Ollama Integration
+---------------------
+This program also uses the Ollama application from ollama.com, which provides a powerful and flexible way to generate text based on user input. By integrating Ollama into this program, we can take advantage of its advanced language processing capabilities and provide even more accurate and helpful responses.
+
+## Contributing
+----------------
+If you'd like to contribute to this project, please fork it on GitHub and submit a pull request. We welcome any suggestions or patches that can improve the functionality of this project.
+
+## License
+-------------
+N/A
+
+## Credits
+--------------
+* Fábio Almeida - Original Author
+* Ollama - AI Model Library Used in This Project (https://ollama.com)
+* Python - Programming Language Used to Develop this Project (https://www.python.org)
+
+
+## Contact
 --------------
 
-Here is an example of how to use the Ai Assistant:
+If you have any questions or need further assistance, please don't hesitate to reach out. You can contact me at [your email address] or through the GitHub issues page for this project.
 
-```
-python main.py --msg "Hello, AI model!" --model "my_model" --system "prompt.md"
-```
+## Acknowledgments
+-----------------
 
-This command tells the Ai Assistant to load the `config.json` file, select the `my_model` AI model, and use the `prompt.md` system prompt file. The user can then engage in a conversation with the AI model by typing messages.
+I would like to thank the Ollama team for providing their AI model library and for their support in developing this project.
 
-Troubleshooting
-----------------
+## Changelog
+--------------
 
-If you encounter any issues while using the Ai Assistant, refer to the troubleshooting section below:
+* [Version 1.0]: Initial release of the AI assistant.
+* [Version 1.1]: Added support for multiple models and prompts.
+* [Version 1.2]: Improved language processing capabilities through integration with Ollama.
 
-* **Error: Unable to load configuration file**: Make sure that the `config.json` file is present in the same directory as the `main.py` script.
-* **Error: Invalid AI model selection**: Check that the selected AI model exists and is correctly configured.
-
-Conclusion
-----------
-
-The Ai Assistant is a powerful tool that enables users to interact with AI models. With its various features and options, it provides a flexible way to perform tasks and engage in conversations with AI models. By following this documentation, you should be able to get started with the Ai Assistant and start using it effectively.

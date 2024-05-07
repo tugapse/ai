@@ -46,13 +46,6 @@ class CliArgs:
         # Check for message option and add it to the chat's messages
         self._has_message(prog, args)
 
-       
-
-       
-
-       
-
-
     def _is_list_models(self, args):
         """
         Checks if the user wants to list all available models.
@@ -97,8 +90,8 @@ class CliArgs:
         :param args: The CLI arguments.
         """
 
-        if args.load_folder:
-            files = func.get_files(args.load_folder, args.extension)
+        if directory :=args.load_folder :
+            files = func.get_files(directory, args.extension )
             messages = list()
             for file in files:
                 messages.append(prog.llm.create_message(ChatRoles.USER, f"Filename: {file['filename']} \n File Content:\n```{file['content']}\n"))
@@ -112,9 +105,10 @@ class CliArgs:
         :param args: The CLI arguments.
         """
 
-        if args.file:
-            text_file = func.read_file(args.file)
-            prog.chat._add_message(ChatRoles.USER, f"File: {args.file} \n\  ```{text_file}```")
+        if files:=args.file.split(","):
+            for file in files:
+                text_file = func.read_file(file.strip())
+                prog.chat._add_message(ChatRoles.USER, f"File: {args.file} \n\  ```{text_file}```")
 
     def _has_task_file(self, args):
         """

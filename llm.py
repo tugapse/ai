@@ -17,6 +17,12 @@ class LLMBot(Events):
     STREAMING_FINISHED_EVENT = "streaming_finished"
     STREAMING_TOKEN_EVENT = "streaming_token"
 
+    
+    CONTEXT_WINDOW_SMALL = 2048
+    CONTEXT_WINDOW_MEDIUM = 4096
+    CONTEXT_WINDOW_LARGE = 8192
+    CONTEXT_WINDOW_EXTRA_LARGE = 16384
+
     def __init__(self, model, system_prompt=None): 
         """
         Initializes the LLMBot instance.

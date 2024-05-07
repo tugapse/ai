@@ -82,7 +82,7 @@ class Program:
         """
         started_response = False
         print(Color.YELLOW+"  Loading ..\r", end="")
-        outs = self.llm.chat(self.chat.messages,options={'num_ctx':4096})
+        outs = self.llm.chat(self.chat.messages,options={'num_ctx':LLMBot.CONTEXT_WINDOW_LARGE})
         for text in outs:
             if not started_response:
                 print(format_text(self.chat.assistant_prompt, Color.PURPLE)+Color.RESET, end= " ")
@@ -181,9 +181,9 @@ def load_args():
     parser.add_argument('--system', type=str, help='pass a prompt name ')
     parser.add_argument('--system-file', type=str, help='pass a prompt filename')
     parser.add_argument('--list-models', action="store_true", help='See a list of models available')
-    parser.add_argument('--file', type=str, help='Load a file and pass it as a message')
-    parser.add_argument('--load-folder', type=str, help='Load multiple files from folder and pass them as a message with file location and file content')
-    parser.add_argument('--extension', type=str, help='Provides File extension for folder files search')
+    parser.add_argument('--file' , '--files', type=str, help='Load a file and pass it as a message')
+    parser.add_argument('--load-folder' , '--folder', type=str, help='Load multiple files from folder and pass them as a message with file location and file content')
+    parser.add_argument('--extension','--ext', type=str, help='Provides File extension for folder files search')
     parser.add_argument('--task', type=str, help='name of the template inside prompt_templates/task, do not insert .md')
     parser.add_argument('--task-file', type=str, help='name of the template inside prompt_templates/task, do not insert .md')
     parser.add_argument('--output-file', type=str, help='filename where the output of automatic actions will be saved')
