@@ -37,7 +37,7 @@ def beep_console():
     print("\007")
 
 
-def get_files(directory, extension):
+def get_files(directory, extension=None):
     """
     Returns a list of files with the specified extension from the given directory and its subdirectories.
 
@@ -53,18 +53,19 @@ def get_files(directory, extension):
         pformat_text("Folder not found > " + directory, Color.RED)
         exit(1)
 
-    elif not extension:
-        pformat_text("Additional argument required for load-files: extension", Color.RED)
-        pformat_text("→ Missing file extension to look for in folder (eg: --extension '.txt')", Color.YELLOW)
-        exit(1)
+    # elif not extension:
+    #     pformat_text("Additional argument required for load-files: extension", Color.RED)
+    #     pformat_text("→ Missing file extension to look for in folder (eg: --extension '.txt')", Color.YELLOW)
+    #     exit(1)
 
     else:
         file_list = []
         for root, dirs, files in os.walk(directory):
             for file in files:
-                if file.endswith(extension):
-                    filename = os.path.join(root, file)
-                    file_list.append({'filename': filename,'content':Path(filename).read_text()})
+                if extension and not file.endswith(extension):
+                    continue
+                filename = os.path.join(root, file)
+                file_list.append({'filename': filename,'content':Path(filename).read_text()})
         return file_list
 
 def read_file(filename):

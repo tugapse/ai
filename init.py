@@ -6,7 +6,7 @@ import readline
 import argparse
 from dotenv import load_dotenv
 from chat import Chat, ChatRoles
-from command_interceptor import ChatCommandInterceptor
+from chat_command_interceptor import ChatCommandInterceptor
 from command_executor import CommandExecutor
 from llm import LLMBot
 from listen import Microphone, ExecutorResult
@@ -69,6 +69,9 @@ class Program:
                 result = token + Color.RESET
                 self.token_states['printing_block'] = False
         return result
+    
+    def clear_process_token(self):
+        self.token_states['printing_block'] = False
 
     def start_chat(self, user_input):
         """
@@ -79,7 +82,7 @@ class Program:
         """
         started_response = False
         print(Color.YELLOW+"  Loading ..\r", end="")
-        outs = self.llm.chat(self.chat.messages)
+        outs = self.llm.chat(self.chat.messages,options={'num_ctx':4096})
         for text in outs:
             if not started_response:
                 print(format_text(self.chat.assistant_prompt, Color.PURPLE)+Color.RESET, end= " ")
@@ -98,6 +101,7 @@ class Program:
         """
         print("\n")
         self.chat.chat_finished()
+        self.clear_process_token()
 
     def output_requested(self):
         """
@@ -227,8 +231,11 @@ def ask(llm:LLMBot, input_message:[str, list[str]], args=None):
 
      # ensure to clean the file
     if prog.write_to_file: func.write_to_file(prog.output_filename,"")
-    
-    for response in llm.chat(message, True):
+    llm_options = {
+            'num_ctx': 16384,
+            'temperature':0.0
+    }
+    for response in llm.chat(message, True,options=llm_options):
         new_token = prog.process_token(response)
         print(new_token, end="",flush=True)
         if prog.write_to_file:

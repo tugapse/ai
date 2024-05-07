@@ -1,8 +1,4 @@
 
-"""
-Microphone class for recording audio.
-"""
-
 import threading
 from command_executor import AsyncExecutor, ExecutorResult
 import pyaudio

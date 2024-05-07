@@ -50,7 +50,7 @@ class LLMBot(Events):
             'top_p': float
         }
         self.llm_options = {
-            'num_ctx': 4096,   # Default: 2048
+            'num_ctx': 16384,   # Default: 2048
             'temperature':0.2
         }
 
