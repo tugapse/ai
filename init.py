@@ -1,10 +1,19 @@
 import glob
 import os
 import json
+import urllib
+import time
+import requests
+import urllib3
+from bs4 import BeautifulSoup
+
+import re, html
 from itertools import count
 
 import readline
 import argparse
+
+import xmltodict
 from dotenv import load_dotenv
 
 from chat import Chat, ChatRoles
@@ -130,7 +139,8 @@ def load_args():
     parser.add_argument('--extension', type=str, help='Provides File extension for folder files search')
     parser.add_argument('--task', type=str, help='name of the template inside prompt_templates/task, do not insert .md')
     parser.add_argument('--task-file', type=str, help='name of the template inside prompt_templates/task, do not insert .md')
-
+    parser.add_argument('--read-url', type=str, help='Gets content from url')
+    parser.add_argument('--read-sitemap', type=str, help='Gets content from urls base on sitemap')
     return parser.parse_args()
 
 def print_initial_info(prog:Program, args):
@@ -187,6 +197,47 @@ def read_folder_files(folder_path)->list:
             output.append( { 'filename': filename,'content': Path(filename).read_text() } )
     return output
 
+def read_url( url : str):
+    output = list()
+
+    if isinstance(url, str):
+        website = urllib.request.urlopen(url)
+        output.append({'url': url, 'content': website.read()})
+    elif isinstance(url, list):
+        for site in url:
+            website = urllib.request.urlopen(site)
+            output.append({'url': site, 'content': website.read()})
+
+    return output
+
+def read_sitemap(url : str):
+    output = list()
+    response = requests.get(url)
+    soup = BeautifulSoup(response.content, "xml")
+    prevent = {'.jpg', '.jpeg', '.png', '.git', '.webp','.pdf', '.mp4', '.mp3'}
+
+    # Extract all URLs from the sitemap
+    urls = list()
+    for loc in soup.find_all("loc"):
+        if any(ext in loc.text for ext in prevent):
+            continue
+        elif '.xml' in loc.text:
+            data = read_sitemap( loc.text )
+            for d in data:
+                urls.append(d)
+        else:
+            urls.append(loc.text)
+
+    for url in urls:
+        website = urllib.request.urlopen(url)
+        time.sleep(8)
+        print(f"# {website.status} - {url}")
+        if(website.status == 200):
+            output.append({'url': url, 'content': website.read()})
+
+    return output
+    exit(0)
+
 if __name__ == "__main__":
     prog = Program()
     args = load_args()
@@ -225,6 +276,21 @@ if __name__ == "__main__":
     
         ask(prog.llm, messages)
         exit(0)
+
+    if args.read_url:
+        url_data = read_url(args.read_url)
+        messages = list()
+
+        for data in url_data:
+            messages.append(prog.llm.create_message(ChatRoles.USER, f"URL: {data['url']} \n HTML:\n```{data['content']}\n"))
+
+        messages.append(prog.llm.create_message(ChatRoles.USER, args.msg))
+        ask(prog.llm, messages)
+        exit(0)
+
+    if args.read_sitemap:
+        sitemap_data = read_sitemap(args.read_sitemap)
+        messages = list()
 
     if args.msg:
         if args.file:
