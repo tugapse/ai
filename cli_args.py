@@ -105,7 +105,8 @@ class CliArgs:
         :param args: The CLI arguments.
         """
 
-        if files:=args.file.split(","):
+        if args.file:
+            files = args.file.split(",")
             for file in files:
                 text_file = func.read_file(file.strip())
                 prog.chat._add_message(ChatRoles.USER, f"File: {args.file} \n\  ```{text_file}```")

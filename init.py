@@ -153,7 +153,7 @@ class Program:
 
         if args.system: 
             filepath = os.path.join(
-                os.path.dirname(__file__), "templates", 
+                os.path.dirname(__file__), "templates/system", 
                 args.system.replace(".md","")+".md")            
             if os.path.exists(filepath): self.config['SYSTEM_PROMPT_FILE'] = filepath 
 

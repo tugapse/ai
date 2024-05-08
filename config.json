@@ -1,6 +1,6 @@
 {
     "MODEL_NAME":"llama3:instruct",
-    "SYSTEM_PROMPT_FILE":"{root_dir}/templates/system/simple_prompt.md",
+    "SYSTEM_PROMPT_FILE":"{root_dir}/templates/system/ai_assistant.md",
     "SYSTEM_PROMPT_FOLDER":"{root_dir}/templates/",
     "PATHS":{
         "CHAT_LOG":"{root_dir}/logs/chat/",
