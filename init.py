@@ -1,3 +1,4 @@
+from datetime import datetime, time
 import glob
 import os
 import json
@@ -49,7 +50,7 @@ class Program:
         self.clear_on_init  = True
         self.write_to_file = False
         self.output_filename = None
-
+        
     def process_token(self, token):
         """
         Processes a token and formats it for output.
@@ -100,8 +101,8 @@ class Program:
             data (ExecutorResult): The result of the executor.
         """
         print("\n")
-        self.chat.chat_finished()
         self.clear_process_token()
+        self.chat.chat_finished()
 
     def output_requested(self):
         """
@@ -144,7 +145,8 @@ class Program:
         """
         load_dotenv()
         root = os.path.dirname(__file__)
-        with  open(os.path.join(root,"config.json"), 'r') as file:
+        config_filename = os.environ.get('AI_ASSISTANT_CONFIG_FILENAME',os.path.join(root,"config.json"))  
+        with  open(config_filename , 'r') as file:
             file_content = file.read().replace("{root_dir}",root)
             self.config = json.loads(file_content)
             
@@ -200,7 +202,9 @@ def print_initial_info(prog:Program, args):
     """
     func.clear_console()
     func.set_console_title("Ai assistant: " + prog.model_chat_name)
-    system_p_file = prog.config['SYSTEM_PROMPT_FILE'].split("/")[-1]
+    system_p_file :str = prog.config['SYSTEM_PROMPT_FILE'].split("/")[-1].replace('.md','').replace('_'," ")
+    system_p_file = system_p_file.replace('.md','').replace('_'," ").capitalize()
+    
     print(Color.GREEN,end="")
     print(f"# Starting {Color.YELLOW}{ prog.model_chat_name }{Color.GREEN} assistant")
     print(f"# Using {Color.YELLOW}{ system_p_file }{Color.GREEN} file")
@@ -215,6 +219,10 @@ def ask(llm:LLMBot, input_message:[str, list[str]], args=None):
         input_message ([str, list[str]]): The user's input message.
         args (argparse.Namespace): The command-line arguments.
     """
+    start_time = time()
+    first_token_time = None
+    end_time = None
+    print_initial_info(prog,args)
     if isinstance(input_message, str):
         message = [llm.create_message(ChatRoles.USER,input_message)]
         print("Prompt has " + str(len(input_message)/4) + " tokens in a " + str(len(input_message)) + "chars string")
@@ -236,11 +244,14 @@ def ask(llm:LLMBot, input_message:[str, list[str]], args=None):
             'temperature':0.0
     }
     for response in llm.chat(message, True,options=llm_options):
+        if first_token_time is None: first_token_time = time()
         new_token = prog.process_token(response)
         print(new_token, end="",flush=True)
         if prog.write_to_file:
             func.write_to_file(prog.output_filename,response,func.FILE_MODE_APPEND)
-    print("")
+    end_time = time()
+    print(f"{Color.RESET}First token :{Color.YELLOW}", first_token_time - start_time, "seconds")
+    print(f"{Color.RESET}Time taken  :{Color.YELLOW}", end_time - start_time, "seconds")
 
 if __name__ == "__main__":
     prog = Program()
