@@ -5,7 +5,7 @@ import pathlib
 FILE_MODE_APPEND = "a"
 FILE_MODE_CREATE = "w"
 
-from color import Color, pformat_text
+from ai.color import Color, pformat_text
 
 def set_console_title(title):
     """
@@ -104,7 +104,10 @@ def write_to_file(filename, content, file_mode=FILE_MODE_CREATE):
         f.flush()
         
 def format_execution_time(start_time,end_time):
-    seconds = end_time - start_time
-    if seconds < 61: return f"{seconds} seconds"
-    if seconds < 3601: return f"{seconds / 60}  minutes and {seconds%60} seconds"
-    if seconds >= 216000: return f"{seconds / 60/ 60 }  minutes and {(seconds / 60 / 60) % 60}  minutes and {seconds%60} seconds"
+   
+    elapsed_seconds = end_time - start_time
+    hours = int(elapsed_seconds // 3600)
+    minutes = int((elapsed_seconds % 3600) // 60)
+    seconds = int(elapsed_seconds % 60)
+
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"

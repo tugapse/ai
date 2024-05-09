@@ -54,7 +54,8 @@ class Program:
         """
         self.model_name :str = self.config.get("MODEL_NAME")
         self.model_chat_name :str = self.model_name.split(":")[0] 
-        self.model_variant = self.model_name.split(":")[1] or None 
+        spliced_model_name = self.model_name.split(":")
+        self.model_variant = spliced_model_name[1] if len(spliced_model_name) > 1 else None 
 
         self.system_prompt :str = None
         with  open(self.config.get("SYSTEM_PROMPT_FILE"), 'r') as file:
