@@ -1,10 +1,8 @@
+from threading import Thread
 
 """
 This module provides a command executor class that can be used to execute commands asynchronously.
 """
-
-from threading import Thread
-
 
 class ExecutorResult:
     """

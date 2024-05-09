@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import pathlib
+
 FILE_MODE_APPEND = "a"
 FILE_MODE_CREATE = "w"
 

@@ -1,7 +1,7 @@
 import json
 import os
-from chat import Chat
-from color import Color, pformat_text
+from ai.chat import Chat
+from ai.color import Color, pformat_text
 
 
 class ChatCommandInterceptor:

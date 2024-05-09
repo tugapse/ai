@@ -5,9 +5,9 @@ The bot uses the Ollama library to generate responses to user input.
 """
 
 import ollama
-from color import Color, format_text, pformat_text
-from chat import ChatRoles
-from events import Events
+from ai.color import Color, format_text, pformat_text
+from ai.chat import ChatRoles
+from ai.events import Events
 
 class LLMBot(Events):
     """
