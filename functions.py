@@ -101,3 +101,9 @@ def write_to_file(filename, content, file_mode=FILE_MODE_CREATE):
     with open(pathlib.Path(filename), file_mode) as f:
         f.write(content)
         f.flush()
+        
+def format_execution_time(start_time,end_time):
+    seconds = end_time - start_time
+    if seconds < 61: return f"{seconds} seconds"
+    if seconds < 3601: return f"{seconds / 60}  minutes and {seconds%60} seconds"
+    if seconds >= 216000: return f"{seconds / 60/ 60 }  minutes and {(seconds / 60 / 60) % 60}  minutes and {seconds%60} seconds"

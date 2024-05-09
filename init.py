@@ -1,4 +1,4 @@
-from datetime import datetime, time
+from time import time
 import glob
 import os
 import json
@@ -39,6 +39,7 @@ class Program:
         """
         self.config = None
         self.model_name :str = None
+        self.model_variant = None 
         self.system_prompt :str = None
         self.model_chat_name :str = None
         self.chat = Chat()
@@ -50,7 +51,26 @@ class Program:
         self.clear_on_init  = True
         self.write_to_file = False
         self.output_filename = None
+
+    def init(self):
+        """
+        Initializes the program with configuration settings.
+        """
+        self.model_name :str = self.config["MODEL_NAME"]
+        self.model_chat_name :str = self.model_name.split(":")[0] 
+        self.model_variant = self.model_name.split(":")[1] or None 
+
+        self.system_prompt :str = None
+        with  open(self.config["SYSTEM_PROMPT_FILE"], 'r') as file:
+            self.system_prompt = file.read()    
         
+        self.chat  = Chat()
+        self.llm = LLMBot( self.model_name, system_prompt=self.system_prompt)
+        self.microphone = Microphone()
+        self.command_interceptor = ChatCommandInterceptor(self.chat, self.config['PATHS']['CHAT_LOG'])
+        self.active_executor:CommandExecutor = None
+        self.token_states = {'printing_block':False}
+
     def process_token(self, token):
         """
         Processes a token and formats it for output.
@@ -109,24 +129,6 @@ class Program:
         Requests output from the active executor.
         """
         if self.active_executor: self.active_executor.output_requested()
-
-    def init(self):
-        """
-        Initializes the program with configuration settings.
-        """
-        self.model_name :str = self.config["MODEL_NAME"]
-        self.model_chat_name :str = self.model_name.split(":")[0] 
-
-        self.system_prompt :str = None
-        with  open(self.config["SYSTEM_PROMPT_FILE"], 'r') as file:
-            self.system_prompt = file.read()    
-        
-        self.chat  = Chat()
-        self.llm = LLMBot( self.model_name, system_prompt=self.system_prompt)
-        self.microphone = Microphone()
-        self.command_interceptor = ChatCommandInterceptor(self.chat, self.config['PATHS']['CHAT_LOG'])
-        self.active_executor:CommandExecutor = None
-        self.token_states = {'printing_block':False}
 
     def load_events(self):
         """
@@ -202,11 +204,13 @@ def print_initial_info(prog:Program, args):
     """
     func.clear_console()
     func.set_console_title("Ai assistant: " + prog.model_chat_name)
+    
     system_p_file :str = prog.config['SYSTEM_PROMPT_FILE'].split("/")[-1].replace('.md','').replace('_'," ")
     system_p_file = system_p_file.replace('.md','').replace('_'," ").capitalize()
     
     print(Color.GREEN,end="")
     print(f"# Starting {Color.YELLOW}{ prog.model_chat_name }{Color.GREEN} assistant")
+    if prog.model_variant : print(f"# variant {Color.YELLOW}{ prog.model_variant }{Color.GREEN}") 
     print(f"# Using {Color.YELLOW}{ system_p_file }{Color.GREEN} file")
     print(f"{Color.RESET}--------------------------")
 
@@ -250,16 +254,22 @@ def ask(llm:LLMBot, input_message:[str, list[str]], args=None):
         if prog.write_to_file:
             func.write_to_file(prog.output_filename,response,func.FILE_MODE_APPEND)
     end_time = time()
-    print(f"{Color.RESET}First token :{Color.YELLOW}", first_token_time - start_time, "seconds")
-    print(f"{Color.RESET}Time taken  :{Color.YELLOW}", end_time - start_time, "seconds")
+    print("\n")
+    print(f"{Color.RESET}First token :{Color.YELLOW} {func.format_execution_time(start_time,first_token_time)}")
+    print(f"{Color.RESET}Time taken  :{Color.YELLOW} {func.format_execution_time(start_time,end_time)}")
 
-if __name__ == "__main__":
+def init_program():
     prog = Program()
     args = load_args()
     prog.load_config(args)
     prog.clear_on_init = args.msg is not None
     prog.init()
+    return prog, args
 
+
+if __name__ == "__main__":
+    
+    prog,args = init_program()
     cli_args_processor = cli_args.CliArgs(prog, ask=ask)
     cli_args_processor.parse_args(prog=prog, args=args)
 
