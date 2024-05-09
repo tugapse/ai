@@ -40,7 +40,7 @@ def print_initial_info(prog:Program, args):
         prog (Program): The program object.
         args (argparse.Namespace): The command-line arguments.
     """
-    func.clear_console()
+   
     func.set_console_title("Ai assistant: " + prog.model_chat_name)
     
     system_p_file :str = prog.config['SYSTEM_PROMPT_FILE'].split("/")[-1].replace('.md','').replace('_'," ")
@@ -111,6 +111,6 @@ if __name__ == "__main__":
     
     cli_args_processor = CliArgs(prog, ask=ask)
     cli_args_processor.parse_args(prog=prog, args=args)
-
+    func.clear_console()
     print_initial_info(prog,args)
     prog.main()
