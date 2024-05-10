@@ -2,8 +2,8 @@ from time import time
 import readline
 import argparse
 
-from ai.chat import ChatRoles
-from ai.llm import LLMBot
+from ai.core.chat import ChatRoles
+from ai.core.llm import LLMBot
 from ai.color import Color
 from ai.program import Program
 import ai.functions as func
@@ -49,7 +49,7 @@ def print_initial_info(prog:Program, args):
     print(Color.GREEN,end="")
     print(f"# Starting {Color.YELLOW}{ prog.model_chat_name }{Color.GREEN} assistant")
     if prog.model_variant : print(f"# variant {Color.YELLOW}{ prog.model_variant }{Color.GREEN}") 
-    print(f"# Using {Color.YELLOW}{ system_p_file }{Color.GREEN} file")
+    print(f"# Using {Color.YELLOW}{ system_p_file }{Color.GREEN} file system")
     print(f"{Color.RESET}--------------------------")
 
 def ask(llm:LLMBot, input_message:[str, list[str]], args=None):
@@ -67,13 +67,13 @@ def ask(llm:LLMBot, input_message:[str, list[str]], args=None):
     print_initial_info(prog,args)
     if isinstance(input_message, str):
         message = [llm.create_message(ChatRoles.USER,input_message)]
-        print("Prompt has " + str(len(input_message)/4) + " tokens in a " + str(len(input_message)) + "chars string")
+        print("Prompt has " + str(len(input_message)/4) + " tokens in a " + str(len(input_message)) + " chars string")
     elif isinstance(input_message, list):
         message = input_message
         txt_len = 0
         for line in input_message:
             txt_len = txt_len + len(line['content'] or "")
-        print("Prompt has " + str(txt_len / 4) + " tokens in a " +str(txt_len) + "chars string")
+        print("Prompt has " + str(txt_len / 4) + " tokens in a " +str(txt_len) + " chars string")
     else:
         print("Unsupported text type")
 
@@ -83,8 +83,10 @@ def ask(llm:LLMBot, input_message:[str, list[str]], args=None):
     if prog.write_to_file: func.write_to_file(prog.output_filename,"")
     llm_options = {
             'num_ctx': 16384,
-            'temperature':0.0
+            'temperature':0.0,
+            'seed':2048
     }
+    
     for response in llm.chat(message, True,options=llm_options):
         if first_token_time is None: first_token_time = time()
         new_token = prog.process_token(response)
@@ -99,9 +101,7 @@ def ask(llm:LLMBot, input_message:[str, list[str]], args=None):
 def init_program():
     prog = Program()
     args = load_args()
-    prog.load_config(args)
-    prog.clear_on_init = args.msg is not None
-    prog.init()
+    prog.init_program(args)
     return prog, args
 
 

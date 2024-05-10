@@ -1,4 +1,4 @@
-from ai.events import Events
+from ai.core.events import Events
 from ai.color import Color, format_text
 
 class ChatRoles:

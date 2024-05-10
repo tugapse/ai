@@ -1,7 +1,7 @@
 .venv/*
-__pycache__/*
-test*.wav
 .env
 logs/*
 tests/*
 testes/*
+__pycache__/*
+*/__pycache__/*

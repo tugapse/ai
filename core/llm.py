@@ -6,8 +6,8 @@ The bot uses the Ollama library to generate responses to user input.
 
 import ollama
 from ai.color import Color, format_text, pformat_text
-from ai.chat import ChatRoles
-from ai.events import Events
+from ai.core.chat import ChatRoles
+from ai.core.events import Events
 
 class LLMBot(Events):
     """
@@ -57,7 +57,8 @@ class LLMBot(Events):
         }
         self.llm_options = {
             'num_ctx': 16384,   # Default: 2048
-            'temperature':0.2
+            'temperature':0.5,
+            'repeat_penalty':1.2
         }
 
     def chat(self, messages:list, stream:bool=True, options:object = {}):

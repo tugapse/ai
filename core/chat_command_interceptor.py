@@ -1,6 +1,6 @@
 import json
 import os
-from ai.chat import Chat
+from ai.core.chat import Chat
 from ai.color import Color, pformat_text
 
 

@@ -1,14 +1,15 @@
 
 import json
+import logging
 import os
 
 from dotenv import load_dotenv
 
-from ai.chat import Chat
-from ai.chat_command_interceptor import ChatCommandInterceptor
+from ai.core.chat import Chat
+from ai.core.chat_command_interceptor import ChatCommandInterceptor
 from ai.color import Color
-from ai.command_executor import CommandExecutor
-from ai.llm import LLMBot
+from ai.core.command_executor import CommandExecutor
+from ai.core.llm import LLMBot
 from ai.color import format_text
 
 
@@ -47,6 +48,8 @@ class Program:
         self.clear_on_init  = True
         self.write_to_file = False
         self.output_filename = None
+        self._logger = logging.Logger(__file__)
+        
 
     def init(self):
         """
@@ -69,6 +72,11 @@ class Program:
         self.active_executor:CommandExecutor = None
         self.token_states = {'printing_block':False}
 
+    def init_program(self,args = None):
+        self.load_config(args)
+        self.clear_on_init = args.msg is not None
+        self.init()
+    
     def process_token(self, token):
         """
         Processes a token and formats it for output.

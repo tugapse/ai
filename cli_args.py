@@ -4,7 +4,7 @@ It allows users to interact with the AI system through various commands and opti
 """
 
 import os
-from ai.chat import ChatRoles
+from ai.core.chat import ChatRoles
 import ai.functions as func
 
 class CliArgs:
