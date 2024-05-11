@@ -12,3 +12,4 @@ def format_text(text, color=Color.RESET):
 
 def pformat_text(text, color=Color.RESET, **kargs):
     print (f"{color}{text}{Color.RESET}",**kargs)
+

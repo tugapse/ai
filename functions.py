@@ -54,11 +54,6 @@ def get_files(directory, extension=None):
         pformat_text("Folder not found > " + directory, Color.RED)
         exit(1)
 
-    # elif not extension:
-    #     pformat_text("Additional argument required for load-files: extension", Color.RED)
-    #     pformat_text("→ Missing file extension to look for in folder (eg: --extension '.txt')", Color.YELLOW)
-    #     exit(1)
-
     else:
         file_list = []
         for root, dirs, files in os.walk(directory):

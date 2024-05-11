@@ -4,10 +4,9 @@ import os
 
 from dotenv import load_dotenv
 
+from ai.config import ProgramConfig
 from ai.core import Chat, ChatCommandInterceptor, CommandExecutor, LLMBot
-from ai.color import Color
-from ai.color import format_text
-from config import ProgramConfig
+from ai.color import Color, format_text
 
 
 class Program:
@@ -58,7 +57,7 @@ class Program:
         self.model_variant = spliced_model_name[1] if len(spliced_model_name) > 1 else None 
 
         self.system_prompt :str = None
-        with  open(ProgramConfig.get("SYSTEM_PROMPT_FILE"), 'r') as file:
+        with  open(ProgramConfig.get("SYSTEM_PROMPT_FILE","config.json"), 'r') as file:
             self.system_prompt = file.read()    
         
         self.chat  = Chat()
@@ -68,6 +67,7 @@ class Program:
         self.command_interceptor = ChatCommandInterceptor(self.chat, paths['CHAT_LOG'])
         self.active_executor:CommandExecutor = None
         self.token_states = {'printing_block':False}
+
 
     def init_program(self,args = None) -> None:
         self.load_config(args=args)
@@ -169,7 +169,7 @@ class Program:
             filepath = args.system_file.replace(".md","")+".md"
             if os.path.exists(filepath): ProgramConfig.current.set('SYSTEM_PROMPT_FILE', filepath) 
             
-    def main(self) -> None:
+    def start_chat_loop(self) -> None:
         """
         Runs the program's main loop.
         """

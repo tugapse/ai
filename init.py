@@ -2,12 +2,9 @@ from time import time
 import readline
 import argparse
 
-from ai.core.chat import ChatRoles
-from ai.core.llm import LLMBot
+from ai.core import ChatRoles, LLMBot
 from ai.color import Color
-from ai.program import Program
-import ai.functions as func
-from ai.cli_args import CliArgs
+from ai import Program, CliArgs, functions as func
 
 
 def load_args():
@@ -113,4 +110,4 @@ if __name__ == "__main__":
     cli_args_processor.parse_args(prog=prog, args=args)
     func.clear_console()
     print_initial_info(prog,args)
-    prog.main()
+    prog.start_chat_loop()

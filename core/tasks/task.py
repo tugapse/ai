@@ -1,6 +1,8 @@
 import logging
-from ai.core.llm import LLMBot
-from ai.core.tasks.task_pass import TaskPass
+import pathlib
+from ai import functions as func
+from ai.core import LLMBot
+from ai.core.tasks import ContextFile,TaskPass
 
 
             
@@ -19,6 +21,8 @@ class Task:
 
     def load(self, index:int=0):
         t_pass: TaskPass = self.passes_list[self.pass_index]
+
+        # Load needed Files
         t_pass.context_files = list() if not t_pass.context_files else t_pass.context_files.clear()
         for filename in t_pass.load_files:
             context_file = ContextFile(filename=filename)
@@ -26,18 +30,30 @@ class Task:
             if context_file.loaded:
                 t_pass.context_files.append(context_file)
 
-        self.llm.add_event(event_name=LLMBot.STREAMING_TOKEN_EVENT,listener=self.llm_stream)
-        self.llm.add_event(event_name=LLMBot.STREAMING_TOKEN_EVENT,listener=self.llm_finish_stream)
+        # Register events
+        self.llm.add_event(event_name=LLMBot.STREAMING_TOKEN_EVENT,
+                           listener=lambda token: self.llm_stream(token=token))
+
+        self.llm.add_event(event_name=LLMBot.STREAMING_FINISHED_EVENT,
+                           listener=lambda result: self.llm_finish_stream(result))
         
         self._loaded = True
 
-    def llm_stream(token):
+    def llm_stream(self, token):
+        self.add_output(content = token,filemode = func.FILE_MODE_APPEND)
+
+    def llm_finish_stream(self, data):
         pass
 
-    def llm_finish_stream( token):
-        pass
+    def add_output(self, content="",filemode=func.FILE_MODE_CREATE):
+        output_filename: str = self.get_output_filename()
+        func.write_to_file(output_filename,content,)
+        
 
-
+    def get_output_filename(self):
+        t_pass: TaskPass = self.passes_list[self.pass_index]
+        return t_pass.output_file or f"{self.name}_pass{self.pass_index}.log"
+        
     def validate_pass(self, t_pass:TaskPass):        
         if not self.llm: raise Exception(f"Task: {self.name}","Please provide a LLMBot object to run the task!")
         if not self._loaded: raise Exception(f"Task: {self.name}","Please run the 'load' method, before running!")
@@ -46,7 +62,6 @@ class Task:
         t_pass: TaskPass = self.passes_list[index]
         self.validate_pass(t_pass)
         
-       
 
     def run_passes(self):
         for t_pass_index in range(len(self.passes_list)):

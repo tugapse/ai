@@ -1,9 +1,8 @@
 
 import json
 import logging
-from os.path import exists, basename,dirname
+from os.path import exists,dirname
 import pathlib
-import pickle
 
 class ProgramConfig:
     def __init__(self,config:dict) -> None:
@@ -19,7 +18,6 @@ class ProgramConfig:
     @classmethod
     def load(self,filename) -> None:
         logger = logging.Logger(name=__file__)
-        filename:str = basename(filename)
         
         if not exists(path=filename):
             logger.level = logging.ERROR
