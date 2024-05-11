@@ -6,6 +6,7 @@ It allows users to interact with the AI system through various commands and opti
 import os
 from ai.core.chat import ChatRoles
 import ai.functions as func
+from config import ProgramConfig
 
 class CliArgs:
     """
@@ -131,6 +132,6 @@ class CliArgs:
         """
 
         if args.task:
-            filename = os.path.join(prog.config['PATHS']['TASK_USER_PROMPT'], args.task.replace(".md", "") + ".md")
+            filename = os.path.join(ProgramConfig.CURRENT_CONFIG.config['PATHS']['TASK_USER_PROMPT'], args.task.replace(".md", "") + ".md")
             task = func.read_file(filename)
             args.msg = task

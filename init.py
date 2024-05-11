@@ -43,7 +43,7 @@ def print_initial_info(prog:Program, args):
    
     func.set_console_title("Ai assistant: " + prog.model_chat_name)
     
-    system_p_file :str = prog.config['SYSTEM_PROMPT_FILE'].split("/")[-1].replace('.md','').replace('_'," ")
+    system_p_file :str = prog.config.get('SYSTEM_PROMPT_FILE').split("/")[-1].replace('.md','').replace('_'," ")
     system_p_file = system_p_file.replace('.md','').replace('_'," ").capitalize()
     
     print(Color.GREEN,end="")
