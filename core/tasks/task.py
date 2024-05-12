@@ -87,13 +87,15 @@ class Task:
             self.llm_stream(token=token)
             print(token,end="",flush=True)
         print(Color.GREEN)    
-        print(f"Done {t_pass.name} {Color.BLUE}############################{Color.RESET} ") 
+        print(f"Done {t_pass.name} {Color.BLUE}------------------------------------------------------------{Color.RESET} ") 
         
         
     def run_passes(self):
-
-        print(f"{Color.BLUE}## {Color.RESET} Starting: {len(self.passes_list)} passes to run")        
+        self.pass_index = 0
+        print(f"{Color.BLUE}## {Color.RESET} Found: {len(self.passes_list)} passes to run")        
         for t_pass_index in range(len(self.passes_list)):
-            print(f"{Color.BLUE}## {Color.RESET} Loading pass {t_pass_index}") 
+            print(f"{Color.BLUE}## {Color.RESET} Loading pass {t_pass_index+1}") 
             self.load()
             self._run_pass(t_pass_index)
+            self.pass_index += 1
+            print("____________________________________________________________________________")

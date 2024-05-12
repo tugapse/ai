@@ -29,7 +29,7 @@ class Program:
         Initializes the program with default settings.
         """
         self.config :ProgramConfig = None
-        self.model_name :str = None
+        self.model_name :str = "__no_model__"
         self.model_variant = None 
         self.system_prompt :str = None
         self.model_chat_name :str = None

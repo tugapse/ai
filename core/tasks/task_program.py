@@ -1,6 +1,8 @@
 import json
 import argparse, logging
-from ai.program import Program 
+from ai.init import print_initial_info
+import ai.functions as func
+from ai.program import Program ,ProgramConfig
 from ai.color import Color
 from ai.core.tasks import Task, TaskPass
 
@@ -9,9 +11,12 @@ from pathlib import Path
 class AutomatedTask(Program):
     def __init__(self, args_parser:argparse.ArgumentParser=None) -> None:
         super().__init__()
+        
+        func.clear_console()
         self._logger = logging.Logger(name=__file__,level=logging.INFO)
         self.arg_parser: argparse.ArgumentParser = args_parser or self._create_args_parser()
         self.init_program()
+
         
     def load_args(self, parser:argparse.ArgumentParser) -> argparse.Namespace:
         return parser.parse_args()
@@ -68,6 +73,8 @@ class AutomatedTask(Program):
                 a_task = self.create_task_from_config_json(json_config=json_obj)
 
                 print(f"{Color.BLUE}## {Color.RESET} Starting task {a_task.name or '< no name provided >'}")
+                print(f"{Color.YELLOW}____________________________________________________________________{Color.RESET}")
+                
                 a_task.run_passes()
             else:
                 raise FileNotFoundError(config_filename)

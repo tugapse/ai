@@ -30,7 +30,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
 
     return parser, parser.parse_args()
 
-def print_initial_info(prog:Program, args) -> None:
+def print_initial_info(prog:Program) -> None:
     """
     Prints initial information about the program.
     
@@ -111,5 +111,5 @@ if __name__ == "__main__":
     cli_args_processor = CliArgs(prog, ask=ask)
     cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
     func.clear_console()
-    print_initial_info(prog=prog,args=args)
+    print_initial_info(prog=prog)
     prog.start_chat_loop()
