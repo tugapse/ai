@@ -3,10 +3,10 @@ This module provides command-line interface (CLI) arguments parsing and processi
 It allows users to interact with the AI system through various commands and options.
 """
 
+import argparse
 import os
-from ai.core.chat import ChatRoles
-import ai.functions as func
-from config import ProgramConfig
+from ai import ProgramConfig, functions as func
+from ai.core import ChatRoles, LLMBot
 
 class CliArgs:
     """
@@ -22,16 +22,15 @@ class CliArgs:
         :param ask: A callable function that will be used to ask the user for input.
         """
         self.ask = ask
-        self.create_message = prog.llm.create_message
 
-    def parse_args(self, prog, args) -> None:
+    def parse_args(self, prog, args,args_parser) -> None:
         """
         Parses the given CLI arguments and executes the corresponding actions.
 
         :param prog: The program object that will be used to execute the parsed commands.
         :param args: The CLI arguments to be parsed.
         """
-
+        self._is_auto_task(args, parser=args_parser)
         # Check if the user wants to list all available models
         self._is_list_models(args)
         # Check if the user wants to load a single file
@@ -47,6 +46,12 @@ class CliArgs:
         # Check for message option and add it to the chat's messages
         self._has_message(prog, args)
 
+    def _is_auto_task(self,args, parser:argparse):
+        if args.auto_task:
+            from ai.core.tasks import AutomatedTask
+            AutomatedTask(parser).run_task(config_filename=args.auto_task)
+            exit(0)
+         
     def _is_list_models(self, args):
         """
         Checks if the user wants to list all available models.
@@ -79,7 +84,7 @@ class CliArgs:
         """
 
         if args.msg:
-            prog.chat.messages.append(self.create_message(ChatRoles.USER, args.msg))
+            prog.chat.messages.append(LLMBot.create_message(ChatRoles.USER, args.msg))
             self.ask(prog.llm, prog.chat.messages)
             exit(0)
 
@@ -95,7 +100,7 @@ class CliArgs:
             files = func.get_files(directory, args.extension )
             messages = list()
             for file in files:
-                messages.append(prog.llm.create_message(ChatRoles.USER, f"Filename: {file['filename']} \n File Content:\n```{file['content']}\n"))
+                messages.append(LLMBot.create_message(ChatRoles.USER, f"Filename: {file['filename']} \n File Content:\n```{file['content']}\n"))
                 prog.chat.messages = messages
 
     def _has_file(self, prog, args):

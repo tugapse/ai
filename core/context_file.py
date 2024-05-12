@@ -1,5 +1,6 @@
 import logging
 from os.path import exists
+from pathlib import Path
 
 
 THROW_ERROR_ON_LOAD_CONTEXT_FILE_NOT_EXIST = False
@@ -15,7 +16,8 @@ class ContextFile:
         self._logger = logging.Logger(__file__)
         
     def load(self):
-        if not exists(self.filename):
+        file_path = Path(self.filename)
+        if not file_path.exists():
             self._logger.error(f"File not found : {self.filename}")
             if self.throw_error_on_load: raise FileNotFoundError(self.filename)
             self.loaded = False

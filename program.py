@@ -1,6 +1,5 @@
 
-import logging
-import os
+import os, logging
 
 from dotenv import load_dotenv
 
@@ -21,7 +20,6 @@ class Program:
         chat (Chat): The chat object.
         command_interceptor (ChatCommandInterceptor): The command interceptor.
         llm (LLMBot): The language model bot.
-        microphone (Microphone): The microphone object.
         active_executor (CommandExecutor): The active executor.
         token_states (dict): Token states for formatting output.
     """
@@ -38,7 +36,6 @@ class Program:
         self.chat = Chat()
         self.command_interceptor = None
         self.llm = LLMBot(None, system_prompt=None)
-        # self.microphone = Microphone()
         self.active_executor:CommandExecutor = None
         self.token_states: dict[str, bool] = {'printing_block':False}
         self.clear_on_init  = True
@@ -62,7 +59,6 @@ class Program:
         
         self.chat  = Chat()
         self.llm = LLMBot( self.model_name, system_prompt=self.system_prompt)
-        # self.microphone = Microphone()
         paths = ProgramConfig.get('PATHS')
         self.command_interceptor = ChatCommandInterceptor(self.chat, paths['CHAT_LOG'])
         self.active_executor:CommandExecutor = None
@@ -71,7 +67,7 @@ class Program:
 
     def init_program(self,args = None) -> None:
         self.load_config(args=args)
-        self.clear_on_init = args.msg is not None
+        self.clear_on_init: bool = args.msg is not None
         self.init()
     
     def process_token(self, token):

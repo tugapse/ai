@@ -1,0 +1,42 @@
+{
+    "name": "Demo simple task",
+    "model_name": "llama3",
+    "system_message": "You are AI Assistant",
+    "system_filename": "",
+    "delay_between_passes": "30",
+    "task_passes": [
+        {
+            "name": "Summary",
+            "message": "Give me a brief summary of the files i uploaded!",
+            "message_filename": "",
+            "load_files_from": {
+                "dir": "core/tasks",
+                "extension": ".py"
+            },
+            "filenames": [],
+            "output_filename": ""
+        },
+        {
+            "name": "Review",
+            "message": "Give me a comprehensive code review of what the class/functions do",
+            "message_filename": "",
+            "load_files_from": {
+                "dir": "core/tasks",
+                "extension": ".py"
+            },
+            "filenames": [],
+            "output_filename": ""
+        },
+        {
+            "name": "Improve code",
+            "message": "Suggest 2 to 3 improvements the user can make to the code",
+            "message_filename": "",
+            "load_files_from": {
+                "dir": "core/tasks",
+                "extension": ".py"
+            },
+            "filenames": [],
+            "output_filename": ""
+        }
+    ]
+}
