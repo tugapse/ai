@@ -1,9 +1,13 @@
 {
     "name": "Demo simple task",
+    "type": "each_file",
+    "data": {
+        "directory": "",
+        "extension": ""
+    },
     "model_name": "llama3",
     "system_message": "You are expert AI Assistant in codding tasks. Use your codding experience to do user requested tasks",
     "system_filename": "",
-    "delay_between_passes": "30",
     "task_passes": [
         {
             "name": "Summary",

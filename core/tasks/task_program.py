@@ -4,7 +4,7 @@ from ai.init import print_initial_info
 import ai.functions as func
 from ai.program import Program ,ProgramConfig
 from ai.color import Color
-from ai.core.tasks import Task, TaskPass
+from ai.core.tasks import Task, TaskPass, EachFileTask, TaskType
 
 from pathlib import Path
 
@@ -37,7 +37,14 @@ class AutomatedTask(Program):
         if filename:= json_config.get("system_filename") and Path(filename).exists():
             system_message = json.loads(Path(filename).read_text())
                      
-        task : Task = Task(json_config.get('name'),system_message=system_message)
+
+        task : Task = self.__create_task_from_type(
+            name=json_config.get('name'),
+            system_message=system_message,
+            type=json_config.get('type'),
+            data=json_config.get('data'))
+
+
         task.system_message = system_message
         task.model_name = model_name
         
@@ -45,6 +52,11 @@ class AutomatedTask(Program):
             task.passes_list.append(self.create_task_pass(json_pass_config=j_pass))
 
         return task
+
+    def __create_task_from_type(self,name,system_message,type,data=None):
+        if type == TaskType.EACH_FILE:
+            return EachFileTask(name=name,system_message=system_message,**data)
+        return Task(name=name,system_message=system_message)    
             
     def create_task_pass(self, json_pass_config:dict) -> None:
         # TODO: handle missing properties 

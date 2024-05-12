@@ -1,10 +1,11 @@
-import logging
+import logging,time,os
 from ai import functions as func
 from ai.core import LLMBot, ContextFile
 from ai.core.tasks import TaskPass
 from ai.color import Color
 
-
+class TaskType:
+    EACH_FILE = "each_file"
             
 class Task:
     def __init__(self, name:str,system_message:str=None) -> None:
@@ -58,7 +59,7 @@ class Task:
 
     def get_output_filename(self):
         t_pass: TaskPass = self.passes_list[self.pass_index]
-        return t_pass.output_file or f"{self.name}_pass{self.pass_index}.log"
+        return t_pass.output_file or f"{self.name}_pass{self.pass_index}.md"
         
     def validate_pass(self, t_pass:TaskPass) -> None:       
         if len(self.passes_list) == 0: raise Exception(f"Task: {self.name}","Please provide one or more TaskPass!") 
@@ -69,14 +70,7 @@ class Task:
         
         self.validate_pass(t_pass=t_pass)
 
-        print(f"{Color.BLUE}## {Color.RESET} Creating pass context") 
-        messages = []
-        messages.append( LLMBot.create_message(LLMBot.ROLE_SYSTEM, self.system_message))
-        if t_pass._context_files:
-            for file in t_pass._context_files:
-                messages.append(LLMBot.create_message(LLMBot.ROLE_USER,message=file.content))
-
-        messages.append(LLMBot.create_message(LLMBot.ROLE_USER, message=t_pass.message ))
+        messages = self._create_context(t_pass)
 
         print(f"{Color.BLUE}## {Color.RESET} Loading LLMBot") 
         
@@ -88,6 +82,17 @@ class Task:
             print(token,end="",flush=True)
         print(Color.GREEN)    
         print(f"Done {t_pass.name} {Color.BLUE}------------------------------------------------------------{Color.RESET} ") 
+
+    def _create_context(self, t_pass):
+        print(f"{Color.BLUE}## {Color.RESET} Creating pass context") 
+        messages = []
+        messages.append( LLMBot.create_message(LLMBot.ROLE_SYSTEM, self.system_message))
+        if t_pass._context_files:
+            for file in t_pass._context_files:
+                messages.append(LLMBot.create_message(LLMBot.ROLE_USER,message=file.content))
+
+        messages.append(LLMBot.create_message(LLMBot.ROLE_USER, message=t_pass.message ))
+        return messages
         
         
     def run_passes(self):
@@ -99,3 +104,34 @@ class Task:
             self._run_pass(t_pass_index)
             self.pass_index += 1
             print("____________________________________________________________________________")
+
+class EachFileTask(Task):
+    def __init__(self, name: str, system_message: str = None, directory:str =None, extension:str=None,sleep:int=30) -> None:
+        super().__init__(name, system_message)
+        self.directory = directory
+        self.extension = extension
+        self.files: list[ContextFile] = func.get_files(self.directory,self.extension)
+        self.current_context_file = None
+        self.sleep = sleep
+
+    def run_passes(self) -> None:
+        n_files = len(self.files)
+        print(f"{Color.BLUE}## {Color.RESET} Found {n_files} '{self.extension}' files in {self.directory}") 
+        file_index = 1
+        for file in self.files:
+            
+            self.name = f"file {os.path.basename(file.filename)}"
+            print(f"{Color.BLUE}## {Color.RESET} Loading file {file.filename} -> {file_index} of {n_files}") 
+            file.load()
+            self.current_context_file: ContextFile = file
+            print(f"{Color.BLUE}## {Color.RESET} Running task' {self.name} ") 
+            super().run_passes()    
+            print(f"{Color.BLUE}## {Color.RESET} Sleep for ' {self.sleep} seconds") 
+            time.sleep(self.sleep)
+            
+        
+
+    def _create_context(self, t_pass)->list:
+        messages = super()._create_context(t_pass)
+        messages.append(LLMBot.create_message(LLMBot.ROLE_USER,message=self.current_context_file.content))
+        return messages
