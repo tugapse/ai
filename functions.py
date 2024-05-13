@@ -2,6 +2,8 @@ import os
 from pathlib import Path
 import pathlib
 
+from ai.core.context_file import ContextFile
+
 FILE_MODE_APPEND = "a"
 FILE_MODE_CREATE = "w"
 
@@ -38,7 +40,7 @@ def beep_console():
     print("\007")
 
 
-def get_files(directory, extension=None):
+def get_files(directory, extension=None) -> ContextFile:
     """
     Returns a list of files with the specified extension from the given directory and its subdirectories.
 
@@ -54,11 +56,6 @@ def get_files(directory, extension=None):
         pformat_text("Folder not found > " + directory, Color.RED)
         exit(1)
 
-    # elif not extension:
-    #     pformat_text("Additional argument required for load-files: extension", Color.RED)
-    #     pformat_text("→ Missing file extension to look for in folder (eg: --extension '.txt')", Color.YELLOW)
-    #     exit(1)
-
     else:
         file_list = []
         for root, dirs, files in os.walk(directory):
@@ -66,7 +63,7 @@ def get_files(directory, extension=None):
                 if extension and not file.endswith(extension):
                     continue
                 filename = os.path.join(root, file)
-                file_list.append({'filename': filename,'content':Path(filename).read_text()})
+                file_list.append(ContextFile(filename=filename))
         return file_list
 
 def read_file(filename):
@@ -86,7 +83,7 @@ def read_file(filename):
 
     return Path(filename).read_text()
 
-def write_to_file(filename, content, file_mode=FILE_MODE_CREATE):
+def write_to_file(filename, content, filemode=FILE_MODE_CREATE):
     """
     Writes the given content to a file.
 
@@ -99,7 +96,10 @@ def write_to_file(filename, content, file_mode=FILE_MODE_CREATE):
         >>> write_to_file("/path/to/file.txt", "Hello, World!")
             # Writes "Hello, World!" to the specified file
     """
-    with open(pathlib.Path(filename), file_mode) as f:
+    a_dir = os.path.dirname(filename)
+    os.makedirs(a_dir,exist_ok=True)
+    
+    with open(pathlib.Path(filename), filemode) as f:
         f.write(content)
         f.flush()
         

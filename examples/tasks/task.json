@@ -1,0 +1,54 @@
+{
+    "name": "Demo simple task",
+    "type": "each_file",
+    "data": {
+        "directory": "",
+        "extension": "",
+        "sleep": 10
+    },
+    "model_name": "llama3",
+    "system_message": "You are expert AI Assistant in codding tasks. Use your codding experience to do user requested tasks",
+    "system_filename": "",
+    "task_passes": [
+        {
+            "name": "Summary",
+            "message": "Give me a brief summary of the files i uploaded!",
+            "message_filename": "",
+            "load_files_from": {
+                "dir": "core/tasks",
+                "extension": ".py"
+            },
+            "filenames": [],
+            "output_filename": "summary.md"
+        },
+        {
+            "name": "Review",
+            "message": "Give me a comprehensive code review of provided files",
+            "message_filename": "",
+            "use_previous_output":true,
+            "load_files_from": {
+                "dir": "core/tasks",
+                "extension": ".py"
+            },
+            "filenames": [
+                "summary.md"
+            ],
+            "output_filename": "review.md"
+        },
+        {
+            "name": "Improve code",
+            "message": "Use the summary, the review and the code files, to suggest 2 to 3 improvements the user can make to the code. thing trough every step!",
+            "message_filename": "",
+            "use_previous_output":true,
+            "load_files_from": {
+                "dir": "core/tasks",
+                "extension": ".py"
+            },
+            "filenames": [
+                "summary.md",
+                "review.md"
+            ],
+            "output_filename": "final_Result.md"
+        }
+    ]
+}

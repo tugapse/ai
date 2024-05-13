@@ -2,15 +2,12 @@ from time import time
 import readline
 import argparse
 
-from ai.core.chat import ChatRoles
-from ai.core.llm import LLMBot
+from ai.core import ChatRoles, LLMBot
 from ai.color import Color
-from ai.program import Program
-import ai.functions as func
-from ai.cli_args import CliArgs
+from ai import Program, CliArgs, functions as func
 
 
-def load_args():
+def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     """
     Loads command-line arguments for the program.
     
@@ -26,13 +23,14 @@ def load_args():
     parser.add_argument('--file' , '--files', type=str, help='Load a file and pass it as a message')
     parser.add_argument('--load-folder' , '--folder', type=str, help='Load multiple files from folder and pass them as a message with file location and file content')
     parser.add_argument('--extension','--ext', type=str, help='Provides File extension for folder files search')
-    parser.add_argument('--task', type=str, help='name of the template inside prompt_templates/task, do not insert .md')
-    parser.add_argument('--task-file', type=str, help='name of the template inside prompt_templates/task, do not insert .md')
+    parser.add_argument('--task', type=str, help='name of the template inside prompt_templates')
+    parser.add_argument('--task-file', type=str, help='name of the template inside prompt_templates')
     parser.add_argument('--output-file', type=str, help='filename where the output of automatic actions will be saved')
+    parser.add_argument('--auto-task', type=str, help='filename to a json with auto task configuration')
 
-    return parser.parse_args()
+    return parser, parser.parse_args()
 
-def print_initial_info(prog:Program, args):
+def print_initial_info(prog:Program) -> None:
     """
     Prints initial information about the program.
     
@@ -43,7 +41,7 @@ def print_initial_info(prog:Program, args):
    
     func.set_console_title("Ai assistant: " + prog.model_chat_name)
     
-    system_p_file :str = prog.config['SYSTEM_PROMPT_FILE'].split("/")[-1].replace('.md','').replace('_'," ")
+    system_p_file :str = prog.config.get('SYSTEM_PROMPT_FILE').split("/")[-1].replace('.md','').replace('_'," ")
     system_p_file = system_p_file.replace('.md','').replace('_'," ").capitalize()
     
     print(Color.GREEN,end="")
@@ -52,7 +50,7 @@ def print_initial_info(prog:Program, args):
     print(f"# Using {Color.YELLOW}{ system_p_file }{Color.GREEN} file system")
     print(f"{Color.RESET}--------------------------")
 
-def ask(llm:LLMBot, input_message:[str, list[str]], args=None):
+def ask(llm:LLMBot, input_message:[str, list[str]], args=None) -> None:
     """
     Asks the language model a question.
     
@@ -66,7 +64,7 @@ def ask(llm:LLMBot, input_message:[str, list[str]], args=None):
     end_time = None
     print_initial_info(prog,args)
     if isinstance(input_message, str):
-        message = [llm.create_message(ChatRoles.USER,input_message)]
+        message = [LLMBot.create_message(ChatRoles.USER,input_message)]
         print("Prompt has " + str(len(input_message)/4) + " tokens in a " + str(len(input_message)) + " chars string")
     elif isinstance(input_message, list):
         message = input_message
@@ -87,30 +85,31 @@ def ask(llm:LLMBot, input_message:[str, list[str]], args=None):
             'seed':2048
     }
     
-    for response in llm.chat(message, True,options=llm_options):
+    for response in llm.chat(message, True, options=llm_options):
         if first_token_time is None: first_token_time = time()
         new_token = prog.process_token(response)
         print(new_token, end="",flush=True)
         if prog.write_to_file:
-            func.write_to_file(prog.output_filename,response,func.FILE_MODE_APPEND)
+            func.write_to_file(prog.output_filename,response,func.FILE_MODE_APPEND)           
     end_time = time()
     print("\n")
     print(f"{Color.RESET}First token :{Color.YELLOW} {func.format_execution_time(start_time,first_token_time)}")
     print(f"{Color.RESET}Time taken  :{Color.YELLOW} {func.format_execution_time(start_time,end_time)}")
 
-def init_program():
+def init_program() -> tuple[Program, argparse.Namespace]:
     prog = Program()
-    args = load_args()
+    parser, args = load_args()
+
     prog.init_program(args)
-    return prog, args
+    return prog, args, parser
 
 
 if __name__ == "__main__":  
     
-    prog,args = init_program()
+    prog,args , parser = init_program()
     
     cli_args_processor = CliArgs(prog, ask=ask)
-    cli_args_processor.parse_args(prog=prog, args=args)
+    cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
     func.clear_console()
-    print_initial_info(prog,args)
-    prog.main()
+    print_initial_info(prog=prog)
+    prog.start_chat_loop()

@@ -4,15 +4,17 @@ This file contains the implementation of an LLM (Large Language Model) bot.
 The bot uses the Ollama library to generate responses to user input.
 """
 
+
+
 import ollama
 from ai.color import Color, format_text, pformat_text
-from ai.core.chat import ChatRoles
 from ai.core.events import Events
 
 class LLMBot(Events):
-    """
-    This class represents an LLM bot. It inherits from the Events class and provides methods for chatting with users.
-    """
+
+    ROLE_USER:str = "user"
+    ROLE_ASSISTANT:str = "assistant"
+    ROLE_SYSTEM:str = "system"
 
     STREAMING_FINISHED_EVENT = "streaming_finished"
     STREAMING_TOKEN_EVENT = "streaming_token"
@@ -83,10 +85,10 @@ class LLMBot(Events):
         for key, value in request_options.items():
             if key not in self.llm_options_params_type:
                 request_options_cleaner.append(key)
-                print(f"{Color.YELLOW}# LLM Chat Option '{key}' is an invalid option so it has been removed from request options")
+                print(f"{Color.YELLOW}# LLM Option '{key}' is an invalid option so it has been removed from request options")
             elif not isinstance(value, self.llm_options_params_type[key]):
                 request_options_cleaner.append(key)
-                print(f"{Color.YELLOW}# LLM Chat Option '{key}' should be of type ({self.llm_options_params_type[key].__name__}) and type ({type(value).__name__}) was given so it has been removed from request options")
+                print(f"{Color.YELLOW}# LLM Option '{key}' should be of type ({self.llm_options_params_type[key].__name__}) and type ({type(value).__name__}) was given so it has been removed from request options")
 
         for key in request_options_cleaner:
             del request_options[key]
@@ -112,11 +114,12 @@ class LLMBot(Events):
         Returns:
             list: The updated list of messages.
         """
-        if ChatRoles.SYSTEM not in [obj['role'] for obj in messages]:
-            messages.insert(0, {'role':ChatRoles.SYSTEM,'content':self.system_prompt})
+        if self.ROLE_SYSTEM not in [obj['role'] for obj in messages]:
+            messages.insert(0, {'role':self.ROLE_SYSTEM, 'content':self.system_prompt})
         return messages
 
-    def create_message(self, role:ChatRoles, message:str):
+    @classmethod
+    def create_message(self, role:str, message:str) -> dict[str, str]:
         """
         This method creates a new message object.
 
