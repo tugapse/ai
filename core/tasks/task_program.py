@@ -67,6 +67,7 @@ class AutomatedTask(Program):
             filenames = json_pass_config.get("filenames"),
             load_files_from = json_pass_config.get("load_files_from"),
             output_filename =  json_pass_config.get("output_filename"),
+            use_previous_output = json_pass_config.get("use_previous_output"),
         )
         return t_pass
     

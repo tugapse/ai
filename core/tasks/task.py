@@ -17,10 +17,13 @@ class Task:
         self.pass_index = 0
         self._loaded = False
         self._logger = logging.Logger(__file__)
+        self.previous_output = dict()
+        
         self._running_llm : LLMBot = None
 
     def load(self):
         t_pass: TaskPass = self.passes_list[self.pass_index]
+        self.previous_output[self.pass_index] = ""
 
         # Load needed Files
         t_pass._context_files = list()
@@ -46,6 +49,7 @@ class Task:
         
 
     def llm_stream(self, token):
+        self.previous_output[self.pass_index] += token
         self.add_output(content = token,filemode = func.FILE_MODE_APPEND)
 
     def llm_finish_stream(self, data):
@@ -59,7 +63,7 @@ class Task:
 
     def get_output_filename(self):
         t_pass: TaskPass = self.passes_list[self.pass_index]
-        return t_pass.output_file or f"{self.name}_pass{self.pass_index}.md"
+        return t_pass.output_file or f"{self.name}/{t_pass.name}.md"
         
     def validate_pass(self, t_pass:TaskPass) -> None:       
         if len(self.passes_list) == 0: raise Exception(f"Task: {self.name}","Please provide one or more TaskPass!") 
@@ -87,7 +91,15 @@ class Task:
         print(f"{Color.BLUE}## {Color.RESET} Creating pass context") 
         messages = []
         messages.append( LLMBot.create_message(LLMBot.ROLE_SYSTEM, self.system_message))
+
+        if self.pass_index > 0 and t_pass.use_previous_output:
+            print(f"{Color.BLUE}## {Color.RESET} - Loading previous pass output") 
+            p_output = self.previous_output[self.pass_index-1]
+            messages.append( LLMBot.create_message(LLMBot.ROLE_USER, message=f"Previous output : \n\n{p_output}" ))
+             
         if t_pass._context_files:
+            print(f"{Color.BLUE}## {Color.RESET} - Loading context files") 
+            
             for file in t_pass._context_files:
                 messages.append(LLMBot.create_message(LLMBot.ROLE_USER,message=file.content))
 
@@ -103,7 +115,7 @@ class Task:
             self.load()
             self._run_pass(t_pass_index)
             self.pass_index += 1
-            print("____________________________________________________________________________")
+            print(Color.YELLOW + "____________________________________________________________________________" + Color.RESET)
 
 class EachFileTask(Task):
     def __init__(self, name: str, system_message: str = None, directory:str =None, extension:str=None,sleep:int=30) -> None:
@@ -116,18 +128,19 @@ class EachFileTask(Task):
 
     def run_passes(self) -> None:
         n_files = len(self.files)
-        print(f"{Color.BLUE}## {Color.RESET} Found {n_files} '{self.extension}' files in {self.directory}") 
+        name = self.name
+        print(f"{Color.GREEN}## {Color.RESET} Found {n_files} '{self.extension}' files in {self.directory}") 
+        
         file_index = 1
         for file in self.files:
-            
-            self.name = f"file {os.path.basename(file.filename)}"
             print(f"{Color.BLUE}## {Color.RESET} Loading file {file.filename} -> {file_index} of {n_files}") 
             file.load()
             self.current_context_file: ContextFile = file
-            print(f"{Color.BLUE}## {Color.RESET} Running task' {self.name} ") 
+            print(f"{Color.BLUE}## {Color.GREEN} Running task {self.name} {Color.RESET}  ") 
             super().run_passes()    
-            print(f"{Color.BLUE}## {Color.RESET} Sleep for ' {self.sleep} seconds") 
+            print(f"{Color.BLUE}## {Color.RESET} Sleep {self.sleep} seconds") 
             time.sleep(self.sleep)
+            file_index += 1
             
         
 
@@ -135,3 +148,9 @@ class EachFileTask(Task):
         messages = super()._create_context(t_pass)
         messages.append(LLMBot.create_message(LLMBot.ROLE_USER,message=self.current_context_file.content))
         return messages
+
+    def get_output_filename(self):
+        t_pass: TaskPass = self.passes_list[self.pass_index]
+        f_name = os.path.basename(self.current_context_file.filename).split(".")[0]
+        name = self.name.replace(" ","_")
+        return t_pass.output_file or f"{name}/{f_name}/{t_pass.name}.md"

@@ -9,4 +9,4 @@ only use provided information  for class , function call and CLI arguments
 Give as much detail as possible include valid examples.
 
 **RULES**
-* Understand what the code is doing so you can provide a much richer comment
+* Understand what the code is doing so you can provide a richer comment

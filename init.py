@@ -85,12 +85,12 @@ def ask(llm:LLMBot, input_message:[str, list[str]], args=None) -> None:
             'seed':2048
     }
     
-    for response in llm.chat(message, True,options=llm_options):
+    for response in llm.chat(message, True, options=llm_options):
         if first_token_time is None: first_token_time = time()
         new_token = prog.process_token(response)
         print(new_token, end="",flush=True)
         if prog.write_to_file:
-            func.write_to_file(prog.output_filename,response,func.FILE_MODE_APPEND)
+            func.write_to_file(prog.output_filename,response,func.FILE_MODE_APPEND)           
     end_time = time()
     print("\n")
     print(f"{Color.RESET}First token :{Color.YELLOW} {func.format_execution_time(start_time,first_token_time)}")
