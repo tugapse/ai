@@ -2,6 +2,7 @@ import json
 import os
 from ai.core.chat import Chat
 from ai.color import Color, pformat_text
+from ai.extras import ConsoleChatReader
 
 
 class ChatCommandInterceptor:
@@ -74,14 +75,16 @@ class ChatCommandInterceptor:
         Args:
             - filename (str): The name of the file to load the session from.
         """
-        os.makedirs(self.root_folder, exist_ok=True)
 
         if not os.path.exists(os.path.join(self.root_folder, filename)):
             pformat_text("! Session not found !", color=Color.YELLOW)
             return
         with open(os.path.join(self.root_folder, filename), 'r') as f:
             self.chat.messages = json.load(f)
-            pformat_text("! Session loaded !", color=Color.BLUE)
+            reader = ConsoleChatReader(filename)
+            for message in self.chat.messages:
+                reader.print_chat(message)
+            pformat_text("! Session loaded !", color=Color.GREEN)
 
     def list_sessions(self) -> None:
         """

@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from ai.config import ProgramConfig
 from ai.core import Chat, ChatCommandInterceptor, CommandExecutor, LLMBot
 from ai.color import Color, format_text
+from ai.extras import ConsoleTokenFormatter
 
 
 class Program:
@@ -37,7 +38,7 @@ class Program:
         self.command_interceptor = None
         self.llm = LLMBot(None, system_prompt=None)
         self.active_executor:CommandExecutor = None
-        self.token_states: dict[str, bool] = {'printing_block':False}
+        self.token_processor = ConsoleTokenFormatter()
         self.clear_on_init  = True
         self.write_to_file = False
         self.output_filename = None
@@ -62,7 +63,6 @@ class Program:
         paths = ProgramConfig.get('PATHS')
         self.command_interceptor = ChatCommandInterceptor(self.chat, paths['CHAT_LOG'])
         self.active_executor:CommandExecutor = None
-        self.token_states = {'printing_block':False}
 
 
     def init_program(self,args = None) -> None:
@@ -71,27 +71,10 @@ class Program:
         self.init()
     
     def process_token(self, token):
-        """
-        Processes a token and formats it for output.
-        
-        Args:
-            token (str): The token to process.
-        
-        Returns:
-            str: The processed token.
-        """
-        result = token
-        if '``' in token:
-            if self.token_states.get('printing_block') == False:
-                result = token + Color.YELLOW
-                self.token_states['printing_block'] = True
-            else:
-                result = token + Color.RESET
-                self.token_states['printing_block'] = False
-        return result
+        return self.token_processor.process_token(token)
     
     def clear_process_token(self):
-        self.token_states['printing_block'] = False
+        self.token_processor.clear_process_token()
 
     def start_chat(self, user_input):
         """
