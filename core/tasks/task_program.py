@@ -18,7 +18,7 @@ class AutomatedTask(Program):
         self.llm_options = {
             'num_ctx': 16384,
             'temperature':0.0,
-            'seed':2048
+            'seed':16384
         }
         self.init_program()
 

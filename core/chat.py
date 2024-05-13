@@ -1,19 +1,22 @@
 from ai.core.events import Events
 from ai.color import Color, format_text
 
+
 class ChatRoles:
     """
     Define constants for user roles in the chat.
-    
+
     Attributes:
         USER (str): User role constant.
         ASSISTANCE (str): Assistance role constant.
         SYSTEM (str): System role constant.
     """
 
+    # Constants for user roles
     USER = "user"
     ASSISTANCE = "assistance"
     SYSTEM = "system"
+
 
 class Chat(Events):
     """
@@ -24,7 +27,7 @@ class Chat(Events):
         EVENT_COMMAND_STARTED (str): Event type for started commands.
         EVENT_OUTPUT_REQUESTED (str): Event type for requested output.
         EVENT_MESSAGES_UPDATED (str): Event type for updated messages.
-    
+
     Methods:
         __init__(): Initialize the chat instance.
         _add_message(role, message): Add a new message to the chat log.
@@ -40,12 +43,14 @@ class Chat(Events):
         terminate_chat(): Terminate the chat.
         terminate_command(): Terminate an ongoing command.
         chat_finished(): Mark the end of a chat session.
+
     """
 
+    # Event types
     EVENT_CHAT_SENT = 'chat_sent'
     EVENT_COMMAND_STARTED = 'command_started'
     EVENT_OUTPUT_REQUESTED = 'output_requested'
-    EVENT_MESSAGES_UPDATED = 'messages_updated'
+    EVENT_MESSAGES_UPDATED =  'messages_updated'
 
     def __init__(self):
         """
@@ -63,19 +68,21 @@ class Chat(Events):
             max_chat_log (int): The maximum size of the chat log.
             cache_messages (bool): Flag to indicate whether messages should be cached in memory.
             current_prompt (str): The current prompt string.
-            _is_multiline_input (bool): Flag to indicate whether the input is multiline.
-            _multiline_input (str): The multiline input buffer.
+             _is_multiline_input (bool): Flag to indicate whether the input is multiline.
+             _multiline_input (str): The multiline input buffer.
 
         """
         super().__init__()
         self.terminate = False
-        self.terminate_tokens = ['stop', 'quit', 'q']
+        # List of tokens that can terminate the chat
+        self.terminate_tokens = [ 'stop', 'quit', 'q' ]
         self.running_command = False
         self.waiting_for_response = False
         self.messages = []
         self.current_message = ""
         self.user_prompt = "  User:"
         self.assistant_prompt = "  Assistant:"
+        # Maximum size of the chat log
         self.max_chat_log = 30
         self.cache_messages = True
         self.current_prompt = ""
@@ -95,6 +102,7 @@ class Chat(Events):
 
         """
         if self.cache_messages:
+            # Add new message to the chat log
             self.messages.append({'role': role, 'content': message})
             self._check_messages_size(self.max_chat_log)
 
@@ -106,12 +114,13 @@ class Chat(Events):
             messages (list[dict]): The chat log, stored as a list of dictionaries with 'role' and 'content' keys.
 
         """
+        # Reset the chat log
         self.messages = []
 
     def _check_messages_size(self, max_messages):
         """
         Check and trim the chat log size if it exceeds the maximum allowed size.
-
+        
         Args:
             max_messages (int): The maximum allowed size of the chat log.
 
@@ -119,6 +128,7 @@ class Chat(Events):
             messages (list[dict]): The chat log, stored as a list of dictionaries with 'role' and 'content' keys.
 
         """
+        # Check if the message count is greater than the maximum allowed
         if len(self.messages) > max_messages:
             self.messages.pop(0)
 
@@ -131,12 +141,13 @@ class Chat(Events):
 
         """
         while not self.terminate:
+            # Process a frame in the chat loop
             self.process_loop_frame()
 
-    def check_and_handle_user_input_multiline(self, user_input: str):
+    def check_and_handle_user_input_multiline(self, user_input:str):
         """
         Handle multiline user input.
-
+        
         Args:
             user_input (str): The user input to process.
 
@@ -144,28 +155,28 @@ class Chat(Events):
             bool: True if the input is multiline, False otherwise.
 
         Attributes:
-            _is_multiline_input (bool): Flag to indicate whether the input is multiline.
-            _multiline_input (str): The multiline input buffer.
+             _is_multiline_input (bool): Flag to indicate whether the input is multiline.
+             _multiline_input (str): The multiline input buffer.
 
         """
         if user_input is not None and len(user_input):
             multiline_start = user_input.strip().startswith('"""') 
             multiline_end = user_input.strip().endswith('"""') 
-             
-            if self._is_multiline_input:
-                self._multiline_input +=  user_input
-                if  multiline_end:
-                    self._multiline_input += user_input.strip()[:-3]
-                    self.send_chat(self._multiline_input)
-                    self._multiline_input = ""
-                    self._is_multiline_input = False
-                else:
-                    self._multiline_input += user_input+"\n"
+
+        if self._is_multiline_input:
+            self._multiline_input +=  user_input
+            if  multiline_end:
+                self._multiline_input += user_input.strip()[:-3]
+                self.send_chat(self._multiline_input)
+                self._multiline_input = ""
+                self._is_multiline_input = False
+            else:
+                self._multiline_input += user_input+"\n"
                 return True
-            elif multiline_start:
-                self._multiline_input += user_input.strip()[2:]
-                self._is_multiline_input = True
-                return True         
+        elif multiline_start:
+            self._multiline_input += user_input.strip()[2:]
+            self._is_multiline_input = True
+            return True         
         return False
 
     def process_loop_frame(self):
@@ -178,6 +189,7 @@ class Chat(Events):
 
         """
         if self.running_command:
+            # Check user input and handle it
             user_input = input()
             self.output_requested(user_input)
             return  # Skip the rest of the loop and go to next iteration
@@ -194,10 +206,13 @@ class Chat(Events):
             print("\r",end="",flush=True)
             return
 
+        # Check for command start
         if user_input.startswith('/'):
             self.run_command(user_input)
+
         elif user_input.lower() in self.terminate_tokens:
             self.terminate_chat()
+        
         else:
             if not self.check_and_handle_user_input_multiline(user_input): 
                 self.send_chat(user_input)    
@@ -211,10 +226,11 @@ class Chat(Events):
 
         Attributes:
             waiting_for_response (bool): Flag to indicate whether the chat is waiting for a response.
-            _add_message(role, message): Add a new message to the chat log.
+             _add_message(role, message): Add a new message to the chat log.
 
         """
         self.waiting_for_response = True
+        # Send the message and trigger event
         self._add_message(ChatRoles.USER, message)
         self.trigger(self.EVENT_CHAT_SENT, message)
 
@@ -223,12 +239,13 @@ class Chat(Events):
         Request output for a given message.
         
         Args:
-            message (str): The content of the message to be output.
+            message (str): The content of the message to be used for requesting output.
 
         Attributes:
             trigger(event_type, message): Trigger an event with the given message.
 
         """
+        # Send the request and trigger event
         self.trigger(self.EVENT_OUTPUT_REQUESTED, message)
 
     def start_command(self, message):
@@ -242,6 +259,7 @@ class Chat(Events):
             trigger(event_type, message): Trigger an event with the given message.
 
         """
+        # Send the request and trigger event
         self.trigger(self.EVENT_COMMAND_STARTED, message)
 
     def run_command(self, message):
@@ -255,7 +273,7 @@ class Chat(Events):
             running_command (bool): Flag to indicate whether a command is currently running.
 
         """
-        if self.running_command:    # Check if the command has already started
+        if self.running_command:     # Check if the command has already started
             return  # Exit early if the command has already started
 
         self.running_command = True  # Set the running command flag to True
@@ -271,6 +289,7 @@ class Chat(Events):
         """
         self.terminate = True
         print(format_text( "Chat terminated.", Color.BLUE))
+
 
     def terminate_command(self):
         """
