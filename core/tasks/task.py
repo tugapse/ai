@@ -60,7 +60,6 @@ class Task:
         output_filename: str = self.get_output_filename()
         func.write_to_file(output_filename,content,filemode=filemode)
         
-
     def get_output_filename(self):
         t_pass: TaskPass = self.passes_list[self.pass_index]
         return t_pass.output_file or f"{self.name}/{t_pass.name}.md"
@@ -68,7 +67,7 @@ class Task:
     def validate_pass(self, t_pass:TaskPass) -> None:       
         if len(self.passes_list) == 0: raise Exception(f"Task: {self.name}","Please provide one or more TaskPass!") 
 
-    def _run_pass(self,index=0):
+    def _run_pass(self,index=0, llm_options={} ):
         t_pass: TaskPass = self.passes_list[index]
         print(f"{Color.BLUE}## {Color.RESET} Starting pass {t_pass.name}") 
         
@@ -81,7 +80,7 @@ class Task:
         self._running_llm = LLMBot(model=self.model_name,system_prompt=self.system_message)
 
         print(f"{Color.BLUE}## {Color.RESET} Running pass {t_pass.name}") 
-        for token in self._running_llm.chat(messages=messages):
+        for token in self._running_llm.chat(messages=messages,options=llm_options):
             self.llm_stream(token=token)
             print(token,end="",flush=True)
         print(Color.GREEN)    
@@ -106,14 +105,13 @@ class Task:
         messages.append(LLMBot.create_message(LLMBot.ROLE_USER, message=t_pass.message ))
         return messages
         
-        
-    def run_passes(self):
+    def run_passes(self, llm_options ={}):
         self.pass_index = 0
         print(f"{Color.BLUE}## {Color.RESET} Found: {len(self.passes_list)} passes to run")        
         for t_pass_index in range(len(self.passes_list)):
             print(f"{Color.BLUE}## {Color.RESET} Loading pass {t_pass_index+1}") 
             self.load()
-            self._run_pass(t_pass_index)
+            self._run_pass(t_pass_index,llm_options=llm_options)
             self.pass_index += 1
             print(Color.YELLOW + "____________________________________________________________________________" + Color.RESET)
 
@@ -126,7 +124,7 @@ class EachFileTask(Task):
         self.current_context_file = None
         self.sleep = sleep
 
-    def run_passes(self) -> None:
+    def run_passes(self, llm_options={}) -> None:
         n_files = len(self.files)
         name = self.name
         print(f"{Color.GREEN}## {Color.RESET} Found {n_files} '{self.extension}' files in {self.directory}") 
@@ -137,7 +135,7 @@ class EachFileTask(Task):
             file.load()
             self.current_context_file: ContextFile = file
             print(f"{Color.BLUE}## {Color.GREEN} Running task {self.name} {Color.RESET}  ") 
-            super().run_passes()    
+            super().run_passes(llm_options=llm_options)    
             print(f"{Color.BLUE}## {Color.RESET} Sleep {self.sleep} seconds") 
             time.sleep(self.sleep)
             file_index += 1

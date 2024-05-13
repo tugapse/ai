@@ -15,6 +15,11 @@ class AutomatedTask(Program):
         func.clear_console()
         self._logger = logging.Logger(name=__file__,level=logging.INFO)
         self.arg_parser: argparse.ArgumentParser = args_parser or self._create_args_parser()
+        self.llm_options = {
+            'num_ctx': 16384,
+            'temperature':0.0,
+            'seed':2048
+        }
         self.init_program()
 
         
@@ -88,7 +93,7 @@ class AutomatedTask(Program):
                 print(f"{Color.BLUE}## {Color.RESET} Starting task {a_task.name or '< no name provided >'}")
                 print(f"{Color.YELLOW}____________________________________________________________________{Color.RESET}")
                 
-                a_task.run_passes()
+                a_task.run_passes(self.llm_options)
             else:
                 raise FileNotFoundError(config_filename)
         else: raise BaseException("Please provide a config filename", config_filename)
