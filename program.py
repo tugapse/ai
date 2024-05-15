@@ -49,18 +49,18 @@ class Program:
         """
         Initializes the program with configuration settings.
         """
-        self.model_name :str = ProgramConfig.get("MODEL_NAME")
+        self.model_name :str = ProgramConfig.current.get("MODEL_NAME")
         self.model_chat_name :str = self.model_name.split(":")[0] 
         spliced_model_name = self.model_name.split(":")
         self.model_variant = spliced_model_name[1] if len(spliced_model_name) > 1 else None 
 
         self.system_prompt :str = None
-        with  open(ProgramConfig.get("SYSTEM_PROMPT_FILE","config.json"), 'r') as file:
+        with  open(ProgramConfig.current.get("SYSTEM_PROMPT_FILE","config.json"), 'r') as file:
             self.system_prompt = file.read()    
         
         self.chat  = Chat()
         self.llm = LLMBot( self.model_name, system_prompt=self.system_prompt)
-        paths = ProgramConfig.get('PATHS')
+        paths = ProgramConfig.current.get('PATHS')
         self.command_interceptor = ChatCommandInterceptor(self.chat, paths['CHAT_LOG'])
         self.active_executor:CommandExecutor = None
 

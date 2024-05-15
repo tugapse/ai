@@ -9,8 +9,8 @@ class ProgramConfig:
         self.config=config
 
     
-    def get(key:str,default_value=None):# -> Any:
-        return ProgramConfig.current.config.get(key,default_value)    
+    def get(self, key:str,default_value=None):# -> Any:
+        return ProgramConfig.current.config.get(key, default_value)    
 
     def set(self,key:str,value=None) -> None:
         ProgramConfig.current.config[key] = value

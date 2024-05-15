@@ -159,24 +159,21 @@ class Chat(Events):
              _multiline_input (str): The multiline input buffer.
 
         """
-        if user_input is not None and len(user_input):
-            multiline_start = user_input.strip().startswith('"""') 
-            multiline_end = user_input.strip().endswith('"""') 
+        if user_input is not None and len(user_input.strip()) > 0:          
 
-        if self._is_multiline_input:
-            self._multiline_input +=  user_input
-            if  multiline_end:
-                self._multiline_input += user_input.strip()[:-3]
-                self.send_chat(self._multiline_input)
-                self._multiline_input = ""
-                self._is_multiline_input = False
-            else:
-                self._multiline_input += user_input+"\n"
+            if self._is_multiline_input:
+                if  user_input.strip().endswith('"""'):
+                    self._is_multiline_input = False
+                    self._multiline_input += user_input.strip()[:-3]
+                    self.send_chat(self._multiline_input)
+                    self._multiline_input = ""
+                else:
+                    self._multiline_input += user_input+"\n"
                 return True
-        elif multiline_start:
-            self._multiline_input += user_input.strip()[2:]
-            self._is_multiline_input = True
-            return True         
+            elif user_input.strip().startswith('"""'):
+                self._multiline_input += user_input.strip()[2:]
+                self._is_multiline_input = True
+                return True         
         return False
 
     def process_loop_frame(self):
