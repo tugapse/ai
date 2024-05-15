@@ -66,7 +66,7 @@ class ChatCommandInterceptor:
 
         with open(os.path.join(self.root_folder, filename), 'w') as f:
             json.dump(self.chat.messages, f)
-            pformat_text("! Session saved !", color=Color.BLUE)
+            pformat_text("=== Session saved ===", color=Color.YELLOW)
 
     def load_session(self, filename: str) -> None:
         """
@@ -77,14 +77,14 @@ class ChatCommandInterceptor:
         """
 
         if not os.path.exists(os.path.join(self.root_folder, filename)):
-            pformat_text("! Session not found !", color=Color.YELLOW)
+            pformat_text("=== Session not found ===", color=Color.YELLOW)
             return
         with open(os.path.join(self.root_folder, filename), 'r') as f:
             self.chat.messages = json.load(f)
             reader = ConsoleChatReader(filename)
             for message in self.chat.messages:
-                reader.print_chat(message)
-            pformat_text("! Session loaded !", color=Color.GREEN)
+                reader._print_chat(message)
+            pformat_text("=== Session loaded ===", color=Color.YELLOW)
 
     def list_sessions(self) -> None:
         """
@@ -93,4 +93,4 @@ class ChatCommandInterceptor:
         files_list = [file for file in os.listdir(self.root_folder) if os.path.isfile(os.path.join(self.root_folder, file))]
         print("Chat sessions : ")
         for file in files_list:
-            print(Color.PURPLE + "____ " + file + Color.RESET)
+            print(Color.PURPLE + " - " + file + Color.RESET)
