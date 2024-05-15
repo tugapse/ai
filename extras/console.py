@@ -16,15 +16,18 @@ class ConsoleChatReader:
             raise FileNotFoundError(self.filename)
         j_obj:list = json.loads(self.path_file.read_text())
         for chat_message in j_obj:
-            self.print_chat(chat_message)
+            self._print_chat(chat_message)
         
 
-    def print_chat(self,chat_message):
+    def _print_chat(self,chat_message):
+        #dont process system messages
+        if chat_message['role'] == ChatRoles.SYSTEM: return
         color:Color = Color.BLUE if chat_message['role'] == ChatRoles.USER else Color.YELLOW
         text:str = "User :" if chat_message['role'] == ChatRoles.USER else "Assistant"
+        
         content:str = chat_message.get("content")
         colored_text = self.color_text(content)         
-        print(f"{color}{text} {Color.RESET} {colored_text}")
+        print(f"{color}{text} {Color.RESET} {colored_text}",flush=True, end="\n\n")
 
     def color_text(self, text:str):
         colored_text = ""

@@ -7,6 +7,7 @@ import argparse
 import os
 from ai import ProgramConfig, functions as func
 from ai.core import ChatRoles, LLMBot
+from ai.color import Color
 
 class CliArgs:
     """
@@ -30,6 +31,8 @@ class CliArgs:
         :param prog: The program object that will be used to execute the parsed commands.
         :param args: The CLI arguments to be parsed.
         """
+        self._is_print_chat(args)
+        
         self._is_auto_task(args, parser=args_parser)
         # Check if the user wants to list all available models
         self._is_list_models(args)
@@ -46,6 +49,26 @@ class CliArgs:
         # Check for message option and add it to the chat's messages
         self._has_message(prog, args)
 
+    def _is_print_chat(self,args):
+        if args.print_chat:
+            from pathlib import Path
+            from_logs_file = ( (Path(__file__).parent) / 'logs' / 'chat').joinpath(args.print_chat)
+            from_file = Path(args.print_chat)
+            json_filename :str = None
+
+            if from_logs_file.exists():
+                json_filename = from_logs_file.resolve()
+            elif from_file.exists():
+                json_filename = from_file.resolve()
+            else:
+                raise FileNotFoundError(f"{Color.RED}",args.print_chat)
+            
+            from ai.extras.console import ConsoleChatReader
+            reader = ConsoleChatReader(json_filename)
+            reader.load()
+            exit()
+                    
+            
     def _is_auto_task(self,args, parser:argparse):
         if args.auto_task:
             from ai.core.tasks import AutomatedTask
