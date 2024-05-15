@@ -75,7 +75,7 @@ class Chat(Events):
         super().__init__()
         self.terminate = False
         # List of tokens that can terminate the chat
-        self.terminate_tokens = [ 'stop', 'quit', 'q' ]
+        self.terminate_tokens = [ 'quit', 'q' ]
         self.running_command = False
         self.waiting_for_response = False
         self.messages = []
@@ -83,7 +83,7 @@ class Chat(Events):
         self.user_prompt = "  User:"
         self.assistant_prompt = "  Assistant:"
         # Maximum size of the chat log
-        self.max_chat_log = 30
+        self.max_chat_log = 50
         self.cache_messages = True
         self.current_prompt = ""
         self._is_multiline_input = False
@@ -164,14 +164,14 @@ class Chat(Events):
             if self._is_multiline_input:
                 if  user_input.strip().endswith('"""'):
                     self._is_multiline_input = False
-                    self._multiline_input += user_input.strip()[:-3]
+                    self._multiline_input += user_input.strip()
                     self.send_chat(self._multiline_input)
                     self._multiline_input = ""
                 else:
                     self._multiline_input += user_input+"\n"
                 return True
             elif user_input.strip().startswith('"""'):
-                self._multiline_input += user_input.strip()[2:]
+                self._multiline_input += user_input.strip()
                 self._is_multiline_input = True
                 return True         
         return False

@@ -27,6 +27,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     parser.add_argument('--task-file', type=str, help='name of the template inside prompt_templates')
     parser.add_argument('--output-file', type=str, help='filename where the output of automatic actions will be saved')
     parser.add_argument('--auto-task', type=str, help='filename to a json with auto task configuration')
+    parser.add_argument('--print-chat', type=str, help='filename to a json with with chat log, this can be from ai chats directory or a filename')
 
     return parser, parser.parse_args()
 
