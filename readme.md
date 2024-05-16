@@ -33,8 +33,10 @@ The AI assistant provides several output options, including:
 
 ## Installation
 -----------------
-To install this project, simply run the following command:
+To install this project, simply run the following commands:
 ```bash
+sudo apt install portaudio19-dev
+sudo apt install python3-pip
 pip install -r requirements.txt
 ```
 
