@@ -28,7 +28,7 @@ def clear_console():
     Example:
         >>> clear_console()
     """
-    os.system("clear")
+    os.system("cls")
 
 def beep_console():
     """

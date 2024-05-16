@@ -63,7 +63,7 @@ def ask(llm:LLMBot, input_message:[str, list[str]], args=None) -> None:
     start_time = time()
     first_token_time = None
     end_time = None
-    print_initial_info(prog,args)
+    print_initial_info(prog)
     if isinstance(input_message, str):
         message = [LLMBot.create_message(ChatRoles.USER,input_message)]
         print("Prompt has " + str(len(input_message)/4) + " tokens in a " + str(len(input_message)) + " chars string")
