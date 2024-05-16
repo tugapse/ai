@@ -64,9 +64,10 @@ if __name__ == "__main__":
     
     prog,args , parser = init_program()
     
-    print(f"{Color.YELLOW}# Checking systen :")
+    print(f"{Color.YELLOW}# Checking system :")
     Setup().perform_check()
-
+    print(f"{Color.GREEN}# System pass")
+    
     cli_args_processor = CliArgs()
     cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
     func.clear_console()

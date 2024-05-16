@@ -10,9 +10,11 @@ class Setup:
         pass
 
     def check_model(self, model_name:str)->bool:
+        if not ":" in model_name:   model_name += ":latest"
         models = ollama.list().get("models")
         for model in models:
-            if model.get("name") == model_name: return 
+            if model.get("model") == model_name: return 
+
         print(f"{Color.RED}Model: {model_name} not found.\n{Color.YELLOW}Download{Color.RESET} from ollama.com ? ( {Color.GREEN}y/N{Color.RESET} ): ")
         answer = input("> ").strip()
         if  answer == "y" or answer == "Y":
