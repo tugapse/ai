@@ -25,7 +25,8 @@ class ProgramConfig:
             return
             
         with open(filename) as f:
-            text_content:str = pathlib.Path(filename).read_text().replace("{root_dir}",dirname(__file__))
+            import os
+            text_content:str = pathlib.Path(filename).read_text().replace("{root_dir}",dirname(__file__)).replace(os.path.sep,"/")
             data:str = json.loads(text_content)
             ProgramConfig.current = ProgramConfig(config=data)
     
