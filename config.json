@@ -6,5 +6,10 @@
         "CHAT_LOG":"{root_dir}/logs/chat/",
         "TASK_USER_PROMPT":"{root_dir}/templates/task/",
         "SYSTEM_PROMPT":"{root_dir}/templates/system/"
+    },
+    "USER_PATHS":{
+        "TASKS":"",
+        "AUTO_TASKS":"",
+        "SYSTEM_TEMPLATES":""
     }
 }

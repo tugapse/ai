@@ -8,21 +8,13 @@ import os
 from ai import ProgramConfig, functions as func
 from ai.core import ChatRoles, LLMBot
 from ai.color import Color
+from ai.direct import ask
 
 class CliArgs:
     """
     This class represents the CLI arguments parser.
     It takes care of parsing the user's input, validating it, and executing the corresponding actions.
     """
-
-    def __init__(self, prog, ask: callable) -> None:
-        """
-        Initializes the CLI arguments parser with the given program object and an ask function.
-
-        :param prog: The program object that will be used to execute the parsed commands.
-        :param ask: A callable function that will be used to ask the user for input.
-        """
-        self.ask = ask
 
     def parse_args(self, prog, args,args_parser) -> None:
         """
@@ -108,7 +100,7 @@ class CliArgs:
 
         if args.msg:
             prog.chat.messages.append(LLMBot.create_message(ChatRoles.USER, args.msg))
-            self.ask(prog.llm, prog.chat.messages)
+            ask(prog.llm, prog.chat.messages)
             exit(0)
 
     def _has_folder(self, prog, args):

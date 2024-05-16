@@ -4,7 +4,18 @@ import logging
 from os.path import exists,dirname
 import pathlib
 
+class ProgramSetting:
+    MODEL_NAME = "MODEL_NAME"
+    SYSTEM_PROMPT_FILE = "SYSTEM_PROMPT_FILE"
+    SYSTEM_PROMPT_FOLDER = "SYSTEM_PROMPT_FOLDER"
+    PATHS = "PATHS"
+    CHAT_LOG = "CHAT_LOG"
+    TASK_USER_PROMPT = "TASK_USER_PROMPT"
+    SYSTEM_PROMPT = "SYSTEM_PROMPT"
+
+
 class ProgramConfig:
+
     def __init__(self,config:dict) -> None:
         self.config=config
 
