@@ -1,8 +1,11 @@
 import os
 from pathlib import Path
 import pathlib
+import sys
 
 from ai.core.context_file import ContextFile
+from colorama import Fore, Style                                                             
+
 
 FILE_MODE_APPEND = "a"
 FILE_MODE_CREATE = "w"
@@ -28,7 +31,11 @@ def clear_console():
     Example:
         >>> clear_console()
     """
-    os.system("cls")
+                                                                                                        
+    if sys.platform != "win32":
+        os.system("clear")
+    else:
+        os.system("cls")
 
 def beep_console():
     """

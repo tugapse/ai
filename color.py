@@ -1,5 +1,4 @@
-from colorama import just_fix_windows_console
-just_fix_windows_console()
+
 
 class Color:
     RESET = '\033[0m'
