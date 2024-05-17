@@ -1,5 +1,4 @@
 #!/bin/bash
-
-FOLDER=$(dirname -- "$0")/..
-
-PYTHONPATH=$FOLDER python3 $FOLDER/ai/init.py "$@"
+FOLDER=$(dirname -- $(realpath -- "$0"))/../..
+export PYTHONPATH=$FOLDER
+python3 $(realpath -- "$FOLDER/ai/init.py") "$@"
