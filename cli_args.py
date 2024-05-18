@@ -152,6 +152,6 @@ class CliArgs:
         """
 
         if args.task:
-            filename = os.path.join(ProgramConfig.CURRENT_CONFIG.config['PATHS']['TASK_USER_PROMPT'], args.task.replace(".md", "") + ".md")
+            filename = os.path.join(ProgramConfig.current.config['PATHS']['TASK_USER_PROMPT'], args.task.replace(".md", "") + ".md")
             task = func.read_file(filename)
             args.msg = task
