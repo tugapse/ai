@@ -1,6 +1,6 @@
 import logging,time,os
 from ai import functions as func
-from ai.core import LLMBot, ContextFile
+from ai.core import OllamaModel, ContextFile
 from ai.core.tasks import TaskPass
 from ai.color import Color
 
@@ -19,7 +19,7 @@ class Task:
         self._logger = logging.Logger(__file__)
         self.previous_output = dict()
         
-        self._running_llm : LLMBot = None
+        self._running_llm : OllamaModel = None
 
     def load(self):
         t_pass: TaskPass = self.passes_list[self.pass_index]
@@ -75,9 +75,9 @@ class Task:
 
         messages = self._create_context(t_pass)
 
-        print(f"{Color.BLUE}## {Color.RESET} Loading LLMBot") 
+        print(f"{Color.BLUE}## {Color.RESET} Loading OllamaModel") 
         
-        self._running_llm = LLMBot(model=self.model_name,system_prompt=self.system_message)
+        self._running_llm = OllamaModel(model=self.model_name,system_prompt=self.system_message)
 
         print(f"{Color.BLUE}## {Color.RESET} Running pass {t_pass.name}") 
         for token in self._running_llm.chat(messages=messages,options=llm_options):
@@ -89,20 +89,20 @@ class Task:
     def _create_context(self, t_pass):
         print(f"{Color.BLUE}## {Color.RESET} Creating pass context") 
         messages = []
-        messages.append( LLMBot.create_message(LLMBot.ROLE_SYSTEM, self.system_message))
+        messages.append( OllamaModel.create_message(OllamaModel.ROLE_SYSTEM, self.system_message))
 
         if self.pass_index > 0 and t_pass.use_previous_output:
             print(f"{Color.BLUE}## {Color.RESET} - Loading previous pass output") 
             p_output = self.previous_output[self.pass_index-1]
-            messages.append( LLMBot.create_message(LLMBot.ROLE_USER, message=f"Previous output : \n\n{p_output}" ))
+            messages.append( OllamaModel.create_message(OllamaModel.ROLE_USER, message=f"Previous output : \n\n{p_output}" ))
              
         if t_pass._context_files:
             print(f"{Color.BLUE}## {Color.RESET} - Loading context files") 
             
             for file in t_pass._context_files:
-                messages.append(LLMBot.create_message(LLMBot.ROLE_USER,message=file.content))
+                messages.append(OllamaModel.create_message(OllamaModel.ROLE_USER,message=file.content))
 
-        messages.append(LLMBot.create_message(LLMBot.ROLE_USER, message=t_pass.message ))
+        messages.append(OllamaModel.create_message(OllamaModel.ROLE_USER, message=t_pass.message ))
         return messages
         
     def run_passes(self, llm_options ={}):
@@ -144,7 +144,7 @@ class EachFileTask(Task):
 
     def _create_context(self, t_pass)->list:
         messages = super()._create_context(t_pass)
-        messages.append(LLMBot.create_message(LLMBot.ROLE_USER,message=self.current_context_file.content))
+        messages.append(OllamaModel.create_message(OllamaModel.ROLE_USER,message=self.current_context_file.content))
         return messages
 
     def get_output_filename(self):

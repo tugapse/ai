@@ -39,6 +39,27 @@ sudo apt install portaudio19-dev
 sudo apt install python3-pip
 pip install -r requirements.txt
 ```
+## Ollama Integration
+---------------------
+This program also uses the Ollama application from ollama.com, which provides a powerful and flexible way to generate text based on user input. By integrating Ollama into this program, we can take advantage of its advanced language processing capabilities and provide even more accurate and helpful responses.
+
+## Config File Option (Optional)
+If you want to use a different configuration file, you can set an environment variable `AI_ASSISTANT_CONFIG_FILENAME` with the path to your desired config file. For example:
+
+### Unix/Linux/MacOS
+To set this environment variable on Linux/macOS systems, run the following command in your terminal:
+```bash
+export AI_ASSISTANT_CONFIG_FILENAME="/path/to/your/config.json"                                                                                                             
+```                                                                                                                                                                         
+This will allow you to specify a custom configuration file that overrides the default one used by the AI Assistant.
+
+### Windows
+
+1. Right-click on "Computer" or "This PC" and select "Properties".
+2. Click on "Advanced system settings" (on older versions of Windows, click on "System Properties").
+3. In the System Properties window, click on the "Environment Variables" button.
+4. Under "User variables", click "New". Name the variable `AI_ASSISTANT_CONFIG_FILENAME` and set its value to the path of your desired config file (e.g., `C:\Path\To\Your\Config.json`).
+
 
 ## Usage
 --------------
@@ -102,9 +123,6 @@ $ python init.py --output-file "output.txt" --task "template_name"
 ```
 This will save the output of the AI assistant to a file named "output.txt", using the specified template instead of the default template.
 
-## Ollama Integration
----------------------
-This program also uses the Ollama application from ollama.com, which provides a powerful and flexible way to generate text based on user input. By integrating Ollama into this program, we can take advantage of its advanced language processing capabilities and provide even more accurate and helpful responses.
 
 ## Contributing
 ----------------

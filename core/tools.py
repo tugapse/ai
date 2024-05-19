@@ -2,7 +2,7 @@ import os
 
 import ollama
 from chat import ChatRoles
-from llm import LLMBot
+from llm import OllamaModel
 from color import Color, pformat_text
 import json
 import os
@@ -10,7 +10,7 @@ import os
 
 
 
-class ToolSelector(LLMBot):
+class ToolSelector(OllamaModel):
     
     def __init__(self, model, config, system_prompt=None):
         with  open(os.path.join(

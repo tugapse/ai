@@ -3,17 +3,17 @@
 
 from time import time
 from ai import functions as func
-from ai.core import LLMBot, ChatRoles
+from ai.core import OllamaModel, ChatRoles
 from ai.extras.console import ConsoleTokenFormatter
 from ai.color import Color
 
 
-def ask(llm:LLMBot, input_message:[str, list[str]],write_to_file=False,output_filename=None) -> None:
+def ask(llm:OllamaModel, input_message:[str, list[str]],write_to_file=False,output_filename=None) -> None:
     """
     Asks the language model a question.
     
     Args:
-        llm (LLMBot): The language model bot.
+        llm (OllamaModel): The language model bot.
         input_message ([str, list[str]]): The user's input message.
         args (argparse.Namespace): The command-line arguments.
     """
@@ -22,7 +22,7 @@ def ask(llm:LLMBot, input_message:[str, list[str]],write_to_file=False,output_fi
     end_time = None
     
     if isinstance(input_message, str):
-        message = [LLMBot.create_message(ChatRoles.USER,input_message)]
+        message = [OllamaModel.create_message(ChatRoles.USER,input_message)]
         # print("Prompt has " + str(len(input_message)/4) + " tokens in a " + str(len(input_message)) + " chars string")
     elif isinstance(input_message, list):
         message = input_message
