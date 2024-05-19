@@ -9,8 +9,9 @@ The bot uses the Ollama library to generate responses to user input.
 import ollama
 from ai.color import Color, format_text, pformat_text
 from ai.core.events import Events
+from ai.config import ProgramConfig, ProgramSetting
 
-class LLMBot(Events):
+class OllamaModel(Events):
 
     ROLE_USER:str = "user"
     ROLE_ASSISTANT:str = "assistant"
@@ -25,9 +26,9 @@ class LLMBot(Events):
     CONTEXT_WINDOW_LARGE = 8192
     CONTEXT_WINDOW_EXTRA_LARGE = 16384
 
-    def __init__(self, model, system_prompt=None): 
+    def __init__(self, model, system_prompt=None,host=None): 
         """
-        Initializes the LLMBot instance.
+        Initializes the OllamaModel instance.
 
         Args:
             model (str): The name of the LLM model to use.
@@ -39,6 +40,9 @@ class LLMBot(Events):
         super().__init__()
         self.model_name = model
         self.system_prompt = system_prompt
+        self.server_ip  = host
+        self.model = ollama.Client(self.server_ip) if self.server_ip else None
+        
 
         # Ollama Options Documentation
         # -> https://github.com/ollama/ollama/blob/main/docs/modelfile.md#parameter
@@ -93,7 +97,12 @@ class LLMBot(Events):
         for key in request_options_cleaner:
             del request_options[key]
         print(f"{Color.RESET}", end="")
-        response = ollama.chat(model=self.model_name, messages=new_messages, stream=stream, options=request_options)
+        response = None
+
+        if self.model: 
+           response = self.model.chat(model=self.model_name, messages=new_messages, stream=stream, options=request_options)
+        else:
+            response = ollama.chat(model=self.model_name, messages=new_messages, stream=stream, options=request_options)
 
         if stream:
             for chunks in response:
@@ -102,7 +111,7 @@ class LLMBot(Events):
 
         else:
             self.trigger(self.STREAMING_FINISHED_EVENT)
-            yield response
+            return response
 
     def check_system_prompt(self,messages:list):
         """
@@ -131,3 +140,4 @@ class LLMBot(Events):
             dict: A dictionary representing the message.
         """
         return {'role':role,'content':message}
+    

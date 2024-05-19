@@ -12,6 +12,7 @@ class ProgramSetting:
     CHAT_LOG = "CHAT_LOG"
     TASK_USER_PROMPT = "TASK_USER_PROMPT"
     SYSTEM_PROMPT = "SYSTEM_PROMPT"
+    OLLAMA_HOST = "OLLAMA_HOST"
 
 
 class ProgramConfig:

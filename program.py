@@ -4,7 +4,7 @@ import os, logging
 from dotenv import load_dotenv
 
 from ai.config import ProgramConfig
-from ai.core import Chat, ChatCommandInterceptor, CommandExecutor, LLMBot
+from ai.core import Chat, ChatCommandInterceptor, CommandExecutor, OllamaModel
 from ai.color import Color, format_text
 from ai.extras import ConsoleTokenFormatter
 
@@ -20,7 +20,7 @@ class Program:
         model_chat_name (str): The chat name for the model.
         chat (Chat): The chat object.
         command_interceptor (ChatCommandInterceptor): The command interceptor.
-        llm (LLMBot): The language model bot.
+        llm (OllamaModel): The language model bot.
         active_executor (CommandExecutor): The active executor.
         token_states (dict): Token states for formatting output.
     """
@@ -36,7 +36,7 @@ class Program:
         self.model_chat_name :str = None
         self.chat = Chat()
         self.command_interceptor = None
-        self.llm = LLMBot(None, system_prompt=None)
+        self.llm = OllamaModel(None, system_prompt=None)
         self.active_executor:CommandExecutor = None
         self.token_processor = ConsoleTokenFormatter()
         self.clear_on_init  = True
@@ -59,7 +59,7 @@ class Program:
             self.system_prompt = file.read()    
         
         self.chat  = Chat()
-        self.llm = LLMBot( self.model_name, system_prompt=self.system_prompt)
+        self.llm = OllamaModel( self.model_name, system_prompt=self.system_prompt,host = ProgramConfig.current.get("OLLAMA_HOST") )
         paths = ProgramConfig.current.get('PATHS')
         self.command_interceptor = ChatCommandInterceptor(self.chat, paths['CHAT_LOG'])
         self.active_executor:CommandExecutor = None
@@ -85,7 +85,7 @@ class Program:
         """
         started_response = False
         print(Color.YELLOW+"  Loading ..\r", end="")
-        outs = self.llm.chat(self.chat.messages,options={'num_ctx':LLMBot.CONTEXT_WINDOW_LARGE})
+        outs = self.llm.chat(self.chat.messages,options={'num_ctx':OllamaModel.CONTEXT_WINDOW_LARGE})
         for text in outs:
             if not started_response:
                 print(format_text(self.chat.assistant_prompt, Color.PURPLE)+Color.RESET, end= " ")

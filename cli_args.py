@@ -6,7 +6,7 @@ It allows users to interact with the AI system through various commands and opti
 import argparse
 import os
 from ai import ProgramConfig, functions as func
-from ai.core import ChatRoles, LLMBot
+from ai.core import ChatRoles, OllamaModel
 from ai.color import Color
 from ai.direct import ask
 
@@ -99,7 +99,7 @@ class CliArgs:
         """
 
         if args.msg:
-            prog.chat.messages.append(LLMBot.create_message(ChatRoles.USER, args.msg))
+            prog.chat.messages.append(OllamaModel.create_message(ChatRoles.USER, args.msg))
             ask(prog.llm, prog.chat.messages)
             exit(0)
 
@@ -115,7 +115,7 @@ class CliArgs:
             files = func.get_files(directory, args.extension )
             messages = list()
             for file in files:
-                messages.append(LLMBot.create_message(ChatRoles.USER, f"Filename: {file['filename']} \n File Content:\n```{file['content']}\n"))
+                messages.append(OllamaModel.create_message(ChatRoles.USER, f"Filename: {file['filename']} \n File Content:\n```{file['content']}\n"))
                 prog.chat.messages = messages
 
     def _has_file(self, prog, args):
