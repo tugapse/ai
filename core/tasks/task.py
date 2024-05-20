@@ -77,8 +77,9 @@ class Task:
         messages = self._create_context(t_pass)
 
         print(f"{Color.BLUE}## {Color.RESET} Loading Ollama model {self.model_name}") 
-        
         host = ProgramConfig.current.get(ProgramSetting.OLLAMA_HOST)
+        self._running_llm = OllamaModel(model=self.model_name,system_prompt=self.system_message,host=host)
+        
         print(f"{Color.BLUE}## {Color.RESET} Running pass {t_pass.name}") 
         for token in self._running_llm.chat(messages=messages,options=llm_options):
             self.llm_stream(token=token)
