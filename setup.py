@@ -22,7 +22,7 @@ class Setup:
         answer = input("> ").strip()
         if  answer == "y" or answer == "Y":
             print(f"Downloading {model_name} ...{Color.BLUE}")
-            self.__pull_model(model_name)
+            self.__pull_model(model_name,model)
             print(Color.RESET)
 
         else:
@@ -34,11 +34,11 @@ class Setup:
         self.check_model(model_name)
           
 
-    def __pull_model(self,model_name):
+    def __pull_model(self,model_name,ollama_inst):
         # Initialize variables: current_digest and bars dictionary                                                                                                                  
         current_digest, bars = '', {}                                                                                                                                               
                                                                                                                                                                                     
-        for progress in ollama.pull(model_name, stream=True):                                                                                                                       
+        for progress in ollama_inst.pull(model_name, stream=True):                                                                                                                       
             # Extract digest value from each progress item (default to empty string if not present)                                                                                 
             digest = progress.get('digest', '')                                                                                                                                     
                                                                                                                                                                                     
