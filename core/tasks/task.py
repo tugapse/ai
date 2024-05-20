@@ -3,6 +3,7 @@ from ai import functions as func
 from ai.core import OllamaModel, ContextFile
 from ai.core.tasks import TaskPass
 from ai.color import Color
+from ai.config import ProgramConfig, ProgramSetting
 
 class TaskType:
     EACH_FILE = "each_file"
@@ -75,10 +76,9 @@ class Task:
 
         messages = self._create_context(t_pass)
 
-        print(f"{Color.BLUE}## {Color.RESET} Loading OllamaModel") 
+        print(f"{Color.BLUE}## {Color.RESET} Loading Ollama model {self.model_name}") 
         
-        self._running_llm = OllamaModel(model=self.model_name,system_prompt=self.system_message)
-
+        host = ProgramConfig.current.get(ProgramSetting.OLLAMA_HOST)
         print(f"{Color.BLUE}## {Color.RESET} Running pass {t_pass.name}") 
         for token in self._running_llm.chat(messages=messages,options=llm_options):
             self.llm_stream(token=token)

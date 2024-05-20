@@ -97,12 +97,13 @@ class OllamaModel(Events):
         for key in request_options_cleaner:
             del request_options[key]
         print(f"{Color.RESET}", end="")
+        
         response = None
-
-        if self.model: 
-           response = self.model.chat(model=self.model_name, messages=new_messages, stream=stream, options=request_options)
-        else:
-            response = ollama.chat(model=self.model_name, messages=new_messages, stream=stream, options=request_options)
+        chat_func = None
+        if self.model:  chat_func = self.model.chat
+        else:  chat_func = ollama.chat
+        
+        response = chat_func(model=self.model_name, messages=new_messages, stream=stream, options=request_options)
 
         if stream:
             for chunks in response:
