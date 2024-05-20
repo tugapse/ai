@@ -63,11 +63,11 @@ This will allow you to specify a custom configuration file that overrides the de
 
 ## Usage
 --------------
-To use this program, simply run the `init.py` file from the command line. You can then interact with the AI assistant by typing commands and prompts.
+To use this program, simply run the `bin/ai.{so required ext}` file from the command line. You can then interact with the AI assistant by typing commands and prompts.
 
 Example usage:
 ```bash
-$ python init.py
+$ bash bin/ai.sh
 Welcome to the AI Assistant! What would you like to talk about?
 ```
 ## CLI Options
@@ -84,45 +84,6 @@ The AI assistant provides several command-line interface (CLI) options that allo
 * `--extension <extension>`/`--ext <extension>`: Provides File extension for folder files search
 * `--task <template_name>`/`--task-file <filename>`: Name of the template inside prompt_templates/task, do not insert .md
 * `--output-file <filename>`: Filename where the output of automatic actions will be saved
-
-You can use these options to customize the behavior of the AI assistant when you run it from the command line. For example:
-
-### Example 1: Passing a direct question with a specific model
-```
-$ python init.py --msg "What's the weather like today?" --model "large_language_model"
-```
-This will pass the message "What's the weather like today?" directly to the AI assistant using the "large_language_model" model.
-
-### Example 2: Using a prompt name with a specific template
-```
-$ python init.py --system "general_conversation" --task "template_name"
-```
-This will use the "general_conversation" prompt and the specified template instead of the default template.
-
-### Example 3: Loading a file and passing it as a message with a specific model
-```
-$ python init.py --file "example.txt" --model "small_language_model"
-```
-This will load the contents of the "example.txt" file and pass it as a message to the AI assistant using the "small_language_model" model.
-
-### Example 4: Loading multiple files from a folder and passing them as messages with a specific template
-```
-$ python init.py --load-folder "path/to/folder" --task "template_name"
-```
-This will load all the files in the specified folder and pass their contents as separate messages to the AI assistant using the specified template.
-
-### Example 5: Providing a file extension for folder files search with a specific model
-```
-$ python init.py --extension ".txt" --model "medium_language_model"
-```
-This will specify that only files with the ".txt" extension should be searched for in the folder, and use the "medium_language_model" model.
-
-### Example 6: Saving output to a file with a specific template
-```
-$ python init.py --output-file "output.txt" --task "template_name"
-```
-This will save the output of the AI assistant to a file named "output.txt", using the specified template instead of the default template.
-
 
 ## Contributing
 ----------------
