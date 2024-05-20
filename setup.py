@@ -12,9 +12,9 @@ class Setup:
 
     def check_model(self, model_name:str)->bool:
         host = ProgramConfig.current.get(ProgramSetting.OLLAMA_HOST)
-        model = OllamaModel(model_name, host=host)
+        ol_model = OllamaModel(model_name, host=host)
         if not ":" in model_name:   model_name += ":latest"
-        models = model.list().get("models")
+        models = ol_model.list().get("models")
         for model in models:
             if model.get("model") == model_name: return 
 
@@ -22,7 +22,7 @@ class Setup:
         answer = input("> ").strip()
         if  answer == "y" or answer == "Y":
             print(f"Downloading {model_name} ...{Color.BLUE}")
-            self.__pull_model(model_name,model)
+            self.__pull_model(model_name,ol_model)
             print(Color.RESET)
 
         else:

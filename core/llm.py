@@ -145,3 +145,7 @@ class OllamaModel(Events):
     def list(self):
         if self.model:return self.model.list()
         else: return ollama.list()
+    
+    def pull(self):
+        if self.model:return self.model.pull()
+        else: return ollama.pull()
