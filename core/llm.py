@@ -141,3 +141,6 @@ class OllamaModel(Events):
         """
         return {'role':role,'content':message}
     
+    def list(self):
+        if self.model:return self.model.list()
+        else: return ollama.list()

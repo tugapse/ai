@@ -2,6 +2,7 @@ import ollama
 from tqdm import tqdm
 from ai import ProgramConfig, ProgramSetting
 from ai.color import Color
+from ai.core.llm import OllamaModel
 
 
 class Setup:
@@ -10,8 +11,10 @@ class Setup:
         pass
 
     def check_model(self, model_name:str)->bool:
+        host = ProgramConfig.current.get(ProgramSetting.OLLAMA_HOST)
+        model = OllamaModel(model_name, host=host)
         if not ":" in model_name:   model_name += ":latest"
-        models = ollama.list().get("models")
+        models = model.list().get("models")
         for model in models:
             if model.get("model") == model_name: return 
 
@@ -27,6 +30,7 @@ class Setup:
     
     def perform_check(self):
         model_name = ProgramConfig.current.get(ProgramSetting.MODEL_NAME)
+       
         self.check_model(model_name)
           
 
