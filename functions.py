@@ -47,7 +47,7 @@ def beep_console():
     print("\007")
 
 
-def get_files(directory, extension=None) -> ContextFile:
+def get_files(directory, extension=None) -> list[ContextFile]:
     """
     Returns a list of files with the specified extension from the given directory and its subdirectories.
 

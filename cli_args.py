@@ -117,7 +117,8 @@ class CliArgs:
             files = func.get_files(directory, args.extension )
             messages = list()
             for file in files:
-                messages.append(OllamaModel.create_message(ChatRoles.USER, f"Filename: {file['filename']} \n File Content:\n```{file['content']}\n"))
+                file.load()
+                messages.append(OllamaModel.create_message(ChatRoles.USER, f"Filename: {file.filename} \n File Content:\n```{file.content}\n"))
                 prog.chat.messages = messages
 
     def _has_file(self, prog, args):
@@ -132,7 +133,7 @@ class CliArgs:
             files = args.file.split(",")
             for file in files:
                 text_file = func.read_file(file.strip())
-                prog.chat._add_message(ChatRoles.USER, f"File: {args.file} \n\  ```{text_file}```")
+                prog.chat._add_message(ChatRoles.USER, f"Filename: {args.file} \n  File Content:\n```{text_file}```")
 
     def _has_task_file(self, args):
         """
