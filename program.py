@@ -1,6 +1,7 @@
  
 import os, logging
 
+<<<<<<< HEAD
 from config import ProgramConfig, ProgramSetting
 from core import Chat, ChatCommandInterceptor, CommandExecutor, OllamaModel
 from core.llms import ModelParams, BaseModel
@@ -8,6 +9,12 @@ from color import Color, format_text
 from extras import ConsoleTokenFormatter
 import functions as func
 
+=======
+from config import ProgramConfig
+from core import Chat, ChatCommandInterceptor, CommandExecutor, OllamaModel
+from color import Color, format_text
+from extras import ConsoleTokenFormatter
+>>>>>>> 38af75c (temp commit)
 
 
 class Program:
@@ -136,6 +143,11 @@ class Program:
         Args:
             args (argparse.Namespace): The command-line arguments.
         """
+<<<<<<< HEAD
+=======
+        root: str = os.path.dirname(__file__)
+        config_filename: str = os.environ.get('AI_ASSISTANT_CONFIG_FILENAME', default=os.path.join(root,"config.json"))  
+>>>>>>> 38af75c (temp commit)
 
         self.config = ProgramConfig.load()
         if args is None: return

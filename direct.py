@@ -1,4 +1,5 @@
 from time import time
+<<<<<<< HEAD
 from typing import Union
 import functions as func
 from core import OllamaModel, ChatRoles
@@ -70,6 +71,10 @@ def ask(
 from typing import Union
 import functions as func
 from core import OllamaModel,ChatRoles
+=======
+import functions as func
+from core import OllamaModel, ChatRoles
+>>>>>>> 38af75c (temp commit)
 from extras.console import ConsoleTokenFormatter
 from color import Color
 
