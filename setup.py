@@ -1,8 +1,8 @@
 import ollama
 from tqdm import tqdm
-from ai import ProgramConfig, ProgramSetting
-from ai.color import Color
-from ai.core.llm import OllamaModel
+from config import ProgramConfig, ProgramSetting
+from color import Color
+from core.llm import OllamaModel
 
 
 class Setup:

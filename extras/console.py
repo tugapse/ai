@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
-from ai.color import Color
-from ai.core import ChatRoles
+from color import Color
+from core import ChatRoles
 
 class ConsoleChatReader:
 

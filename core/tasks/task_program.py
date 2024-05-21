@@ -1,10 +1,10 @@
 import json
 import argparse, logging
-from ai.init import print_initial_info
-import ai.functions as func
-from ai.program import Program ,ProgramConfig
-from ai.color import Color
-from ai.core.tasks import Task, TaskPass, EachFileTask, TaskType
+from init import print_initial_info
+import functions as func
+from program import Program ,ProgramConfig
+from color import Color
+from core.tasks import Task, TaskPass, EachFileTask, TaskType
 
 from pathlib import Path
 

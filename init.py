@@ -1,14 +1,18 @@
 from colorama import just_fix_windows_console
 just_fix_windows_console()
 
-
+from dotenv import load_dotenv
+load_dotenv()
 
 from time import time
 import readline
 import argparse
 
-from ai import Program, CliArgs, functions as func,Setup
-from ai.color import Color
+from program import Program
+from cli_args import CliArgs
+from setup import Setup
+from color import Color
+import functions as func
 
 
 def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:

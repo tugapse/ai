@@ -2,10 +2,10 @@
 
 
 from time import time
-from ai import functions as func
-from ai.core import OllamaModel, ChatRoles
-from ai.extras.console import ConsoleTokenFormatter
-from ai.color import Color
+import functions as func
+from core import OllamaModel, ChatRoles
+from extras.console import ConsoleTokenFormatter
+from color import Color
 
 
 def ask(llm:OllamaModel, input_message:[str, list[str]],write_to_file=False,output_filename=None) -> None:
