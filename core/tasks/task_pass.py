@@ -1,4 +1,4 @@
-from ai.core import ContextFile
+from core import ContextFile
 
 
 class TaskPass:

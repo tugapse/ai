@@ -5,10 +5,12 @@ It allows users to interact with the AI system through various commands and opti
 
 import argparse
 import os
-from ai import ProgramConfig, functions as func
-from ai.core import ChatRoles, OllamaModel
-from ai.color import Color
-from ai.direct import ask
+
+import functions as func
+from config import ProgramConfig
+from core import ChatRoles, OllamaModel
+from color import Color
+from direct import ask
 
 class CliArgs:
     """
@@ -55,7 +57,7 @@ class CliArgs:
             else:
                 raise FileNotFoundError(f"{Color.RED}",args.print_chat)
             
-            from ai.extras.console import ConsoleChatReader
+            from extras.console import ConsoleChatReader
             reader = ConsoleChatReader(json_filename)
             reader.load()
             exit()
@@ -63,7 +65,7 @@ class CliArgs:
             
     def _is_auto_task(self,args, parser:argparse):
         if args.auto_task:
-            from ai.core.tasks import AutomatedTask
+            from core.tasks import AutomatedTask
             AutomatedTask(parser).run_task(config_filename=args.auto_task)
             exit(0)
          

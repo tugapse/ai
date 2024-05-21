@@ -1,12 +1,10 @@
  
 import os, logging
 
-from dotenv import load_dotenv
-
-from ai.config import ProgramConfig
-from ai.core import Chat, ChatCommandInterceptor, CommandExecutor, OllamaModel
-from ai.color import Color, format_text
-from ai.extras import ConsoleTokenFormatter
+from config import ProgramConfig
+from core import Chat, ChatCommandInterceptor, CommandExecutor, OllamaModel
+from color import Color, format_text
+from extras import ConsoleTokenFormatter
 
 
 class Program:
@@ -127,7 +125,6 @@ class Program:
         Args:
             args (argparse.Namespace): The command-line arguments.
         """
-        load_dotenv()
         root: str = os.path.dirname(__file__)
         config_filename: str = os.environ.get('AI_ASSISTANT_CONFIG_FILENAME', default=os.path.join(root,"config.json"))  
 

@@ -63,11 +63,11 @@ This will allow you to specify a custom configuration file that overrides the de
 
 ## Usage
 --------------
-To use this program, simply run the `bin/ai.{so required ext}` file from the command line. You can then interact with the AI assistant by typing commands and prompts.
+To use this program, simply run the `bin/{so required ext}` file from the command line. You can then interact with the AI assistant by typing commands and prompts.
 
 Example usage:
 ```bash
-$ bash bin/ai.sh
+$ bash bin/sh
 Welcome to the AI Assistant! What would you like to talk about?
 ```
 ## CLI Options

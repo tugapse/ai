@@ -1,9 +1,9 @@
 import logging,time,os
 from ai import functions as func
-from ai.core import OllamaModel, ContextFile
-from ai.core.tasks import TaskPass
-from ai.color import Color
-from ai.config import ProgramConfig, ProgramSetting
+from core import OllamaModel, ContextFile
+from core.tasks import TaskPass
+from color import Color
+from config import ProgramConfig, ProgramSetting
 
 class TaskType:
     EACH_FILE = "each_file"

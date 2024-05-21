@@ -3,14 +3,14 @@ from pathlib import Path
 import pathlib
 import sys
 
-from ai.core.context_file import ContextFile
+from core.context_file import ContextFile
 from colorama import Fore, Style                                                             
 
 
 FILE_MODE_APPEND = "a"
 FILE_MODE_CREATE = "w"
 
-from ai.color import Color, pformat_text
+from color import Color, pformat_text
 
 def set_console_title(title):
     """
