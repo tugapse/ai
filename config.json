@@ -7,14 +7,8 @@
         "TASKS_TEMPLATES": "{root_dir}/templates/task/",
         "SYSTEM_TEMPLATES": "{root_dir}/templates/system/",
         "INJECT_TEMPLATES": "{root_dir}/templates/inject/"
-    "MODEL_NAME":"llama3",
-    "SYSTEM_PROMPT_FILE":"{root_dir}/templates/system/ai_assistant.md",
-    "OLLAMA_HOST":"127.0.0.1",
-    "PATHS":{
-        "CHAT_LOG":"{root_dir}/logs/chat/",
-        "TASKS_TEMPLATES":"{root_dir}/templates/task/",
-        "SYSTEM_TEMPLATES":"{root_dir}/templates/system/"
     },
+
     "USER_PATHS":{
         "CHAT_LOG":"{root_dir}/logs/chat/",
         "TASKS_TEMPLATES":"",
