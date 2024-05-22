@@ -41,10 +41,10 @@ class OllamaModel( BaseModel, ModelParams):
         """
         new_messages = self.check_system_prompt(messages)
 
-        if images : self._load_images(images)
+        # if images : self._load_images(images)
 
         response = self.model.chat(model=self.model_name, messages=new_messages,
-                                   stream=stream, options=self.options)
+                                   stream=stream, options=self.options.to_dict())
         if stream:
             for chunks in response:
                 yield chunks['message']['content']
@@ -61,4 +61,4 @@ class OllamaModel( BaseModel, ModelParams):
         return self.model.list()
 
     def pull(self, model_name, stream=True):
-        return self.model.pull(model_name, stream=True)
+        return self.model.pull(model_name, stream=stream)
