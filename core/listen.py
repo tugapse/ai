@@ -3,8 +3,8 @@ import threading
 import pyaudio
 import wave
 import time
-from ai.core.command_executor import AsyncExecutor, ExecutorResult
-from ai.color import Color
+from core.command_executor import AsyncExecutor, ExecutorResult
+from color import Color
 
 FORMAT = pyaudio.paInt16  # Audio format (16-bit integer)
 CHANNELS = 2  # Number of channels (stereo)

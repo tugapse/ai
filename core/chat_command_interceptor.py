@@ -1,8 +1,8 @@
 import json
 import os
-from ai.core.chat import Chat
-from ai.color import Color, pformat_text
-from ai.extras import ConsoleChatReader
+from core.chat import Chat
+from color import Color, pformat_text
+from extras import ConsoleChatReader
 
 
 class ChatCommandInterceptor:

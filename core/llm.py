@@ -7,9 +7,9 @@ The bot uses the Ollama library to generate responses to user input.
 
 
 import ollama
-from ai.color import Color, format_text, pformat_text
-from ai.core.events import Events
-from ai.config import ProgramConfig, ProgramSetting
+from color import Color, format_text, pformat_text
+from core.events import Events
+from config import ProgramConfig, ProgramSetting
 
 class OllamaModel(Events):
 
@@ -42,6 +42,7 @@ class OllamaModel(Events):
         self.system_prompt = system_prompt
         self.server_ip  = host
         self.model = ollama.Client(self.server_ip) if self.server_ip else None
+        self.close_requested = False
         
 
         # Ollama Options Documentation
@@ -104,10 +105,12 @@ class OllamaModel(Events):
         else:  chat_func = ollama.chat
         
         response = chat_func(model=self.model_name, messages=new_messages, stream=stream, options=request_options)
-
         if stream:
             for chunks in response:
                 yield chunks['message']['content']
+                if self.close_requested: 
+                    response.close()
+                    self.close_requested = False
             self.trigger(self.STREAMING_FINISHED_EVENT)
 
         else:
@@ -149,3 +152,6 @@ class OllamaModel(Events):
     def pull(self,model_name, stream=True):
         if self.model:return self.model.pull(model_name, stream=True)
         else: return ollama.pull(model_name, stream=True)
+
+    def stop_stream(self):
+        self.close_requested = True

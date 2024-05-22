@@ -1,1 +1,1 @@
-from ai.extras.console import ConsoleChatReader, ConsoleTokenFormatter 
+from extras.console import ConsoleChatReader, ConsoleTokenFormatter 
