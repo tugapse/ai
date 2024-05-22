@@ -42,19 +42,25 @@ class ModelParams:
         """
         Initializes the ModelParams object with default values.
         """
-        self.mirostat: int = 2
-        self.mirostat_eta: float = 0.1
-        self.mirostat_tau: float = 5.0
-        self.num_ctx: int = 2048
-        self.repeat_last_n: int = 64
-        self.repeat_penalty: float = 1.1
-        self.temperature: float = 0.8
-        self.seed: int = 0
+        self.mirostat: int = None
+        self.mirostat_eta: float = None
+        
+        self.mirostat_tau: float = None
+        
+        self.num_ctx: int = None
+        self.repeat_last_n: int = None
+        self.repeat_penalty: float = None
+        
+        self.temperature: float = None
+        
+        self.seed: int = None
         self.stop: str = None
-        self.tf_s_z: float = 1.0
-        self.num_predict: int = 128
-        self.top_k: int = 40
-        self.top_p: float = 0.9
+        self.tf_s_z: float = None
+        
+        self.num_predict: int = None
+        self.top_k: int = None
+        self.top_p: float = None
+        
     
     def to_dict(self):
         """
