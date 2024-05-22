@@ -2,7 +2,7 @@ import os
 
 import ollama
 from chat import ChatRoles
-from llm import OllamaModel
+from core.llms.ollama import OllamaModel
 from color import Color, pformat_text
 import json
 import os
