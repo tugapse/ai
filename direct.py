@@ -2,13 +2,14 @@
 
 
 from time import time
+from typing import Union
 import functions as func
 from core import OllamaModel, ChatRoles
 from extras.console import ConsoleTokenFormatter
 from color import Color
 
 
-def ask(llm:OllamaModel, input_message:[str, list[str]],write_to_file=False,output_filename=None) -> None:
+def ask(llm:OllamaModel, input_message:Union[str, list[str]],write_to_file=False,output_filename=None) -> None:
     """
     Asks the language model a question.
     
