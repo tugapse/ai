@@ -2,7 +2,7 @@ import ollama
 from tqdm import tqdm
 from config import ProgramConfig, ProgramSetting
 from color import Color
-from core.llm import OllamaModel
+from core.llms.ollama import OllamaModel
 
 
 class Setup:
