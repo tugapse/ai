@@ -12,6 +12,7 @@ import functions as func
 =======
 from config import ProgramConfig
 from core import Chat, ChatCommandInterceptor, CommandExecutor, OllamaModel
+from core.llms import ModelParams, BaseModel
 from color import Color, format_text
 from extras import ConsoleTokenFormatter
 >>>>>>> 38af75c (temp commit)
