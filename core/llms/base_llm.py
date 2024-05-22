@@ -1,6 +1,7 @@
 
 from core.events import Events
 
+
 class ModelParams:
     def __init__(self):
         self.mirostat: int = 0
@@ -16,6 +17,7 @@ class ModelParams:
         self.num_predict: int = 0
         self.top_k: int = 0
         self.top_p: float = 0.0
+
 
 class BaseModel(Events):
 
@@ -48,13 +50,13 @@ class BaseModel(Events):
         self.model = None
         self.close_requested = False
 
-        self.options :ModelParams = {
+        self.options: ModelParams = {
             'num_ctx': BaseModel.CONTEXT_WINDOW_MEDIUM,
             'temperature': 0.5,
             'repeat_penalty': 1.2
         }
 
-    def chat(self, messages: list, stream: bool = True, options: object = {}):
+    def chat(self, messages: list, images:list[str] = None, stream: bool = True, options: object = {}):
         """
         This method allows the bot to chat with users.
 
@@ -67,7 +69,6 @@ class BaseModel(Events):
             None
         """
         raise NotImplementedError("Implement this method")
-       
 
     def check_system_prompt(self, messages: list):
         """
@@ -97,6 +98,7 @@ class BaseModel(Events):
             dict: A dictionary representing the message.
         """
         return {'role': role, 'content': message}
+    
 
     def list(self):
         raise NotImplementedError("Implement this method")

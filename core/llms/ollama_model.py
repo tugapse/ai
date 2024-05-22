@@ -6,22 +6,10 @@ The bot uses the Ollama library to generate responses to user input.
 
 import ollama
 from core.events import Events
-from core.llms.llm import BaseModel
+from .base_llm import BaseModel, ModelParams
 
 
-class OllamaModel(Events,BaseModel):
-
-    ROLE_USER: str = "user"
-    ROLE_ASSISTANT: str = "assistant"
-    ROLE_SYSTEM: str = "system"
-
-    STREAMING_FINISHED_EVENT = "streaming_finished"
-    STREAMING_TOKEN_EVENT = "streaming_token"
-
-    CONTEXT_WINDOW_SMALL = 2048
-    CONTEXT_WINDOW_MEDIUM = 4096
-    CONTEXT_WINDOW_LARGE = 8192
-    CONTEXT_WINDOW_EXTRA_LARGE = 16384
+class OllamaModel( BaseModel, ModelParams):
 
     def __init__(self, model, system_prompt=None, host=None):
         """
@@ -34,19 +22,12 @@ class OllamaModel(Events,BaseModel):
         Returns:
             None
         """
-        super().__init__()
-        self.model_name = model
-        self.system_prompt = system_prompt
+        super().__init__(model,system_prompt)
         self.server_ip = host
-        self.model = ollama.Client(self.server_ip) if self.server_ip else None
-        self.close_requested = False
-        self.options = {
-            'num_ctx': 16384,   # Default: 2048
-            'temperature': 0.5,
-            'repeat_penalty': 1.2
-        }
+        self.model = ollama.Client(self.server_ip or "127.0.0.1")
 
-    def chat(self, messages: list, stream: bool = True, options: object = {}):
+
+    def chat(self, messages: list, images:list[str] = None, stream: bool = True, options: object = {}):
         """
         This method allows the bot to chat with users.
 
@@ -60,15 +41,10 @@ class OllamaModel(Events,BaseModel):
         """
         new_messages = self.check_system_prompt(messages)
 
-        response = None
-        chat_func = None
-        if self.model:
-            chat_func = self.model.chat
-        else:
-            chat_func = ollama.chat
+        if images : self._load_images(images)
 
-        response = chat_func(model=self.model_name, messages=new_messages,
-                             stream=stream, options=self.options)
+        response = self.model.chat(model=self.model_name, messages=new_messages,
+                                   stream=stream, options=self.options)
         if stream:
             for chunks in response:
                 yield chunks['message']['content']
@@ -82,13 +58,7 @@ class OllamaModel(Events,BaseModel):
             return response
 
     def list(self):
-        if self.model:
-            return self.model.list()
-        else:
-            return ollama.list()
+        return self.model.list()
 
     def pull(self, model_name, stream=True):
-        if self.model:
-            return self.model.pull(model_name, stream=True)
-        else:
-            return ollama.pull(model_name, stream=True)
+        return self.model.pull(model_name, stream=True)

@@ -29,6 +29,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     parser.add_argument('--system-file', type=str, help='pass a prompt filename')
     parser.add_argument('--list-models', action="store_true", help='See a list of models available')
     parser.add_argument('--file' , '--files', type=str, help='Load a file and pass it as a message')
+    parser.add_argument('--image' , '--images', type=str, help='Load a image or images')
     parser.add_argument('--load-folder' , '--folder', type=str, help='Load multiple files from folder and pass them as a message with file location and file content')
     parser.add_argument('--extension','--ext', type=str, help='Provides File extension for folder files search')
     parser.add_argument('--task', type=str, help='name of the template inside prompt_templates')
