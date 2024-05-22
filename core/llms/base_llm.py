@@ -3,20 +3,66 @@ from core.events import Events
 
 
 class ModelParams:
+    """
+    Parameters for controlling the behavior of the model.
+    
+    Attributes:
+        mirostat (int): Enable Mirostat sampling for controlling perplexity.
+            (default: 0, 0 = disabled, 1 = Mirostat, 2 = Mirostat 2.0)
+        mirostat_eta (float): Influences how quickly the algorithm responds to feedback from the generated text.
+            A lower learning rate will result in slower adjustments, while a higher learning rate will make the
+            algorithm more responsive. (Default: 0.1)
+        mirostat_tau (float): Controls the balance between coherence and diversity of the output.
+            A lower value will result in more focused and coherent text. (Default: 5.0)
+        num_ctx (int): Sets the size of the context window used to generate the next token. (Default: 2048)
+        repeat_last_n (int): Sets how far back for the model to look back to prevent repetition.
+            (Default: 64, 0 = disabled, -1 = num_ctx)
+        repeat_penalty (float): Sets how strongly to penalize repetitions.
+            A higher value (e.g., 1.5) will penalize repetitions more strongly,
+            while a lower value (e.g., 0.9) will be more lenient. (Default: 1.1)
+        temperature (float): The temperature of the model.
+            Increasing the temperature will make the model answer more creatively. (Default: 0.8)
+        seed (int): Sets the random number seed to use for generation.
+            Setting this to a specific number will make the model generate the same text for the same prompt. (Default: 0)
+        stop (str): Sets the stop sequences to use.
+            When this pattern is encountered, the LLM will stop generating text and return.
+            Multiple stop patterns may be set by specifying multiple separate stop parameters in a modelfile.
+        tf_s_z (float): Tail free sampling is used to reduce the impact of less probable tokens from the output.
+            A higher value (e.g., 2.0) will reduce the impact more, while a value of 1.0 disables this setting. (default: 1)
+        num_predict (int): Maximum number of tokens to predict when generating text.
+            (Default: 128, -1 = infinite generation, -2 = fill context)
+        top_k (int): Reduces the probability of generating nonsense.
+            A higher value (e.g. 100) will give more diverse answers,
+            while a lower value (e.g. 10) will be more conservative. (Default: 40)
+        top_p (float): Works together with top-k.
+            A higher value (e.g., 0.95) will lead to more diverse text,
+            while a lower value (e.g., 0.5) will generate more focused and conservative text. (Default: 0.9)
+    """
     def __init__(self):
-        self.mirostat: int = 0
-        self.mirostat_eta: float = 0.0
-        self.mirostat_tau: float = 0.0
-        self.num_ctx: int = 0
-        self.repeat_last_n: int = 0
-        self.repeat_penalty: float = 0.0
-        self.temperature: float = 0.0
+        """
+        Initializes the ModelParams object with default values.
+        """
+        self.mirostat: int = 2
+        self.mirostat_eta: float = 0.1
+        self.mirostat_tau: float = 5.0
+        self.num_ctx: int = 2048
+        self.repeat_last_n: int = 64
+        self.repeat_penalty: float = 1.1
+        self.temperature: float = 0.8
         self.seed: int = 0
-        self.stop: str = ""
-        self.tf_s_z: float = 0.0
-        self.num_predict: int = 0
-        self.top_k: int = 0
-        self.top_p: float = 0.0
+        self.stop: str = None
+        self.tf_s_z: float = 1.0
+        self.num_predict: int = 128
+        self.top_k: int = 40
+        self.top_p: float = 0.9
+    
+    def to_dict(self):
+        """
+        Converts the ModelParams object to a dictionary.
+        Returns:
+            dict: A dictionary representation of the ModelParams attributes.
+        """
+        return self.__dict__
 
 
 class BaseModel(Events):
@@ -50,11 +96,10 @@ class BaseModel(Events):
         self.model = None
         self.close_requested = False
 
-        self.options: ModelParams = {
-            'num_ctx': BaseModel.CONTEXT_WINDOW_MEDIUM,
-            'temperature': 0.5,
-            'repeat_penalty': 1.2
-        }
+        self.options: ModelParams = ModelParams()
+    
+    def _load_llm_params(self):
+        pass
 
     def chat(self, messages: list, images:list[str] = None, stream: bool = True, options: object = {}):
         """
