@@ -79,11 +79,11 @@ class Chat(Events):
         self.running_command = False
         self.waiting_for_response = False
         self.messages = []
+        self.images :list[str]= []
         self.current_message = ""
         self.user_prompt = "  User:"
         self.assistant_prompt = "  Assistant:"
-        # Maximum size of the chat log
-        self.max_chat_log = 50
+        self.max_chat_log = 50  # Maximum size of the chat log
         self.cache_messages = True
         self.current_prompt = ""
         self._is_multiline_input = False
