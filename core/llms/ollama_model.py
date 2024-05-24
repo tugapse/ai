@@ -23,9 +23,8 @@ class OllamaModel( BaseModel, ModelParams):
             None
         """
         super().__init__(model,system_prompt)
-        self.server_ip = host
-        self.model = ollama.Client(self.server_ip or "127.0.0.1")
-
+        self.server_ip = host or "127.0.0.1"
+        self.model = ollama.Client(self.server_ip )
 
     def chat(self, messages: list, images:list[str] = None, stream: bool = True, options: object = {}):
         """
@@ -40,8 +39,9 @@ class OllamaModel( BaseModel, ModelParams):
             None
         """
         new_messages = self.check_system_prompt(messages)
-
-        # if images : self._load_images(images)
+        
+        # load images into context
+        if images is not None : new_messages.append(super().load_images(images))
 
         response = self.model.chat(model=self.model_name, messages=new_messages,
                                    stream=stream, options=self.options.to_dict())

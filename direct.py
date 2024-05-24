@@ -46,7 +46,7 @@ def ask(llm:OllamaModel, input_message:Union[str, list[str]],write_to_file=False
     }
 
     token_processor = ConsoleTokenFormatter()
-    for response in llm.chat(message, True, options=llm_options):
+    for response in llm.chat(message, stream=True, options=llm_options):
         if first_token_time is None: first_token_time = time()
         new_token = token_processor.process_token(response)
         print(new_token, end="",flush=True)

@@ -1,7 +1,7 @@
  
 import os, logging
 
-from config import ProgramConfig
+from config import ProgramConfig, ProgramSetting
 from core import Chat, ChatCommandInterceptor, CommandExecutor, OllamaModel
 from core.llms import ModelParams, BaseModel
 from color import Color, format_text
@@ -59,11 +59,11 @@ class Program:
         self.model_variant = spliced_model_name[1] if len(spliced_model_name) > 1 else None 
 
         self.system_prompt :str = None
-        with  open(ProgramConfig.current.get("SYSTEM_PROMPT_FILE","config.json"), 'r') as file:
+        with  open(ProgramConfig.current.get(ProgramSetting.SYSTEM_PROMPT_FILE,"config.json"), 'r') as file:
             self.system_prompt = file.read()    
         
         self.chat  = Chat()
-        self.llm = OllamaModel( self.model_name, system_prompt=self.system_prompt )
+        self.llm = OllamaModel( self.model_name, system_prompt=self.system_prompt , host=ProgramConfig.current.get(ProgramSetting.OLLAMA_HOST) )
         self.init_model_params()
         paths = ProgramConfig.current.get('PATHS')
         self.command_interceptor = ChatCommandInterceptor(self.chat, paths['CHAT_LOG'])
@@ -90,7 +90,7 @@ class Program:
         """
         started_response = False
         print(Color.YELLOW+"  Loading ..\r", end="")
-        outs = self.llm.chat(self.chat.messages,options=self.model_params.to_dict())
+        outs = self.llm.chat(self.chat.messages, images=self.chat.images, options=self.model_params.to_dict())
         for text in outs:
             if not started_response:
                 print(format_text(self.chat.assistant_prompt, Color.PURPLE)+Color.RESET, end= " ")

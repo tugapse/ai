@@ -107,20 +107,7 @@ class BaseModel(Events):
     def _load_llm_params(self):
         pass
 
-    def chat(self, messages: list, images:list[str] = None, stream: bool = True, options: object = {}):
-        """
-        This method allows the bot to chat with users.
-
-        Args:
-            messages (list): A list of message objects.
-            stream (bool, optional): Whether to stream the responses or not. Defaults to True.
-            options (dict, optional): Additional options for the LLM model. Defaults to {}.
-
-        Returns:
-            None
-        """
-        raise NotImplementedError("Implement this method")
-
+   
     def check_system_prompt(self, messages: list):
         """
         This method checks if the system prompt is present in the messages.
@@ -136,6 +123,9 @@ class BaseModel(Events):
                             'content': self.system_prompt})
         return messages
 
+    def stop_stream(self):
+        self.close_requested = True
+
     @classmethod
     def create_message(self, role: str, message: str) -> dict[str, str]:
         """
@@ -150,6 +140,19 @@ class BaseModel(Events):
         """
         return {'role': role, 'content': message}
     
+    def chat(self, messages: list, images:list[str] = None, stream: bool = True, options: object = {}):
+        """
+        This method allows the bot to chat with users.
+
+        Args:
+            messages (list): A list of message objects.
+            stream (bool, optional): Whether to stream the responses or not. Defaults to True.
+            options (dict, optional): Additional options for the LLM model. Defaults to {}.
+
+        Returns:
+            None
+        """
+        raise NotImplementedError("Implement this method")
 
     def list(self):
         raise NotImplementedError("Implement this method")
@@ -157,5 +160,7 @@ class BaseModel(Events):
     def pull(self, model_name, stream=True):
         raise NotImplementedError("Implement this method")
 
-    def stop_stream(self):
-        self.close_requested = True
+    def load_images(self, images ):
+        message = BaseModel.create_message(BaseModel.ROLE_USER, f"Loaded image filenames:\n{str(images)}")  
+        message['images'] = images
+        return message
