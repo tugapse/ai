@@ -26,12 +26,14 @@ class CliArgs:
         :param args: The CLI arguments to be parsed.
         """
         self._is_print_chat(args)
-        
+        # check for automatic tasks
         self._is_auto_task(args, parser=args_parser)
         # Check if the user wants to list all available models
         self._is_list_models(args)
         # Check if the user wants to load a single file
-        self._has_file(prog, args)
+        self._has_file(prog, args) 
+        # Check if the user wants to load images
+        self._has_image(prog, args)
         # Check if the user wants to load a folder with files
         self._has_folder(prog, args)
         # Check for output file option and set the corresponding flag in the program
@@ -120,7 +122,23 @@ class CliArgs:
                 file.load()
                 messages.append(OllamaModel.create_message(ChatRoles.USER, f"Filename: {file.filename} \n File Content:\n```{file.content}\n"))
                 prog.chat.messages = messages
+        
+    
+    def _has_image(self, prog, args):
+        """
+        Checks if the user wants to load image or images.
 
+        :param prog: The program object.
+        :param args: The CLI arguments.
+        """
+
+        if args.image:
+            files = args.image.split(",")
+            for file in files:
+                if os.path.exists(file):
+                    prog.chat.images.append(file)
+                else:
+                    raise FileNotFoundError(file)
     def _has_file(self, prog, args):
         """
         Checks if the user wants to load a single file.

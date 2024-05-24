@@ -83,7 +83,7 @@ class Program:
         """
         started_response = False
         print(Color.YELLOW+"  Loading ..\r", end="")
-        outs = self.llm.chat(self.chat.messages,options={'num_ctx':OllamaModel.CONTEXT_WINDOW_LARGE})
+        outs = self.llm.chat(self.chat.messages, options={'num_ctx':OllamaModel.CONTEXT_WINDOW_LARGE})
         for text in outs:
             if not started_response:
                 print(format_text(self.chat.assistant_prompt, Color.PURPLE)+Color.RESET, end= " ")
