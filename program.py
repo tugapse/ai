@@ -6,7 +6,6 @@ from core import Chat, ChatCommandInterceptor, CommandExecutor, OllamaModel
 from core.llms import ModelParams, BaseModel
 from color import Color, format_text
 from extras import ConsoleTokenFormatter
-from core.llms.huggingface_model import HuggingFaceModel
 
 
 
@@ -64,7 +63,7 @@ class Program:
             self.system_prompt = file.read()    
         
         self.chat  = Chat()
-        self.llm = HuggingFaceModel( self.model_name, system_prompt=self.system_prompt )
+        self.llm = OllamaModel( self.model_name, system_prompt=self.system_prompt )
         self.init_model_params()
         paths = ProgramConfig.current.get('PATHS')
         self.command_interceptor = ChatCommandInterceptor(self.chat, paths['CHAT_LOG'])
