@@ -41,7 +41,7 @@ class OllamaModel( BaseModel, ModelParams):
         new_messages = self.check_system_prompt(messages)
         
         # load images into context
-        if images is not None : new_messages.append(super().load_images(images))
+        if images is not None and len(images) > 0: new_messages.append(super().load_images(images))
 
         response = self.model.chat(model=self.model_name, messages=new_messages,
                                    stream=stream, options=self.options.to_dict())
