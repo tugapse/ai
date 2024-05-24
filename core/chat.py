@@ -79,6 +79,7 @@ class Chat(Events):
         self.running_command = False
         self.waiting_for_response = False
         self.messages = []
+        self.images = []
         self.current_message = ""
         self.user_prompt = "  User:"
         self.assistant_prompt = "  Assistant:"
