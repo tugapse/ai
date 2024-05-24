@@ -94,19 +94,7 @@ class CliArgs:
             prog.write_to_file = True
             prog.output_filename = args.output_file
 
-    def _has_message(self, prog, args):
-        """
-        Checks for message option and adds it to the chat's messages.
-
-        :param prog: The program object.
-        :param args: The CLI arguments.
-        """
-
-        if args.msg:
-            prog.chat.messages.append(
-                OllamaModel.create_message(ChatRoles.USER, args.msg))
-            ask(prog.llm, prog.chat.messages)
-            exit(0)
+    
 
     def _has_folder(self, prog, args):
         """
@@ -121,8 +109,7 @@ class CliArgs:
             messages = list()
             for file in files:
                 file.load()
-                messages.append(OllamaModel.create_message(ChatRoles.USER, f"Filename: {
-                                file.filename} \n File Content:\n```{file.content}\n"))
+                messages.append(OllamaModel.create_message(ChatRoles.USER, f"Filename: {file.filename} \n File Content:\n```{file.content}\n"))
                 prog.chat.messages = messages
         
     
@@ -153,8 +140,7 @@ class CliArgs:
             files = args.file.split(",")
             for file in files:
                 text_file = func.read_file(file.strip())
-                prog.chat._add_message(ChatRoles.USER, f"Filename: {
-                                       args.file} \n  File Content:\n```{text_file}```")
+                prog.chat._add_message(ChatRoles.USER, f"Filename: {args.file} \n  File Content:\n```{text_file}```")
 
     def _has_image(self, prog, args):
         """
@@ -196,3 +182,22 @@ class CliArgs:
                 ProgramConfig.current.config['PATHS']['TASK_USER_PROMPT'], args.task.replace(".md", "") + ".md")
             task = func.read_file(filename)
             args.msg = task
+    
+    def _has_message(self, prog, args):
+        """
+        Checks for message option and adds it to the chat's messages.
+
+        :param prog: The program object.
+        :param args: The CLI arguments.
+        """
+
+        if args.msg:
+            
+            if prog.chat.images: 
+                message = prog.llm.load_images(prog.chat.images)
+                prog.chat.messages.append(message)
+
+            prog.chat.messages.append(
+                OllamaModel.create_message(ChatRoles.USER, args.msg))
+            ask(prog.llm, prog.chat.messages)
+            exit(0)
