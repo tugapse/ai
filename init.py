@@ -74,7 +74,7 @@ if __name__ == "__main__":
     
     prog,args , parser = init_program()
     
-    print(f"{Color.YELLOW}# Checking system :")
+    print(f"{Color.YELLOW}Checking system :")
     Setup().perform_check()
     print(f"{Color.GREEN}# System pass")
     

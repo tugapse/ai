@@ -3,8 +3,10 @@ import os, logging
 
 from config import ProgramConfig
 from core import Chat, ChatCommandInterceptor, CommandExecutor, OllamaModel
+from core.llms import ModelParams, BaseModel
 from color import Color, format_text
 from extras import ConsoleTokenFormatter
+
 
 
 class Program:
@@ -34,13 +36,17 @@ class Program:
         self.model_chat_name :str = None
         self.chat = Chat()
         self.command_interceptor = None
-        self.llm = OllamaModel(None, system_prompt=None)
+        self.llm = None
         self.active_executor:CommandExecutor = None
         self.token_processor = ConsoleTokenFormatter()
         self.clear_on_init  = True
         self.write_to_file = False
         self.output_filename = None
         self._logger = logging.Logger(name=__file__)
+        self.model_params = ModelParams()
+    
+    def init_model_params(self):
+        self.model_params.num_ctx = BaseModel.CONTEXT_WINDOW_LARGE
         
 
     def init(self) -> None:
@@ -57,7 +63,8 @@ class Program:
             self.system_prompt = file.read()    
         
         self.chat  = Chat()
-        self.llm = OllamaModel( self.model_name, system_prompt=self.system_prompt,host = ProgramConfig.current.get("OLLAMA_HOST") )
+        self.llm = OllamaModel( self.model_name, system_prompt=self.system_prompt )
+        self.init_model_params()
         paths = ProgramConfig.current.get('PATHS')
         self.command_interceptor = ChatCommandInterceptor(self.chat, paths['CHAT_LOG'])
         self.active_executor:CommandExecutor = None
@@ -83,7 +90,7 @@ class Program:
         """
         started_response = False
         print(Color.YELLOW+"  Loading ..\r", end="")
-        outs = self.llm.chat(self.chat.messages, options={'num_ctx':OllamaModel.CONTEXT_WINDOW_LARGE})
+        outs = self.llm.chat(self.chat.messages,options=self.model_params.to_dict())
         for text in outs:
             if not started_response:
                 print(format_text(self.chat.assistant_prompt, Color.PURPLE)+Color.RESET, end= " ")
