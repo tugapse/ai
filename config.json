@@ -1,5 +1,5 @@
 {
-    "MODEL_NAME":"mistralai/Mistral-7B-v0.3",
+    "MODEL_NAME":"llama3",
     "SYSTEM_PROMPT_FILE":"{root_dir}/templates/system/ai_assistant.md",
     "SYSTEM_PROMPT_FOLDER":"{root_dir}/templates/",
     "OLLAMA_HOST":null,
