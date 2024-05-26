@@ -149,7 +149,7 @@ class Program:
             if os.path.exists(filepath): ProgramConfig.current.set('SYSTEM_PROMPT_FILE', filepath) 
 
         if args.system_file: 
-            filepath = args.system_file.replace(".md","")+".md"
+            filepath = args.system_file
             if os.path.exists(filepath): ProgramConfig.current.set('SYSTEM_PROMPT_FILE', filepath) 
             
     def start_chat_loop(self) -> None:

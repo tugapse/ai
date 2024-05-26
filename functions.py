@@ -84,11 +84,12 @@ def read_file(filename):
         >>> read_file("/path/to/file.txt")
             # Returns the contents of the specified file
     """
-    if not os.path.exists(filename):
+    file = Path(filename)
+    if not file.parent.exists():
         pformat_text("File not found > " + filename, Color.RED)
         exit(1)
 
-    return Path(filename).read_text()
+    return file.read_text()
 
 def write_to_file(filename, content, filemode=FILE_MODE_CREATE):
     """
@@ -103,10 +104,10 @@ def write_to_file(filename, content, filemode=FILE_MODE_CREATE):
         >>> write_to_file("/path/to/file.txt", "Hello, World!")
             # Writes "Hello, World!" to the specified file
     """
-    a_dir = os.path.dirname(filename)
-    os.makedirs(a_dir,exist_ok=True)
+    file = Path(filename)
+    file.parent.mkdir(exist_ok=True)
     
-    with open(pathlib.Path(filename), filemode) as f:
+    with open(file, filemode) as f:
         f.write(content)
         f.flush()
         

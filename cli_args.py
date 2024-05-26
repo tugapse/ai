@@ -97,8 +97,6 @@ class CliArgs:
             prog.write_to_file = True
             prog.output_filename = args.output_file
 
-    
-
     def _has_folder(self, prog, args):
         """
         Checks if the user wants to load a folder with files.
@@ -114,8 +112,7 @@ class CliArgs:
                 file.load()
                 messages.append(OllamaModel.create_message(ChatRoles.USER, f"Filename: {file.filename} \n File Content:\n```{file.content}\n"))
                 prog.chat.messages = messages
-        
-    
+
     def _has_image(self, prog, args):
         """
         Checks if the user wants to load image or images.
@@ -131,6 +128,7 @@ class CliArgs:
                     prog.chat.images.append(file)
                 else:
                     raise FileNotFoundError(file)
+
     def _has_file(self, prog, args):
         """
         Checks if the user wants to load a single file.
@@ -185,7 +183,7 @@ class CliArgs:
                 ProgramConfig.current.config['PATHS']['TASK_USER_PROMPT'], args.task.replace(".md", "") + ".md")
             task = func.read_file(filename)
             args.msg = task
-    
+
     def _has_message(self, prog, args):
         """
         Checks for message option and adds it to the chat's messages.
@@ -195,12 +193,14 @@ class CliArgs:
         """
 
         if args.msg:
-            
-            if prog.chat.images: 
+
+            if prog.chat.images and len(prog.chat.images):
                 message = prog.llm.load_images(prog.chat.images)
                 prog.chat.messages.append(message)
 
             prog.chat.messages.append(
                 OllamaModel.create_message(ChatRoles.USER, args.msg))
-            ask(prog.llm, prog.chat.messages)
+            
+            ask(prog.llm, prog.chat.messages, write_to_file=prog.write_to_file,
+                output_filename=prog.output_filename)
             exit(0)
