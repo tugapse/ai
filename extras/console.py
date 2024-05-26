@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from color import Color
 from core import ChatRoles
+import functions as func
 
 class ConsoleChatReader:
 
@@ -27,7 +28,7 @@ class ConsoleChatReader:
         
         content:str = chat_message.get("content")
         colored_text = self.color_text(content)         
-        print(f"{color}{text} {Color.RESET} {colored_text}",flush=True, end="\n\n")
+        func.out(f"{color}{text} {Color.RESET} {colored_text}",flush=True, end="\n\n")
 
     def color_text(self, text:str):
         colored_text = ""

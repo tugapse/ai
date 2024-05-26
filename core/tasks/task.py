@@ -1,5 +1,5 @@
 import logging,time,os
-from ai import functions as func
+import functions as func
 from core import OllamaModel, ContextFile
 from core.tasks import TaskPass
 from color import Color
@@ -70,35 +70,35 @@ class Task:
 
     def _run_pass(self,index=0, llm_options={} ):
         t_pass: TaskPass = self.passes_list[index]
-        print(f"{Color.BLUE}## {Color.RESET} Starting pass {t_pass.name}") 
+        func.log(f"{Color.BLUE}## {Color.RESET} Starting pass {t_pass.name}") 
         
         self.validate_pass(t_pass=t_pass)
 
         messages = self._create_context(t_pass)
 
-        print(f"{Color.BLUE}## {Color.RESET} Loading Ollama model {self.model_name}") 
+        func.log(f"{Color.BLUE}## {Color.RESET} Loading model {self.model_name}") 
         host = ProgramConfig.current.get(ProgramSetting.OLLAMA_HOST)
         self._running_llm = OllamaModel(model=self.model_name,system_prompt=self.system_message,host=host)
         
-        print(f"{Color.BLUE}## {Color.RESET} Running pass {t_pass.name}") 
+        func.log(f"{Color.BLUE}## {Color.RESET} Running pass {t_pass.name}") 
         for token in self._running_llm.chat(messages=messages,options=llm_options):
             self.llm_stream(token=token)
-            print(token,end="",flush=True)
-        print(Color.GREEN)    
-        print(f"Done {t_pass.name} {Color.BLUE}------------------------------------------------------------{Color.RESET} ") 
+            func.out(token,end="",flush=True)
+        func.out(Color.GREEN)    
+        func.log(f"Done {t_pass.name} {Color.BLUE}------------------------------------------------------------{Color.RESET} ") 
 
     def _create_context(self, t_pass):
-        print(f"{Color.BLUE}## {Color.RESET} Creating pass context") 
+        func.log(f"{Color.BLUE}## {Color.RESET} Creating pass context") 
         messages = []
         messages.append( OllamaModel.create_message(OllamaModel.ROLE_SYSTEM, self.system_message))
 
         if self.pass_index > 0 and t_pass.use_previous_output:
-            print(f"{Color.BLUE}## {Color.RESET} - Loading previous pass output") 
+            func.log(f"{Color.BLUE}## {Color.RESET} - Loading previous pass output") 
             p_output = self.previous_output[self.pass_index-1]
             messages.append( OllamaModel.create_message(OllamaModel.ROLE_USER, message=f"Previous output : \n\n{p_output}" ))
              
         if t_pass._context_files:
-            print(f"{Color.BLUE}## {Color.RESET} - Loading context files") 
+            func.log(f"{Color.BLUE}## {Color.RESET} - Loading context files") 
             
             for file in t_pass._context_files:
                 messages.append(OllamaModel.create_message(OllamaModel.ROLE_USER,message=file.content))
@@ -108,13 +108,13 @@ class Task:
         
     def run_passes(self, llm_options ={}):
         self.pass_index = 0
-        print(f"{Color.BLUE}## {Color.RESET} Found: {len(self.passes_list)} passes to run")        
+        func.log(f"{Color.BLUE}## {Color.RESET} Found: {len(self.passes_list)} passes to run")        
         for t_pass_index in range(len(self.passes_list)):
-            print(f"{Color.BLUE}## {Color.RESET} Loading pass {t_pass_index+1}") 
+            func.log(f"{Color.BLUE}## {Color.RESET} Loading pass {t_pass_index+1}") 
             self.load()
             self._run_pass(t_pass_index,llm_options=llm_options)
             self.pass_index += 1
-            print(Color.YELLOW + "____________________________________________________________________________" + Color.RESET)
+            func.log(Color.YELLOW + "____________________________________________________________________________" + Color.RESET)
 
 class EachFileTask(Task):
     def __init__(self, name: str, system_message: str = None, directory:str =None, extension:str=None,sleep:int=30) -> None:
@@ -128,16 +128,16 @@ class EachFileTask(Task):
     def run_passes(self, llm_options={}) -> None:
         n_files = len(self.files)
         name = self.name
-        print(f"{Color.GREEN}## {Color.RESET} Found {n_files} '{self.extension}' files in {self.directory}") 
+        func.log(f"{Color.GREEN}## {Color.RESET} Found {n_files} '{self.extension}' files in {self.directory}") 
         
         file_index = 1
         for file in self.files:
-            print(f"{Color.BLUE}## {Color.RESET} Loading file {file.filename} -> {file_index} of {n_files}") 
+            func.log(f"{Color.BLUE}## {Color.RESET} Loading file {file.filename} -> {file_index} of {n_files}") 
             file.load()
             self.current_context_file: ContextFile = file
-            print(f"{Color.BLUE}## {Color.GREEN} Running task {self.name} {Color.RESET}  ") 
+            func.log(f"{Color.BLUE}## {Color.GREEN} Running task {self.name} {Color.RESET}  ") 
             super().run_passes(llm_options=llm_options)    
-            print(f"{Color.BLUE}## {Color.RESET} Sleep {self.sleep} seconds") 
+            func.log(f"{Color.BLUE}## {Color.RESET} Sleep {self.sleep} seconds") 
             time.sleep(self.sleep)
             file_index += 1
             

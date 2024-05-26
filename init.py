@@ -37,6 +37,9 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     parser.add_argument('--output-file', type=str, help='filename where the output of automatic actions will be saved')
     parser.add_argument('--auto-task', type=str, help='filename to a json with auto task configuration')
     parser.add_argument('--print-chat', type=str, help='filename to a json with with chat log, this can be from ai chats directory or a filename')
+    
+    parser.add_argument('--no-log', help='Set this flag to NOT print "log" messages', action="store_false")
+    parser.add_argument('--no-out', help='Set this flag to NOT print "output" messages', action="store_false")
 
     return parser, parser.parse_args()
 
@@ -54,11 +57,11 @@ def print_initial_info(prog:Program) -> None:
     system_p_file :str = prog.config.get('SYSTEM_PROMPT_FILE').split("/")[-1].replace('.md','').replace('_'," ")
     system_p_file = system_p_file.replace('.md','').replace('_'," ").capitalize()
     
-    print(Color.GREEN,end="")
-    print(f"# Starting {Color.YELLOW}{ prog.model_chat_name }{Color.GREEN} assistant")
-    if prog.model_variant : print(f"# variant {Color.YELLOW}{ prog.model_variant }{Color.GREEN}") 
-    print(f"# Using {Color.YELLOW}{ system_p_file }{Color.GREEN} file system")
-    print(f"{Color.RESET}--------------------------")
+    func.out(Color.GREEN,end="")
+    func.out(f"# Starting {Color.YELLOW}{ prog.model_chat_name }{Color.GREEN} assistant")
+    if prog.model_variant : func.out(f"# variant {Color.YELLOW}{ prog.model_variant }{Color.GREEN}") 
+    func.out(f"# Using {Color.YELLOW}{ system_p_file }{Color.GREEN} file system")
+    func.out(f"{Color.RESET}--------------------------")
 
 
 
@@ -74,9 +77,9 @@ if __name__ == "__main__":
     
     prog,args , parser = init_program()
     
-    print(f"{Color.YELLOW}Checking system :")
+    func.log(f"Checking system :" ,end = " ")
     Setup().perform_check()
-    print(f"{Color.GREEN}# System pass")
+    func.log(f"{Color.GREEN} OK",start_line="")
     
     cli_args_processor = CliArgs()
     cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)

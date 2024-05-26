@@ -1,16 +1,16 @@
+from color import Color, pformat_text
 import os
 from pathlib import Path
-import pathlib
 import sys
 
 from core.context_file import ContextFile
-from colorama import Fore, Style                                                             
+from config import ProgramConfig, ProgramSetting
+from colorama import Fore, Style
 
 
 FILE_MODE_APPEND = "a"
 FILE_MODE_CREATE = "w"
 
-from color import Color, pformat_text
 
 def set_console_title(title):
     """
@@ -24,6 +24,7 @@ def set_console_title(title):
     """
     print("\033]0;{}\007".format(title))
 
+
 def clear_console():
     """
     Clears the console by running the "clear" command.
@@ -31,11 +32,12 @@ def clear_console():
     Example:
         >>> clear_console()
     """
-                                                                                                        
+
     if sys.platform != "win32":
         os.system("clear")
     else:
         os.system("cls")
+
 
 def beep_console():
     """
@@ -73,6 +75,7 @@ def get_files(directory, extension=None) -> list[ContextFile]:
                 file_list.append(ContextFile(filename=filename))
         return file_list
 
+
 def read_file(filename):
     """
     Reads the contents of a file and returns it as a string.
@@ -91,6 +94,7 @@ def read_file(filename):
 
     return file.read_text()
 
+
 def write_to_file(filename, content, filemode=FILE_MODE_CREATE):
     """
     Writes the given content to a file.
@@ -104,18 +108,30 @@ def write_to_file(filename, content, filemode=FILE_MODE_CREATE):
         >>> write_to_file("/path/to/file.txt", "Hello, World!")
             # Writes "Hello, World!" to the specified file
     """
-    file = Path(filename)
-    file.parent.mkdir(exist_ok=True)
-    
+    file = Path(filename).resolve()
+    os.makedirs(file.parent,exist_ok=True)
+    # file.parent.mkdir(exist_ok=True)
+
     with open(file, filemode) as f:
         f.write(content)
         f.flush()
-        
-def format_execution_time(start_time,end_time):
-   
+
+
+def format_execution_time(start_time, end_time):
+
     elapsed_seconds = end_time - start_time
     hours = int(elapsed_seconds // 3600)
     minutes = int((elapsed_seconds % 3600) // 60)
     seconds = int(elapsed_seconds % 60)
 
     return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+
+def log(text, start_line="[ * ]", **kargs):
+    if ProgramConfig.current.get(ProgramSetting.PRINT_LOG, False):
+        print((f"{Color.BLUE}{start_line}{Color.RESET} ") + text, **kargs)
+
+
+def out(text, **kargs):
+    if ProgramConfig.current.get(ProgramSetting.PRINT_OUTPUT, False):
+        print(text, **kargs)

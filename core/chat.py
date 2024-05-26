@@ -1,5 +1,6 @@
 from core.events import Events
 from color import Color, format_text
+import functions as func
 
 
 class ChatRoles:
@@ -196,11 +197,11 @@ class Chat(Events):
         elif self._is_multiline_input:
             user_input = input("... ")
         else:
-            print(format_text(self.user_prompt, Color.BLUE) , end=" ",flush=True)
+            func.out(format_text(self.user_prompt, Color.BLUE) , end=" ",flush=True)
             user_input = input()
 
         if len(user_input.strip()) == 0:
-            print("\r",end="",flush=True)
+            func.out("\r",end="",flush=True)
             return
 
         # Check for command start
@@ -285,7 +286,7 @@ class Chat(Events):
 
         """
         self.terminate = True
-        print(format_text( "Chat terminated.", Color.BLUE))
+        func.out(format_text( "Chat terminated.", Color.BLUE))
 
 
     def terminate_command(self):

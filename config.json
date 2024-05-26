@@ -12,5 +12,7 @@
         "TASKS":"",
         "AUTO_TASKS":"",
         "SYSTEM_TEMPLATES":""
-    }
+    },
+    "PRINT_LOG":true,
+    "PRINT_OUTPUT":true
 }

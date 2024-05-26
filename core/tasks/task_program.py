@@ -84,14 +84,14 @@ class AutomatedTask(Program):
             a_path = Path(config_filename) 
             if a_path.exists():
 
-                print(f"{Color.BLUE}## {Color.RESET} Loading automated task configuration file {config_filename}")
+                func.log(f"{Color.BLUE}## {Color.RESET} Loading automated task configuration file {config_filename}")
                 json_obj = json.loads(a_path.read_text())
 
-                print(f"{Color.BLUE}## {Color.RESET} Creating Task")
+                func.log(f"{Color.BLUE}## {Color.RESET} Creating Task")
                 a_task = self.create_task_from_config_json(json_config=json_obj)
 
-                print(f"{Color.BLUE}## {Color.RESET} Starting task {a_task.name or '< no name provided >'}")
-                print(f"{Color.YELLOW}____________________________________________________________________{Color.RESET}")
+                func.log(f"{Color.BLUE}## {Color.RESET} Starting task {a_task.name or '< no name provided >'}")
+                func.log(f"{Color.YELLOW}____________________________________________________________________{Color.RESET}")
                 
                 a_task.run_passes(self.llm_options)
             else:

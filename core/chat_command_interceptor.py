@@ -3,6 +3,7 @@ import os
 from core.chat import Chat
 from color import Color, pformat_text
 from extras import ConsoleChatReader
+import functions as func
 
 
 class ChatCommandInterceptor:
@@ -91,6 +92,6 @@ class ChatCommandInterceptor:
         Lists all chat sessions stored in the root folder.
         """
         files_list = [file for file in os.listdir(self.root_folder) if os.path.isfile(os.path.join(self.root_folder, file))]
-        print("Chat sessions : ")
+        func.out("Chat sessions : ")
         for file in files_list:
-            print(Color.PURPLE + " - " + file + Color.RESET)
+            func.out(Color.PURPLE + " - " + file + Color.RESET)

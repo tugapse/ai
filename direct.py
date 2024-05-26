@@ -25,17 +25,17 @@ def ask(llm:OllamaModel, input_message:Union[str, list[str]],write_to_file=False
     
     if isinstance(input_message, str):
         message = [OllamaModel.create_message(ChatRoles.USER,input_message)]
-        # print("Prompt has " + str(len(input_message)/4) + " tokens in a " + str(len(input_message)) + " chars string")
+        # func.out("Prompt has " + str(len(input_message)/4) + " tokens in a " + str(len(input_message)) + " chars string")
     elif isinstance(input_message, list):
         message = input_message
         txt_len = 0
         for line in input_message:
             txt_len = txt_len + len(line['content'] or "")
-        # print("Prompt has " + str(txt_len / 4) + " tokens in a " +str(txt_len) + " chars string")
+        # func.out("Prompt has " + str(txt_len / 4) + " tokens in a " +str(txt_len) + " chars string")
     else:
-        print("Unsupported text type")
+        func.log("Unsupported text type")
 
-    print("Loading ֍ ֍ ֍")
+    func.log("Loading ֍ ֍ ֍" , end=Color.RESET+"\n")
 
      # ensure to clean the file
     if write_to_file and output_filename: func.write_to_file(output_filename,"")
@@ -49,10 +49,10 @@ def ask(llm:OllamaModel, input_message:Union[str, list[str]],write_to_file=False
     for response in llm.chat(message, stream=True, options=llm_options):
         if first_token_time is None: first_token_time = time()
         new_token = token_processor.process_token(response)
-        print(new_token, end="",flush=True)
+        func.out(new_token, end="",flush=True)
         if write_to_file and output_filename:
             func.write_to_file(output_filename,response,func.FILE_MODE_APPEND)           
     end_time = time()
-    print("\n")
-    print(f"{Color.RESET}First token :{Color.YELLOW} {func.format_execution_time(start_time,first_token_time)}")
-    print(f"{Color.RESET}Time taken  :{Color.YELLOW} {func.format_execution_time(start_time,end_time)}")
+    func.out("\n")
+    func.log(f"{Color.RESET}First token :{Color.YELLOW} {func.format_execution_time(start_time,first_token_time)}")
+    func.log(f"{Color.RESET}Time taken  :{Color.YELLOW} {func.format_execution_time(start_time,end_time)}")
