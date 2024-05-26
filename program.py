@@ -6,6 +6,7 @@ from core import Chat, ChatCommandInterceptor, CommandExecutor, OllamaModel
 from core.llms import ModelParams, BaseModel
 from color import Color, format_text
 from extras import ConsoleTokenFormatter
+import functions as func
 
 
 
@@ -89,16 +90,16 @@ class Program:
             user_input (str): The user's input message.
         """
         started_response = False
-        print(Color.YELLOW+"  Loading ..\r", end="")
+        func.out(Color.YELLOW+"  Loading ..\r", end="")
         outs = self.llm.chat(self.chat.messages, images=self.chat.images, options=self.model_params.to_dict())
         for text in outs:
             if not started_response:
-                print(format_text(self.chat.assistant_prompt, Color.PURPLE)+Color.RESET, end= " ")
+                func.out(format_text(self.chat.assistant_prompt, Color.PURPLE)+Color.RESET, end= " ")
                 started_response = True
                 
             new_token = self.process_token(text)
             self.chat.current_message += text
-            print(new_token, end="", flush=True)
+            func.out(new_token, end="", flush=True)
 
     def llm_stream_finished(self, data):
         """
@@ -107,7 +108,7 @@ class Program:
         Args:
             data (ExecutorResult): The result of the executor.
         """
-        print("\n")
+        func.out("\n")
         self.clear_process_token()
         self.chat.chat_finished()
 
@@ -151,6 +152,10 @@ class Program:
         if args.system_file: 
             filepath = args.system_file
             if os.path.exists(filepath): ProgramConfig.current.set('SYSTEM_PROMPT_FILE', filepath) 
+        
+        ProgramConfig.current.set(ProgramSetting.PRINT_LOG, args.no_log)
+        ProgramConfig.current.set(ProgramSetting.PRINT_OUTPUT, args.no_out)
+      
             
     def start_chat_loop(self) -> None:
         """

@@ -13,6 +13,8 @@ class ProgramSetting:
     TASK_USER_PROMPT = "TASK_USER_PROMPT"
     SYSTEM_PROMPT = "SYSTEM_PROMPT"
     OLLAMA_HOST = "OLLAMA_HOST"
+    PRINT_LOG = "PRINT_LOG"
+    PRINT_OUTPUT = "PRINT_OUTPUT"
 
 
 class ProgramConfig:
