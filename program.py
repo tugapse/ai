@@ -144,14 +144,13 @@ class Program:
         if args.model: ProgramConfig.current.set(key='MODEL_NAME', value=args.model)
 
         if args.system: 
-            filepath: str = os.path.join(
-                os.path.dirname(__file__), "templates/system", 
-                args.system.replace(".md","")+".md")            
-            if os.path.exists(filepath): ProgramConfig.current.set('SYSTEM_PROMPT_FILE', filepath) 
+            system_templates_dir = ProgramConfig.current.get(ProgramSetting.PATHS , {}).get(ProgramSetting.SYSTEM_PROMPT)
+            filepath: str = os.path.join(  system_templates_dir, args.system.replace(".md","")+".md")            
+            if os.path.exists(filepath): ProgramConfig.current.set(ProgramSetting.SYSTEM_PROMPT_FILE, filepath) 
 
         if args.system_file: 
             filepath = args.system_file
-            if os.path.exists(filepath): ProgramConfig.current.set('SYSTEM_PROMPT_FILE', filepath) 
+            if os.path.exists(filepath): ProgramConfig.current.set(ProgramSetting.SYSTEM_PROMPT_FILE, filepath) 
         
         ProgramConfig.current.set(ProgramSetting.PRINT_LOG, args.no_log)
         ProgramConfig.current.set(ProgramSetting.PRINT_OUTPUT, args.no_out)

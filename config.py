@@ -4,6 +4,9 @@ import logging
 from os.path import exists,dirname
 import pathlib
 
+from typing import TypeVar, Generic
+T = TypeVar('T')
+
 class ProgramSetting:
     MODEL_NAME = "MODEL_NAME"
     SYSTEM_PROMPT_FILE = "SYSTEM_PROMPT_FILE"
@@ -17,13 +20,13 @@ class ProgramSetting:
     PRINT_OUTPUT = "PRINT_OUTPUT"
 
 
-class ProgramConfig:
+class ProgramConfig(Generic[T]):
 
     def __init__(self,config:dict) -> None:
         self.config=config
 
     
-    def get(self, key:str,default_value=None):# -> Any:
+    def get(self, key:str, default_value:T=None) -> T:
         return ProgramConfig.current.config.get(key, default_value)    
 
     def set(self,key:str,value=None) -> None:
