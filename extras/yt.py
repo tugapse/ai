@@ -67,15 +67,13 @@ def get_comments(youtube, video_id):
 
 
 def main_function(url, options):
-    # Load environment variables from .env file
-    load_dotenv(os.path.expanduser("~/.config/fabric/.env"))
 
     # Get YouTube API key from environment variable
     api_key = os.getenv("YOUTUBE_API_KEY")
     if not api_key:
-        print("Error: YOUTUBE_API_KEY not found in ~/.config/fabric/.env")
+        print("Error: YOUTUBE_API_KEY not found in .env")
         return
-
+    
     # Extract video ID from URL
     video_id = get_video_id(url)
     if not video_id:
@@ -140,7 +138,7 @@ def main_function(url, options):
 def main():
     parser = argparse.ArgumentParser(
         description='yt (video meta) extracts metadata about a video, such as the transcript, the video\'s duration, and now comments. By Daniel Miessler.')
-    parser.add_argument('url', help='YouTube video URL')
+    parser.add_argument('--url', help='YouTube video URL',default="https://www.youtube.com/watch?v=BEpDRj9H3zE")
     parser.add_argument('--duration', action='store_true', help='Output only the duration')
     parser.add_argument('--transcript', action='store_true', help='Output only the transcript')
     parser.add_argument('--comments', action='store_true', help='Output the comments on the video')

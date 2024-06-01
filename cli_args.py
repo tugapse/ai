@@ -45,6 +45,8 @@ class CliArgs:
         # Check for message option and add it to the chat's messages
         self._has_message(prog, args)
 
+        self._has_youtube_video(args)
+
     def _is_print_chat(self, args):
         if args.print_chat:
             from pathlib import Path
@@ -201,3 +203,6 @@ class CliArgs:
             ask(prog.llm, prog.chat.messages, write_to_file=prog.write_to_file,
                 output_filename=prog.output_filename)
             exit(0)
+
+    def _has_youtube_video(self,args):
+        if args.yt
