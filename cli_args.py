@@ -5,6 +5,7 @@ It allows users to interact with the AI system through various commands and opti
 
 import argparse
 import os
+import sys
 
 import functions as func
 from config import ProgramConfig
@@ -191,6 +192,10 @@ class CliArgs:
         :param prog: The program object.
         :param args: The CLI arguments.
         """
+
+
+        if not sys.stdin.isatty():
+            args.msg = sys.stdin.read()
 
         if args.msg:
 
