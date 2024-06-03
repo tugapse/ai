@@ -195,7 +195,7 @@ class CliArgs:
 
 
         if not sys.stdin.isatty():
-            args.msg = sys.stdin.read()
+            args.msg = sys.stdin.read().strip()
 
         if args.msg:
 
