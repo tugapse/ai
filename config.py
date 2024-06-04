@@ -35,7 +35,7 @@ class ProgramConfig(Generic[T]):
         default_config = self.__load_to_dict(config_filename)
         #handle user overrides        
         user_config_filename: str = os.environ.get('AI_ASSISTANT_CONFIG_FILENAME')
-        if exists(path=user_config_filename):
+        if user_config_filename and exists(path=user_config_filename):
             user_config = self.__load_to_dict(user_config_filename)
             default_config.update(**user_config)
         self.config = default_config 
