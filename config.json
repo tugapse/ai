@@ -5,7 +5,7 @@
     "PATHS":{
         "CHAT_LOG":"{root_dir}/logs/chat/",
         "TASKS_TEMPLATES":"{root_dir}/templates/task/",
-        "SYSTEM_PROMPT":"{root_dir}/templates/system/"
+        "SYSTEM_TEMPLATES":"{root_dir}/templates/system/"
     },
     "USER_PATHS":{
         "CHAT_LOG":"{root_dir}/logs/chat/",
