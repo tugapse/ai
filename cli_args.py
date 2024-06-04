@@ -62,6 +62,7 @@ class CliArgs:
                 raise FileNotFoundError(f"{Color.RED}", args.print_chat)
 
             from extras.console import ConsoleChatReader
+
             reader = ConsoleChatReader(json_filename)
             reader.load()
             exit()
@@ -69,6 +70,7 @@ class CliArgs:
     def _is_auto_task(self, args, parser: argparse):
         if args.auto_task:
             from core.tasks import AutomatedTask
+
             AutomatedTask(parser).run_task(config_filename=args.auto_task)
             exit(0)
 
@@ -108,7 +110,12 @@ class CliArgs:
             messages = list()
             for file in files:
                 file.load()
-                messages.append(OllamaModel.create_message(ChatRoles.USER, f"Filename: {file.filename} \n File Content:\n```{file.content}\n"))
+                messages.append(
+                    OllamaModel.create_message(
+                        ChatRoles.USER,
+                        f"Filename: {file.filename} \n File Content:\n```{file.content}\n",
+                    )
+                )
                 prog.chat.messages = messages
 
     def _has_image(self, prog, args):
@@ -139,7 +146,10 @@ class CliArgs:
             files = args.file.split(",")
             for file in files:
                 text_file = func.read_file(file.strip())
-                prog.chat._add_message(ChatRoles.USER, f"Filename: {args.file} \n  File Content:\n```{text_file}```")
+                prog.chat._add_message(
+                    ChatRoles.USER,
+                    f"Filename: {args.file} \n  File Content:\n```{text_file}```",
+                )
 
     def _has_image(self, prog, args):
         """
@@ -178,7 +188,14 @@ class CliArgs:
 
         if args.task:
             filename = os.path.join(
-                ProgramConfig.current.config['PATHS']['TASK_USER_PROMPT'], args.task.replace(".md", "") + ".md")
+                ProgramConfig.current.config["USER_PATHS"]["TASKS_TEMPLATES"],
+                args.task.replace(".md", "") + ".md",
+            )
+            if not os.path.exists(filename):
+                filename = os.path.join(
+                    ProgramConfig.current.config["PATHS"]["TASKS_TEMPLATES"],
+                    args.task.replace(".md", "") + ".md",
+                )
             task = func.read_file(filename)
             args.msg = task
 
@@ -190,7 +207,6 @@ class CliArgs:
         :param args: The CLI arguments.
         """
 
-
         if not sys.stdin.isatty():
             args.msg = sys.stdin.read().strip()
 
@@ -201,8 +217,13 @@ class CliArgs:
                 prog.chat.messages.append(message)
 
             prog.chat.messages.append(
-                OllamaModel.create_message(ChatRoles.USER, args.msg))
-            
-            ask(prog.llm, prog.chat.messages, write_to_file=prog.write_to_file,
-                output_filename=prog.output_filename)
+                OllamaModel.create_message(ChatRoles.USER, args.msg)
+            )
+
+            ask(
+                prog.llm,
+                prog.chat.messages,
+                write_to_file=prog.write_to_file,
+                output_filename=prog.output_filename,
+            )
             exit(0)

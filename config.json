@@ -1,16 +1,15 @@
 {
     "MODEL_NAME":"llama3",
     "SYSTEM_PROMPT_FILE":"{root_dir}/templates/system/ai_assistant.md",
-    "SYSTEM_PROMPT_FOLDER":"{root_dir}/templates/",
     "OLLAMA_HOST":"127.0.0.1",
     "PATHS":{
         "CHAT_LOG":"{root_dir}/logs/chat/",
-        "TASK_USER_PROMPT":"{root_dir}/templates/task/",
+        "TASKS_TEMPLATES":"{root_dir}/templates/task/",
         "SYSTEM_PROMPT":"{root_dir}/templates/system/"
     },
     "USER_PATHS":{
-        "TASKS":"",
-        "AUTO_TASKS":"",
+        "CHAT_LOG":"{root_dir}/logs/chat/",
+        "TASKS_TEMPLATES":"",
         "SYSTEM_TEMPLATES":""
     },
     "PRINT_LOG":true,

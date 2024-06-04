@@ -133,11 +133,8 @@ class Program:
         Args:
             args (argparse.Namespace): The command-line arguments.
         """
-        root: str = os.path.dirname(__file__)
-        config_filename: str = os.environ.get('AI_ASSISTANT_CONFIG_FILENAME', default=os.path.join(root,"config.json"))  
 
-        ProgramConfig.load(filename=config_filename)
-        self.config = ProgramConfig.current
+        self.config = ProgramConfig.load()
         if args is None: return
           
          # override with arguments    
@@ -145,8 +142,15 @@ class Program:
 
         if args.system: 
             system_templates_dir = ProgramConfig.current.get(ProgramSetting.PATHS , {}).get(ProgramSetting.SYSTEM_PROMPT)
-            filepath: str = os.path.join(  system_templates_dir, args.system.replace(".md","")+".md")            
-            if os.path.exists(filepath): ProgramConfig.current.set(ProgramSetting.SYSTEM_PROMPT_FILE, filepath) 
+            user_system_templates_dir = ProgramConfig.current.get(ProgramSetting.USER_PATHS , {}).get(ProgramSetting.SYSTEM_PROMPT)
+
+            filepath: str = os.path.join(  user_system_templates_dir, args.system.replace(".md","")+".md")            
+            if os.path.exists(filepath): 
+                ProgramConfig.current.set(ProgramSetting.SYSTEM_PROMPT_FILE, filepath) 
+            else: 
+                filepath: str = os.path.join(  system_templates_dir, args.system.replace(".md","")+".md")            
+                ProgramConfig.current.set(ProgramSetting.SYSTEM_PROMPT_FILE, filepath)
+
 
         if args.system_file: 
             filepath = args.system_file
