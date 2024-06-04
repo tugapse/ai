@@ -141,8 +141,8 @@ class Program:
         if args.model: ProgramConfig.current.set(key='MODEL_NAME', value=args.model)
 
         if args.system: 
-            system_templates_dir = ProgramConfig.current.get(ProgramSetting.PATHS , {}).get(ProgramSetting.SYSTEM_PROMPT)
-            user_system_templates_dir = ProgramConfig.current.get(ProgramSetting.USER_PATHS , {}).get(ProgramSetting.SYSTEM_PROMPT)
+            system_templates_dir = ProgramConfig.current.get(ProgramSetting.PATHS , {}).get(ProgramSetting.SYSTEM_TEMPLATES)
+            user_system_templates_dir = ProgramConfig.current.get(ProgramSetting.USER_PATHS , {}).get(ProgramSetting.SYSTEM_TEMPLATES)
 
             filepath: str = os.path.join(  user_system_templates_dir, args.system.replace(".md","")+".md")            
             if os.path.exists(filepath): 
