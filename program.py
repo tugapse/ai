@@ -47,7 +47,7 @@ class Program:
         self.model_params = ModelParams()
     
     def init_model_params(self):
-        self.model_params.num_ctx = BaseModel.CONTEXT_WINDOW_LARGE
+        self.model_params.num_ctx = BaseModel.CONTEXT_WINDOW_EXTRA_LARGE
         
 
     def init(self) -> None:

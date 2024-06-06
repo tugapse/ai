@@ -7,6 +7,8 @@ import argparse
 import os
 import sys
 
+from core.context_file import ContextFile
+from core.llms.base_llm import BaseModel
 import functions as func
 from config import ProgramConfig
 from core import ChatRoles, OllamaModel
@@ -141,7 +143,6 @@ class CliArgs:
         :param prog: The program object.
         :param args: The CLI arguments.
         """
-
         if args.file:
             files = args.file.split(",")
             for file in files:

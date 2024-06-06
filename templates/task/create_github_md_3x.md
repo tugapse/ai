@@ -1,6 +1,5 @@
 Given the provided code files, create comprehensive documentation in Markdown format to be used as a GitHub 'Readme.md'. 
 
-# create  documentation for the FIRST FILE, use the other as source material, if needed.
 ## show various examples on how to use via CLI, IF any CLI integration
 ## Repeat this steps three to five times in order to improve the final response to the task given. 
 

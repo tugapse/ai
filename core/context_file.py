@@ -1,3 +1,4 @@
+import json
 import logging
 from os.path import exists
 from pathlib import Path
@@ -22,5 +23,8 @@ class ContextFile:
             if self.throw_error_on_load: raise FileNotFoundError(self.filename)
             self.loaded = False
         else:
-            self.content = Path(self.filename).read_text()
+            self.content = Path(self.filename).resolve().read_text()
             self.loaded = True
+    
+    def toJSON(self):
+        return json.dumps({"filename":self.filename,"content":self.content},  sort_keys=True,  indent=4)

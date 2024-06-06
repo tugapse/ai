@@ -15,7 +15,7 @@ class ChatRoles:
 
     # Constants for user roles
     USER = "user"
-    ASSISTANCE = "assistance"
+    ASSISTANT = "assistant"
     SYSTEM = "system"
 
 
@@ -84,7 +84,7 @@ class Chat(Events):
         self.current_message = ""
         self.user_prompt = "  User:"
         self.assistant_prompt = "  Assistant:"
-        self.max_chat_log = 50  # Maximum size of the chat log
+        self.max_chat_log = 30  # Maximum size of the chat log
         self.cache_messages = True
         self.current_prompt = ""
         self._is_multiline_input = False
