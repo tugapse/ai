@@ -10,7 +10,7 @@ import sys
 from core.context_file import ContextFile
 from core.llms.base_llm import BaseModel
 import functions as func
-from config import ProgramConfig
+from config import ProgramConfig, ProgramSetting
 from core import ChatRoles, OllamaModel
 from color import Color
 from direct import ask
@@ -32,7 +32,7 @@ class CliArgs:
         self._is_print_chat(args)
         self._is_auto_task(args, parser=args_parser)
         # Check if the user wants to list all available models
-        self._is_list_models(args)
+        self._is_list_models(args, prog=prog)
         # Check if the user wants to load a single file
         self._has_image(prog, args)
         # Check if the user wants to load a single file
@@ -76,7 +76,7 @@ class CliArgs:
             AutomatedTask(parser).run_task(config_filename=args.auto_task)
             exit(0)
 
-    def _is_list_models(self, args):
+    def _is_list_models(self, args, prog):
         """
         Checks if the user wants to list all available models.
 
@@ -84,7 +84,10 @@ class CliArgs:
         """
 
         if args.list_models:
-            os.system("ollama list")
+            ProgramConfig.current.set(ProgramSetting.PRINT_LOG, False)
+            data = prog.llm.list()['models']
+            for model in data:
+                print(f"Model: {model['name']} - Qnt: {model['details']['quantization_level']} - Params: {model['details']['parameter_size']}  ")
             exit(0)
 
     def _has_output_files(self, prog, args):
