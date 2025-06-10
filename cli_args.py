@@ -38,13 +38,14 @@ class CliArgs:
         # Check if the user wants to load a folder with files
         self._has_folder(prog, args)
         # Check for output file option and set the corresponding flag in the program
-        self._has_output_files(prog, args)
+        self._has_output_files(prog, args) 
+        # Check for message option and add it to the chat's messages
+        self._has_message(prog, args)
         # Check if the user has provided a task file
         self._has_task_file(args)
         # Check if the user has provided a task
         self._has_task(prog, args)
-        # Check for message option and add it to the chat's messages
-        self._has_message(prog, args)
+
 
     def _is_print_chat(self, args):
         if args.print_chat:
@@ -176,8 +177,9 @@ class CliArgs:
 
         if args.task_file:
             task = func.read_file(args.task_file)
-            args.msg = task
-
+            prog.chat.messages.append(
+                OllamaModel.create_message(ChatRoles.USER,task)
+            )
     def _has_task(self, prog, args):
         """
         Checks if the user has provided a task.
@@ -197,7 +199,9 @@ class CliArgs:
                     args.task.replace(".md", "") + ".md",
                 )
             task = func.read_file(filename)
-            args.msg = task
+            prog.chat.messages.append(
+                OllamaModel.create_message(ChatRoles.USER,task)
+            )
 
     def _has_message(self, prog, args):
         """
@@ -208,18 +212,21 @@ class CliArgs:
         """
 
         if not sys.stdin.isatty():
-            args.msg = sys.stdin.read().strip()
-
-        if args.msg:
-
-            if prog.chat.images and len(prog.chat.images):
-                message = prog.llm.load_images(prog.chat.images)
-                prog.chat.messages.append(message)
-
             prog.chat.messages.append(
-                OllamaModel.create_message(ChatRoles.USER, args.msg)
+            OllamaModel.create_message(ChatRoles.USER, sys.stdin.read().strip())
             )
 
+        
+
+        if prog.chat.images and len(prog.chat.images):
+            message = prog.llm.load_images(prog.chat.images)
+            prog.chat.messages.append(message)
+
+        if args.msg:
+            prog.chat.messages.append(OllamaModel.create_message(ChatRoles.USER, args.msg))
+            prog.chat.messages.append(OllamaModel.create_message(ChatRoles.CONTROL, 'thinking'))
+            
+        if any(elm['role'] == ChatRoles.USER for elm in prog.chat.messages):
             ask(
                 prog.llm,
                 prog.chat.messages,

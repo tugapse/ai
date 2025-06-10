@@ -98,7 +98,6 @@ if __name__ == "__main__":
 
     except KeyboardInterrupt:
         # Handle Ctrl+C gracefully
-        func.out(Color.RED + "\nClosing Ai. Goodbye!" + Color.RESET)
         sys.exit(0) # Exit the program cleanly
 
     # except Exception as e:
