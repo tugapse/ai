@@ -52,12 +52,14 @@ class CliArgs:
         self._has_output_files(prog, args) 
         # Check for message option and add it to the chat's messages
         self._has_message(prog, args)
+        self._has_output_files(prog, args) 
+        # Check for message option and add it to the chat's messages
+        self._has_message(prog, args)
         # Check if the user has provided a task file
         self._has_task_file(args)
         # Check if the user has provided a task
         self._has_task(prog, args)
-        # Check for message option and add it to the chat's messages
-        self._has_message(prog, args)
+
 
     def _is_print_chat(self, args):
         if args.print_chat:
@@ -192,6 +194,9 @@ class CliArgs:
             prog.chat.messages.append(
                 OllamaModel.create_message(ChatRoles.USER,task)
             )
+            prog.chat.messages.append(
+                OllamaModel.create_message(ChatRoles.USER,task)
+            )
     def _has_task(self, prog, args):
         """
         Checks if the user has provided a task.
@@ -245,40 +250,9 @@ class CliArgs:
 
         if args.msg:
             prog.chat.messages.append(OllamaModel.create_message(ChatRoles.USER, args.msg))
-            
+            prog.chat.messages.append(OllamaModel.create_message(ChatRoles.CONTROL, 'thinking'))
             
         if any(elm['role'] == ChatRoles.USER for elm in prog.chat.messages):
-            ask(
-                prog.llm,
-                prog.chat.messages,
-                write_to_file=prog.write_to_file,
-                output_filename=prog.output_filename,
-            )
-            exit(0)
-
-            args.msg = task
-
-    def _has_message(self, prog, args):
-        """
-        Checks for message option and adds it to the chat's messages.
-
-        :param prog: The program object.
-        :param args: The CLI arguments.
-        """
-
-        if not sys.stdin.isatty():
-            args.msg = sys.stdin.read().strip()
-
-        if args.msg:
-
-            if prog.chat.images and len(prog.chat.images):
-                message = prog.llm.load_images(prog.chat.images)
-                prog.chat.messages.append(message)
-
-            prog.chat.messages.append(
-                OllamaModel.create_message(ChatRoles.USER, args.msg)
-            )
-
             ask(
                 prog.llm,
                 prog.chat.messages,

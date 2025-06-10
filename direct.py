@@ -5,7 +5,7 @@ import functions as func
 from core import OllamaModel, ChatRoles
 from extras.console import ConsoleTokenFormatter
 from core.llms.think_parser import ThinkingAnimationHandler
-from core.llms.thinking_log_manager import ThinkingLogManager # Import the log manager
+from core.llms.thinking_log_manager import ThinkingLogManager
 from color import Color
 
 
@@ -16,7 +16,7 @@ class OutputPrinter:
     """
     def __init__(self, print_mode: str = "token", tokens_per_print: int = 1):
         self.print_mode = print_mode
-        self.tokens_per_print = max(1, tokens_per_print) # Ensure tokens_per_print is at least 1
+        self.tokens_per_print = max(1, tokens_per_print)
 
         self.line_buffer = ""
         self.token_buffer = ""
@@ -63,9 +63,9 @@ def ask(
     input_message: Union[str, list[str]],
     write_to_file=False,
     output_filename=None,
-    thinking_mode: str = "spinner", # Parameter: 'dots', 'spinner', or 'progressbar'
-    print_mode: str = "line",  # Parameter: 'token', 'line', or 'every_x_tokens'
-    tokens_per_print: int = 5, # Parameter for 'every_x_tokens' mode
+    thinking_mode: str = "spinner",
+    print_mode: str = "line",
+    tokens_per_print: int = 5,
 ) -> None:
     """
     Asks the language model a question and streams its response.
@@ -77,7 +77,7 @@ def ask(
         input_message (Union[str, list[str]]): The user's input message.
                                                Can be a string or a list of message dictionaries.
         write_to_file (bool): If True, the LLM's output will be written to a file.
-        output_filename (str, optional): The name of the file to write output to.
+        output_filename (str, optional): The filename for output.
         thinking_mode (str): Specifies the visual style of the thinking indicator.
                              Valid options: 'dots', 'spinner', 'progressbar'.
         print_mode (str): Specifies how the LLM's output is printed.
@@ -91,22 +91,17 @@ def ask(
     first_token_time = None
     end_time = None
 
-    # Instantiate the ThinkingLogManager
-    # You can customize the log_file_name if needed, otherwise it uses the default.
-    thinking_log_manager = ThinkingLogManager(log_file_name=llm.model_name);
+    thinking_log_manager = ThinkingLogManager(log_file_name="llm_thinking.log")
 
-    # Instantiate the ThinkingAnimationHandler, passing the log manager
-    enable_thinking_display = True # As per your confirmation, enable thinking display.
+    enable_thinking_display = True
     thinking_handler = ThinkingAnimationHandler(
         enable_display=enable_thinking_display,
         mode=thinking_mode,
-        log_manager=thinking_log_manager # Pass the log manager instance
+        log_manager=thinking_log_manager
     )
 
-    # Instantiate the OutputPrinter
     output_printer = OutputPrinter(print_mode=print_mode, tokens_per_print=tokens_per_print)
 
-    # Prepare the message for the LLM based on its type.
     if isinstance(input_message, str):
         message = [OllamaModel.create_message(ChatRoles.USER, input_message)]
     elif isinstance(input_message, list):
@@ -128,39 +123,26 @@ def ask(
     }
 
     token_processor = ConsoleTokenFormatter()
-    # Stream the response token by token from the LLM.
     for raw_token_string in llm.chat(message, stream=True, options=llm_options):
         if first_token_time is None:
             first_token_time = time()
         
-        # 1. Process raw_token_string with ThinkingAnimationHandler
-        # This handles internal buffering, tag detection, updates thinking state,
-        # logs thinking content, and returns content that should be displayed (or empty if suppressed).
         is_thinking, content_after_thinking_handler = thinking_handler.process_token_and_thinking_state(raw_token_string)
 
-        # 2. If not currently thinking, process content with ConsoleTokenFormatter
-        # The ConsoleTokenFormatter applies any final formatting (like color codes).
-        # We only format content that is intended for display.
         formatted_token_for_display = ""
         if not is_thinking:
             formatted_token_for_display = token_processor.process_token(content_after_thinking_handler)
         
-        # 3. Pass the formatted content to the OutputPrinter
-        # This handles the 'token', 'line', or 'every_x_tokens' logic.
-        if not is_thinking and formatted_token_for_display.strip():
+        if not is_thinking and formatted_token_for_display:
             output_printer.process_and_print(formatted_token_for_display)
 
-        # Always write the raw original response string to the output file if enabled.
-        # This ensures the full LLM output, including raw tags, is logged to the file
-        # before they are removed for console display.
-        if write_to_file and output_filename:
-            func.write_to_file(output_filename, raw_token_string, func.FILE_MODE_APPEND)
+        if write_to_file and output_filename and formatted_token_for_display:
+            func.write_to_file(output_filename, formatted_token_for_display, func.FILE_MODE_APPEND)
 
-    # After the loop, flush any remaining content in the OutputPrinter's buffers.
     output_printer.flush_buffers()
 
     end_time = time()
-    func.out("\n") # Ensure final newline after all output
+    func.out("\n")
 
     func.log(
         f"{Color.RESET}First token :{Color.YELLOW} {func.format_execution_time(start_time, first_token_time)}"
