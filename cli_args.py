@@ -224,9 +224,10 @@ class CliArgs:
 
         if args.msg:
             prog.chat.messages.append(OllamaModel.create_message(ChatRoles.USER, args.msg))
-            prog.chat.messages.append(OllamaModel.create_message(ChatRoles.CONTROL, 'thinking'))
+            
             
         if any(elm['role'] == ChatRoles.USER for elm in prog.chat.messages):
+            prog.chat.messages.append(OllamaModel.create_message(ChatRoles.CONTROL, 'thinking'))
             ask(
                 prog.llm,
                 prog.chat.messages,

@@ -2,7 +2,6 @@ import functions as func
 from color import Color
 import re
 
-
 from .thinking_log_manager import ThinkingLogManager
 
 class ThinkingAnimationHandler:
@@ -28,7 +27,7 @@ class ThinkingAnimationHandler:
     PARTIAL_TAG_PATTERN = re.compile(r'<th(?:in(?:k>)?|/th(?:ink>)?|i|n|k|/i|/n|/k)?')
 
 
-    def __init__(self, enable_display: bool = True, mode: str = "dots", log_manager: ThinkingLogManager = None):
+    def __init__(self, enable_display: bool = True, mode: str = "dots", log_manager: ThinkingLogManager = None, header_tags=""):
         """
         Initializes the ThinkingAnimationHandler.
 
@@ -46,6 +45,7 @@ class ThinkingAnimationHandler:
         self._has_thinking_intro_printed = False
         self._current_thinking_count = 0
         self._token_accumulation_buffer = ""
+        self._header_tags = header_tags
 
 
     def process_token_and_thinking_state(self, raw_token_string: str) -> tuple[bool, str]:
@@ -75,9 +75,14 @@ class ThinkingAnimationHandler:
             self._token_accumulation_buffer = ""
             return self._is_thinking_active, display_content
 
+        # --- Priority 1: Handle END tag ---
         end_match = self.THINK_END_PATTERN.search(cleaned_buffer)
         if end_match:
             if self._is_thinking_active:
+                # Log the raw end tag content
+                if self._log_manager:
+                    self._log_manager.write_thinking_log(raw_token_string)
+
                 content_after_end_tag = cleaned_buffer[end_match.end():]
 
                 func.out("\r" + " " * self.MAX_THINKING_INDICATOR_LENGTH + "\r", end="", flush=True)
@@ -94,6 +99,7 @@ class ThinkingAnimationHandler:
                 self._token_accumulation_buffer = self.THINK_END_PATTERN.sub('', cleaned_buffer)
 
 
+        # --- Priority 2: Handle START tag ---
         start_match = self.THINK_START_PATTERN.search(self._token_accumulation_buffer)
         if start_match:
             if not self._is_thinking_active:
@@ -102,8 +108,8 @@ class ThinkingAnimationHandler:
                 self._is_thinking_active = True
                 self._current_thinking_count = 0
 
-                if self._log_manager and not self._has_thinking_intro_printed:
-                    self._log_manager.write_session_header()
+                # Removed: Log session header here (moved to direct.py)
+                # Removed: Log the raw start tag content here
 
                 if not self._has_thinking_intro_printed:
                     func.out(self.THINKING_PREFIX + "...", end="", flush=True)
@@ -116,8 +122,10 @@ class ThinkingAnimationHandler:
                 self._token_accumulation_buffer = self.THINK_START_PATTERN.sub('', self._token_accumulation_buffer)
 
 
+        # --- Priority 3: If currently thinking, and no (or handled) tags found in buffer ---
         if self._is_thinking_active:
             self._current_thinking_count += 1
+            # Log the raw token string if a log manager is provided and thinking is active
             if self._log_manager:
                 self._log_manager.write_thinking_log(raw_token_string)
 
@@ -137,6 +145,7 @@ class ThinkingAnimationHandler:
             return self._is_thinking_active, ""
 
 
+        # --- Priority 4: Not thinking, and no tags found in current buffer ---
         if not self.PARTIAL_TAG_PATTERN.search(cleaned_buffer):
             token_content_for_display = self._token_accumulation_buffer
             self._token_accumulation_buffer = ""

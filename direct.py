@@ -89,12 +89,16 @@ def ask(
     end_time = None
 
     thinking_log_manager = ThinkingLogManager(log_file_name="llm_thinking.log")
+    # Call write_session_header immediately after initializing the log manager
+    thinking_log_manager.write_session_header(tags=llm.model_name)
+
 
     enable_thinking_display = True
     thinking_handler = ThinkingAnimationHandler(
         enable_display=enable_thinking_display,
         mode=thinking_mode,
-        log_manager=thinking_log_manager
+        log_manager=thinking_log_manager,
+        header_tags=llm.model_name
     )
 
     output_printer = OutputPrinter(print_mode=print_mode, tokens_per_print=tokens_per_print)

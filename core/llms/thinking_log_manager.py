@@ -19,8 +19,8 @@ class ThinkingLogManager:
 
         Args:
             log_file_name (str): The name of the log file (e.g., "thinking_process.log").
-                                 It will be sanitized (spaces and colons replaced with '_',
-                                 ensures '.log' extension).
+                                 It will be sanitized (spaces and colons replaced with '_').
+                                 The '.log' extension is no longer enforced here.
             max_lock_wait_time (int): Maximum time (in seconds) to wait for a write lock.
             lock_poll_interval (float): How often (in seconds) to check for the lock's availability.
         """
@@ -28,9 +28,10 @@ class ThinkingLogManager:
         self.lock_poll_interval = lock_poll_interval
         self._lock_fd = None
 
+        # Sanitize the provided log_file_name: replace spaces and colons
         sanitized_file_name = log_file_name.replace(' ', '_').replace(':', '_')
-        if not sanitized_file_name.endswith('.log'):
-            sanitized_file_name += '.log'
+        # Removed: if not sanitized_file_name.endswith('.log'):
+        # Removed:     sanitized_file_name += '.log'
         
         self.log_file_name = sanitized_file_name
 
@@ -44,18 +45,6 @@ class ThinkingLogManager:
 
         self.log_file_path = os.path.join(self.log_dir, self.log_file_name)
         self.lock_file_path = f"{self.log_file_path}.lock"
-
-        try:
-            self._acquire_write_lock()
-            with open(self.log_file_path, 'a', encoding='utf-8') as f:
-                timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                f.write(f"--- Log Start: {self.log_file_name} - {timestamp} ---\n\n")
-        except TimeoutError as e:
-            print(f"Error initializing log file (header write): {e}")
-        except IOError as e:
-            print(f"IO Error initializing log file (header write) for {self.log_file_path}: {e}")
-        finally:
-            self._release_write_lock()
 
 
     def _acquire_write_lock(self):
@@ -109,7 +98,7 @@ class ThinkingLogManager:
         finally:
             self._release_write_lock()
 
-    def write_session_header(self):
+    def write_session_header(self, tags=""):
         """
         Writes a timestamped header to the log file. This is intended to be called
         once per session when thinking activity begins.
@@ -118,7 +107,7 @@ class ThinkingLogManager:
             self._acquire_write_lock()
             with open(self.log_file_path, 'a', encoding='utf-8') as f:
                 timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                f.write(f"\n--- Log Start: {self.log_file_name} - {timestamp} ---\n\n")
+                f.write(f"\n\nThinking Start  [{tags}]: {timestamp} \n")
         except TimeoutError as e:
             print(f"Error writing session header to {self.log_file_path}: {e}")
         except IOError as e:
