@@ -40,9 +40,9 @@ def ask(llm:OllamaModel, input_message:Union[str, list[str]],write_to_file=False
      # ensure to clean the file
     if write_to_file and output_filename: func.write_to_file(output_filename,"")
     llm_options = {
-            'num_ctx': 16384,
-            'temperature':0.0,
-            'seed':2048
+            'num_ctx': llm.CONTEXT_WINDOW_EXTRA_LARGE,
+            'temperature':0.5,
+            'seed':llm.CONTEXT_WINDOW_SMALL
     }
 
     token_processor = ConsoleTokenFormatter()

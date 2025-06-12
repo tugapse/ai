@@ -8,7 +8,7 @@ import os
 import sys
 
 import functions as func
-from config import ProgramConfig
+from config import ProgramConfig, ProgramSetting
 from core import ChatRoles, OllamaModel
 from color import Color
 from direct import ask
@@ -28,12 +28,10 @@ class CliArgs:
         :param args: The CLI arguments to be parsed.
         """
         self._is_print_chat(args)
-# check for automatic tasks
+        # check for automatic tasks
         self._is_auto_task(args, parser=args_parser)
         # Check if the user wants to list all available models
         self._is_list_models(args)
-        # Check if the user wants to load a single file
-        self._has_image(prog, args)
         # Check if the user wants to load a single file
         self._has_file(prog, args) 
         # Check if the user wants to load images
@@ -191,12 +189,12 @@ class CliArgs:
 
         if args.task:
             filename = os.path.join(
-                ProgramConfig.current.config["USER_PATHS"]["TASKS_TEMPLATES"],
+                ProgramConfig.current.config[ProgramSetting.USER_PATHS][ProgramSetting.TASKS_TEMPLATES],
                 args.task.replace(".md", "") + ".md",
             )
             if not os.path.exists(filename):
                 filename = os.path.join(
-                    ProgramConfig.current.config["PATHS"]["TASKS_TEMPLATES"],
+                    ProgramConfig.current.config[ProgramSetting.PATHS][ProgramSetting.TASKS_TEMPLATES],
                     args.task.replace(".md", "") + ".md",
                 )
             task = func.read_file(filename)

@@ -60,8 +60,9 @@ class Program:
         self.model_variant = spliced_model_name[1] if len(spliced_model_name) > 1 else None 
 
         self.system_prompt :str = None
-        with  open(ProgramConfig.current.get(ProgramSetting.SYSTEM_PROMPT_FILE,"config.json"), 'r') as file:
-            self.system_prompt = file.read()    
+
+        system_file = ProgramConfig.current.get(ProgramSetting.SYSTEM_PROMPT_FILE)
+        self.read_system_file(system_file)
         
         self.chat  = Chat()
         self.llm = OllamaModel( self.model_name, system_prompt=self.system_prompt , host=ProgramConfig.current.get(ProgramSetting.OLLAMA_HOST) )
@@ -166,3 +167,19 @@ class Program:
         """
         self.load_events()
         self.chat.loop()
+    
+    def read_system_file(self, system_file:str):
+        system_templates_dir = ProgramConfig.current.get(ProgramSetting.PATHS , {}).get(ProgramSetting.SYSTEM_TEMPLATES)
+        user_system_templates_dir = ProgramConfig.current.get(ProgramSetting.USER_PATHS , {}).get(ProgramSetting.SYSTEM_TEMPLATES)
+
+        system_filepath: str = os.path.join(  user_system_templates_dir, system_file.replace(".md","")+".md")  
+        user_filepath: str = os.path.join(  system_templates_dir, system_file.replace(".md","")+".md")            
+
+        if os.path.exists(system_file): 
+            return func.read_file(system_file) 
+        elif os.path.exists(user_filepath): 
+            return func.read_file(user_filepath)
+        elif os.path.exists(system_filepath): 
+            return func.read_file(system_filepath)
+        else :
+            return "" 
