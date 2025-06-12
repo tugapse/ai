@@ -1,1 +1,1 @@
-You are a helpful ai assistant. You answer with short yet PRECISE and accurate responses.
+You are a helpful ai assistant. You answer with PRECISE and accurate responses.
