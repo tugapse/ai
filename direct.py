@@ -67,6 +67,15 @@ def ask(
     print_mode: str = "every_x_tokens",
     tokens_per_print: int = 5,
 ) -> None:
+from typing import Union
+import functions as func
+from core import OllamaModel,ChatRoles
+from extras.console import ConsoleTokenFormatter
+from color import Color
+
+
+
+def ask(llm:OllamaModel, input_message:Union[str, list[str]],write_to_file=False,output_filename=None) -> None:
     """
     Asks the language model a question and streams its response.
 
@@ -108,22 +117,33 @@ def ask(
 
     if isinstance(input_message, str):
         message = [OllamaModel.create_message(ChatRoles.USER, input_message)]
+        message = [OllamaModel.create_message(ChatRoles.USER,input_message)]
+        # func.out("Prompt has " + str(len(input_message)/4) + " tokens in a " + str(len(input_message)) + " chars string")
     elif isinstance(input_message, list):
         message = input_message
         sum(len(line.get("content", "") or "") for line in input_message)
+        txt_len = 0
+        for line in input_message:
+            txt_len = txt_len + len(line['content'] or "")
+        # func.out("Prompt has " + str(txt_len / 4) + " tokens in a " +str(txt_len) + " chars string")
     else:
         func.log("Unsupported input message type for LLM. Expected str or list[dict].")
         return
 
     func.log("Loading ֍ ֍ ֍", end=Color.RESET + "\n")
+        func.log("Unsupported text type")
 
     if write_to_file and output_filename:
         func.write_to_file(output_filename, "")
+    func.log("Loading ֍ ֍ ֍" , end=Color.RESET+"\n")
 
     llm_options = {
         "num_ctx": llm.CONTEXT_WINDOW_EXTRA_LARGE,
         "temperature": 0.5,
         "seed": llm.CONTEXT_WINDOW_SMALL,
+            'num_ctx': llm.CONTEXT_WINDOW_EXTRA_LARGE,
+            'temperature':0.5,
+            'seed':llm.CONTEXT_WINDOW_SMALL
     }
 
     token_processor = ConsoleTokenFormatter()
@@ -145,6 +165,12 @@ def ask(
 
     output_printer.flush_buffers()
 
+    for response in llm.chat(message, stream=True, options=llm_options):
+        if first_token_time is None: first_token_time = time()
+        new_token = token_processor.process_token(response)
+        func.out(new_token, end="",flush=True)
+        if write_to_file and output_filename:
+            func.write_to_file(output_filename,response,func.FILE_MODE_APPEND)           
     end_time = time()
     func.out("\n")
 
@@ -154,3 +180,7 @@ def ask(
     func.log(
         f"{Color.RESET}Time taken  :{Color.YELLOW} {func.format_execution_time(start_time, end_time)}"
     )
+
+    func.out("\n")
+    func.log(f"{Color.RESET}First token :{Color.YELLOW} {func.format_execution_time(start_time,first_token_time)}")
+    func.log(f"{Color.RESET}Time taken  :{Color.YELLOW} {func.format_execution_time(start_time,end_time)}")

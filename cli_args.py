@@ -13,6 +13,14 @@ from core import ChatRoles, OllamaModel
 from color import Color
 from direct import ask
 
+import sys
+
+import functions as func
+from config import ProgramConfig, ProgramSetting
+from core import ChatRoles, OllamaModel
+from color import Color
+from direct import ask
+
 
 class CliArgs:
     """
@@ -28,13 +36,16 @@ class CliArgs:
         :param args: The CLI arguments to be parsed.
         """
         self._is_print_chat(args)
+        # check for automatic tasks
         self._is_auto_task(args, parser=args_parser)
         # Check if the user wants to list all available models
         self._is_list_models(args)
         # Check if the user wants to load a single file
         self._has_image(prog, args)
         # Check if the user wants to load a single file
-        self._has_file(prog, args)
+        self._has_file(prog, args) 
+        # Check if the user wants to load images
+        self._has_image(prog, args)
         # Check if the user wants to load a folder with files
         self._has_folder(prog, args)
         # Check for output file option and set the corresponding flag in the program
@@ -45,7 +56,8 @@ class CliArgs:
         self._has_task_file(args)
         # Check if the user has provided a task
         self._has_task(prog, args)
-
+        # Check for message option and add it to the chat's messages
+        self._has_message(prog, args)
 
     def _is_print_chat(self, args):
         if args.print_chat:
@@ -198,6 +210,15 @@ class CliArgs:
                     ProgramConfig.current.config["PATHS"]["TASKS_TEMPLATES"],
                     args.task.replace(".md", "") + ".md",
                 )
+            filename = os.path.join(
+                ProgramConfig.current.config[ProgramSetting.USER_PATHS][ProgramSetting.TASKS_TEMPLATES],
+                args.task.replace(".md", "") + ".md",
+            )
+            if not os.path.exists(filename):
+                filename = os.path.join(
+                    ProgramConfig.current.config[ProgramSetting.PATHS][ProgramSetting.TASKS_TEMPLATES],
+                    args.task.replace(".md", "") + ".md",
+                )
             task = func.read_file(filename)
             prog.chat.messages.append(
                 OllamaModel.create_message(ChatRoles.USER,task)
@@ -227,6 +248,37 @@ class CliArgs:
             
             
         if any(elm['role'] == ChatRoles.USER for elm in prog.chat.messages):
+            ask(
+                prog.llm,
+                prog.chat.messages,
+                write_to_file=prog.write_to_file,
+                output_filename=prog.output_filename,
+            )
+            exit(0)
+
+            args.msg = task
+
+    def _has_message(self, prog, args):
+        """
+        Checks for message option and adds it to the chat's messages.
+
+        :param prog: The program object.
+        :param args: The CLI arguments.
+        """
+
+        if not sys.stdin.isatty():
+            args.msg = sys.stdin.read().strip()
+
+        if args.msg:
+
+            if prog.chat.images and len(prog.chat.images):
+                message = prog.llm.load_images(prog.chat.images)
+                prog.chat.messages.append(message)
+
+            prog.chat.messages.append(
+                OllamaModel.create_message(ChatRoles.USER, args.msg)
+            )
+
             ask(
                 prog.llm,
                 prog.chat.messages,
