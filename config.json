@@ -7,13 +7,27 @@
         "TASKS_TEMPLATES": "{root_dir}/templates/task/",
         "SYSTEM_TEMPLATES": "{root_dir}/templates/system/",
         "INJECT_TEMPLATES": "{root_dir}/templates/inject/"
+    "MODEL_NAME": "llama3",
+    "SYSTEM_PROMPT_FILE": "{root_dir}/templates/system/ai_assistant.md",
+    "OLLAMA_HOST": "127.0.0.1",
+    "PATHS": {
+        "CHAT_LOG": "{root_dir}/logs/chat/",
+        "TASKS_TEMPLATES": "{root_dir}/templates/task/",
+        "SYSTEM_TEMPLATES": "{root_dir}/templates/system/",
+        "INJECT_TEMPLATES": "{root_dir}/templates/inject/"
     },
-
-    "USER_PATHS":{
-        "CHAT_LOG":"{root_dir}/logs/chat/",
-        "TASKS_TEMPLATES":"",
-        "SYSTEM_TEMPLATES":""
+    "USER_PATHS": {
+        "CHAT_LOG": "{root_dir}/logs/chat/",
+        "TASKS_TEMPLATES": "",
+        "SYSTEM_TEMPLATES": "",
+        "INJECT_TEMPLATES": ""
     },
-    "PRINT_LOG":true,
-    "PRINT_OUTPUT":true
+    "INJECT_TEMPLATES": [
+        {
+            "key": "{{THINKING}}",
+            "value": "thinking.md"
+        }
+    ],
+    "PRINT_LOG": true,
+    "PRINT_OUTPUT": true
 }

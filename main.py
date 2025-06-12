@@ -43,23 +43,6 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
 
     parser.add_argument('--no-log', help='Set this flag to NOT print "log" messages', action="store_false")
     parser.add_argument('--no-out', help='Set this flag to NOT print "output" messages', action="store_false")
-    parser.add_argument('--msg','-m', type=str, help='Direct question')
-    parser.add_argument('--model','-md', type=str, help='Model to use')
-    parser.add_argument('--system','-s', type=str, help='pass a prompt name ')
-    parser.add_argument('--system-file','-sf', type=str, help='pass a prompt filename')
-    parser.add_argument('--list-models','-l', action="store_true", help='See a list of models available')
-    parser.add_argument('--file' , '-f', type=str, help='Load a file and pass it as a message')
-    parser.add_argument('--image' , '-i', type=str, help='Load a image file and pass it as a message')
-    parser.add_argument('--load-folder' , '-D', type=str, help='Load multiple files from folder and pass them as a message with file location and file content')
-    parser.add_argument('--ext','-e', type=str, help='Provides File extension for folder files search')
-    parser.add_argument('--task','-t', type=str, help='name of the template inside prompt_templates')
-    parser.add_argument('--task-file','-tf', type=str, help='name of the template inside prompt_templates')
-    parser.add_argument('--output-file','-o', type=str, help='filename where the output of automatic actions will be saved')
-    parser.add_argument('--auto-task','-at', type=str, help='filename to a json with auto task configuration')
-    parser.add_argument('--print-chat','-p', type=str, help='filename to a json with with chat log, this can be from ai chats directory or a filename')
-
-    parser.add_argument('--no-log', help='Set this flag to NOT print "log" messages', action="store_false")
-    parser.add_argument('--no-out', help='Set this flag to NOT print "output" messages', action="store_false")
 
     return parser, parser.parse_args()
 

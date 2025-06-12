@@ -6,6 +6,7 @@ from core import OllamaModel, ChatRoles
 from extras.console import ConsoleTokenFormatter
 from core.llms.think_parser import ThinkingAnimationHandler
 from core.llms.thinking_log_manager import ThinkingLogManager
+from core.template_injection import TemplateInjection
 from color import Color
 
 
@@ -64,7 +65,7 @@ def ask(
     write_to_file=False,
     output_filename=None,
     thinking_mode: str = "spinner",
-    print_mode: str = "line",
+    print_mode: str = "every_x_tokens",
     tokens_per_print: int = 5,
 ) -> None:
     """
@@ -92,6 +93,11 @@ def ask(
     end_time = None
 
     thinking_log_manager = ThinkingLogManager(log_file_name="llm_thinking.log")
+    # Call write_session_header immediately after initializing the log manager
+    thinking_log_manager.write_session_header(tags=llm.model_name)
+    injection_template = TemplateInjection(llm.system_prompt)
+    llm.system_prompt = injection_template.replace_system_template()
+
 
     enable_thinking_display = True
     thinking_handler = ThinkingAnimationHandler(
