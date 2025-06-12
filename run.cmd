@@ -1,6 +1,6 @@
 @ECHO OFF
 
-SET folder=%~dp0..\%
+SET folder=%~dp0%
 
 setlocal
 set PYTHONPATH=%folder%
