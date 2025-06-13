@@ -38,11 +38,16 @@ class Program:
         self.llm = None
         self.active_executor: CommandExecutor = None
         self.token_processor = ConsoleTokenFormatter()
-        self.clear_on_init = True
+        self.clear_on_init = False
         self.write_to_file = False
         self.output_filename = None
         self._logger = logging.Logger(name=__file__)
         self.model_params = ModelParams()
+    
+    def init_program(self, args=None) -> None:
+        self.load_config(args=args)
+        self.clear_on_init: bool = args.msg is not None or args.debug
+        self.init()
 
     def init_model_params(self):
         self.model_params.num_ctx = BaseModel.CONTEXT_WINDOW_LARGE
@@ -72,11 +77,6 @@ class Program:
         self.command_interceptor = ChatCommandInterceptor(self.chat, paths["CHAT_LOG"])
         self.active_executor: CommandExecutor = None
 
-    def init_program(self, args=None) -> None:
-        self.load_config(args=args)
-
-        self.clear_on_init: bool = args.msg is not None
-        self.init()
 
     def process_token(self, token):
         return self.token_processor.process_token(token)

@@ -9,18 +9,10 @@ import sys
 
 import functions as func
 from config import ProgramConfig
-from core import ChatRoles, OllamaModel
+from core import ChatRoles
+from core.llms.base_llm import BaseModel
 from color import Color
 from direct import ask
-
-import sys
-
-import functions as func
-from config import ProgramConfig, ProgramSetting
-from core import ChatRoles, OllamaModel
-from color import Color
-from direct import ask
-
 
 class CliArgs:
     """
@@ -43,16 +35,16 @@ class CliArgs:
         # Check if the user wants to load a single file
         self._has_image(prog, args)
         # Check if the user wants to load a single file
-        self._has_file(prog, args) 
+        self._has_file(prog, args)
         # Check if the user wants to load images
         self._has_image(prog, args)
         # Check if the user wants to load a folder with files
         self._has_folder(prog, args)
         # Check for output file option and set the corresponding flag in the program
-        self._has_output_files(prog, args) 
+        self._has_output_files(prog, args)
         # Check for message option and add it to the chat's messages
         self._has_message(prog, args)
-        self._has_output_files(prog, args) 
+        self._has_output_files(prog, args)
         # Check for message option and add it to the chat's messages
         self._has_message(prog, args)
         # Check if the user has provided a task file
@@ -60,12 +52,13 @@ class CliArgs:
         # Check if the user has provided a task
         self._has_task(prog, args)
 
-
     def _is_print_chat(self, args):
         if args.print_chat:
             from pathlib import Path
-            from_logs_file = ((Path(__file__).parent) /
-                              'logs' / 'chat').joinpath(args.print_chat)
+
+            from_logs_file = ((Path(__file__).parent) / "logs" / "chat").joinpath(
+                args.print_chat
+            )
             from_file = Path(args.print_chat)
             json_filename: str = None
 
@@ -121,33 +114,23 @@ class CliArgs:
         """
 
         if directory := args.load_folder:
-            files = func.get_files(directory, args.extension)
+            files = func.get_files(directory, args.ext)
             messages = list()
             for file in files:
                 file.load()
                 messages.append(
-                    OllamaModel.create_message(
+                    BaseModel.create_message(
                         ChatRoles.USER,
                         f"Filename: {file.filename} \n File Content:\n```{file.content}\n",
                     )
                 )
+                messages.append(
+                    BaseModel.create_message(
+                       ChatRoles.ASSISTANT,
+                    f"{args.file} loaded!",
+                    )
+                )
                 prog.chat.messages = messages
-
-    def _has_image(self, prog, args):
-        """
-        Checks if the user wants to load image or images.
-
-        :param prog: The program object.
-        :param args: The CLI arguments.
-        """
-
-        if args.image:
-            files = args.image.split(",")
-            for file in files:
-                if os.path.exists(file):
-                    prog.chat.images.append(file)
-                else:
-                    raise FileNotFoundError(file)
 
     def _has_file(self, prog, args):
         """
@@ -164,6 +147,10 @@ class CliArgs:
                 prog.chat._add_message(
                     ChatRoles.USER,
                     f"Filename: {args.file} \n  File Content:\n```{text_file}```",
+                )
+                prog.chat._add_message(
+                    ChatRoles.ASSISTANT,
+                    f"{args.file} loaded!",
                 )
 
     def _has_image(self, prog, args):
@@ -191,12 +178,8 @@ class CliArgs:
 
         if args.task_file:
             task = func.read_file(args.task_file)
-            prog.chat.messages.append(
-                OllamaModel.create_message(ChatRoles.USER,task)
-            )
-            prog.chat.messages.append(
-                OllamaModel.create_message(ChatRoles.USER,task)
-            )
+            prog.chat.messages.append(BaseModel.create_message(ChatRoles.USER, task))
+
     def _has_task(self, prog, args):
         """
         Checks if the user has provided a task.
@@ -216,18 +199,20 @@ class CliArgs:
                     args.task.replace(".md", "") + ".md",
                 )
             filename = os.path.join(
-                ProgramConfig.current.config[ProgramSetting.USER_PATHS][ProgramSetting.TASKS_TEMPLATES],
+                ProgramConfig.current.config[ProgramSetting.USER_PATHS][
+                    ProgramSetting.TASKS_TEMPLATES
+                ],
                 args.task.replace(".md", "") + ".md",
             )
             if not os.path.exists(filename):
                 filename = os.path.join(
-                    ProgramConfig.current.config[ProgramSetting.PATHS][ProgramSetting.TASKS_TEMPLATES],
+                    ProgramConfig.current.config[ProgramSetting.PATHS][
+                        ProgramSetting.TASKS_TEMPLATES
+                    ],
                     args.task.replace(".md", "") + ".md",
                 )
             task = func.read_file(filename)
-            prog.chat.messages.append(
-                OllamaModel.create_message(ChatRoles.USER,task)
-            )
+            prog.chat.messages.append(BaseModel.create_message(ChatRoles.USER, task))
 
     def _has_message(self, prog, args):
         """
@@ -236,23 +221,29 @@ class CliArgs:
         :param prog: The program object.
         :param args: The CLI arguments.
         """
-
+        piped = False
         if not sys.stdin.isatty():
+            piped = True
             prog.chat.messages.append(
-            OllamaModel.create_message(ChatRoles.USER, sys.stdin.read().strip())
+                BaseModel.create_message(ChatRoles.USER, sys.stdin.read().strip())
             )
-
-        
+            prog.chat.messages.append(
+                BaseModel.create_message(ChatRoles.ASSISTANT, "content recieved from pipe!")
+            )
 
         if prog.chat.images and len(prog.chat.images):
             message = prog.llm.load_images(prog.chat.images)
             prog.chat.messages.append(message)
 
         if args.msg:
-            prog.chat.messages.append(OllamaModel.create_message(ChatRoles.USER, args.msg))
-            prog.chat.messages.append(OllamaModel.create_message(ChatRoles.CONTROL, 'thinking'))
-            
-        if any(elm['role'] == ChatRoles.USER for elm in prog.chat.messages):
+            prog.chat.messages.append(
+                BaseModel.create_message(ChatRoles.USER, args.msg)
+            )
+            # prog.chat.messages.append(
+            #     BaseModel.create_message(ChatRoles.CONTROL, "thinking")
+            # )
+
+        if piped or args.msg or args.task:
             ask(
                 prog.llm,
                 prog.chat.messages,

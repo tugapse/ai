@@ -13,7 +13,6 @@ import sys  # Import sys for exiting gracefully
 
 from program import Program
 from cli_args import CliArgs
-from setup import Setup
 from color import Color
 import functions as func
 
@@ -103,15 +102,19 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
         help='Set this flag to NOT print "output" messages',
         action="store_false",
     )
+    parser.add_argument(
+        "--debug",
+        help='Set this flag to NOT clear console',
+        action="store_true",
+    )
+
 
     return parser, parser.parse_args()
 
 
-def print_initial_info(prog: Program) -> None:
+def print_chat_header(prog: Program) -> None:
     """
     Prints initial information about the program.
-
-
     Args:
         prog (Program): The program object.
         args (argparse.Namespace): The command-line arguments.
@@ -156,30 +159,26 @@ def init_program() -> tuple[Program, argparse.Namespace, argparse.ArgumentParser
     """
     prog = Program()
     parser, args = load_args()
-    
     prog.init_program(args)
     return prog, args, parser
 
 
 if __name__ == "__main__":
     try:
-
-        
         prog, args, parser = init_program()
-        Setup().perform_check()
         func.log(f"{Color.GREEN} OK", start_line="")
-
         cli_args_processor = CliArgs()
         cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
-        func.clear_console()
-        print_initial_info(prog=prog)
+        if not args.debug: func.clear_console() 
+        print_chat_header(prog=prog)
         prog.start_chat_loop()
 
     except KeyboardInterrupt:
         # Handle Ctrl+C gracefully
         sys.exit(0)  # Exit the program cleanly
 
-    # except Exception as e:
-    #     # Catch any other unexpected errors
-    #     func.out(Color.RED + f"\nAn unexpected error occurred: {e}" + Color.RESET)
-    #     sys.exit(1) # Exit with an error code
+    except Exception as e:
+        if args.debug: raise e
+        # Catch any other unexpected errors
+        func.out(Color.RED + f"\nAn unexpected error occurred: {e}" + Color.RESET)
+        sys.exit(1) # Exit with an error code

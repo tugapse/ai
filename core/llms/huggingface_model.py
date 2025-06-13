@@ -4,6 +4,7 @@ import sys
 from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
 from huggingface_hub.errors import RepositoryNotFoundError, GatedRepoError
 import requests.exceptions 
+import gc # Import garbage collector
 
 # Assuming BaseModel and ModelParams are correctly defined in core.llms.base_llm
 from core.llms.base_llm import BaseModel, ModelParams
@@ -203,12 +204,25 @@ class HuggingFaceModel(BaseModel):
             yield "Model loading failed during initialization. Check logs for details."
             return
 
-        # --- NEW: Ensure chat history has alternating roles before processing ---
+        # --- Ensure chat history has alternating roles before processing ---
         processed_messages = self._ensure_alternating_roles(messages)
         # ---------------------------------------------------------------------
 
-        # Prepare input messages into tokenized format suitable for the model.
-        # Use the processed_messages list
+        # Debug print to see the processed messages
+        print(f"DEBUG (HuggingFaceModel.chat): Processed messages for chat template: {processed_messages}")
+
+        # --- Memory Clearing for GPU ---
+        # This will clear PyTorch's cache and run garbage collection before each generation.
+        if torch.cuda.is_available():
+            print("INFO: Clearing CUDA cache before generation...")
+            torch.cuda.empty_cache() # Clear PyTorch's internal cache
+            gc.collect() # Run Python's garbage collector
+            # Optionally print VRAM usage for debugging
+            # print(f"DEBUG: VRAM allocated after clearing cache: {torch.cuda.memory_allocated() / (1024**3):.2f} GB")
+            # print(f"DEBUG: VRAM reserved after clearing cache: {torch.cuda.memory_reserved() / (1024**3):.2f} GB")
+        # -------------------------------
+        
+        # Use the processed (alternating roles ensured) messages for input preparation
         input_data = self._prepare_input(processed_messages) 
         
         # Move input tensors to GPU if available.
@@ -222,7 +236,7 @@ class HuggingFaceModel(BaseModel):
         gen_options.update(options)
 
         # Extract common generation parameters.
-        max_new_tokens = gen_options.get('max_new_tokens', 200)
+        max_new_tokens = gen_options.get('max_new_tokens', 1024) # Default to 1024 for longer responses
         do_sample = gen_options.get('do_sample', True) 
         top_k = gen_options.get('top_k', 50)
         top_p = gen_options.get('top_p', 0.95)
@@ -236,14 +250,14 @@ class HuggingFaceModel(BaseModel):
             
             # Define keyword arguments for the model's generate method.
             generation_kwargs = dict(
-                inputs_on_device, 
+                inputs_on_device, # Input IDs and attention mask for generation
                 max_new_tokens=max_new_tokens,
                 do_sample=do_sample,
                 top_k=top_k,
                 top_p=top_p,
                 temperature=temperature,
                 pad_token_id=pad_token_id,
-                streamer=streamer, 
+                streamer=streamer, # Pass the streamer to enable token-by-token generation
             )
             
             # Run model generation in a separate thread to avoid blocking the main thread,
@@ -295,7 +309,7 @@ class HuggingFaceModel(BaseModel):
             
             # Format each message by role and content.
             for msg in messages:
-                role = msg.get('role', 'user').capitalize() 
+                role = msg.get('role', 'user').capitalize() # Capitalize role for basic readability
                 content = msg.get('content', '')
                 prepared_messages.append(f"{role}: {content}")
             
@@ -318,8 +332,8 @@ class HuggingFaceModel(BaseModel):
         inputs = input_data 
 
         # Retrieve generation parameters from options, with sensible defaults.
-        max_new_tokens = options.get('max_new_tokens', 200)
-        do_sample = options.get('do_sample', True)
+        max_new_tokens = options.get('max_new_tokens', 1024) 
+        do_sample = options.get('do_sample', True) 
         top_k = options.get('top_k', 50)
         top_p = options.get('top_p', 0.95)
         temperature = options.get('temperature', 0.7)

@@ -15,7 +15,7 @@ class ChatRoles:
 
     # Constants for user roles
     USER = "user"
-    ASSISTANCE = "assistance"
+    ASSISTANT = "assistant"
     SYSTEM = "system"
     CONTROL = "control"
 
