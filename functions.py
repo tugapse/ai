@@ -4,21 +4,12 @@ from pathlib import Path
 import sys
 
 from core.context_file import ContextFile
-<<<<<<< HEAD
-from config import ProgramConfig, ProgramSetting
-from colorama import Fore, Style
-=======
 from colorama import Fore, Style                                                             
->>>>>>> 38af75c (temp commit)
-
+from config import ProgramConfig, ProgramSetting
 
 FILE_MODE_APPEND = "a"
 FILE_MODE_CREATE = "w"
 
-<<<<<<< HEAD
-=======
-from color import Color, pformat_text
->>>>>>> 38af75c (temp commit)
 
 def set_console_title(title):
     """

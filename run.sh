@@ -1,3 +1,5 @@
 #!/bin/bash
 FOLDER=$(dirname -- $(realpath -- "$0"))
-python3 "$FOLDER/init.py" "$@"
+source "$FOLDER/.venv/bin/activate"
+python3 "$FOLDER/main.py" "$@"
+deactivate 

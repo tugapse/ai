@@ -109,7 +109,7 @@ class ThinkingLogManager:
         finally:
             self._release_write_lock()
 
-    def write_session_header(self):
+    def write_session_header(self, tags):
         """
         Writes a timestamped header to the log file. This is intended to be called
         once per session when thinking activity begins.

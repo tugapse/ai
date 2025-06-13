@@ -1,5 +1,4 @@
 from time import time
-<<<<<<< HEAD
 from typing import Union
 import functions as func
 from core import OllamaModel, ChatRoles
@@ -8,55 +7,9 @@ from core.llms.think_parser import ThinkingAnimationHandler
 from core.llms.thinking_log_manager import ThinkingLogManager
 from core.template_injection import TemplateInjection
 from color import Color
+from core.llms.output_printer import OutputPrinter
 
 
-class OutputPrinter:
-    """
-    Manages how LLM output tokens are printed to the console based on the print mode.
-    Handles buffering for 'line' and 'every_x_tokens' modes.
-    """
-    def __init__(self, print_mode: str = "token", tokens_per_print: int = 1):
-        self.print_mode = print_mode
-        self.tokens_per_print = max(1, tokens_per_print)
-
-        self.line_buffer = ""
-        self.token_buffer = ""
-        self.buffered_token_count = 0
-
-    def process_and_print(self, token_to_display: str) -> None:
-        """
-        Processes a single formatted token and prints it based on the configured mode.
-        """
-        if self.print_mode == "token":
-            func.out(token_to_display, end="", flush=True)
-        elif self.print_mode == "line":
-            self.line_buffer += token_to_display
-            if "\n" in self.line_buffer:
-                parts = self.line_buffer.split("\n")
-                for i in range(len(parts) - 1):
-                    func.out(parts[i] + "\n", end="", flush=True)
-                self.line_buffer = parts[-1]
-        elif self.print_mode == "every_x_tokens":
-            self.token_buffer += token_to_display
-            self.buffered_token_count += 1
-            if self.buffered_token_count >= self.tokens_per_print:
-                func.out(self.token_buffer, end="", flush=True)
-                self.token_buffer = ""
-                self.buffered_token_count = 0
-        else:
-            func.log(f"Warning: Unknown print_mode '{self.print_mode}'. Defaulting to 'token'.")
-            func.out(token_to_display, end="", flush=True)
-
-    def flush_buffers(self) -> None:
-        """
-        Prints any remaining content in buffers at the end of the stream.
-        """
-        if self.print_mode == "line" and self.line_buffer:
-            func.out(self.line_buffer, end="", flush=True)
-            self.line_buffer = ""
-        elif self.print_mode == "every_x_tokens" and self.token_buffer:
-            func.out(self.token_buffer, end="", flush=True)
-            self.token_buffer = ""
 
 
 def ask(
@@ -94,7 +47,7 @@ def ask(
 
     thinking_log_manager = ThinkingLogManager(log_file_name="llm_thinking.log")
     # Call write_session_header immediately after initializing the log manager
-    thinking_log_manager.write_session_header(tags=llm.model_name)
+    thinking_log_manager.write_session_header(llm.model_name)
     injection_template = TemplateInjection(llm.system_prompt)
     llm.system_prompt = injection_template.replace_system_template()
 
@@ -117,7 +70,7 @@ def ask(
         func.log("Unsupported input message type for LLM. Expected str or list[dict].")
         return
 
-    func.log("Loading ֍ ֍ ֍", end=Color.RESET + "\n")
+    func.log("Loading " + llm.model_name, end=Color.RESET + "\n")
 
     if write_to_file and output_filename:
         func.write_to_file(output_filename, "")

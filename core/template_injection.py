@@ -5,7 +5,7 @@ import os
 class TemplateInjection():
     
     def __init__(self, system_template, task_template=None, program=None):
-        self.system_template = system_template
+        self.system_template = system_template or ""
         self.task_template = task_template
     
     def replace_system_template(self):

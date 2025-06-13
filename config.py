@@ -31,9 +31,7 @@ class ProgramSetting:
 
 
 class ProgramConfig(Generic[T]):
-class ProgramConfig(Generic[T]):
 
-    def __init__(self,config:dict=None) -> None:
     def __init__(self,config:dict=None) -> None:
         self.config=config
         self.logger = logging.Logger(name=__file__)
@@ -99,11 +97,6 @@ class ProgramConfig(Generic[T]):
 
  
     @classmethod
-    def load(self):
-        program_config = ProgramConfig()
-        program_config.load_predefined_config()
-        ProgramConfig.current = program_config
-        return program_config
     def load(self):
         program_config = ProgramConfig()
         program_config.load_predefined_config()
