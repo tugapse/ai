@@ -15,22 +15,24 @@ from program import Program
 from cli_args import CliArgs
 from color import Color
 import functions as func
-
+from core.llms.model_enums import ModelType # <-- Added this import
 
 def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     """
     Loads command-line arguments for the program.
 
-
     Returns:
-        argparse.Namespace: The parsed command-line arguments.
+        tuple[argparse.ArgumentParser, argparse.Namespace]: The parser and the parsed command-line arguments.
     """
     parser = argparse.ArgumentParser(description="AI Assistant")
+
+    # --- Existing arguments for program operation ---
     parser.add_argument(
         "--msg",
         "-m",
         type=str,
         help="Direct question",
+        default="hello"
     )
     parser.add_argument(
         "--model", "-md", type=str, help="Model to use"
@@ -107,7 +109,30 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
         help='Set this flag to NOT clear console',
         action="store_true",
     )
-
+    
+    # --- New argument group for config generation ---
+    config_group = parser.add_argument_group(
+        'Model Config Generation',
+        'Use these arguments to generate a new model JSON config file.'
+    )
+    config_group.add_argument(
+        '--generate-config',
+        metavar='FILEPATH',
+        type=str,
+        help='Generate a model config and save it to the specified path, then exit.'
+    )
+    config_group.add_argument(
+        '--model-name',
+        type=str,
+        help="The name of the model to include in the config (e.g., 'meta-llama/Llama-2-7b-chat-hf'). Required by --generate-config."
+    )
+    config_group.add_argument(
+        '--model-type',
+        type=str,
+        choices=[t.value for t in ModelType],
+        help='The architectural type of the model. Required by --generate-config.'
+    )
+    # ------------------------------------------------
 
     return parser, parser.parse_args()
 
@@ -168,6 +193,7 @@ if __name__ == "__main__":
         prog, args, parser = init_program()
         func.log(f"{Color.GREEN} OK", start_line="")
         cli_args_processor = CliArgs()
+        # This call now correctly passes the parser to the processor
         cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
         if not args.debug: func.clear_console() 
         print_chat_header(prog=prog)
@@ -178,7 +204,9 @@ if __name__ == "__main__":
         sys.exit(0)  # Exit the program cleanly
 
     except Exception as e:
-        if args.debug: raise e
+        # It's helpful to check if 'args' exists before trying to access it in an error handler
+        debug_mode =  True
+        if debug_mode: raise e
         # Catch any other unexpected errors
         func.out(Color.RED + f"\nAn unexpected error occurred: {e}" + Color.RESET)
         sys.exit(1) # Exit with an error code

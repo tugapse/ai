@@ -2,6 +2,7 @@ import os
 import time
 import errno
 import datetime
+from program import ProgramConfig, ProgramSetting
 
 class ThinkingLogManager:
     """
@@ -34,7 +35,7 @@ class ThinkingLogManager:
         
         self.log_file_name = sanitized_file_name
 
-        base_log_dir = os.environ.get(self.ENV_VAR_LOG_DIR)
+        base_log_dir = ProgramConfig.current.get(ProgramSetting.PATHS_LOGS)
         if base_log_dir:
             self.log_dir = base_log_dir
         else:

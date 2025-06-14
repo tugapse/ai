@@ -7,12 +7,16 @@ import argparse
 import os
 import sys
 
-import functions as func
+
+from model_config_manager import ModelConfigManager
 from config import ProgramConfig
-from core import ChatRoles
+from core.chat import ChatRoles
 from core.llms.base_llm import BaseModel
-from color import Color
+from core.llms.model_enums import ModelType
+from color import Color, format_text
 from direct import ask
+import functions as func
+
 
 class CliArgs:
     """
@@ -20,13 +24,18 @@ class CliArgs:
     It takes care of parsing the user's input, validating it, and executing the corresponding actions.
     """
 
-    def parse_args(self, prog, args, args_parser) -> None:
+    def parse_args(self, prog, args, args_parser: argparse.ArgumentParser) -> None:
         """
         Parses the given CLI arguments and executes the corresponding actions.
 
         :param prog: The program object that will be used to execute the parsed commands.
         :param args: The CLI arguments to be parsed.
+        :param args_parser: The main ArgumentParser instance for error reporting.
         """
+        # --- Handle config generation first, and exit if called ---
+        self._handle_config_generation(args, args_parser)
+        # --------------------------------------------------------
+
         self._is_print_chat(args)
         # check for automatic tasks
         self._is_auto_task(args, parser=args_parser)
@@ -51,6 +60,57 @@ class CliArgs:
         self._has_task_file(args)
         # Check if the user has provided a task
         self._has_task(prog, args)
+
+    def _handle_config_generation(self, args, parser: argparse.ArgumentParser):
+        """
+        Checks for and handles the model configuration generation task.
+        If the --generate-config flag is used, it creates the config file and exits.
+
+        :param args: The CLI arguments.
+        :param parser: The main ArgumentParser instance for error reporting.
+        """
+        if args.generate_config:
+            # Check if required arguments for this action are provided
+            if not args.model_name or not args.model_type:
+                parser.error(
+                    "The --generate-config flag requires both --model-name and --model-type."
+                )
+
+            try:
+                # Convert model_type string to Enum
+                model_type_enum = ModelType(args.model_type)
+
+                # Generate and save the configuration
+                func.log(
+                    format_text(
+                        f"--- Generating config for {args.model_name} ---", Color.CYAN
+                    )
+                )
+
+                new_config = ModelConfigManager.generate_default_config(
+                    model_name=args.model_name, model_type=model_type_enum
+                )
+
+                ModelConfigManager.save_config(new_config, args.generate_config)
+
+                # Print success message and exit
+                success_message = format_text(
+                    f"\nSuccessfully generated and saved configuration to: ",
+                    Color.GREEN,
+                ) + format_text(f"{args.generate_config}", Color.YELLOW)
+                print(success_message)
+                print(json.dumps(new_config, indent=2))
+
+            except Exception as e:
+                error_msg = format_text(
+                    f"An unexpected error occurred during config generation: {e}",
+                    Color.RED,
+                )
+                func.log(f"ERROR: {error_msg}")
+                print(error_msg, file=sys.stderr)
+
+            # Exit the program since the task is complete
+            sys.exit(0)
 
     def _is_print_chat(self, args):
         if args.print_chat:
@@ -126,8 +186,8 @@ class CliArgs:
                 )
                 messages.append(
                     BaseModel.create_message(
-                       ChatRoles.ASSISTANT,
-                    f"{args.file} loaded!",
+                        ChatRoles.ASSISTANT,
+                        f"{args.file} loaded!",
                     )
                 )
                 prog.chat.messages = messages
@@ -228,7 +288,9 @@ class CliArgs:
                 BaseModel.create_message(ChatRoles.USER, sys.stdin.read().strip())
             )
             prog.chat.messages.append(
-                BaseModel.create_message(ChatRoles.ASSISTANT, "content recieved from pipe!")
+                BaseModel.create_message(
+                    ChatRoles.ASSISTANT, "content recieved from pipe!"
+                )
             )
 
         if prog.chat.images and len(prog.chat.images):

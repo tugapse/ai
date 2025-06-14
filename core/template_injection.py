@@ -20,14 +20,9 @@ class TemplateInjection():
 
     def _load_injection_template(self, template_name:str):
         
-        inject_templates_dir = ProgramConfig.current.get(ProgramSetting.PATHS , {}).get("INJECT_TEMPLATES")
-        user_INJECT_TEMPLATES_dir = ProgramConfig.current.get(ProgramSetting.USER_PATHS , {}).get("INJECT_TEMPLATES")
-        
+        inject_templates_dir = ProgramConfig.current.get(ProgramSetting.PATHS_INJECT_TEMPLATES)
         filepath: str = os.path.join(  inject_templates_dir, template_name.replace(".md","")+".md")            
         if os.path.exists(filepath): 
-            return functions.read_file(filepath)
-        else: 
-            filepath: str = os.path.join(  system_templates_dir, args.system.replace(".md","")+".md")            
             return functions.read_file(filepath)
         return ""
 

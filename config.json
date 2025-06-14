@@ -1,19 +1,17 @@
 {
-    "MODEL_NAME": "llama3",
-    "SYSTEM_PROMPT_FILE": "{root_dir}/templates/system/ai_assistant.md",
+    "MODEL_CONFIG_NAME": "gemma3", 
+    "SYSTEM_PROMPT_FILE": "{root_dir}/system/ai.md",
     "OLLAMA_HOST": "127.0.0.1",
-    "PATHS": {
-        "CHAT_LOG": "{root_dir}/logs/chat/",
-        "TASKS_TEMPLATES": "{root_dir}/templates/task/",
-        "SYSTEM_TEMPLATES": "{root_dir}/templates/system/",
-        "INJECT_TEMPLATES": "{root_dir}/templates/inject/"
-    },
-    "USER_PATHS": {
-        "CHAT_LOG": "{root_dir}/logs/chat/",
-        "TASKS_TEMPLATES": "",
-        "SYSTEM_TEMPLATES": "",
-        "INJECT_TEMPLATES": ""
-    },
+
+    "PATHS_CHAT_LOG": "{root_dir}/logs/chat/",
+    "PATHS_TASKS_TEMPLATES": "{root_dir}/task/",
+    "PATHS_SYSTEM_TEMPLATES": "{root_dir}/system/",
+    "PATHS_INJECT_TEMPLATES": "{root_dir}/inject/",
+    "PATHS_MODEL_CONFIGS": "{root_dir}/model-config/",
+    "PATHS_LOGS":"{root_dir}/logs/",
+
+
+
     "INJECT_TEMPLATES": [
         {
             "key": "{{THINKING}}",
