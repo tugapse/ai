@@ -2,7 +2,7 @@ import os
 import time
 import errno
 import datetime
-from program import ProgramConfig, ProgramSetting
+from program import ProgramConfig, ProgramSetting # Assuming ProgramConfig and ProgramSetting are accessible
 
 class ThinkingLogManager:
     """
@@ -35,17 +35,19 @@ class ThinkingLogManager:
         
         self.log_file_name = sanitized_file_name
 
+        # Access ProgramConfig directly for log directory path
         base_log_dir = ProgramConfig.current.get(ProgramSetting.PATHS_LOGS)
         if base_log_dir:
             self.log_dir = base_log_dir
         else:
             self.log_dir = os.path.join(os.path.expanduser('~'), self.DEFAULT_LOG_SUBDIR)
-        
+            
         os.makedirs(self.log_dir, exist_ok=True)
 
         self.log_file_path = os.path.join(self.log_dir, self.log_file_name)
         self.lock_file_path = f"{self.log_file_path}.lock"
 
+        # Initial header write to mark log start
         try:
             self._acquire_write_lock()
             with open(self.log_file_path, 'a', encoding='utf-8') as f:
@@ -68,18 +70,22 @@ class ThinkingLogManager:
         start_time = time.time()
         while True:
             try:
+                # O_EXCL ensures the file is only created if it doesn't exist, preventing race conditions
                 self._lock_fd = os.open(self.lock_file_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-                os.close(self._lock_fd)
-                self._lock_fd = None
+                os.close(self._lock_fd) # Close immediately after creation to release the file handle
+                self._lock_fd = None # Reset file descriptor
                 return True
             except OSError as e:
                 if e.errno == errno.EEXIST:
+                    # Lock file already exists, wait and retry
                     if time.time() - start_time > self.max_lock_wait_time:
                         raise TimeoutError(f"Could not acquire write lock for {self.log_file_path} after {self.max_lock_wait_time} seconds.")
                     time.sleep(self.lock_poll_interval)
                 else:
+                    # Other OS errors
                     raise IOError(f"Error acquiring lock for {self.log_file_path}: {e}")
             except Exception as e:
+                # Catch any other unexpected errors
                 raise IOError(f"An unexpected error occurred while acquiring lock for {self.log_file_path}: {e}")
 
     def _release_write_lock(self):
@@ -89,6 +95,7 @@ class ThinkingLogManager:
         try:
             os.remove(self.lock_file_path)
         except OSError as e:
+            # This might happen if another process already removed it or if it never existed
             print(f"Warning: Could not remove lock file {self.lock_file_path}: {e}")
 
     def write_thinking_log(self, content: str):
@@ -110,16 +117,20 @@ class ThinkingLogManager:
         finally:
             self._release_write_lock()
 
-    def write_session_header(self, tags):
+    def write_session_header(self, tags: str = ""): # Made 'tags' optional with a default empty string
         """
         Writes a timestamped header to the log file. This is intended to be called
         once per session when thinking activity begins.
+        Args:
+            tags (str, optional): Optional tags or information to include in the header. Defaults to "".
         """
         try:
             self._acquire_write_lock()
             with open(self.log_file_path, 'a', encoding='utf-8') as f:
                 timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                f.write(f"\n--- Log Start: {self.log_file_name} - {timestamp} ---\n\n")
+                # The 'tags' argument is included here, even if it's an empty string.
+                # You can extend this to use the tags in the log message if needed in the future.
+                f.write(f"\n--- Log Session Start ({tags}): {self.log_file_name} - {timestamp} ---\n\n")
         except TimeoutError as e:
             print(f"Error writing session header to {self.log_file_path}: {e}")
         except IOError as e:

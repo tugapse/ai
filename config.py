@@ -18,7 +18,7 @@ class ProgramSetting:
     CHAT_LOG = "CHAT_LOG"
     TASKS_TEMPLATES = "TASKS_TEMPLATES"
     SYSTEM_TEMPLATES = "SYSTEM_TEMPLATES"
-    INJECT_TEMPLATES = "INJECT_TEMPLATES" 
+    INJECT_TEMPLATES = "INJECT_TEMPLATES"
     OLLAMA_HOST = "OLLAMA_HOST"
     PRINT_LOG = "PRINT_LOG"
     PRINT_OUTPUT = "PRINT_OUTPUT"
@@ -29,6 +29,14 @@ class ProgramSetting:
     PATHS_SYSTEM_TEMPLATES = "PATHS_SYSTEM_TEMPLATES"
     PATHS_INJECT_TEMPLATES = "PATHS_INJECT_TEMPLATES"
     PATHS_MODEL_CONFIGS = "PATHS_MODEL_CONFIGS"
+
+    # --- New Program Settings for Thinking Logic and Output Control ---
+    THINKING_MODE = "THINKING_MODE" # e.g., "spinner", "dots", "progressbar"
+    PRINT_MODE = "PRINT_MODE" # e.g., "token", "line", "every_x_tokens"
+    TOKENS_PER_PRINT = "TOKENS_PER_PRINT" # Integer, used with "every_x_tokens"
+    ENABLE_THINKING_DISPLAY = "ENABLE_THINKING_DISPLAY" # Boolean, True to show animation
+    LLM_THINKING_LOG_FILE = "LLM_THINKING_LOG_FILE" # Filename for the thinking log (e.g., "llm_thinking.log")
+    # --- End New Program Settings ---
 
 
 class ProgramConfig(Generic[T]):
@@ -74,7 +82,11 @@ class ProgramConfig(Generic[T]):
             return dict_data
 
     def get(self, key: str, default_value: T = None) -> T:
-        return self.config[key]
+        """
+        Retrieves a configuration value by key.
+        Returns default_value if the key is not found.
+        """
+        return self.config.get(key, default_value)
 
     def set(self, key: str, value=None) -> None:
         if self.config is None:

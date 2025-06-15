@@ -247,7 +247,7 @@ class HuggingFaceModel(BaseModel):
         if stream:
             # IMPORTANT: Set skip_special_tokens=False. We want all non-EOS tokens (including emojis)
             # to be yielded by the streamer. Program.py will manually filter the specific EOS token.
-            streamer = TextIteratorStreamer(self.tokenizer, skip_prompt=True, skip_special_tokens=True)
+            streamer = TextIteratorStreamer(self.tokenizer, skip_prompt=True, skip_special_tokens=False)
             generation_kwargs["streamer"] = streamer # Update streamer in kwargs after creation
 
             self._generation_thread = threading.Thread(

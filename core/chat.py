@@ -4,6 +4,7 @@ from datetime import datetime
 from core.events import Events
 from color import Color, format_text
 import functions as func
+from core.llms.base_llm import BaseModel
 
 # Assuming ProgramConfig and ProgramSetting are accessible here if needed for paths
 # from config import ProgramConfig, ProgramSetting 
@@ -44,8 +45,8 @@ class Chat(Events):
         self.messages = []
         self.images :list[str]= []
         self.current_message = ""
-        self.user_prompt = "  User:"
-        self.assistant_prompt = "  Assistant:"
+        self.user_prompt = "User:"
+        self.assistant_prompt = "Assistant:"
         self.max_chat_log = 50
         self.cache_messages = True
         self.current_prompt = ""
@@ -118,7 +119,7 @@ class Chat(Events):
         # for the next frame to then process input.
 
     def send_chat(self, message_content: str):
-        from core.llms.base_llm import BaseModel
+        
         self.waiting_for_response = True
         self._add_message(BaseModel.create_message(ChatRoles.USER, message_content))
         self.trigger(self.EVENT_CHAT_SENT, message_content)

@@ -11,6 +11,12 @@ from color import Color, format_text
 import functions as func
 from extras import ConsoleTokenFormatter
 
+# --- New Imports for Thinking Logic and Output Control ---
+from core.llms.think_parser import ThinkingAnimationHandler
+from core.llms.thinking_log_manager import ThinkingLogManager
+from core.llms.output_printer import OutputPrinter
+# --- End New Imports ---
+
 class Program:
     """
     Main program class for the AI assistant.
@@ -33,12 +39,20 @@ class Program:
         self.model_params = ModelParams()
         self.session_chat_filepath = None
 
+        # --- New: Initialize thinking and output related attributes as None ---
+        self.thinking_log_manager: ThinkingLogManager = None
+        self.thinking_handler: ThinkingAnimationHandler = None
+        self.output_printer: OutputPrinter = None
+        # --- End New Attributes ---
+
     def init_program(self, args=None) -> None:
         self.load_config(args=args)
         self.clear_on_init: bool = args.msg is not None or (getattr(args, 'debug_console', False) if args else False)
         
+        # Ensure self.init() runs BEFORE initializing components that depend on ProgramConfig values.
         self.init()
         
+        # --- Existing chat log setup ---
         chat_log_folder = self.config.get(ProgramSetting.PATHS_CHAT_LOG)
         if chat_log_folder:
             os.makedirs(chat_log_folder, exist_ok=True)
@@ -47,6 +61,31 @@ class Program:
             func.log(f"INFO: Session chat history will be saved to: {self.session_chat_filepath}")
         else:
             func.log(f"WARNING: Chat log path is not configured. Chat history will not be saved. Check '{ProgramSetting.PATHS_CHAT_LOG}' in your config.")
+
+        # --- New: Initialize ThinkingLogManager ---
+        # Log file name can be configurable, default to "llm_thinking.log"
+        log_file_name = self.config.get(ProgramSetting.LLM_THINKING_LOG_FILE, "llm_thinking.log")
+        self.thinking_log_manager = ThinkingLogManager(log_file_name=log_file_name)
+
+        # --- New: Initialize ThinkingAnimationHandler ---
+        # Get settings from config, with sensible defaults
+        thinking_mode = self.config.get(ProgramSetting.THINKING_MODE, "spinner")
+        enable_thinking_display = self.config.get(ProgramSetting.ENABLE_THINKING_DISPLAY, True)
+        self.thinking_handler = ThinkingAnimationHandler(
+            enable_display=enable_thinking_display,
+            mode=thinking_mode,
+            log_manager=self.thinking_log_manager
+        )
+
+        # --- New: Initialize OutputPrinter for flexible output modes ---
+        # Get settings from config, with sensible defaults
+        print_mode = self.config.get(ProgramSetting.PRINT_MODE, "token")
+        tokens_per_print = self.config.get(ProgramSetting.TOKENS_PER_PRINT, 5)
+        self.output_printer = OutputPrinter(
+            print_mode=print_mode,
+            tokens_per_print=tokens_per_print
+        )
+        # --- End New Initializations ---
 
     def init_model_params(self):
         self.model_params.num_ctx = BaseModel.CONTEXT_WINDOW_LARGE
@@ -73,20 +112,22 @@ class Program:
 
 
     def process_token(self, token):
+        """
+        Processes a token using the ConsoleTokenFormatter (primarily for color).
+        This method will now be called with content already filtered by ThinkingAnimationHandler.
+        """
         return self.token_processor.process_token(token)
 
     def clear_process_token(self):
+        """
+        Clears the internal state of ConsoleTokenFormatter.
+        """
         self.token_processor.clear_process_token()
 
     def start_chat(self, user_input):
         started_response = False
         
         generation_options = self.model_params.to_dict()
-
-        current_eos_token = None
-        # Only get eos_token if the LLM is a HuggingFaceModel, as Ollama handles its own streaming/stopping
-        if isinstance(self.llm, HuggingFaceModel) and hasattr(self.llm, 'tokenizer') and hasattr(self.llm.tokenizer, 'eos_token'):
-            current_eos_token = self.llm.tokenizer.eos_token
 
         outs = self.llm.chat(
             self.chat.messages,
@@ -95,24 +136,35 @@ class Program:
         )
         try:
             llm_response_accumulated = ""
-            for text_chunk in outs:
-                # IMPORTANT: Filter out the EOS token from being printed to console *before* processing
-                if current_eos_token and text_chunk == current_eos_token:
-                    break # Stop processing/printing if EOS token is encountered
+            for raw_token_string in outs: # Iterate through raw tokens from the LLM stream
+                # --- New: Process raw token through the thinking handler first ---
+                # This filters <think> tags, displays animation, and logs internal thoughts.
+                is_thinking, content_for_display = self.thinking_handler.process_token_and_thinking_state(raw_token_string)
 
-                if not started_response:
-                    func.out(
-                        format_text(self.chat.assistant_prompt, Color.PURPLE) + Color.RESET,
-                        end=" ",
-                    )
-                    started_response = True
+                # Only proceed with printing and accumulation if NOT thinking AND there's content to display
+                if not is_thinking and content_for_display:
+                    if not started_response:
+                        func.out(
+                            format_text(self.chat.assistant_prompt, Color.PURPLE) + Color.RESET,
+                            end=" ",
+                        )
+                        started_response = True
 
-                new_token = self.process_token(text_chunk)
-                self.chat.current_message += text_chunk
-                llm_response_accumulated += text_chunk
-                func.out(new_token, end="", flush=True)
+                    # Format token with ConsoleTokenFormatter (e.g., applying color)
+                    formatted_token_for_display = self.token_processor.process_token(content_for_display)
+                    
+                    # Accumulate ONLY the displayable content for chat history and current message
+                    self.chat.current_message += content_for_display
+                    llm_response_accumulated += content_for_display
 
-            func.out("\n") 
+                    # Print using the OutputPrinter for buffering and output modes (token, line, every_x_tokens)
+                    self.output_printer.process_and_print(formatted_token_for_display)
+
+                    # If writing to a file, also filter by displayable content
+                    if self.write_to_file and self.output_filename and formatted_token_for_display:
+                        func.write_to_file(self.output_filename, formatted_token_for_display, func.FILE_MODE_APPEND)
+                # If is_thinking or content_for_display is empty, do nothing with it for console output.
+                # The thinking_handler takes care of displaying the animation and logging.
 
         except Exception as e:
             error_message = f"An error occurred during chat: {e}"
@@ -122,23 +174,31 @@ class Program:
             import traceback
             traceback.print_exc()
             self.running = False
-            llm_response_accumulated = f"ERROR: {error_message}"
+            llm_response_accumulated = f"ERROR: {error_message}" # Still add error to accumulated for history if desired
 
         finally:
-            # Final safeguard for stripping EOS from the accumulated response for history
-            if current_eos_token and llm_response_accumulated.endswith(current_eos_token):
-                llm_response_accumulated = llm_response_accumulated[:-len(current_eos_token)].strip()
+            # --- New: IMPORTANT: Flush any remaining buffered output from OutputPrinter. ---
+            # This ensures all buffered tokens are printed to console at the end of the stream
+            # (even if an error occurred or the stream finished abruptly).
+            if self.output_printer: # Defensive check
+                self.output_printer.flush_buffers()
 
+            # The ThinkingAnimationHandler's `process_token_and_thinking_state` and the `</think>` tag
+            # handle clearing the thinking animation line and adding a newline. So, no explicit action
+            # is typically needed here for thinking display cleanup, unless an unexpected termination
+            # happens mid-thought without a </think> tag.
+
+            # Append only the accumulated, user-displayable response to chat messages
             if llm_response_accumulated:
                 self.chat.messages.append(BaseModel.create_message("assistant", llm_response_accumulated.strip()))
             
-            self._save_chat_history()
-            self.llm_stream_finished()
+            self._save_chat_history() # Save chat history with only the clean output
+            self.llm_stream_finished() # This method will add the final newline and clean up chat state.
 
 
-    def llm_stream_finished(self):
-        func.out("\n")
-        self.clear_process_token()
+    def llm_stream_finished(self, data=""):
+        func.out("\n") # Adds a final newline after the LLM's complete response
+        self.clear_process_token() # Clears any internal state of the ConsoleTokenFormatter
         self.chat.chat_finished()
 
     def output_requested(self):
@@ -186,8 +246,24 @@ class Program:
             else:
                 func.log(f"WARNING: System prompt file '{filepath}' not found.")
 
-        self.config.set(ProgramSetting.PRINT_LOG, args.no_log)
-        self.config.set(ProgramSetting.PRINT_OUTPUT, args.no_out)
+        # Updated to use .get with default values, ensuring consistency
+        self.config.set(ProgramSetting.PRINT_LOG, args.no_log if hasattr(args, 'no_log') else self.config.get(ProgramSetting.PRINT_LOG, True))
+        self.config.set(ProgramSetting.PRINT_OUTPUT, args.no_out if hasattr(args, 'no_out') else self.config.get(ProgramSetting.PRINT_OUTPUT, True))
+
+        # --- New: Handle command line arguments for new settings if you add them ---
+        # Example if you want to allow setting these from command line:
+        # if hasattr(args, 'thinking_mode') and args.thinking_mode is not None:
+        #     self.config.set(ProgramSetting.THINKING_MODE, args.thinking_mode)
+        # if hasattr(args, 'print_mode') and args.print_mode is not None:
+        #     self.config.set(ProgramSetting.PRINT_MODE, args.print_mode)
+        # if hasattr(args, 'tokens_per_print') and args.tokens_per_print is not None:
+        #     self.config.set(ProgramSetting.TOKENS_PER_PRINT, int(args.tokens_per_print))
+        # if hasattr(args, 'enable_thinking_display') and args.enable_thinking_display is not None:
+        #     self.config.set(ProgramSetting.ENABLE_THINKING_DISPLAY, args.enable_thinking_display)
+        # if hasattr(args, 'llm_thinking_log_file') and args.llm_thinking_log_file is not None:
+        #     self.config.set(ProgramSetting.LLM_THINKING_LOG_FILE, args.llm_thinking_log_file)
+        # --- End New Argument Handling ---
+
 
     def start_chat_loop(self) -> None:
         self.load_events()
