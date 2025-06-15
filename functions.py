@@ -10,6 +10,8 @@ from config import ProgramConfig, ProgramSetting
 FILE_MODE_APPEND = "a"
 FILE_MODE_CREATE = "w"
 
+LOCK_LOG = False
+
 
 def set_console_title(title):
     """
@@ -127,7 +129,7 @@ def format_execution_time(start_time, end_time):
 
 
 def log(text, start_line="[ * ]", **kargs):
-    if ProgramConfig.current.get(ProgramSetting.PRINT_LOG, False):
+    if ProgramConfig.current.get(ProgramSetting.PRINT_LOG, False) and not LOCK_LOG:
         print((f"{Color.BLUE}{start_line}{Color.RESET} ") + text, **kargs)
 
 

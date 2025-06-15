@@ -6,10 +6,10 @@ It allows users to interact with the AI system through various commands and opti
 import argparse
 import os
 import sys
-
+import json
 
 from model_config_manager import ModelConfigManager
-from config import ProgramConfig
+from config import ProgramConfig, ProgramSetting
 from core.chat import ChatRoles
 from core.llms.base_llm import BaseModel
 from core.llms.model_enums import ModelType
@@ -32,34 +32,21 @@ class CliArgs:
         :param args: The CLI arguments to be parsed.
         :param args_parser: The main ArgumentParser instance for error reporting.
         """
-        # --- Handle config generation first, and exit if called ---
+        # Centralized handling of config generation. This will exit if called.
         self._handle_config_generation(args, args_parser)
-        # --------------------------------------------------------
-
+        
+        # Non-exiting actions
         self._is_print_chat(args)
-        # check for automatic tasks
         self._is_auto_task(args, parser=args_parser)
-        # Check if the user wants to list all available models
         self._is_list_models(args)
-        # Check if the user wants to load a single file
-        self._has_image(prog, args)
-        # Check if the user wants to load a single file
-        self._has_file(prog, args)
-        # Check if the user wants to load images
-        self._has_image(prog, args)
-        # Check if the user wants to load a folder with files
+        self._has_output_files(prog, args)
+        self._has_image(prog, args) 
         self._has_folder(prog, args)
-        # Check for output file option and set the corresponding flag in the program
-        self._has_output_files(prog, args)
-        # Check for message option and add it to the chat's messages
-        self._has_message(prog, args)
-        self._has_output_files(prog, args)
-        # Check for message option and add it to the chat's messages
-        self._has_message(prog, args)
-        # Check if the user has provided a task file
-        self._has_task_file(args)
-        # Check if the user has provided a task
+        self._has_file(prog, args)
+        self._has_task_file(prog, args)
         self._has_task(prog, args)
+        self._has_message(prog, args) # This will now trigger `ask` and `sys.exit(0)` if direct input is present
+
 
     def _handle_config_generation(self, args, parser: argparse.ArgumentParser):
         """
@@ -70,17 +57,14 @@ class CliArgs:
         :param parser: The main ArgumentParser instance for error reporting.
         """
         if args.generate_config:
-            # Check if required arguments for this action are provided
             if not args.model_name or not args.model_type:
                 parser.error(
                     "The --generate-config flag requires both --model-name and --model-type."
                 )
 
             try:
-                # Convert model_type string to Enum
                 model_type_enum = ModelType(args.model_type)
 
-                # Generate and save the configuration
                 func.log(
                     format_text(
                         f"--- Generating config for {args.model_name} ---", Color.CYAN
@@ -93,7 +77,6 @@ class CliArgs:
 
                 ModelConfigManager.save_config(new_config, args.generate_config)
 
-                # Print success message and exit
                 success_message = format_text(
                     f"\nSuccessfully generated and saved configuration to: ",
                     Color.GREEN,
@@ -109,12 +92,12 @@ class CliArgs:
                 func.log(f"ERROR: {error_msg}")
                 print(error_msg, file=sys.stderr)
 
-            # Exit the program since the task is complete
             sys.exit(0)
 
     def _is_print_chat(self, args):
         if args.print_chat:
             from pathlib import Path
+            from extras.console import ConsoleChatReader 
 
             from_logs_file = ((Path(__file__).parent) / "logs" / "chat").joinpath(
                 args.print_chat
@@ -127,189 +110,138 @@ class CliArgs:
             elif from_file.exists():
                 json_filename = from_file.resolve()
             else:
-                raise FileNotFoundError(f"{Color.RED}", args.print_chat)
-
-            from extras.console import ConsoleChatReader
+                raise FileNotFoundError(f"{Color.RED}File not found: {args.print_chat}{Color.RESET}")
 
             reader = ConsoleChatReader(json_filename)
             reader.load()
-            exit()
+            sys.exit(0)
 
     def _is_auto_task(self, args, parser: argparse):
         if args.auto_task:
             from core.tasks import AutomatedTask
 
             AutomatedTask(parser).run_task(config_filename=args.auto_task)
-            exit(0)
+            sys.exit(0)
 
     def _is_list_models(self, args):
-        """
-        Checks if the user wants to list all available models.
-
-        :param args: The CLI arguments.
-        """
-
         if args.list_models:
             os.system("ollama list")
-            exit(0)
+            sys.exit(0)
 
     def _has_output_files(self, prog, args):
-        """
-        Checks for output file option and sets the corresponding flag in the program.
-
-        :param prog: The program object.
-        :param args: The CLI arguments.
-        """
-
         if args.output_file:
             prog.write_to_file = True
             prog.output_filename = args.output_file
 
     def _has_folder(self, prog, args):
-        """
-        Checks if the user wants to load a folder with files.
-
-        :param prog: The program object.
-        :param args: The CLI arguments.
-        """
-
         if directory := args.load_folder:
             files = func.get_files(directory, args.ext)
-            messages = list()
-            for file in files:
-                file.load()
-                messages.append(
+            for file_obj in files:
+                file_obj.load()
+                # Use BaseModel.create_message for consistency
+                prog.chat._add_message(
                     BaseModel.create_message(
                         ChatRoles.USER,
-                        f"Filename: {file.filename} \n File Content:\n```{file.content}\n",
+                        f"Filename: {file_obj.filename} \n File Content:\n```{file_obj.content}\n",
                     )
                 )
-                messages.append(
-                    BaseModel.create_message(
-                        ChatRoles.ASSISTANT,
-                        f"{args.file} loaded!",
-                    )
-                )
-                prog.chat.messages = messages
+                # Removed the assistant confirmation message, as it's not needed for LLM context
+                # prog.chat._add_message(
+                #     BaseModel.create_message(
+                #         ChatRoles.ASSISTANT,
+                #         f"{file_obj.filename} loaded!", 
+                #     )
+                # )
 
     def _has_file(self, prog, args):
-        """
-        Checks if the user wants to load a single file.
-
-        :param prog: The program object.
-        :param args: The CLI arguments.
-        """
-
         if args.file:
             files = args.file.split(",")
-            for file in files:
-                text_file = func.read_file(file.strip())
+            for file_path in files:
+                stripped_path = file_path.strip()
+                text_content = func.read_file(stripped_path)
+                # Use BaseModel.create_message for consistency
                 prog.chat._add_message(
-                    ChatRoles.USER,
-                    f"Filename: {args.file} \n  File Content:\n```{text_file}```",
+                    BaseModel.create_message(
+                        ChatRoles.USER,
+                        f"Filename: {stripped_path} \n  File Content:\n```{text_content}```",
+                    )
                 )
-                prog.chat._add_message(
-                    ChatRoles.ASSISTANT,
-                    f"{args.file} loaded!",
-                )
+                # Removed the assistant confirmation message
+                # prog.chat._add_message(
+                #     BaseModel.create_message(
+                #         ChatRoles.ASSISTANT,
+                #         f"{stripped_path} loaded!",
+                #     )
+                # )
 
     def _has_image(self, prog, args):
-        """
-        Checks if the user wants to load image or images.
-
-        :param prog: The program object.
-        :param args: The CLI arguments.
-        """
-
         if args.image:
             files = args.image.split(",")
-            for file in files:
-                if os.path.exists(file):
-                    prog.chat.images.append(file)
+            for file_path in files:
+                stripped_path = file_path.strip()
+                if os.path.exists(stripped_path):
+                    prog.chat.images.append(stripped_path)
                 else:
-                    raise FileNotFoundError(file)
+                    raise FileNotFoundError(f"Image file not found: {stripped_path}")
 
-    def _has_task_file(self, args):
-        """
-        Checks if the user has provided a task file.
-
-        :param args: The CLI arguments.
-        """
-
+    def _has_task_file(self, prog, args):
         if args.task_file:
-            task = func.read_file(args.task_file)
-            prog.chat.messages.append(BaseModel.create_message(ChatRoles.USER, task))
+            task_content = func.read_file(args.task_file)
+            # Use BaseModel.create_message for consistency
+            prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, task_content))
 
     def _has_task(self, prog, args):
-        """
-        Checks if the user has provided a task.
-
-        :param prog: The program object.
-        :param args: The CLI arguments.
-        """
-
         if args.task:
-            filename = os.path.join(
-                ProgramConfig.current.config["USER_PATHS"]["TASKS_TEMPLATES"],
-                args.task.replace(".md", "") + ".md",
-            )
-            if not os.path.exists(filename):
-                filename = os.path.join(
-                    ProgramConfig.current.config["PATHS"]["TASKS_TEMPLATES"],
-                    args.task.replace(".md", "") + ".md",
-                )
-            filename = os.path.join(
-                ProgramConfig.current.config[ProgramSetting.USER_PATHS][
-                    ProgramSetting.TASKS_TEMPLATES
-                ],
-                args.task.replace(".md", "") + ".md",
-            )
-            if not os.path.exists(filename):
-                filename = os.path.join(
-                    ProgramConfig.current.config[ProgramSetting.PATHS][
-                        ProgramSetting.TASKS_TEMPLATES
-                    ],
-                    args.task.replace(".md", "") + ".md",
-                )
-            task = func.read_file(filename)
-            prog.chat.messages.append(BaseModel.create_message(ChatRoles.USER, task))
+            task_name = args.task.replace(".md", "") + ".md"
+            filepaths_to_check = []
+            
+            user_tasks_dir = ProgramConfig.current.get(ProgramSetting.PATHS_TASKS_TEMPLATES)
+            if user_tasks_dir:
+                filepaths_to_check.append(os.path.join(user_tasks_dir, task_name))
+            
+            global_tasks_dir = ProgramConfig.current.get(ProgramSetting.PATHS_TASKS_TEMPLATES) # Assuming this is a shared path
+            if global_tasks_dir and global_tasks_dir != user_tasks_dir: 
+                filepaths_to_check.append(os.path.join(global_tasks_dir, task_name))
+
+            found_path = None
+            for fp in filepaths_to_check:
+                if os.path.exists(fp):
+                    found_path = fp
+                    break
+            
+            if not found_path:
+                raise FileNotFoundError(f"Task template '{args.task}' not found in configured paths.")
+
+            task_content = func.read_file(found_path)
+            # Use BaseModel.create_message for consistency
+            prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, task_content))
 
     def _has_message(self, prog, args):
-        """
-        Checks for message option and adds it to the chat's messages.
-
-        :param prog: The program object.
-        :param args: The CLI arguments.
-        """
         piped = False
         if not sys.stdin.isatty():
             piped = True
-            prog.chat.messages.append(
+            prog.chat._add_message( 
                 BaseModel.create_message(ChatRoles.USER, sys.stdin.read().strip())
             )
-            prog.chat.messages.append(
-                BaseModel.create_message(
-                    ChatRoles.ASSISTANT, "content recieved from pipe!"
-                )
-            )
+            # Removed the assistant confirmation message "content recieved from pipe!"
+            # This was causing the "Chat history ends with an 'assistant' message" warning
+            # and is not relevant for the LLM's context.
 
         if prog.chat.images and len(prog.chat.images):
             message = prog.llm.load_images(prog.chat.images)
             prog.chat.messages.append(message)
 
         if args.msg:
-            prog.chat.messages.append(
+            prog.chat._add_message( 
                 BaseModel.create_message(ChatRoles.USER, args.msg)
             )
-            # prog.chat.messages.append(
-            #     BaseModel.create_message(ChatRoles.CONTROL, "thinking")
-            # )
 
-        if piped or args.msg or args.task:
+        if piped or args.msg or args.task or args.task_file or args.file or args.load_folder or args.image:
+            func.log("INFO: Detected message/task/file/image input. Starting direct ask.")
             ask(
                 prog.llm,
-                prog.chat.messages,
+                prog.chat.messages, 
                 write_to_file=prog.write_to_file,
                 output_filename=prog.output_filename,
             )
-            exit(0)
+            sys.exit(0)

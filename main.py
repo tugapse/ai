@@ -1,168 +1,68 @@
-from colorama import just_fix_windows_console
-
-just_fix_windows_console()
-
-from dotenv import load_dotenv
-
-load_dotenv()
-
-from time import time
-import readline
+import sys
+import os
 import argparse
-import sys  # Import sys for exiting gracefully
+import json
+
+# Add the project root to the sys.path to allow imports from core
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))
 
 from program import Program
-from cli_args import CliArgs
-from color import Color
+from config import ProgramConfig, ProgramSetting
+from core.llms.model_enums import ModelType
 import functions as func
-from core.llms.model_enums import ModelType # <-- Added this import
+from color import Color
+from cli_args import CliArgs # Import the CliArgs processor
 
 def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     """
     Loads command-line arguments for the program.
-
-    Returns:
-        tuple[argparse.ArgumentParser, argparse.Namespace]: The parser and the parsed command-line arguments.
     """
     parser = argparse.ArgumentParser(description="AI Assistant")
 
-    # --- Existing arguments for program operation ---
-    parser.add_argument(
-        "--msg",
-        "-m",
-        type=str,
-        help="Direct question",
-        default="hello"
-    )
-    parser.add_argument(
-        "--model", "-md", type=str, help="Model to use"
-    )
-    parser.add_argument(
-        "--system", "-s", type=str, help="pass a prompt name "
-    )
+    parser.add_argument("--msg", "-m", type=str, help="Direct question", default=None)
+    parser.add_argument("--model", "-md", type=str, help="Model config filename to use (e.g., 'gemma-3-4b-it.json')")
+    parser.add_argument("--system", "-s", type=str, help="pass a prompt name ")
     parser.add_argument("--system-file", "-sf", type=str, help="pass a prompt filename")
-    parser.add_argument(
-        "--list-models",
-        "-l",
-        action="store_true",
-        help="See a list of models available",
-    )
-    parser.add_argument(
-        "--file", "-f", type=str, help="Load a file and pass it as a message"
-    )
-    parser.add_argument(
-        "--image", "-i", type=str, help="Load a image file and pass it as a message"
-    )
-    parser.add_argument(
-        "--load-folder",
-        "-D",
-        type=str,
-        help="Load multiple files from folder and pass them as a message with file location and file content",
-    )
-    parser.add_argument(
-        "--ext", "-e", type=str, help="Provides File extension for folder files search"
-    )
-    parser.add_argument(
-        "--task",
-        "-t",
-        type=str,
-        help="name of the template inside prompt_templates"
-    )
-    parser.add_argument(
-        "--task-file",
-        "-tf",
-        type=str,
-        help="name of the template inside prompt_templates",
-    )
-    parser.add_argument(
-        "--output-file",
-        "-o",
-        type=str,
-        help="filename where the output of automatic actions will be saved",
-    )
-    parser.add_argument(
-        "--auto-task",
-        "-at",
-        type=str,
-        help="filename to a json with auto task configuration",
-    )
-    parser.add_argument(
-        "--print-chat",
-        "-p",
-        type=str,
-        help="filename to a json with with chat log, this can be from ai chats directory or a filename",
-    )
-
-    parser.add_argument(
-        "--no-log",
-        "-q",
-        help='Set this flag to NOT print "log" messages',
-        action="store_false",
-    )
-    parser.add_argument(
-        "--no-out",
-        help='Set this flag to NOT print "output" messages',
-        action="store_false",
-    )
-    parser.add_argument(
-        "--debug",
-        help='Set this flag to NOT clear console',
-        action="store_true",
-    )
+    parser.add_argument("--list-models", "-l", action="store_true", help="See a list of models available")
+    parser.add_argument("--file", "-f", type=str, help="Load a file and pass it as a message")
+    parser.add_argument("--image", "-i", type=str, help="Load a image file and pass it as a message")
+    parser.add_argument("--load-folder", "-D", type=str, help="Load multiple files from folder and pass them as a message with file location and file content")
+    parser.add_argument("--ext", "-e", type=str, help="Provides File extension for folder files search")
+    parser.add_argument("--task", "-t", type=str, help="name of the template inside prompt_templates")
+    parser.add_argument("--task-file", "-tf", type=str, help="name of the template inside prompt_templates")
+    parser.add_argument("--output-file", "-o", type=str, help="filename where the output of automatic actions will be saved")
+    parser.add_argument("--auto-task", "-at", type=str, help="filename to a json with auto task configuration")
+    parser.add_argument("--print-chat", "-p", type=str, help="filename to a json with with chat log, this can be from ai chats directory or a filename")
     
-    # --- New argument group for config generation ---
-    config_group = parser.add_argument_group(
-        'Model Config Generation',
-        'Use these arguments to generate a new model JSON config file.'
-    )
-    config_group.add_argument(
-        '--generate-config',
-        metavar='FILEPATH',
-        type=str,
-        help='Generate a model config and save it to the specified path, then exit.'
-    )
-    config_group.add_argument(
-        '--model-name',
-        type=str,
-        help="The name of the model to include in the config (e.g., 'meta-llama/Llama-2-7b-chat-hf'). Required by --generate-config."
-    )
-    config_group.add_argument(
-        '--model-type',
-        type=str,
-        choices=[t.value for t in ModelType],
-        help='The architectural type of the model. Required by --generate-config.'
-    )
-    # ------------------------------------------------
+    parser.add_argument("--no-log", "-q", help='Set this flag to NOT print "log" messages', action="store_false")
+    parser.add_argument("--no-out", help='Set this flag to NOT print "output" messages', action="store_false")
+    
+    parser.add_argument("--debug-console", action="store_true", help='Set this flag to NOT clear console (for debugging)')
+
+    config_group = parser.add_argument_group('Model Config Generation', 'Use these arguments to generate a new model JSON config file.')
+    config_group.add_argument('--generate-config', metavar='FILEPATH', type=str, help='Generate a model config and save it to the specified path, then exit.')
+    config_group.add_argument('--model-name', type=str, help="The name of the model to include in the config (e.g., 'meta-llama/Llama-2-7b-chat-hf'). Required by --generate-config.")
+    config_group.add_argument('--model-type', type=str, choices=[t.value for t in ModelType], help='The architectural type of the model. Required by --generate-config.')
 
     return parser, parser.parse_args()
+
+
+# Removed generate_model_config from here, it's now handled by CliArgs._handle_config_generation
 
 
 def print_chat_header(prog: Program) -> None:
     """
     Prints initial information about the program.
-    Args:
-        prog (Program): The program object.
-        args (argparse.Namespace): The command-line arguments.
     """
-
     func.set_console_title("Ai assistant: " + prog.model_chat_name)
 
-    # Ensure prog.config.get('SYSTEM_PROMPT_FILE') returns a string
     system_p_file_path = prog.config.get(
-        "SYSTEM_PROMPT_FILE", ""
-    )  # Provide a default empty string if key is missing
-    system_p_file: str = (
-        system_p_file_path.split("/")[-1].replace(".md", "").replace("_", " ")
+        ProgramSetting.PATHS_SYSTEM_TEMPLATES, ""
     )
-
-    # Ensure prog.config.get('SYSTEM_PROMPT_FILE') returns a string
-    system_p_file_path = prog.config.get(
-        "SYSTEM_PROMPT_FILE", ""
-    )  # Provide a default empty string if key is missing
     system_p_file: str = (
-        system_p_file_path.split("/")[-1].replace(".md", "").replace("_", " ")
+        os.path.basename(system_p_file_path).replace(".md", "").replace("_", " ")
     )
-    system_p_file = system_p_file.replace(".md", "").replace("_", " ").capitalize()
+    system_p_file = system_p_file.capitalize()
 
     func.out(Color.GREEN, end="")
     func.out(
@@ -174,39 +74,73 @@ def print_chat_header(prog: Program) -> None:
     func.out(f"{Color.RESET}--------------------------")
 
 
-def init_program() -> tuple[Program, argparse.Namespace, argparse.ArgumentParser]:
+def init_program_and_args() -> tuple[Program, argparse.Namespace, argparse.ArgumentParser]:
     """
-    Initializes the program components.
-
-    Returns:
-        tuple[Program, argparse.Namespace, argparse.ArgumentParser]:
-            The program object, parsed arguments, and argument parser.
+    Initializes the program components and processes CLI arguments.
     """
-    prog = Program()
     parser, args = load_args()
-    prog.init_program(args)
+    
+    # Model config generation is now handled within CliArgs._handle_config_generation
+    # which will sys.exit() if --generate-config is present.
+    # No direct call to generate_model_config needed here.
+
+    prog = Program()
+    prog.init_program(args) # Program initialized with args
+
     return prog, args, parser
 
 
 if __name__ == "__main__":
+    prog = None
+    args = None # Initialize args to None for safety in except block
     try:
-        prog, args, parser = init_program()
-        func.log(f"{Color.GREEN} OK", start_line="")
+        # Initialize program and parse args
+        prog, args, parser = init_program_and_args()
+        
+        # Instantiate CliArgs and parse remaining arguments.
+        # _handle_config_generation in CliArgs will exit if --generate-config was used.
         cli_args_processor = CliArgs()
-        # This call now correctly passes the parser to the processor
         cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
-        if not args.debug: func.clear_console() 
+
+        # Determine whether to clear console based on --debug-console argument
+        clear_console = True
+        if getattr(args, 'debug_console', False): # Use getattr for robustness
+            clear_console = False
+
+        if clear_console: 
+            os.system('cls' if os.name == 'nt' else 'clear') 
+            print("\n")
+
         print_chat_header(prog=prog)
+        func.LOCK_LOG = True
+        
+        # Start the chat loop. Direct messages are handled and exit within CliArgs.
+        # So, if we reach here, it's for interactive chat.
         prog.start_chat_loop()
 
     except KeyboardInterrupt:
-        # Handle Ctrl+C gracefully
-        sys.exit(0)  # Exit the program cleanly
+        print(f"\n{Color.YELLOW}Detected Ctrl+C. Attempting to stop LLM generation gracefully...{Color.RESET}")
+        if prog and prog.llm:
+            prog.llm.stop_generation_event.set() 
+            prog.llm.join_generation_thread(timeout=10)
+            if prog.llm._generation_thread and prog.llm._generation_thread.is_alive():
+                 print(f"{Color.RED}WARNING: LLM generation thread did not terminate cleanly.{Color.RESET}")
+            else:
+                 print(f"{Color.GREEN}LLM generation stopped successfully.{Color.RESET}")
+        else:
+            print(f"{Color.RED}LLM object not initialized or does not support graceful stop.{Color.RESET}")
+        sys.exit(0)
 
     except Exception as e:
-        # It's helpful to check if 'args' exists before trying to access it in an error handler
-        debug_mode =  True
-        if debug_mode: raise e
-        # Catch any other unexpected errors
-        func.out(Color.RED + f"\nAn unexpected error occurred: {e}" + Color.RESET)
-        sys.exit(1) # Exit with an error code
+        # If an error occurs before args is defined, or if debug_console isn't set,
+        # we still want to handle gracefully.
+        is_debug_console = False
+        if args: # Check if args is not None
+            is_debug_console = getattr(args, 'debug_console', False)
+
+        if is_debug_console: 
+            raise e
+        else:
+            print(f"{Color.RED}\nAn unexpected error occurred: {e}{Color.RESET}")
+            sys.exit(1)
+

@@ -18,7 +18,7 @@ def ask(
     write_to_file=False,
     output_filename=None,
     thinking_mode: str = "spinner",
-    print_mode: str = "every_x_tokens",
+    print_mode: str = "token",
     tokens_per_print: int = 5,
 ) -> None:
     """
@@ -76,7 +76,7 @@ def ask(
         func.write_to_file(output_filename, "")
 
     llm_options = {
-        "num_ctx": llm.CONTEXT_WINDOW_EXTRA_LARGE,
+        "num_ctx": llm.CONTEXT_WINDOW_XLARGE,
         "temperature": 0.5,
         "seed": llm.CONTEXT_WINDOW_SMALL,
     }
