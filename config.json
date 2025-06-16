@@ -7,6 +7,7 @@
     "PATHS_TASKS_TEMPLATES": "{root_dir}/task/",
     "PATHS_SYSTEM_TEMPLATES": "{root_dir}/system/",
     "PATHS_INJECT_TEMPLATES": "{root_dir}/inject/",
+    "PATHS_WORKSPACES": "{root_dir}/workspaces/",
     "PATHS_MODEL_CONFIGS": "{root_dir}/model-config/",
     "PATHS_LOGS":"{root_dir}/logs/",
 

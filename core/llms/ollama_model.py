@@ -41,7 +41,7 @@ class OllamaModel(BaseModel):
         if stream:
             try:
                 response = self.model.chat(model=self.model_name, messages=new_messages,
-                                           stream=stream, options=self.options)
+                                           stream=stream, options=self.options, keep_alive=False)
                 for chunks in response:
                     yield chunks['message']['content']
                     if self.stop_generation_event.is_set():

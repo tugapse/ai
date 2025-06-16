@@ -16,7 +16,7 @@ class ThinkingAnimationHandler:
     """
 
     SPINNER_CHARS = ['|', '/', '-', '\\']
-    PROGRESS_BAR_LENGTH = 20
+    PROGRESS_BAR_LENGTH = 3
     THINKING_PREFIX = "Thinking"
     MAX_UNTILL_THINK_DRAW = 10
     MAX_THINKING_INDICATOR_LENGTH = len(THINKING_PREFIX + "... [" + '-' * PROGRESS_BAR_LENGTH + "]") + 1
@@ -121,18 +121,18 @@ class ThinkingAnimationHandler:
             if self._log_manager:
                 self._log_manager.write_thinking_log(raw_token_string)
 
-            if self._current_thinking_count % self.MAX_UNTILL_THINK_DRAW == 0:
-                if self.mode == "dots":
-                    func.out(".", end="", flush=True)
-                elif self.mode == "spinner":
-                    spinner_char = self.SPINNER_CHARS[(self._current_thinking_count // self.MAX_UNTILL_THINK_DRAW) % len(self.SPINNER_CHARS)]
-                    func.out(f"\r{self.THINKING_PREFIX}... {spinner_char}", end="", flush=True)
-                elif self.mode == "progressbar":
-                    bar_fill_position = ((self._current_thinking_count // self.MAX_UNTILL_THINK_DRAW) - 1) % self.PROGRESS_BAR_LENGTH
-                    bar = ['-'] * self.PROGRESS_BAR_LENGTH
-                    bar[bar_fill_position] = '#'
-                    progress_bar_str = '[' + ''.join(bar) + ']'
-                    func.out(f"\r{self.THINKING_PREFIX}... {progress_bar_str}", end="", flush=True)
+            
+            if self.mode == "dots":
+                func.out(".", end="", flush=True)
+            elif self.mode == "spinner":
+                spinner_char = self.SPINNER_CHARS[(self._current_thinking_count // self.MAX_UNTILL_THINK_DRAW) % len(self.SPINNER_CHARS)]
+                func.out(f"\r{self.THINKING_PREFIX}... {spinner_char}", end="", flush=True)
+            elif self.mode == "progressbar":
+                bar_fill_position = ((self._current_thinking_count // self.MAX_UNTILL_THINK_DRAW) - 1) % self.PROGRESS_BAR_LENGTH
+                bar = ['-'] * self.PROGRESS_BAR_LENGTH
+                bar[bar_fill_position] = '#'
+                progress_bar_str = '[' + ''.join(bar) + ']'
+                func.out(f"\r{self.THINKING_PREFIX}... {progress_bar_str}", end="", flush=True)
             
             return self._is_thinking_active, ""
 

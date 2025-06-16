@@ -27,8 +27,13 @@ class ProgramSetting:
     PATHS_CHAT_LOG = "PATHS_CHAT_LOG"
     PATHS_TASKS_TEMPLATES = "PATHS_TASKS_TEMPLATES"
     PATHS_SYSTEM_TEMPLATES = "PATHS_SYSTEM_TEMPLATES"
+    PATHS_WORKSPACES = "PATHS_WORKSPACES"
     PATHS_INJECT_TEMPLATES = "PATHS_INJECT_TEMPLATES"
     PATHS_MODEL_CONFIGS = "PATHS_MODEL_CONFIGS"
+    
+    # --- New Program Setting for Generated Files Output Path ---
+    PATHS_GENERATED_FILES = "PATHS_GENERATED_FILES"
+    # --- End New Program Setting ---
 
     # --- New Program Settings for Thinking Logic and Output Control ---
     THINKING_MODE = "THINKING_MODE" # e.g., "spinner", "dots", "progressbar"
