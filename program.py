@@ -9,13 +9,13 @@ from core import ChatCommandInterceptor, CommandExecutor
 from core.llms import ModelParams, BaseModel, OllamaModel, HuggingFaceModel, T5Model
 from color import Color, format_text
 import functions as func
-from extras import ConsoleTokenFormatter
-
 from core.chat import Chat , ChatRoles
-from core.llms.think_parser import ThinkingAnimationHandler
-from core.llms.thinking_log_manager import ThinkingLogManager
-from core.llms.output_printer import OutputPrinter
-from core.llms.file_content_handler import FileContentHandler
+
+from extras.think_parser import ThinkingAnimationHandler
+from extras.thinking_log_manager import ThinkingLogManager
+from extras.output_printer import OutputPrinter
+from extras.file_content_handler import FileContentHandler
+from extras import ConsoleTokenFormatter
 
 
 

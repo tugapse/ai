@@ -12,7 +12,7 @@ from model_config_manager import ModelConfigManager
 from config import ProgramConfig, ProgramSetting
 from core.chat import ChatRoles
 from core.llms.base_llm import BaseModel
-from core.llms.model_enums import ModelType
+from entities.model_enums import ModelType
 from color import Color, format_text
 from direct import ask
 import functions as func

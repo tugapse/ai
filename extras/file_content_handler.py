@@ -3,7 +3,7 @@ import os
 import functions as func
 # import sys # No longer directly using sys.stdout.flush() for debugs here
 
-from core.llms.thinking_log_manager import ThinkingLogManager
+from extras.thinking_log_manager import ThinkingLogManager
 
 class FileContentHandler:
     """

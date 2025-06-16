@@ -3,7 +3,7 @@ from color import Color
 import re
 
 
-from .thinking_log_manager import ThinkingLogManager
+from extras.thinking_log_manager import ThinkingLogManager
 
 class ThinkingAnimationHandler:
     """

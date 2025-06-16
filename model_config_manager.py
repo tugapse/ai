@@ -3,10 +3,9 @@ import os
 import sys
 import argparse
 
-from core.llms.model_enums import ModelType
-from color import Color, format_text # Assuming these are available as in program.py
-import functions as func # Assuming functions.py is available for logging
-
+from entities.model_enums import ModelType
+from color import Color, format_text 
+import functions as func 
 
 class ModelConfigManager:
     """
@@ -38,7 +37,7 @@ class ModelConfigManager:
                 "temperature": 0.7,
                 "top_p": 0.95,
                 "top_k": 50,
-                "quantize": False
+                "quantization_bits": 0
             }
         }
 

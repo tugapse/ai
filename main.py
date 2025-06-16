@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))
 
 from program import Program
 from config import ProgramConfig, ProgramSetting
-from core.llms.model_enums import ModelType
+from entities.model_enums import ModelType
 import functions as func
 from color import Color
 from cli_args import CliArgs # Import the CliArgs processor

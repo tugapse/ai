@@ -12,11 +12,12 @@ class OllamaModel(BaseModel):
     This class implements an LLM bot using the Ollama library.
     """
 
-    def __init__(self, model_name, system_prompt=None, host=None):
+    def __init__(self, model_name, system_prompt=None, host=None, keep_alive=False):
         super().__init__(model_name, system_prompt)
         self.server_ip = host or "127.0.0.1"
         self.model = ollama.Client(self.server_ip)
         self.pull(self.model_name)
+        self.keep_alive = keep_alive
 
     def join_generation_thread(self, timeout: float = None):
         """
@@ -41,7 +42,7 @@ class OllamaModel(BaseModel):
         if stream:
             try:
                 response = self.model.chat(model=self.model_name, messages=new_messages,
-                                           stream=stream, options=self.options, keep_alive=False)
+                                           stream=stream, options=self.options, keep_alive=self.keep_alive)
                 for chunks in response:
                     yield chunks['message']['content']
                     if self.stop_generation_event.is_set():

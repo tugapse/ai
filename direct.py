@@ -3,11 +3,11 @@ from typing import Union
 import functions as func
 from core import OllamaModel, ChatRoles
 from extras.console import ConsoleTokenFormatter
-from core.llms.think_parser import ThinkingAnimationHandler
-from core.llms.thinking_log_manager import ThinkingLogManager
 from core.template_injection import TemplateInjection
 from color import Color
-from core.llms.output_printer import OutputPrinter
+from extras.output_printer import OutputPrinter
+from extras.think_parser import ThinkingAnimationHandler
+from extras.thinking_log_manager import ThinkingLogManager
 
 
 
