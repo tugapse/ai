@@ -9,8 +9,9 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStream
 from huggingface_hub.errors import RepositoryNotFoundError, GatedRepoError
 import requests.exceptions
 
-from core.llms.base_llm import BaseModel
+from core.llms.base_llm import BaseModel, ModelParams
 from core.events import Events
+from color import Color
 import functions 
 
 # Define a custom StoppingCriteria to allow external interruption
@@ -34,13 +35,14 @@ class HuggingFaceModel(BaseModel):
     """
     def __init__(self, model_name: str, system_prompt=None, quantization_bits: int = 0, **kargs):
         # Initial call
-        functions.log(f"HuggingFaceModel __init__ called for model: {model_name}")
+        functions.debug(f"HuggingFaceModel __init__ called for model: {model_name}")
 
         super().__init__(model_name, system_prompt, **kargs)
         self.tokenizer = None
         self.model = None
         self.quantization_bits = quantization_bits 
         self.error_queue = queue.Queue() # Queue to communicate errors from background thread
+        self.options = ModelParams().to_dict()
 
         try:
             self._load_llm_params()
@@ -211,7 +213,7 @@ class HuggingFaceModel(BaseModel):
         When 'stream' is True, generation happens in a separate thread and yields tokens as they are generated.
         When 'stream' is False, generation happens in the main thread and yields the full response.
         """
-        functions.log(f"HuggingFaceModel chat() called. Stream: {stream}")
+        functions.debug(f"HuggingFaceModel chat() called. Stream: {stream}")
 
         if self.model is None or self.tokenizer is None:
             yield "Model loading failed during initialization. Check logs for details."
@@ -235,7 +237,7 @@ class HuggingFaceModel(BaseModel):
 
 
         if torch.cuda.is_available():
-            functions.log("Clearing CUDA cache before generation...")
+            functions.debug("Clearing CUDA cache before generation...")
             torch.cuda.empty_cache()
             gc.collect()
 
@@ -247,7 +249,7 @@ class HuggingFaceModel(BaseModel):
         else:
             inputs_on_device = input_data
 
-        gen_options = self.options.to_dict() if hasattr(self, 'options') and self.options else {}
+        gen_options = self.options 
         gen_options.update(options)
 
         max_new_tokens = gen_options.get('max_new_tokens', 1024)
@@ -262,8 +264,8 @@ class HuggingFaceModel(BaseModel):
         elif eos_token_id is None: 
             functions.log("WARNING: No EOS or PAD token ID found for tokenizer. Model generation might not terminate cleanly.")
             eos_token_id = -1 
-
-        functions.debug(f"Generation options: max_new_tokens={max_new_tokens}, do_sample={do_sample}, top_k={top_k}, top_p={top_p}, temperature={temperature}, eos_token_id={eos_token_id}")
+        text = f"Generation options: max_new_tokens={max_new_tokens}, do_sample={do_sample}, top_k={top_k}, top_p={top_p}, temperature={temperature}, eos_token_id={eos_token_id}"
+        functions.debug(Color.GREEN + text)
 
         streamer = None 
         if stream:
@@ -298,28 +300,7 @@ class HuggingFaceModel(BaseModel):
             functions.debug(f"Generation thread started ({self._generation_thread.name}). Starting to yield tokens from streamer...")
 
             for new_token in streamer:
-                # should_stop_yielding = False
-                # stop_sequences_for_yield = []
-                # if hasattr(self.tokenizer, 'eos_token'):
-                #     stop_sequences_for_yield.append(self.tokenizer.eos_token)
-                # stop_sequences_for_yield.append("<end_of_turn>")
-                # stop_sequences_for_yield.append("<|end|>")
-
-                # for stop_seq in stop_sequences_for_yield:
-                #     if stop_seq and stop_seq in new_token:
-                #         new_token_log = new_token.replace('\n', '\\n')
-                #         stop_seq_log = stop_seq.replace('\n', '\\n')
-                #         functions.debug(f"Found stop token in HFM.chat(): '{new_token_log}' (matched '{stop_seq_log}'). Breaking streamer loop.")
-                        
-                #         part_to_yield = new_token.split(stop_seq, 1)[0]
-                #         if part_to_yield:
-                #             yield part_to_yield
-                #         should_stop_yielding = True
-                #         break
-                
-                # if should_stop_yielding:
-                #     break
-
+               
                 yield new_token 
                 if not self.error_queue.empty():
                     error_message = self.error_queue.get()
@@ -333,8 +314,6 @@ class HuggingFaceModel(BaseModel):
                 functions.log(f"ERROR: Error received from generation thread after streaming: {error_message}")
                 sys.exit(1)
 
-            # if isinstance(self, Events):     
-            #     functions.debug("Triggering STREAMING_FINISHED_EVENT.")
 
         else: # Non-streaming path
             functions.debug("Entering non-streaming (synchronous) generation path.")

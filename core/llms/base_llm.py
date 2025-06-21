@@ -91,20 +91,24 @@ class ModelParams:
     def __init__(self):
         self.num_ctx = BaseModel.CONTEXT_WINDOW_LARGE
         self.max_new_tokens = 1024
+        self.max_length = 4096
         self.do_sample = True
         self.top_k = 50
         self.top_p = 0.95
         self.temperature = 0.7
         self.quantization_bits = 0 # New: 0 for no quantization, 4 for 4-bit, 8 for 8-bit
+        self.enable_thinking = True
 
     def to_dict(self):
         return {
             "num_ctx": self.num_ctx,
             "max_new_tokens": self.max_new_tokens,
+            "max_length": self.max_length,
             "do_sample": self.do_sample,
             "top_k": self.top_k,
             "top_p": self.top_p,
             "temperature": self.temperature,
             "quantization_bits": self.quantization_bits, # Include in dict
+            "enable_thinking":self.enable_thinking
         }
 

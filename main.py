@@ -110,7 +110,7 @@ if __name__ == "__main__":
             print("\n")
 
         print_chat_header(prog=prog)
-        func.LOCK_LOG = True if args.debug_console else False
+        func.LOCK_LOG = False if args.debug_console else True
         
         # Start the chat loop. Direct messages are handled and exit within CliArgs.
         # So, if we reach here, it's for interactive chat.

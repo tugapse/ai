@@ -163,13 +163,11 @@ class Program:
     def start_chat(self, user_input):
         started_response = False
 
-        generation_options = self.model_params.to_dict()
 
         outs = self.llm.chat(
             self.chat.messages,
             stream=True, # Ensure stream=True is passed to enable streaming
-            images=self.chat.images,
-            options=generation_options,
+            images=self.chat.images
         )
         try:
             llm_response_accumulated = ""
@@ -260,7 +258,7 @@ class Program:
     def llm_stream_finished(self, data=""):
         func.log("Finished LLm Response")  # Adds a final newline after the LLM's complete response
         self.clear_process_token()  # Clears any internal state of the ConsoleTokenFormatter
-        self.chat.chat_finished()
+        self.chat.chat_finished()  # Adds a final newline after the LLM's complete response
 
     def output_requested(self):
         if self.active_executor:
@@ -437,19 +435,22 @@ class Program:
                 f"ERROR: Unknown model_type '{model_type}' in model configuration."
             )
             sys.exit(1)
-
+        # print(self.llm.__dict__)
+        # print(self.llm.options)
+        # exit(0)
         if (
             self.llm
             and hasattr(self.llm, "options")
-            and isinstance(self.llm.options, ModelParams)
         ):
             for key, value in model_properties.items():
-                if hasattr(self.llm.options, key):
-                    setattr(self.llm.options, key, value)
+                if self.llm.options.get( key,None):
+                    func.debug(f"Loading model property: {key} - {value}")
+                    self.llm.options[key] = value
                 else:
-                    func.log(
+                    func.debug(
                         f"WARNING: Unknown model property '{key}' for model type '{model_type}'. Skipping."
                     )
+            
 
         return self.llm
 
