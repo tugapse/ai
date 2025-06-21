@@ -98,6 +98,7 @@ class ModelParams:
         self.temperature = 0.7
         self.quantization_bits = 0 # New: 0 for no quantization, 4 for 4-bit, 8 for 8-bit
         self.enable_thinking = True
+        self.presence_penalty = 1.0
 
     def to_dict(self):
         return {
@@ -109,6 +110,7 @@ class ModelParams:
             "top_p": self.top_p,
             "temperature": self.temperature,
             "quantization_bits": self.quantization_bits, # Include in dict
-            "enable_thinking":self.enable_thinking
+            "enable_thinking":self.enable_thinking,
+            "presence_penalty":self.presence_penalty
         }
 

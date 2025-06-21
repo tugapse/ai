@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 
 from core.context_file import ContextFile
+from core.template_injection import TemplateInjection
 from colorama import Fore, Style                                                             
 from config import ProgramConfig, ProgramSetting
 
@@ -133,7 +134,7 @@ def log(text, start_line="[ * ]", **kargs):
         print((f"{Color.BLUE}{start_line}{Color.RESET} ") + text, **kargs)
 
 def debug(text, start_line="[ # ]", **kargs):
-    if ProgramConfig.current.get(ProgramSetting.PRINT_DEBUG, True) and not LOCK_LOG:
+    if ProgramConfig.current.get(ProgramSetting.PRINT_DEBUG, False) and not LOCK_LOG:
         print((f"{Color.PURPLE}{start_line}{Color.RESET} ") + text, **kargs)
 
 def out(text, **kargs):

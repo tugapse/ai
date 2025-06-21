@@ -236,8 +236,8 @@ class CliArgs:
                 BaseModel.create_message(ChatRoles.USER, args.msg)
             )
 
-        if piped or args.msg or args.task or args.task_file or args.file or args.load_folder or args.image:
-            func.log("INFO: Detected message/task/file/image input. Starting direct ask.")
+        if piped or args.msg or args.task or args.task_file:
+            func.log("INFO: Detected message/task input. Starting direct ask.")
             ask(
                 prog.llm,
                 prog.chat.messages, 

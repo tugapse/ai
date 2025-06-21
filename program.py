@@ -7,6 +7,7 @@ from datetime import datetime
 from config import ProgramConfig, ProgramSetting
 from core import ChatCommandInterceptor, CommandExecutor
 from core.llms import ModelParams, BaseModel, OllamaModel, HuggingFaceModel, T5Model
+from core.template_injection import TemplateInjection
 from color import Color, format_text
 import functions as func
 from core.chat import Chat , ChatRoles
@@ -47,13 +48,11 @@ class Program:
         self.thinking_log_manager: ThinkingAnimationHandler = None
         self.thinking_handler: ThinkingAnimationHandler = None
         self.output_printer: OutputPrinter = None
-        self.file_content_handler: FileContentHandler = (
-            None  # CORRECT: Initialize this attribute
-        )
+        self.file_content_handler: FileContentHandler = None
         # --- End New Attributes ---
 
     def init_program(self, args=None) -> None:
-        self.load_config(args=args)
+        if self.config is None: self.load_config(args=args)
         self.clear_on_init: bool = args.msg is not None or (
             getattr(args, "debug_console", False) if args else False
         )
@@ -100,7 +99,6 @@ class Program:
             log_manager=self.thinking_log_manager,
         )
 
-        self.config.get(ProgramSetting.PRINT_MODE, "token")
         # --- Initialize OutputPrinter for flexible output modes ---
         print_mode = self.config.get(ProgramSetting.PRINT_MODE, "token")
         tokens_per_print = self.config.get(ProgramSetting.TOKENS_PER_PRINT, 5)
@@ -142,7 +140,7 @@ class Program:
 
         self.init_model_params()
         self.command_interceptor = ChatCommandInterceptor(
-            self.chat, self.config.get(ProgramSetting.PATHS_CHAT_LOG)
+            self.chat, self.config.get(ProgramSetting.PATHS_LOGS)
         )
         self.active_executor: CommandExecutor = None
 
@@ -336,23 +334,27 @@ class Program:
 
     def read_system_file(self, system_file: str) -> str:
         system_templates_dir = self.config.get(ProgramSetting.PATHS_SYSTEM_TEMPLATES)
+        system_prompt = ""
 
         if system_file and os.path.exists(system_file):
             func.log(f"Loaded system file {system_file}")
-            return func.read_file(system_file)
+            system_prompt = func.read_file(system_file)
 
-        if system_templates_dir and system_file:
+        elif system_templates_dir and system_file:
             system_filepath = os.path.join(
                 system_templates_dir, system_file.replace(".md", "") + ".md"
             )
             if os.path.exists(system_filepath):
                 func.log(f"Loaded system file {system_filepath}")
-                return func.read_file(system_filepath)
+                system_prompt =  func.read_file(system_filepath)
 
-        func.log(
-            f"WARNING: System prompt file '{system_file}' not found at any known location."
-        )
-        return ""
+        if len(system_prompt) == 0:
+            func.log(f"WARNING: System prompt file '{system_file}' not found at any known location.")
+
+        injection_template = TemplateInjection(system_prompt)
+        result = injection_template.replace_system_template()
+        func.debug(result)
+        return result
 
     def _load_model(self, model_config_name: str) -> BaseModel:
 
@@ -435,9 +437,7 @@ class Program:
                 f"ERROR: Unknown model_type '{model_type}' in model configuration."
             )
             sys.exit(1)
-        # print(self.llm.__dict__)
-        # print(self.llm.options)
-        # exit(0)
+
         if (
             self.llm
             and hasattr(self.llm, "options")

@@ -37,7 +37,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     parser.add_argument("--no-log", "-q", help='Set this flag to NOT print "log" messages', action="store_false")
     parser.add_argument("--no-out", help='Set this flag to NOT print "output" messages', action="store_false")
     
-    parser.add_argument("--debug-console", action="store_true", help='Set this flag to NOT clear console (for debugging)')
+    parser.add_argument("--debug-console","-dc", action="store_true", help='Set this flag to NOT clear console (for debugging)')
 
     config_group = parser.add_argument_group('Model Config Generation', 'Use these arguments to generate a new model JSON config file.')
     config_group.add_argument('--generate-config', metavar='FILEPATH', type=str, help='Generate a model config and save it to the specified path, then exit.')
@@ -72,28 +72,44 @@ def print_chat_header(prog: Program) -> None:
     func.out(f"{Color.RESET}--------------------------")
 
 
-def init_program_and_args() -> tuple[Program, argparse.Namespace, argparse.ArgumentParser]:
+def init_program_and_args(args) -> tuple[Program, argparse.Namespace, argparse.ArgumentParser]:
     """
     Initializes the program components and processes CLI arguments.
     """
-    parser, args = load_args()
+    
     
     # Model config generation is now handled within CliArgs._handle_config_generation
     # which will sys.exit() if --generate-config is present.
     # No direct call to generate_model_config needed here.
 
     prog = Program()
+    prog.load_config(args)
+    
+    if args.debug_console: # Use getattr for robustness
+        print("DEBUG MODE Enabled")
+        clear_console = False
+        func.LOCK_LOG = False
+        prog.config.set(ProgramSetting.PRINT_LOG, True)
+        prog.config.set(ProgramSetting.PRINT_DEBUG, True)
+    else:
+        func.LOCK_LOG = True
+        prog.config.set(ProgramSetting.PRINT_LOG, False)
+        prog.config.set(ProgramSetting.PRINT_DEBUG, False)
+
     prog.init_program(args) # Program initialized with args
 
-    return prog, args, parser
+    return prog
 
 
 if __name__ == "__main__":
     prog = None
     args = None # Initialize args to None for safety in except block
     try:
+        parser, args = load_args()
+
+        
         # Initialize program and parse args
-        prog, args, parser = init_program_and_args()
+        prog = init_program_and_args(args)
         
         # Instantiate CliArgs and parse remaining arguments.
         # _handle_config_generation in CliArgs will exit if --generate-config was used.
@@ -102,15 +118,13 @@ if __name__ == "__main__":
 
         # Determine whether to clear console based on --debug-console argument
         clear_console = True
-        if getattr(args, 'debug_console', False): # Use getattr for robustness
-            clear_console = False
+        
 
         if clear_console: 
             os.system('cls' if os.name == 'nt' else 'clear') 
             print("\n")
 
         print_chat_header(prog=prog)
-        func.LOCK_LOG = False if args.debug_console else True
         
         # Start the chat loop. Direct messages are handled and exit within CliArgs.
         # So, if we reach here, it's for interactive chat.
@@ -139,6 +153,7 @@ if __name__ == "__main__":
         if is_debug_console: 
             raise e
         else:
-            print(f"{Color.RED}\nAn unexpected error occurred: {e}{Color.RESET}")
+            print(f"{Color.RED}\nAn unexpected error occurred: {e} {Color.RESET}")
+            raise e
             sys.exit(1)
 
