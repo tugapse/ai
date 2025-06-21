@@ -2,19 +2,26 @@ import os
 import time
 import errno
 import datetime
-from program import ProgramConfig, ProgramSetting # Assuming ProgramConfig and ProgramSetting are accessible
+from program import (
+    ProgramConfig,
+    ProgramSetting,
+)  # Assuming ProgramConfig and ProgramSetting are accessible
+
 
 class ThinkingLogManager:
     """
     Manages a log file for "thinking" content, ensuring exclusive write access
     across processes using a simple lock file mechanism, while allowing concurrent reads.
-    The log file directory can be configured via an environment variable.
     """
-    
-    DEFAULT_LOG_SUBDIR = os.path.join('.ai_assistant', 'logs')
-    ENV_VAR_LOG_DIR = 'AI_ASSISTANT_THINKING_LOG_DIR'
 
-    def __init__(self, log_file_name: str = "thinking_process.log", max_lock_wait_time: int = 10, lock_poll_interval: float = 0.1):
+    DEFAULT_LOG_SUBDIR = os.path.join("Ai", "logs", "thinking")
+
+    def __init__(
+        self,
+        log_file_name: str = "thinking_process.log",
+        max_lock_wait_time: int = 10,
+        lock_poll_interval: float = 0.1,
+    ):
         """
         Initializes the ThinkingLogManager.
 
@@ -28,38 +35,30 @@ class ThinkingLogManager:
         self.max_lock_wait_time = max_lock_wait_time
         self.lock_poll_interval = lock_poll_interval
         self._lock_fd = None
+        self._default_log_filename = None
 
-        sanitized_file_name = log_file_name.replace(' ', '_').replace(':', '_')
-        if not sanitized_file_name.endswith('.log'):
-            sanitized_file_name += '.log'
-        
+        sanitized_file_name = log_file_name.replace(" ", "_").replace(":", "_")
+        if not sanitized_file_name.endswith(".log"):
+            sanitized_file_name += ".log"
+
         self.log_file_name = sanitized_file_name
 
         # Access ProgramConfig directly for log directory path
         base_log_dir = ProgramConfig.current.get(ProgramSetting.PATHS_LOGS)
         if base_log_dir:
-            self.log_dir = base_log_dir
+            self.log_dir = os.path.join(base_log_dir, "thinking")
         else:
-            self.log_dir = os.path.join(os.path.expanduser('~'), self.DEFAULT_LOG_SUBDIR)
-            
+            self.log_dir = os.path.join(
+                os.path.expanduser("~"), self.DEFAULT_LOG_SUBDIR
+            )
+
         os.makedirs(self.log_dir, exist_ok=True)
 
         self.log_file_path = os.path.join(self.log_dir, self.log_file_name)
+        self._default_log_filename = os.path.join(
+            (base_log_dir or self.log_dir), "active_thinking_process.log"
+        )
         self.lock_file_path = f"{self.log_file_path}.lock"
-
-        # Initial header write to mark log start
-        try:
-            self._acquire_write_lock()
-            with open(self.log_file_path, 'a', encoding='utf-8') as f:
-                timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                f.write(f"--- Log Start: {self.log_file_name} - {timestamp} ---\n\n")
-        except TimeoutError as e:
-            print(f"Error initializing log file (header write): {e}")
-        except IOError as e:
-            print(f"IO Error initializing log file (header write) for {self.log_file_path}: {e}")
-        finally:
-            self._release_write_lock()
-
 
     def _acquire_write_lock(self):
         """
@@ -71,22 +70,30 @@ class ThinkingLogManager:
         while True:
             try:
                 # O_EXCL ensures the file is only created if it doesn't exist, preventing race conditions
-                self._lock_fd = os.open(self.lock_file_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-                os.close(self._lock_fd) # Close immediately after creation to release the file handle
-                self._lock_fd = None # Reset file descriptor
+                self._lock_fd = os.open(
+                    self.lock_file_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY
+                )
+                os.close(
+                    self._lock_fd
+                )  # Close immediately after creation to release the file handle
+                self._lock_fd = None  # Reset file descriptor
                 return True
             except OSError as e:
                 if e.errno == errno.EEXIST:
                     # Lock file already exists, wait and retry
                     if time.time() - start_time > self.max_lock_wait_time:
-                        raise TimeoutError(f"Could not acquire write lock for {self.log_file_path} after {self.max_lock_wait_time} seconds.")
+                        raise TimeoutError(
+                            f"Could not acquire write lock for {self.log_file_path} after {self.max_lock_wait_time} seconds."
+                        )
                     time.sleep(self.lock_poll_interval)
                 else:
                     # Other OS errors
                     raise IOError(f"Error acquiring lock for {self.log_file_path}: {e}")
             except Exception as e:
                 # Catch any other unexpected errors
-                raise IOError(f"An unexpected error occurred while acquiring lock for {self.log_file_path}: {e}")
+                raise IOError(
+                    f"An unexpected error occurred while acquiring lock for {self.log_file_path}: {e}"
+                )
 
     def _release_write_lock(self):
         """
@@ -108,7 +115,9 @@ class ThinkingLogManager:
         """
         try:
             self._acquire_write_lock()
-            with open(self.log_file_path, 'a', encoding='utf-8') as f:
+            with open(self.log_file_path, "a", encoding="utf-8") as f:
+                f.write(content)
+            with open(self._default_log_filename, "a", encoding="utf-8") as f:
                 f.write(content)
         except TimeoutError as e:
             print(f"Error: {e}")
@@ -117,7 +126,9 @@ class ThinkingLogManager:
         finally:
             self._release_write_lock()
 
-    def write_session_header(self, tags: str = ""): # Made 'tags' optional with a default empty string
+    def write_session_header(
+        self, tags: str = ""
+    ):  # Made 'tags' optional with a default empty string
         """
         Writes a timestamped header to the log file. This is intended to be called
         once per session when thinking activity begins.
@@ -126,11 +137,17 @@ class ThinkingLogManager:
         """
         try:
             self._acquire_write_lock()
-            with open(self.log_file_path, 'a', encoding='utf-8') as f:
-                timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                # The 'tags' argument is included here, even if it's an empty string.
-                # You can extend this to use the tags in the log message if needed in the future.
-                f.write(f"\n--- Log Session Start ({tags}): {self.log_file_name} - {timestamp} ---\n\n")
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with open(self.log_file_path, "a", encoding="utf-8") as f:
+                f.write(
+                    f"\n--- Log Session Start ({tags}): {self.log_file_name} - {timestamp} ---\n\n"
+                )
+
+            with open(self._default_log_filename, "w", encoding="utf-8") as f:
+                f.write(
+                    f"\n--- Log Session Start ({tags}): {self.log_file_name} - {timestamp} ---\n\n"
+                )
+
         except TimeoutError as e:
             print(f"Error writing session header to {self.log_file_path}: {e}")
         except IOError as e:
@@ -150,8 +167,10 @@ class ThinkingLogManager:
         start_time = time.time()
         while os.path.exists(self.lock_file_path):
             if time.time() - start_time > self.max_lock_wait_time:
-                print(f"Warning: Write lock detected for {self.log_file_path}, proceeding with read "
-                      "which might result in inconsistent data as lock could not be released.")
+                print(
+                    f"Warning: Write lock detected for {self.log_file_path}, proceeding with read "
+                    "which might result in inconsistent data as lock could not be released."
+                )
                 break
             time.sleep(self.lock_poll_interval)
 
@@ -159,7 +178,7 @@ class ThinkingLogManager:
             return ""
 
         try:
-            with open(self.log_file_path, 'r', encoding='utf-8') as f:
+            with open(self.log_file_path, "r", encoding="utf-8") as f:
                 return f.read()
         except IOError as e:
             print(f"Error reading from {self.log_file_path}: {e}")
