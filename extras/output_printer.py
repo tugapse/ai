@@ -55,7 +55,7 @@ class OutputPrinter:
         Processes a single formatted token and prints it based on the configured mode.
         """
         if self.print_mode == "token":
-            return (token_to_display)
+            return token_to_display
         elif self.print_mode == "line":
             self.line_buffer += token_to_display
             if "\n" in self.line_buffer:
@@ -71,9 +71,9 @@ class OutputPrinter:
             self.token_buffer += token_to_display
             self.buffered_token_count += 1
             if self.buffered_token_count >= self.tokens_per_print:
-                return (self.token_buffer)
                 self.token_buffer = ""
                 self.buffered_token_count = 0
+                return (self.token_buffer)
             return None
         else:
             func.log(f"Warning: Unknown print_mode '{self.print_mode}'. Defaulting to 'token'.")

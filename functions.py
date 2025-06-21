@@ -129,10 +129,13 @@ def format_execution_time(start_time, end_time):
 
 
 def log(text, start_line="[ * ]", **kargs):
-    if ProgramConfig.current.get(ProgramSetting.PRINT_LOG, False) and not LOCK_LOG:
+    if ProgramConfig.current.get(ProgramSetting.PRINT_LOG, True) and not LOCK_LOG:
         print((f"{Color.BLUE}{start_line}{Color.RESET} ") + text, **kargs)
 
+def debug(text, start_line="[ # ]", **kargs):
+    if ProgramConfig.current.get(ProgramSetting.PRINT_DEBUG, True) and not LOCK_LOG:
+        print((f"{Color.PURPLE}{start_line}{Color.RESET} ") + text, **kargs)
 
 def out(text, **kargs):
-    if ProgramConfig.current.get(ProgramSetting.PRINT_OUTPUT, False):
+    if ProgramConfig.current.get(ProgramSetting.PRINT_OUTPUT, True):
         print(text, **kargs)

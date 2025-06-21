@@ -47,8 +47,6 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     return parser, parser.parse_args()
 
 
-# Removed generate_model_config from here, it's now handled by CliArgs._handle_config_generation
-
 
 def print_chat_header(prog: Program) -> None:
     """
@@ -112,7 +110,7 @@ if __name__ == "__main__":
             print("\n")
 
         print_chat_header(prog=prog)
-        func.LOCK_LOG = True
+        func.LOCK_LOG = True if args.debug_console else False
         
         # Start the chat loop. Direct messages are handled and exit within CliArgs.
         # So, if we reach here, it's for interactive chat.

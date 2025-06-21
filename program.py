@@ -44,7 +44,7 @@ class Program:
         self.session_timestamp: str = ""  # Added to store the unique session timestamp
 
         # --- Initialize all new handlers/managers as None ---
-        self.thinking_log_manager: ThinkingLogManager = None
+        self.thinking_log_manager: ThinkingAnimationHandler = None
         self.thinking_handler: ThinkingAnimationHandler = None
         self.output_printer: OutputPrinter = None
         self.file_content_handler: FileContentHandler = (
@@ -100,8 +100,9 @@ class Program:
             log_manager=self.thinking_log_manager,
         )
 
+        self.config.get(ProgramSetting.PRINT_MODE, "token")
         # --- Initialize OutputPrinter for flexible output modes ---
-        print_mode = self.config.get(ProgramSetting.PRINT_MODE, "every_x_tokens")
+        print_mode = self.config.get(ProgramSetting.PRINT_MODE, "token")
         tokens_per_print = self.config.get(ProgramSetting.TOKENS_PER_PRINT, 5)
         self.output_printer = OutputPrinter(
             print_mode=print_mode, tokens_per_print=tokens_per_print
@@ -166,14 +167,14 @@ class Program:
 
         outs = self.llm.chat(
             self.chat.messages,
+            stream=True, # Ensure stream=True is passed to enable streaming
             images=self.chat.images,
             options=generation_options,
         )
         try:
             llm_response_accumulated = ""
-            for (
-                raw_token_string
-            ) in outs:  # Iterate through raw tokens from the LLM stream
+            for raw_token_string in outs:  # Iterate through raw tokens from the LLM stream
+              
                 new_token = self.output_printer.process_token(raw_token_string)
                 if new_token is None:
                     continue
@@ -184,8 +185,6 @@ class Program:
                 )
 
                 # --- Step 2: If not thinking, pass content to FileContentHandler ---
-                # The file handler now returns (is_active_during_this_token, display_content_from_this_token, None)
-                # as saving and its console messages are handled internally.
                 is_file_active, content_after_file_handler, _ = (
                     self.file_content_handler.process_token(content_after_thinking)
                 )
@@ -196,7 +195,7 @@ class Program:
                 if (
                     not is_thinking
                     and not is_file_active
-                    and content_after_file_handler
+                    and content_after_file_handler # RE-ADDED THIS CHECK for correct display logic
                 ):
                     if not started_response:
                         func.out(
@@ -206,6 +205,7 @@ class Program:
                         )
                         started_response = True
 
+                    # RESTORED ORIGINAL LOGIC: formatted_token_for_display uses content_after_file_handler
                     formatted_token_for_display = self.token_processor.process_token(
                         content_after_file_handler
                     )
@@ -227,10 +227,10 @@ class Program:
                         )
                 # If is_thinking OR is_file_active (meaning we are *inside* a file tag) OR content_after_file_handler is empty,
                 # do nothing with it for console output. Handlers take care of their specific displays/logging.
-
+                
         except Exception as e:
             error_message = f"An error occurred during chat: {e}"
-            func.out(f"Error: {error_message}\n")
+            func.out(f"Error: {error_message}")
             func.out("\n")
             print(
                 f"\nCRITICAL: {error_message}"
@@ -258,7 +258,7 @@ class Program:
             self.llm_stream_finished()
 
     def llm_stream_finished(self, data=""):
-        func.out("")  # Adds a final newline after the LLM's complete response
+        func.log("Finished LLm Response")  # Adds a final newline after the LLM's complete response
         self.clear_process_token()  # Clears any internal state of the ConsoleTokenFormatter
         self.chat.chat_finished()
 
@@ -315,7 +315,6 @@ class Program:
             else:
                 func.log(f"WARNING: System prompt file '{filepath}' not found.")
 
-        # Updated to use .get with default values, ensuring consistency
         self.config.set(
             ProgramSetting.PRINT_LOG,
             (
@@ -341,6 +340,7 @@ class Program:
         system_templates_dir = self.config.get(ProgramSetting.PATHS_SYSTEM_TEMPLATES)
 
         if system_file and os.path.exists(system_file):
+            func.log(f"Loaded system file {system_file}")
             return func.read_file(system_file)
 
         if system_templates_dir and system_file:
@@ -348,6 +348,7 @@ class Program:
                 system_templates_dir, system_file.replace(".md", "") + ".md"
             )
             if os.path.exists(system_filepath):
+                func.log(f"Loaded system file {system_filepath}")
                 return func.read_file(system_filepath)
 
         func.log(
@@ -357,7 +358,7 @@ class Program:
 
     def _load_model(self, model_config_name: str) -> BaseModel:
 
-        func.log(f"Starting system :")
+        func.log(f"Starting system ")
 
         if not model_config_name.endswith(".json"):
             model_config_name += ".json"
@@ -404,9 +405,7 @@ class Program:
             )
             sys.exit(1)
 
-        func.log(
-            Color.YELLOW + f"INFO: Selected model: {model_name} (Type: {model_type})"
-        )
+        func.log( f"INFO: Selected model: {model_name} (Type: {model_type})"   )
 
         if model_type == "causal_lm":
             self.llm = HuggingFaceModel(

@@ -3,12 +3,13 @@ import threading
 import sys
 import queue
 import gc
+import os 
 
 from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer, StoppingCriteria, StoppingCriteriaList, BitsAndBytesConfig
 from huggingface_hub.errors import RepositoryNotFoundError, GatedRepoError
 import requests.exceptions
 
-from core.llms.base_llm import BaseModel, ModelParams
+from core.llms.base_llm import BaseModel
 from core.events import Events
 import functions 
 
@@ -32,6 +33,9 @@ class HuggingFaceModel(BaseModel):
     Integrates Hugging Face models as an LLM. Handles loading, quantization, and streaming responses.
     """
     def __init__(self, model_name: str, system_prompt=None, quantization_bits: int = 0, **kargs):
+        # Initial call
+        functions.log(f"HuggingFaceModel __init__ called for model: {model_name}")
+
         super().__init__(model_name, system_prompt, **kargs)
         self.tokenizer = None
         self.model = None
@@ -46,20 +50,19 @@ class HuggingFaceModel(BaseModel):
             self.tokenizer = None
             sys.exit(1)
         except RepositoryNotFoundError:
-            functions.log(f"Error: Model '{self.model_name}' not found on Hugging Face Hub. Check spelling.")
+            functions.log(f"ERROR: Model '{self.model_name}' not found on Hugging Face Hub. Check spelling.")
             self.model = None
             self.tokenizer = None
             sys.exit(1)
         except requests.exceptions.HTTPError as e:
-            functions.log(f"Error: Could not download model files for '{self.model_name}'. Check network, disk space, or proxy settings.")
-            functions.log(f"Details: {e}")
+            functions.log(f"ERROR: Could not download model files for '{self.model_name}'. Check network, disk space, or proxy settings. Details: {e}")
             self.model = None
             self.tokenizer = None
             sys.exit(1)
         except Exception as e:
             functions.log(f"CRITICAL ERROR: Model initialization failed for {self.model_name}: {e}")
             import traceback
-            traceback.print_exc() # Corrected: functions.log_exc() to print_exc()
+            traceback.print_exc() # Keep print_exc for critical errors to console
             self.model = None
             self.tokenizer = None
             sys.exit(1)
@@ -88,18 +91,16 @@ class HuggingFaceModel(BaseModel):
                         bnb_4bit_compute_dtype=torch.bfloat16, # Compute in bfloat16 for better performance
                         bnb_4bit_use_double_quant=True, # Optional: enables nested quantization
                     )
-                    functions.log("INFO: Configured for 4-bit quantization using BitsAndBytesConfig.")
+                    functions.log("Configured for 4-bit quantization using BitsAndBytesConfig.")
                 elif self.quantization_bits == 8:
                     quantization_config = BitsAndBytesConfig(load_in_8bit=True)
-                    functions.log("INFO: Configured for 8-bit quantization using BitsAndBytesConfig.")
+                    functions.log("Configured for 8-bit quantization using BitsAndBytesConfig.")
                 
             except ImportError:
-                functions.log("WARNING: bitsandbytes not found. Quantization requires `pip install bitsandbytes accelerate` and a compatible CUDA setup.")
-                functions.log("Falling back to non-quantized loading (might require more VRAM).")
+                functions.log("WARNING: bitsandbytes not found. Quantization requires `pip install bitsandbytes accelerate` and a compatible CUDA setup. Falling back to non-quantized loading (might require more VRAM).")
                 self.quantization_bits = 0 # Reset quantization to none
             except Exception as e:
-                functions.log(f"ERROR: Could not create BitsAndBytesConfig for {self.quantization_bits}-bit quantization: {e}")
-                functions.log("Falling back to non-quantized loading.")
+                functions.log(f"ERROR: Could not create BitsAndBytesConfig for {self.quantization_bits}-bit quantization: {e}. Falling back to non-quantized loading.")
                 self.quantization_bits = 0 # Reset quantization to none
         
         if quantization_config:
@@ -108,7 +109,7 @@ class HuggingFaceModel(BaseModel):
                 load_kwargs["device_map"] = "auto"
             functions.log(f"Attempting to load model: {self.model_name} with {self.quantization_bits}-bit quantization config.")
         else:
-            functions.log("INFO: Loading model without quantization (either not requested or bitsandbytes not available/failed).")
+            functions.log("Loading model without quantization (either not requested or bitsandbytes not available/failed).")
             if torch.cuda.is_available():
                 load_kwargs["torch_dtype"] = torch.bfloat16 # Use bfloat16 for better precision on newer GPUs
                 load_kwargs["device_map"] = "auto"
@@ -151,30 +152,45 @@ class HuggingFaceModel(BaseModel):
 
         return cleaned_messages
 
-    def _generate_in_thread(self, model, generation_kwargs, error_queue, streamer, stop_event: threading.Event):
+    def _generate_in_thread(self, model, tokenizer, generation_kwargs, error_queue, streamer, stop_event: threading.Event):
         """
         Target function for the generation thread.
         Handles model generation and puts any caught exceptions into the error_queue.
+        The streamer is managed by the TextIteratorStreamer itself.
         """
+        functions.debug("_generate_in_thread started.")
         try:
             generation_kwargs['stopping_criteria'] = StoppingCriteriaList([CustomStoppingCriteria(stop_event)])
+            
+            functions.debug(f"_generate_in_thread calling model.generate with kwargs keys: {generation_kwargs.keys()}")
+            
+            # The streamer is already passed in generation_kwargs, model.generate will write to it
             model.generate(**generation_kwargs)
+            
+            functions.debug(f"_generate_in_thread model.generate completed (Streaming).")
+
         except RuntimeError as e:
             error_message = (
-                f"\nERROR: Model generation failed due to a CUDA/Runtime error. "
+                f"ERROR: Model generation failed due to a CUDA/Runtime error. "
                 f"This often indicates numerical instability or memory issues during generation."
                 f"\nDetails: {e}"
                 f"\nSuggestion: Try reducing 'temperature' (e.g., to 0.5 or 0.3), or disable sampling (`do_sample=False`) "
                 f"in your model configuration. If the issue persists, consider a smaller model or more VRAM, or ensure bitsandbytes is correctly installed for {self.quantization_bits}-bit quantization."
             )
+            functions.log(error_message)
             error_queue.put(error_message)
-            streamer.end()
         except Exception as e:
             import traceback
-            error_message = f"\nCRITICAL ERROR: An unexpected error occurred during model generation: {e}"
+            error_message = f"CRITICAL ERROR: An unexpected error occurred during model generation: {e}"
             error_message += f"\nTraceback:\n{traceback.format_exc()}"
+            functions.log(error_message)
             error_queue.put(error_message)
-            streamer.end()
+        finally:
+            functions.debug("_generate_in_thread finally block executed. Clearing stop event. Calling streamer.end().")
+            if streamer: # Ensure streamer exists before calling end()
+                streamer.end() # This is the crucial line to ensure the TextIteratorStreamer stops
+            stop_event.clear()
+
 
     def join_generation_thread(self, timeout: float = None):
         """
@@ -182,7 +198,7 @@ class HuggingFaceModel(BaseModel):
         Overrides BaseModel's method.
         """
         if self._generation_thread and self._generation_thread.is_alive():
-            functions.log("INFO: Waiting for HuggingFace LLM generation thread to finish...")
+            functions.log("Waiting for HuggingFace LLM generation thread to finish...")
             self._generation_thread.join(timeout=timeout)
             if self._generation_thread.is_alive():
                 functions.log("WARNING: HuggingFace LLM generation thread did not terminate within timeout.")
@@ -192,21 +208,39 @@ class HuggingFaceModel(BaseModel):
     def chat(self, messages: list, images:list[str] = None, stream: bool = True, options: object = {}):
         """
         Generates a chat response from the Hugging Face model.
+        When 'stream' is True, generation happens in a separate thread and yields tokens as they are generated.
+        When 'stream' is False, generation happens in the main thread and yields the full response.
         """
+        functions.log(f"HuggingFaceModel chat() called. Stream: {stream}")
+
         if self.model is None or self.tokenizer is None:
             yield "Model loading failed during initialization. Check logs for details."
             return
 
         self.stop_generation_event.clear()
+        # Ensure error_queue is empty from previous runs
+        while not self.error_queue.empty(): self.error_queue.get()
+
+        functions.debug("Chat method initialized, queues cleared.")
 
         processed_messages = self._ensure_alternating_roles(messages)
+        
+        processed_messages_log = ""
+        if processed_messages: 
+            processed_messages_log = processed_messages[-1]['content'][:50].replace('\n', '\\n')
+        else:
+            processed_messages_log = "[No messages to process]"
+            
+        functions.debug(f"Processed messages. Input for LLM will be based on: '{processed_messages_log}'...")
+
 
         if torch.cuda.is_available():
-            functions.log("INFO: Clearing CUDA cache before generation...")
+            functions.log("Clearing CUDA cache before generation...")
             torch.cuda.empty_cache()
             gc.collect()
 
         input_data = self._prepare_input(processed_messages)
+        functions.debug(f"Input data prepared. Input IDs shape: {input_data['input_ids'].shape}")
 
         if torch.cuda.is_available():
             inputs_on_device = {k: v.to('cuda') for k, v in input_data.items()}
@@ -229,8 +263,11 @@ class HuggingFaceModel(BaseModel):
             functions.log("WARNING: No EOS or PAD token ID found for tokenizer. Model generation might not terminate cleanly.")
             eos_token_id = -1 
 
-        # Initialize streamer to None *before* it's used in generation_kwargs
+        functions.debug(f"Generation options: max_new_tokens={max_new_tokens}, do_sample={do_sample}, top_k={top_k}, top_p={top_p}, temperature={temperature}, eos_token_id={eos_token_id}")
+
         streamer = None 
+        if stream:
+            streamer = TextIteratorStreamer(self.tokenizer, skip_prompt=True, skip_special_tokens=True)
 
         generation_kwargs = dict(
             inputs_on_device,
@@ -241,19 +278,16 @@ class HuggingFaceModel(BaseModel):
             temperature=temperature,
             pad_token_id=eos_token_id, 
             eos_token_id=eos_token_id, 
-            streamer=streamer if stream else None, # Now streamer is guaranteed to be defined
+            streamer=streamer if stream else None,
         )
 
         if stream:
-            # IMPORTANT: Set skip_special_tokens=False. We want all non-EOS tokens (including emojis)
-            # to be yielded by the streamer. Program.py will manually filter the specific EOS token.
-            streamer = TextIteratorStreamer(self.tokenizer, skip_prompt=True, skip_special_tokens=False)
-            generation_kwargs["streamer"] = streamer # Update streamer in kwargs after creation
-
+            functions.debug("Entering streaming (threaded) generation path with TextIteratorStreamer.")
             self._generation_thread = threading.Thread(
                 target=self._generate_in_thread,
                 kwargs={
                     "model": self.model,
+                    "tokenizer": self.tokenizer,
                     "generation_kwargs": generation_kwargs,
                     "error_queue": self.error_queue,
                     "streamer": streamer,
@@ -261,39 +295,70 @@ class HuggingFaceModel(BaseModel):
                 }
             )
             self._generation_thread.start()
+            functions.debug(f"Generation thread started ({self._generation_thread.name}). Starting to yield tokens from streamer...")
 
             for new_token in streamer:
+                # should_stop_yielding = False
+                # stop_sequences_for_yield = []
+                # if hasattr(self.tokenizer, 'eos_token'):
+                #     stop_sequences_for_yield.append(self.tokenizer.eos_token)
+                # stop_sequences_for_yield.append("<end_of_turn>")
+                # stop_sequences_for_yield.append("<|end|>")
+
+                # for stop_seq in stop_sequences_for_yield:
+                #     if stop_seq and stop_seq in new_token:
+                #         new_token_log = new_token.replace('\n', '\\n')
+                #         stop_seq_log = stop_seq.replace('\n', '\\n')
+                #         functions.debug(f"Found stop token in HFM.chat(): '{new_token_log}' (matched '{stop_seq_log}'). Breaking streamer loop.")
+                        
+                #         part_to_yield = new_token.split(stop_seq, 1)[0]
+                #         if part_to_yield:
+                #             yield part_to_yield
+                #         should_stop_yielding = True
+                #         break
+                
+                # if should_stop_yielding:
+                #     break
+
                 yield new_token 
                 if not self.error_queue.empty():
                     error_message = self.error_queue.get()
-                    functions.log(error_message)
+                    functions.log(f"ERROR: Error received from generation thread during streaming: {error_message}")
                     sys.exit(1)
+            functions.out("\n")
+            functions.debug("Streamer finished yielding all tokens.")
 
             if not self.error_queue.empty():
                 error_message = self.error_queue.get()
-                functions.log(error_message)
+                functions.log(f"ERROR: Error received from generation thread after streaming: {error_message}")
                 sys.exit(1)
 
-            if isinstance(self, Events):
-                self.trigger(self.STREAMING_FINISHED_EVENT)
+            # if isinstance(self, Events):     
+            #     functions.debug("Triggering STREAMING_FINISHED_EVENT.")
 
-        else:
+        else: # Non-streaming path
+            functions.debug("Entering non-streaming (synchronous) generation path.")
             try:
                 response_text = self._generate_response(inputs_on_device, gen_options)
+                functions.debug(f"Synchronous generation complete. Output length: {len(response_text)}. Yielding...")
 
                 if isinstance(self, Events):
-                    self.trigger(self.STREAMING_FINISHED_EVENT)
+                    functions.debug("Triggering STREAMING_FINISHED_EVENT (synchronous path).")
 
                 yield response_text
             except RuntimeError as e:
-                functions.log(f"\nERROR: Model generation failed due to a CUDA/Runtime error. This often indicates numerical instability or memory issues during generation.")
-                functions.log(f"Details: {e}")
-                functions.log(f"Suggestion: Try reducing 'temperature' (e.g., to 0.5 or 0.3), or disable sampling (`do_sample=False`) in your model configuration. If the issue persists, consider a smaller model or more VRAM, or ensure bitsandbytes is correctly installed for {self.quantization_bits}-bit quantization.")
+                error_message = (
+                    f"ERROR: Model generation failed due to a CUDA/Runtime error. This often indicates numerical instability or memory issues during generation."
+                    f"\nDetails: {e}"
+                    f"\nSuggestion: Try reducing 'temperature' (e.g., to 0.5 or 0.3), or disable sampling (`do_sample=False`) "
+                    f"in your model configuration. If the issue persists, consider a smaller model or more VRAM, or ensure bitsandbytes is correctly installed for {self.quantization_bits}-bit quantization."
+                )
+                functions.log(error_message)
                 sys.exit(1)
             except Exception as e:
-                functions.log(f"\nCRITICAL ERROR: An unexpected error occurred during model generation: {e}")
+                functions.log(f"CRITICAL ERROR: An unexpected error occurred during model generation: {e}")
                 import traceback
-                traceback.print_exc() # Corrected: functions.log_exc() to print_exc()
+                traceback.print_exc() # Keep print_exc for critical errors to console
                 sys.exit(1)
 
     def _prepare_input(self, messages: list):
@@ -308,6 +373,7 @@ class HuggingFaceModel(BaseModel):
                 add_generation_prompt=True
             )
             inputs = self.tokenizer(input_string, return_tensors="pt")
+            functions.debug(f"_prepare_input using apply_chat_template. Input string length: {len(input_string)}")
             return inputs
         else:
             prepared_messages = []
@@ -332,10 +398,11 @@ class HuggingFaceModel(BaseModel):
                 input_text += "Assistant:"
 
             inputs = self.tokenizer(input_text, return_tensors="pt")
+            functions.debug(f"_prepare_input using manual formatting. Input text length: {len(input_text)}")
             return inputs
 
     def _generate_response(self, input_data, options: dict = {}):
-        """Generates a complete response without streaming."""
+        """Generates a complete response without streaming (used by non-threaded path)."""
         if self.model is None or self.tokenizer is None:
             return "Model not loaded."
 
@@ -353,7 +420,8 @@ class HuggingFaceModel(BaseModel):
         elif eos_token_id is None: 
             functions.log("WARNING: No EOS or PAD token ID found for tokenizer. Model generation might not terminate cleanly.")
             eos_token_id = -1 
-
+        
+        functions.debug(f"_generate_response calling model.generate. max_new_tokens={max_new_tokens}, do_sample={do_sample}, temp={temperature}, eos_token_id={eos_token_id}")
 
         outputs = self.model.generate(
             **inputs,
@@ -365,12 +433,16 @@ class HuggingFaceModel(BaseModel):
             pad_token_id=eos_token_id, 
             eos_token_id=eos_token_id, 
         )
+        functions.debug(f"_generate_response model.generate completed. Outputs shape: {outputs.shape}")
         response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+        
+        escaped_response_chunk = response[:100].replace('\n', '\\n')
+        functions.debug(f"_generate_response decoded text length: {len(response)}. First 100 chars: '{escaped_response_chunk}'")
 
         return response
 
     def list(self):
-        """functions.logs info about Hugging Face models."""
+        """Logs info about Hugging Face models."""
         functions.log("Hugging Face models are available on huggingface.co/models. You can search there for available models.")
         return []
 
@@ -387,7 +459,8 @@ class HuggingFaceModel(BaseModel):
             else:
                 return message
         except Exception as e:
-            message = f"Error 'pulling' model {model_name}: {e}"
+            error_message_log = str(e).replace('\n', '\\n')
+            message = f"Error 'pulling' model {model_name}: {error_message_log}"
             functions.log(message)
             if stream:
                 yield message
