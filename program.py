@@ -10,14 +10,13 @@ from core.llms import ModelParams, BaseModel, OllamaModel, HuggingFaceModel, T5M
 from core.template_injection import TemplateInjection
 from color import Color, format_text
 import functions as func
-from core.chat import Chat , ChatRoles
+from core.chat import Chat, ChatRoles
 
 from extras.think_parser import ThinkingAnimationHandler
 from extras.thinking_log_manager import ThinkingLogManager
 from extras.output_printer import OutputPrinter
 from extras.file_content_handler import FileContentHandler
 from extras import ConsoleTokenFormatter
-
 
 
 class Program:
@@ -52,7 +51,8 @@ class Program:
         # --- End New Attributes ---
 
     def init_program(self, args=None) -> None:
-        if self.config is None: self.load_config(args=args)
+        if self.config is None:
+            self.load_config(args=args)
         self.clear_on_init: bool = args.msg is not None or (
             getattr(args, "debug_console", False) if args else False
         )
@@ -83,13 +83,15 @@ class Program:
         thinking_log_file_name = self.config.get(
             ProgramSetting.LLM_THINKING_LOG_FILE, "llm_thinking.log"
         )
-        self.thinking_log_manager = ThinkingLogManager(log_file_name=thinking_log_file_name)
+        self.thinking_log_manager = ThinkingLogManager(
+            log_file_name=thinking_log_file_name
+        )
 
-        chat_log_file_name =  f"llm_thinking_chat_{self.session_timestamp}.log"
+        chat_log_file_name = f"llm_thinking_chat_{self.session_timestamp}.log"
         self.thinking_log_manager = ThinkingLogManager(log_file_name=chat_log_file_name)
 
         # --- Initialize ThinkingAnimationHandler ---
-        thinking_mode = self.config.get(ProgramSetting.THINKING_MODE, "spinner")
+        thinking_mode = self.config.get(ProgramSetting.THINKING_MODE, "progressbar")
         enable_thinking_display = self.config.get(
             ProgramSetting.ENABLE_THINKING_DISPLAY, True
         )
@@ -100,8 +102,8 @@ class Program:
         )
 
         # --- Initialize OutputPrinter for flexible output modes ---
-        print_mode = self.config.get(ProgramSetting.PRINT_MODE, "token")
-        tokens_per_print = self.config.get(ProgramSetting.TOKENS_PER_PRINT, 5)
+        print_mode = self.config.get(ProgramSetting.PRINT_MODE, "line")
+        tokens_per_print = self.config.get(ProgramSetting.TOKENS_PER_PRINT, 10)
         self.output_printer = OutputPrinter(
             print_mode=print_mode, tokens_per_print=tokens_per_print
         )
@@ -110,7 +112,7 @@ class Program:
         base_logs_dir = self.config.get(ProgramSetting.PATHS_LOGS)
 
         # Construct the specific path for generated files: logs_dir/workspaces/session_id/files
-        generated_files_path = self.config.get( ProgramSetting.PATHS_WORKSPACES)
+        generated_files_path = self.config.get(ProgramSetting.PATHS_WORKSPACES)
 
         self.file_content_handler = FileContentHandler(
             log_manager=self.thinking_log_manager,  # Can reuse the same log manager for file content logging
@@ -161,16 +163,16 @@ class Program:
     def start_chat(self, user_input):
         started_response = False
 
-
         outs = self.llm.chat(
             self.chat.messages,
-            stream=True, # Ensure stream=True is passed to enable streaming
-            images=self.chat.images
+            stream=True,  # Ensure stream=True is passed to enable streaming
+            images=self.chat.images,
         )
         try:
             llm_response_accumulated = ""
-            for raw_token_string in outs:  # Iterate through raw tokens from the LLM stream
-              
+            for (
+                raw_token_string
+            ) in outs:  # Iterate through raw tokens from the LLM stream
                 new_token = self.output_printer.process_token(raw_token_string)
                 if new_token is None:
                     continue
@@ -184,6 +186,7 @@ class Program:
                 is_file_active, content_after_file_handler, _ = (
                     self.file_content_handler.process_token(content_after_thinking)
                 )
+                
 
                 # --- Step 3: Only if NOT thinking AND NOT currently accumulating file content, proceed to display/accumulate ---
                 # `content_after_file_handler` will be empty if the file tag was active (or just closed and extracted).
@@ -191,13 +194,14 @@ class Program:
                 if (
                     not is_thinking
                     and not is_file_active
-                    and content_after_file_handler # RE-ADDED THIS CHECK for correct display logic
+                    and content_after_file_handler  # RE-ADDED THIS CHECK for correct display logic
+                    and self.file_content_handler.end_file_string not in content_after_file_handler
+                    
                 ):
                     if not started_response:
                         func.out(
                             format_text(self.chat.assistant_prompt, Color.PURPLE)
-                            + Color.RESET,
-                            end=" ",
+                            + Color.RESET
                         )
                         started_response = True
 
@@ -223,7 +227,7 @@ class Program:
                         )
                 # If is_thinking OR is_file_active (meaning we are *inside* a file tag) OR content_after_file_handler is empty,
                 # do nothing with it for console output. Handlers take care of their specific displays/logging.
-                
+
         except Exception as e:
             error_message = f"An error occurred during chat: {e}"
             func.out(f"Error: {error_message}")
@@ -254,7 +258,10 @@ class Program:
             self.llm_stream_finished()
 
     def llm_stream_finished(self, data=""):
-        func.log("Finished LLm Response")  # Adds a final newline after the LLM's complete response
+        func.out("")
+        func.log(
+            "Finished LLm Response"
+        )  # Adds a final newline after the LLM's complete response
         self.clear_process_token()  # Clears any internal state of the ConsoleTokenFormatter
         self.chat.chat_finished()  # Adds a final newline after the LLM's complete response
 
@@ -346,10 +353,12 @@ class Program:
             )
             if os.path.exists(system_filepath):
                 func.log(f"Loaded system file {system_filepath}")
-                system_prompt =  func.read_file(system_filepath)
+                system_prompt = func.read_file(system_filepath)
 
         if len(system_prompt) == 0:
-            func.log(f"WARNING: System prompt file '{system_file}' not found at any known location.")
+            func.log(
+                f"WARNING: System prompt file '{system_file}' not found at any known location."
+            )
 
         injection_template = TemplateInjection(system_prompt)
         result = injection_template.replace_system_template()
@@ -405,7 +414,7 @@ class Program:
             )
             sys.exit(1)
 
-        func.log( f"INFO: Selected model: {model_name} (Type: {model_type})"   )
+        func.log(f"INFO: Selected model: {model_name} (Type: {model_type})")
 
         if model_type == "causal_lm":
             self.llm = HuggingFaceModel(
@@ -438,19 +447,15 @@ class Program:
             )
             sys.exit(1)
 
-        if (
-            self.llm
-            and hasattr(self.llm, "options")
-        ):
+        if self.llm and hasattr(self.llm, "options"):
             for key, value in model_properties.items():
-                if self.llm.options.get( key,None):
+                if self.llm.options.get(key, None):
                     func.debug(f"Loading model property: {key} - {value}")
                     self.llm.options[key] = value
                 else:
                     func.debug(
                         f"WARNING: Unknown model property '{key}' for model type '{model_type}'. Skipping."
                     )
-            
 
         return self.llm
 

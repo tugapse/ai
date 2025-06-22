@@ -15,7 +15,7 @@ class FileContentHandler:
 
     # Regex to find the opening <file> tag and capture its attributes
     FILE_START_PATTERN = re.compile(r'\s*<file\s+name=["\'](?P<name>[^"\']+?)["\'](?:(?:\s+type=["\'](?P<type>[^"\']+?)["\'])|(?:\s+ext=["\'](?P<ext>[^"\']+?)["\']))*\s*>\s*')
-    FILE_END_PATTERN = re.compile(r'\s*</file>\s*')
+    FILE_END_PATTERN = re.compile(r'\s*</file\s*>\s*')
     CONTROL_CHARS_PATTERN = re.compile(r'[\x00-\x09\x0B-\x1F\x7F]') # Control characters to clean up
 
     # Mapping for common MIME types to file extensions
@@ -43,6 +43,8 @@ class FileContentHandler:
             output_base_dir (str, optional): The base directory where files should be saved.
                                              Defaults to None. This directory will be created if it doesn't exist.
         """
+        self.printed_create_file = False
+        self.end_file_string = "[FILE_END]"
         self._log_manager = log_manager
         self._output_base_dir = output_base_dir
         
@@ -53,7 +55,7 @@ class FileContentHandler:
 
         if self._output_base_dir:
             os.makedirs(self._output_base_dir, exist_ok=True)
-            func.log(f"[FileContentHandler] Initialized. Output base directory: {self._output_base_dir}")
+            func.debug(f"[FileContentHandler] Initialized. Output base directory: {self._output_base_dir}")
         else:
             func.log("[FileContentHandler] Initialized without an output_base_dir. Files will not be savable.")
 
@@ -82,6 +84,7 @@ class FileContentHandler:
         end_match = self.FILE_END_PATTERN.search(cleaned_buffer)
         if end_match:
             if self._is_active:
+                self.printed_create_file = False
                 self._buffer += cleaned_buffer[:end_match.start()]
                 
                 # Retrieve metadata, providing defaults
@@ -126,7 +129,7 @@ class FileContentHandler:
                     "ext": file_ext_attr
                 }
                 
-                func.log(f"[FileContentHandler] Detected and extracted file: {file_data_to_save['name']}")
+                func.debug(f"[FileContentHandler] Detected and extracted file: {file_data_to_save['name']}")
 
                 try:
                     self.save_file(file_data_to_save)
@@ -142,7 +145,7 @@ class FileContentHandler:
                 return False, "", None
             else:
                 self._token_accumulation_buffer = self.FILE_END_PATTERN.sub('', cleaned_buffer)
-                return self.process_token("")
+                return self.process_token(self._token_accumulation_buffer)
 
         # --- Handle opening tag if no closing tag was found or handled ---
         start_match = self.FILE_START_PATTERN.search(self._token_accumulation_buffer)
@@ -165,7 +168,9 @@ class FileContentHandler:
 
         # --- Default accumulation/display if no tags found/handled ---
         if self._is_active:
-            func.out(f"\rCreating file :{self._file_metadata.get('name', 'untitled_file')}", end="",flush=True)
+            if not self.printed_create_file: 
+                self.printed_create_file = True
+                func.out(f"\rCreating file :{self._file_metadata.get('name', 'untitled_file')}", end="",flush=True)
             self._buffer += self._token_accumulation_buffer
             self._token_accumulation_buffer = ""
             
@@ -201,18 +206,18 @@ class FileContentHandler:
 
         # Construct the full path, ensuring parent directories exist
         file_path = os.path.join(self._output_base_dir, file_name)
-        func.log(f"[FileContentHandler] Attempting to save file to: {file_path}")
+        func.debug(f"[FileContentHandler] Attempting to save file to: {file_path}")
 
         try:
             # Create parent directories if they don't exist
             parent_dir = os.path.dirname(file_path)
             if parent_dir and not os.path.exists(parent_dir):
-                func.log(f"[FileContentHandler] Creating parent directories for {parent_dir}")
+                func.debug(f"[FileContentHandler] Creating parent directories for {parent_dir}")
                 os.makedirs(parent_dir, exist_ok=True) 
 
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(file_content)
-            func.out(f"'{file_name}' successfully saved to: {file_path}")
+            func.out(f"': Successfully saved to: {file_path}")
         except OSError as e:
             func.log(f"[FileContentHandler ERROR] OS error saving file '{file_name}' to {file_path}: {e}")
             raise IOError(f"Error writing file '{file_name}' to disk: {e}") from e

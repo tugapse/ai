@@ -98,7 +98,7 @@ class Chat(Events):
             if self._is_multiline_input:
                 user_input = input("... ")
             else:
-                func.out(format_text(self.user_prompt, Color.BLUE) , end=" ",flush=True)
+                func.out(format_text(self.user_prompt, Color.BLUE) , flush=True)
                 user_input = input()
 
             if len(user_input.strip()) == 0:
