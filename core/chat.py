@@ -45,8 +45,8 @@ class Chat(Events):
         self.messages = []
         self.images :list[str]= []
         self.current_message = ""
-        self.user_prompt = "User:"
-        self.assistant_prompt = "Assistant:"
+        self.user_prompt = "User: "
+        self.assistant_prompt = "Assistant: "
         self.max_chat_log = 50
         self.cache_messages = True
         self.current_prompt = ""
@@ -98,8 +98,7 @@ class Chat(Events):
             if self._is_multiline_input:
                 user_input = input("... ")
             else:
-                func.out(format_text(self.user_prompt, Color.BLUE) , flush=True)
-                user_input = input()
+                user_input = input(format_text(self.user_prompt, Color.BLUE) )
 
             if len(user_input.strip()) == 0:
                 func.out("\r",end="",flush=True)

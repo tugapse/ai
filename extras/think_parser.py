@@ -16,9 +16,9 @@ class ThinkingAnimationHandler:
     """
 
     SPINNER_CHARS = ['|', '/', '-', '\\']
-    PROGRESS_BAR_LENGTH = 3
+    PROGRESS_BAR_LENGTH = 5
     THINKING_PREFIX = "Thinking"
-    MAX_UNTILL_THINK_DRAW = 10
+    MAX_UNTILL_THINK_DRAW = 3
     MAX_THINKING_INDICATOR_LENGTH = len(THINKING_PREFIX + "... [" + '-' * PROGRESS_BAR_LENGTH + "]") + 1
 
     THINK_START_PATTERN = re.compile(r'\s*<think>\s*')
@@ -80,8 +80,8 @@ class ThinkingAnimationHandler:
             if self._is_thinking_active:
                 content_after_end_tag = cleaned_buffer[end_match.end():]
 
-                func.out("\r" + " " * self.MAX_THINKING_INDICATOR_LENGTH + "\r", end="", flush=True)
-                func.out("\n", flush=True)
+                func.out("\r" + " " * self.MAX_THINKING_INDICATOR_LENGTH , flush=True)
+                # func.out("\n", flush=True)
                 
                 self._is_thinking_active = False
                 self._has_thinking_intro_printed = False
@@ -106,7 +106,7 @@ class ThinkingAnimationHandler:
                     self._log_manager.write_session_header()
 
                 if not self._has_thinking_intro_printed:
-                    func.out(self.THINKING_PREFIX + "...", end="", flush=True)
+                    func.out(self.THINKING_PREFIX , end="", flush=True)
                     self._has_thinking_intro_printed = True
 
                 self._token_accumulation_buffer = self._token_accumulation_buffer[start_match.end():]

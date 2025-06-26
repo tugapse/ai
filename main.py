@@ -81,7 +81,8 @@ def init_program_and_args(args) -> tuple[Program, argparse.Namespace, argparse.A
     # Model config generation is now handled within CliArgs._handle_config_generation
     # which will sys.exit() if --generate-config is present.
     # No direct call to generate_model_config needed here.
-
+    global clear_console
+    
     prog = Program()
     prog.load_config(args)
     
@@ -105,8 +106,9 @@ if __name__ == "__main__":
     prog = None
     args = None # Initialize args to None for safety in except block
     try:
+        # Determine whether to clear console based on --debug-console argument
+        clear_console = True
         parser, args = load_args()
-
         
         # Initialize program and parse args
         prog = init_program_and_args(args)
@@ -116,13 +118,11 @@ if __name__ == "__main__":
         cli_args_processor = CliArgs()
         cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
 
-        # Determine whether to clear console based on --debug-console argument
-        clear_console = True
+       
         
 
         if clear_console: 
-            os.system('cls' if os.name == 'nt' else 'clear') 
-            print("\n")
+            func.clear_console()
 
         print_chat_header(prog=prog)
         

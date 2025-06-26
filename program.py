@@ -3,10 +3,11 @@ import sys
 import logging
 import json
 from datetime import datetime
+import threading # Ensure threading is imported for BaseModel's attributes if not already in your Program file
 
 from config import ProgramConfig, ProgramSetting
 from core import ChatCommandInterceptor, CommandExecutor
-from core.llms import ModelParams, BaseModel, OllamaModel, HuggingFaceModel, T5Model
+from core.llms import ModelParams, BaseModel, OllamaModel, HuggingFaceModel, T5Model, GGUFImageLLM # Import GGUFImageLLM
 from core.template_injection import TemplateInjection
 from color import Color, format_text
 import functions as func
@@ -102,7 +103,7 @@ class Program:
         )
 
         # --- Initialize OutputPrinter for flexible output modes ---
-        print_mode = self.config.get(ProgramSetting.PRINT_MODE, "line")
+        print_mode = self.config.get(ProgramSetting.PRINT_MODE, "every_x_tokens")
         tokens_per_print = self.config.get(ProgramSetting.TOKENS_PER_PRINT, 10)
         self.output_printer = OutputPrinter(
             print_mode=print_mode, tokens_per_print=tokens_per_print
@@ -120,7 +121,13 @@ class Program:
         )
 
     def init_model_params(self):
-        self.model_params.num_ctx = BaseModel.CONTEXT_WINDOW_LARGE
+        # Override default ModelParams based on loaded model's properties
+        if self.llm and hasattr(self.llm, 'options'):
+            for key, value in self.llm.options.items():
+                if hasattr(self.model_params, key):
+                    setattr(self.model_params, key, value)
+                else:
+                    func.debug(f"WARNING: Model property '{key}' from LLM options not found in ModelParams. Skipping.")
 
     def init(self) -> None:
         system_file = self.config.get(ProgramSetting.SYSTEM_PROMPT_FILE)
@@ -129,7 +136,7 @@ class Program:
         model_config_name_to_load = ProgramConfig.current.get("MODEL_CONFIG_NAME")
         self._load_model(model_config_name_to_load)
 
-        if self.llm is None or self.llm.model is None:
+        if self.llm is None: # Removed `.model is None` as not all LLMs might have a `.model` attribute
             func.log(f"CRITICAL: Failed to load LLM model. Exiting.")
             sys.exit(1)
 
@@ -140,7 +147,7 @@ class Program:
             spliced_model_name[1] if len(spliced_model_name) > 1 else None
         )
 
-        self.init_model_params()
+        self.init_model_params() # Call init_model_params AFTER _load_model
         self.command_interceptor = ChatCommandInterceptor(
             self.chat, self.config.get(ProgramSetting.PATHS_LOGS)
         )
@@ -163,10 +170,13 @@ class Program:
     def start_chat(self, user_input):
         started_response = False
 
+        # Pass ModelParams object directly, or its dict representation
+        # It's better to pass the ModelParams instance or a dict from it for consistency
         outs = self.llm.chat(
             self.chat.messages,
             stream=True,  # Ensure stream=True is passed to enable streaming
             images=self.chat.images,
+            options=self.model_params.to_dict() # Pass current model_params as options
         )
         try:
             llm_response_accumulated = ""
@@ -232,12 +242,11 @@ class Program:
             error_message = f"An error occurred during chat: {e}"
             func.out(f"Error: {error_message}")
             func.out("\n")
-            print(
-                f"\nCRITICAL: {error_message}"
-            )  # This print goes directly to console, good for unhandled errors
+            # Changed `print` to `func.log` for consistency.
+            func.log(f"CRITICAL: {error_message}") 
             import traceback
 
-            traceback.print_exc()
+            func.log(f"Traceback:\n{traceback.format_exc()}") # Changed `print_exc` to `func.log`
             self.running = (
                 False  # Assuming 'running' is an attribute that controls the main loop
             )
@@ -256,9 +265,9 @@ class Program:
 
             self._save_chat_history()
             self.llm_stream_finished()
+            func.out(" ", flush=True)
 
     def llm_stream_finished(self, data=""):
-        func.out("")
         func.log(
             "Finished LLm Response"
         )  # Adds a final newline after the LLM's complete response
@@ -276,8 +285,10 @@ class Program:
         self.chat.add_event(
             event_name=self.chat.EVENT_OUTPUT_REQUESTED, listener=self.output_requested
         )
+        # Ensure the listener for STREAMING_FINISHED_EVENT is correctly set up
+        # The GGUFImageLLM and HuggingFaceModel trigger this event.
         self.llm.add_event(
-            event_name=self.llm.STREAMING_FINISHED_EVENT,
+            event_name=BaseModel.STREAMING_FINISHED_EVENT, # Use BaseModel's constant
             listener=self.llm_stream_finished,
         )
 
@@ -362,7 +373,6 @@ class Program:
 
         injection_template = TemplateInjection(system_prompt)
         result = injection_template.replace_system_template()
-        func.debug(result)
         return result
 
     def _load_model(self, model_config_name: str) -> BaseModel:
@@ -406,7 +416,20 @@ class Program:
         model_type = model_config.get("model_type")
         model_properties = model_config.get("model_properties", {})
 
+        # Extract common properties
         quantization_bits = model_properties.get("quantization_bits", 0)
+        n_ctx = model_properties.get("n_ctx") # Context window for GGUF
+        n_gpu_layers = model_properties.get("n_gpu_layers", 0) # GPU layers for GGUF
+        verbose = model_properties.get("verbose", False) # Verbose for GGUF
+        
+        # Any other generic kwargs that might be passed to the LLM's constructor
+        # We'll filter these later to ensure only valid ones for the specific LLM are used.
+        # For now, collect everything that's not explicitly handled.
+        other_llm_kwargs = {k: v for k, v in model_properties.items() 
+                            if k not in ["quantization_bits", "n_ctx", "n_gpu_layers", "verbose",
+                                         "gguf_filename", "model_repo_id"] # GGUF specific properties
+                           }
+
 
         if not model_name or not model_type:
             func.log(
@@ -438,24 +461,39 @@ class Program:
             self.llm = OllamaModel(
                 model_name=model_name,
                 system_prompt=self.system_prompt,
-                host=self.config.get(ProgramSetting.OLLAMA_HOST),
+                host=self.config.get(ProgramSetting.OLLAMA_HOST)
             )
             func.log(f"INFO: Model '{model_name}' loaded as an Ollama Model.")
+        elif model_type == "gguf": # NEW GGUF MODEL TYPE
+            gguf_filename = model_properties.get("gguf_filename")
+            model_repo_id = model_properties.get("model_repo_id")
+
+            if not gguf_filename:
+                func.log("ERROR: 'gguf_filename' is required for 'gguf' model_type in model properties.")
+                sys.exit(1)
+
+            self.llm = GGUFImageLLM(
+                model_name=model_name,
+                gguf_filename=gguf_filename,
+                model_repo_id=model_repo_id,
+                system_prompt=self.system_prompt,
+                n_gpu_layers=n_gpu_layers,
+                n_ctx=n_ctx,
+                verbose=verbose,
+                **other_llm_kwargs # Pass other kwargs for Llama constructor
+            )
+            func.log(f"INFO: Model '{model_name}' loaded as a GGUF Image LLM.")
         else:
             func.log(
                 f"ERROR: Unknown model_type '{model_type}' in model configuration."
             )
             sys.exit(1)
 
-        if self.llm and hasattr(self.llm, "options"):
-            for key, value in model_properties.items():
-                if self.llm.options.get(key, None):
-                    func.debug(f"Loading model property: {key} - {value}")
-                    self.llm.options[key] = value
-                else:
-                    func.debug(
-                        f"WARNING: Unknown model property '{key}' for model type '{model_type}'. Skipping."
-                    )
+        # Removed the direct loading of self.llm.options here,
+        # as init_model_params is now called AFTER _load_model returns
+        # and will handle merging model properties into self.model_params.
+        # The individual LLM classes already set their internal `self.options`
+        # based on ModelParams defaults and then override with specific kwargs.
 
         return self.llm
 
@@ -473,8 +511,10 @@ class Program:
         try:
             with open(self.session_chat_filepath, "w", encoding="utf-8") as f:
                 json.dump(self.chat.messages, f, indent=4)
+            func.out(" ", flush=True)
             func.log(f"INFO: Chat history saved to {self.session_chat_filepath}")
         except Exception as e:
             func.log(
                 f"ERROR: Failed to save chat history to {self.session_chat_filepath}: {e}"
             )
+

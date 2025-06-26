@@ -90,7 +90,7 @@ class ModelParams:
     """
     def __init__(self):
         self.num_ctx = BaseModel.CONTEXT_WINDOW_LARGE
-        self.max_new_tokens = 1024
+        self.max_new_tokens = 2048
         self.max_length = 4096
         self.do_sample = True
         self.top_k = 50
