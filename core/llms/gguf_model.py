@@ -47,6 +47,7 @@ class GGUFImageLLM(BaseModel):
                  n_gpu_layers: int = 0, # Number of layers to offload to GPU (-1 for all, 0 for none)
                  n_ctx: int = None,   # Context window size, will default to ModelParams.num_ctx if None
                  verbose: bool = False,
+                 model_params=None,
                  **kwargs):
         """
         Initializes the GGUFImageLLM.
@@ -77,7 +78,7 @@ class GGUFImageLLM(BaseModel):
         self.error_queue = queue.Queue() # Queue to communicate errors from background thread
 
         # Initialize default model options
-        self.options = ModelParams().to_dict()
+        self.options = model_params or ModelParams().to_dict()
 
         try:
             self._load_llm_params()

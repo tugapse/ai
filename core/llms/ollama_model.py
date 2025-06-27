@@ -13,13 +13,13 @@ class OllamaModel(BaseModel):
     This class implements an LLM bot using the Ollama library.
     """
 
-    def __init__(self, model_name, system_prompt=None, host=None, keep_alive=False):
+    def __init__(self, model_name, system_prompt=None, host=None, keep_alive=False,model_params=None,**kargs):
         super().__init__(model_name, system_prompt)
         self.server_ip = host or "127.0.0.1"
         self.model = ollama.Client(self.server_ip)
         self.pull(self.model_name)
         self.keep_alive = keep_alive
-        self.options = ModelParams().to_dict()
+        self.options = model_params or ModelParams().to_dict()
 
     def join_generation_thread(self, timeout: float = None):
         """

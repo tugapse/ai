@@ -47,7 +47,7 @@ class HuggingFaceModel(BaseModel):
     """
 
     def __init__(
-        self, model_name: str, system_prompt=None, quantization_bits: int = 0, **kargs
+        self, model_name: str, system_prompt=None, quantization_bits: int = 0,model_params=None, **kargs
     ):
         # Initial call
         functions.debug(f"HuggingFaceModel __init__ called for model: {model_name}")
@@ -59,7 +59,7 @@ class HuggingFaceModel(BaseModel):
         self.error_queue = (
             queue.Queue()
         )  # Queue to communicate errors from background thread
-        self.options = ModelParams().to_dict()
+        self.options =  model_params or ModelParams().to_dict()
 
         try:
             self._load_llm_params()

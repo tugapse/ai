@@ -10,7 +10,7 @@ class BaseModel:
 
     STREAMING_FINISHED_EVENT = "streaming_finished"
 
-    def __init__(self, model_name, system_prompt=None):
+    def __init__(self, model_name, system_prompt=None,**kargs):
         self.model_name = model_name
         self.system_prompt = system_prompt
         self.listeners = {} # For event handling
@@ -88,17 +88,17 @@ class ModelParams:
     """
     A simple class to hold model parameters.
     """
-    def __init__(self):
-        self.num_ctx = BaseModel.CONTEXT_WINDOW_LARGE
-        self.max_new_tokens = 2048
-        self.max_length = 4096
-        self.do_sample = True
-        self.top_k = 50
-        self.top_p = 0.95
-        self.temperature = 0.7
-        self.quantization_bits = 0 # New: 0 for no quantization, 4 for 4-bit, 8 for 8-bit
-        self.enable_thinking = True
-        self.presence_penalty = 1.0
+    def __init__(self, **kargs):
+        self.num_ctx = kargs.get('num_ctx') or BaseModel.CONTEXT_WINDOW_LARGE
+        self.max_new_tokens = kargs.get('max_new_tokens', 2048)
+        self.max_length =kargs.get('max_length', 4096)
+        self.do_sample = kargs.get('do_sample', True)
+        self.top_k = kargs.get('top_k', 50)
+        self.top_p =kargs.get('top_p', 0.95)
+        self.temperature = kargs.get('temperature',0.5)
+        self.quantization_bits = kargs.get('quantization_bits',0)  # New: 0 for no quantization, 4 for 4-bit, 8 for 8-bit
+        self.enable_thinking = kargs.get('enable_thinking',True)
+        self.presence_penalty = kargs.get('presence_penalty', 1.0)
 
     def to_dict(self):
         return {

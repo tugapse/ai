@@ -1,0 +1,13 @@
+{
+    "model_name": "Qwen/Qwen3-8B",
+    "model_type": "causal_lm",
+    "model_properties": {
+    "max_new_tokens": 8192,
+    "do_sample": true,
+    "temperature": 0.1,
+    "top_p": 0.95,
+    "top_k": 10,
+    "presence_penalty":1.5,
+        "quantization_bits": 4
+    }
+}

@@ -16,7 +16,6 @@ class TemplateInjection():
         for inj in injections:
             template = self._load_injection_template(inj.get("value"))
             replaced_text = replaced_text.replace(inj.get("key"),template)
-            functions.debug(f"Injected : {inj} - {inj.get('key')}")
         return replaced_text
 
     def _load_injection_template(self, template_name:str):
