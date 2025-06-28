@@ -46,8 +46,7 @@ def ask(
     end_time = None
 
     thinking_log_manager = ThinkingLogManager(log_file_name="active_thinking_process.log")
-    # Call write_session_header immediately after initializing the log manager
-    thinking_log_manager.write_session_header(llm.model_name)
+
     injection_template = TemplateInjection(llm.system_prompt)
     llm.system_prompt = injection_template.replace_system_template()
 
@@ -88,15 +87,13 @@ def ask(
         
         is_thinking, content_after_thinking_handler = thinking_handler.process_token_and_thinking_state(raw_token_string)
 
-        formatted_token_for_display = ""
-        if not is_thinking:
-            formatted_token_for_display = token_processor.process_token(content_after_thinking_handler)
         
-        if not is_thinking and formatted_token_for_display:
-            output_printer.process_and_print(formatted_token_for_display)
+        
+        if not is_thinking and content_after_thinking_handler:
+            output_printer.process_and_print(content_after_thinking_handler)
 
-        if write_to_file and output_filename and formatted_token_for_display:
-            func.write_to_file(output_filename, formatted_token_for_display, func.FILE_MODE_APPEND)
+        if write_to_file and output_filename and content_after_thinking_handler:
+            func.write_to_file(output_filename, content_after_thinking_handler, func.FILE_MODE_APPEND)
 
     output_printer.flush_buffers()
 
