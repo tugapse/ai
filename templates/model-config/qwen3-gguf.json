@@ -1,0 +1,17 @@
+{
+    "model_name": "Qwen/Qwen3-8B-GGUF",
+    "model_type": "gguf",
+    "model_properties": {
+        "gguf_filename": "Qwen/Qwen3-8B-GGUF",
+        "model_repo_id": "Qwen3-8B-Q4_K_M.gguf",
+        "n_gpu_layers": -1,
+        "n_ctx": 2048,
+        "verbose": false,
+        "max_new_tokens": 4096,
+        "temperature": 0.7,
+        "top_p": 0.95,
+        "top_k": 50,
+        "presence_penalty": 1.2,
+        "frequency_penalty": 0.0
+    }
+}

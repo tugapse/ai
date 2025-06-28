@@ -18,7 +18,7 @@ def ask(
     write_to_file=False,
     output_filename=None,
     thinking_mode: str = "spinner",
-    print_mode: str = "token",
+    print_mode: str = "line",
     tokens_per_print: int = 5,
 ) -> None:
     """
@@ -45,7 +45,7 @@ def ask(
     first_token_time = None
     end_time = None
 
-    thinking_log_manager = ThinkingLogManager(log_file_name="llm_thinking.log")
+    thinking_log_manager = ThinkingLogManager(log_file_name="active_thinking_process.log")
     # Call write_session_header immediately after initializing the log manager
     thinking_log_manager.write_session_header(llm.model_name)
     injection_template = TemplateInjection(llm.system_prompt)

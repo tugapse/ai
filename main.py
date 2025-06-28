@@ -2,12 +2,13 @@ import sys
 import os
 import argparse
 import json
+from typing import Optional # FIXED: Added import for Optional
 
 # Add the project root to the sys.path to allow imports from core
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))
 
 from program import Program
-from config import ProgramConfig, ProgramSetting
+from config import ProgramConfig, ProgramSetting # Now using ProgramSetting as a class of string constants
 from entities.model_enums import ModelType
 import functions as func
 from color import Color
@@ -40,12 +41,13 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     parser.add_argument("--debug-console","-dc", action="store_true", help='Set this flag to NOT clear console (for debugging)')
 
     config_group = parser.add_argument_group('Model Config Generation', 'Use these arguments to generate a new model JSON config file.')
-    config_group.add_argument('--generate-config', metavar='FILEPATH', type=str, help='Generate a model config and save it to the specified path, then exit.')
+    # MODIFIED: Changed help text to reflect that --generate-config now expects a filename
+    # which will be saved in the default models directory.
+    config_group.add_argument('--generate-config', metavar='FILENAME', type=str, help='Generate a model config and save it to the specified FILENAME in the default models directory, then exit.')
     config_group.add_argument('--model-name', type=str, help="The name of the model to include in the config (e.g., 'meta-llama/Llama-2-7b-chat-hf'). Required by --generate-config.")
     config_group.add_argument('--model-type', type=str, choices=[t.value for t in ModelType], help='The architectural type of the model. Required by --generate-config.')
 
     return parser, parser.parse_args()
-
 
 
 def print_chat_header(prog: Program) -> None:
@@ -54,8 +56,9 @@ def print_chat_header(prog: Program) -> None:
     """
     func.set_console_title("Ai assistant: " + prog.model_chat_name)
 
+    # MODIFIED: Use ProgramSetting.SYSTEM_PROMPT_FILE for consistency with new config structure
     system_p_file_path = prog.config.get(
-        ProgramSetting.PATHS_SYSTEM_TEMPLATES, ""
+        ProgramSetting.SYSTEM_PROMPT_FILE, "" # Use SYSTEM_PROMPT_FILE which holds the resolved path
     )
     system_p_file: str = (
         os.path.basename(system_p_file_path).replace(".md", "").replace("_", " ")
@@ -72,28 +75,28 @@ def print_chat_header(prog: Program) -> None:
     func.out(f"{Color.RESET}--------------------------")
 
 
-def init_program_and_args(args) -> tuple[Program, argparse.Namespace, argparse.ArgumentParser]:
+def init_program_and_args(args) -> Program: # Changed return type hint
     """
     Initializes the program components and processes CLI arguments.
     """
     
-    
-    # Model config generation is now handled within CliArgs._handle_config_generation
-    # which will sys.exit() if --generate-config is present.
-    # No direct call to generate_model_config needed here.
     global clear_console
     
     prog = Program()
-    prog.load_config(args)
+    # MODIFIED: ProgramConfig.load() now handles initializing the singleton and its defaults.
+    # We pass args to prog.load_config so it can override defaults with CLI arguments.
+    prog.load_config(args=args) 
     
-    if args.debug_console: # Use getattr for robustness
+    if args.debug_console: 
         print("DEBUG MODE Enabled")
         clear_console = False
-        func.LOCK_LOG = False
+        func.LOCK_LOG = False # Directly set LOCK_LOG in functions module
+        # MODIFIED: Use ProgramSetting constants for consistency
         prog.config.set(ProgramSetting.PRINT_LOG, True)
         prog.config.set(ProgramSetting.PRINT_DEBUG, True)
     else:
-        func.LOCK_LOG = True
+        func.LOCK_LOG = True # Directly set LOCK_LOG in functions module
+        # MODIFIED: Use ProgramSetting constants for consistency
         prog.config.set(ProgramSetting.PRINT_LOG, False)
         prog.config.set(ProgramSetting.PRINT_DEBUG, False)
 
@@ -103,23 +106,21 @@ def init_program_and_args(args) -> tuple[Program, argparse.Namespace, argparse.A
 
 
 if __name__ == "__main__":
-    prog = None
-    args = None # Initialize args to None for safety in except block
+    prog: Optional[Program] = None 
+    args: Optional[argparse.Namespace] = None 
     try:
-        # Determine whether to clear console based on --debug-console argument
         clear_console = True
         parser, args = load_args()
         
         # Initialize program and parse args
+        # The prog object, which holds the ProgramConfig, is returned here
+        # and then passed to CliArgs.
         prog = init_program_and_args(args)
         
         # Instantiate CliArgs and parse remaining arguments.
         # _handle_config_generation in CliArgs will exit if --generate-config was used.
         cli_args_processor = CliArgs()
-        cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
-
-       
-        
+        cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser) # Pass prog object
 
         if clear_console: 
             func.clear_console()
@@ -154,6 +155,6 @@ if __name__ == "__main__":
             raise e
         else:
             print(f"{Color.RED}\nAn unexpected error occurred: {e} {Color.RESET}")
-            raise e
+            # Do not re-raise e here, sys.exit(1) is sufficient if not in debug mode.
             sys.exit(1)
 

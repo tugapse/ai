@@ -393,7 +393,6 @@ class HuggingFaceModel(BaseModel):
                         f"ERROR: Error received from generation thread during streaming: {error_message}"
                     )
                     sys.exit(1)
-            functions.out("\n")
             functions.debug("Streamer finished yielding all tokens.")
 
             if not self.error_queue.empty():

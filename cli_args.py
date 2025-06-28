@@ -9,13 +9,13 @@ import sys
 import json
 
 from model_config_manager import ModelConfigManager
-from config import ProgramConfig, ProgramSetting
+from config import ProgramConfig, ProgramSetting # Now using ProgramSetting as a class of string constants
 from core.chat import ChatRoles
 from core.llms.base_llm import BaseModel
 from entities.model_enums import ModelType
 from color import Color, format_text
 from direct import ask
-import functions as func
+import functions as func # Ensure func is imported for get_root_directory and ensure_directory_exists
 
 
 class CliArgs:
@@ -33,7 +33,7 @@ class CliArgs:
         :param args_parser: The main ArgumentParser instance for error reporting.
         """
         # Centralized handling of config generation. This will exit if called.
-        self._handle_config_generation(args, args_parser)
+        self._handle_config_generation(prog, args, args_parser) 
         
         # Non-exiting actions
         self._is_print_chat(args)
@@ -45,14 +45,15 @@ class CliArgs:
         self._has_file(prog, args)
         self._has_task_file(prog, args)
         self._has_task(prog, args)
-        self._has_message(prog, args) # This will now trigger `ask` and `sys.exit(0)` if direct input is present
+        self._has_message(prog, args) 
 
 
-    def _handle_config_generation(self, args, parser: argparse.ArgumentParser):
+    def _handle_config_generation(self, prog, args, parser: argparse.ArgumentParser):
         """
         Checks for and handles the model configuration generation task.
         If the --generate-config flag is used, it creates the config file and exits.
 
+        :param prog: The program object to access configuration settings.
         :param args: The CLI arguments.
         :param parser: The main ArgumentParser instance for error reporting.
         """
@@ -65,6 +66,21 @@ class CliArgs:
             try:
                 model_type_enum = ModelType(args.model_type)
 
+                config_filename = args.generate_config
+                if not config_filename.lower().endswith(".json"):
+                    config_filename += ".json"
+                
+                # MODIFIED: Get the model configs directory from ProgramConfig.current
+                models_dir = prog.config.get(ProgramSetting.PATHS_MODEL_CONFIGS)
+                
+                if not models_dir: # Fallback in case config system didn't set it (shouldn't happen with updated config.py)
+                    models_dir = os.path.join(func.get_root_directory(), "models")
+                    func.log(f"WARNING: '{ProgramSetting.PATHS_MODEL_CONFIGS}' not found in config. Using fallback: {models_dir}", level="WARNING")
+
+                func.ensure_directory_exists(models_dir) # Ensure the directory exists
+
+                full_filepath = os.path.join(models_dir, config_filename)
+
                 func.log(
                     format_text(
                         f"--- Generating config for {args.model_name} ---", Color.CYAN
@@ -75,12 +91,12 @@ class CliArgs:
                     model_name=args.model_name, model_type=model_type_enum
                 )
 
-                ModelConfigManager.save_config(new_config, args.generate_config)
+                ModelConfigManager.save_config(new_config, full_filepath) 
 
                 success_message = format_text(
                     f"\nSuccessfully generated and saved configuration to: ",
                     Color.GREEN,
-                ) + format_text(f"{args.generate_config}", Color.YELLOW)
+                ) + format_text(f"{full_filepath}", Color.YELLOW) 
                 print(success_message)
                 print(json.dumps(new_config, indent=2))
 
@@ -89,7 +105,7 @@ class CliArgs:
                     f"An unexpected error occurred during config generation: {e}",
                     Color.RED,
                 )
-                func.log(f"ERROR: {error_msg}")
+                func.log(f"ERROR: {error_msg}", level="ERROR")
                 print(error_msg, file=sys.stderr)
 
             sys.exit(0)
@@ -138,20 +154,12 @@ class CliArgs:
             files = func.get_files(directory, args.ext)
             for file_obj in files:
                 file_obj.load()
-                # Use BaseModel.create_message for consistency
                 prog.chat._add_message(
                     BaseModel.create_message(
                         ChatRoles.USER,
                         f"Filename: {file_obj.filename} \n File Content:\n```{file_obj.content}\n",
                     )
                 )
-                # Removed the assistant confirmation message, as it's not needed for LLM context
-                # prog.chat._add_message(
-                #     BaseModel.create_message(
-                #         ChatRoles.ASSISTANT,
-                #         f"{file_obj.filename} loaded!", 
-                #     )
-                # )
 
     def _has_file(self, prog, args):
         if args.file:
@@ -159,20 +167,12 @@ class CliArgs:
             for file_path in files:
                 stripped_path = file_path.strip()
                 text_content = func.read_file(stripped_path)
-                # Use BaseModel.create_message for consistency
                 prog.chat._add_message(
                     BaseModel.create_message(
                         ChatRoles.USER,
                         f"Filename: {stripped_path} \n  File Content:\n```{text_content}```",
                     )
                 )
-                # Removed the assistant confirmation message
-                # prog.chat._add_message(
-                #     BaseModel.create_message(
-                #         ChatRoles.ASSISTANT,
-                #         f"{stripped_path} loaded!",
-                #     )
-                # )
 
     def _has_image(self, prog, args):
         if args.image:
@@ -182,12 +182,12 @@ class CliArgs:
                 if os.path.exists(stripped_path):
                     prog.chat.images.append(stripped_path)
                 else:
+                    func.log(f"Image file not found: {stripped_path}", level="ERROR")
                     raise FileNotFoundError(f"Image file not found: {stripped_path}")
 
     def _has_task_file(self, prog, args):
         if args.task_file:
             task_content = func.read_file(args.task_file)
-            # Use BaseModel.create_message for consistency
             prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, task_content))
 
     def _has_task(self, prog, args):
@@ -195,13 +195,17 @@ class CliArgs:
             task_name = args.task.replace(".md", "") + ".md"
             filepaths_to_check = []
             
-            user_tasks_dir = ProgramConfig.current.get(ProgramSetting.PATHS_TASKS_TEMPLATES)
+            # MODIFIED: Get paths from ProgramConfig.current
+            user_tasks_dir = prog.config.get(ProgramSetting.PATHS_TASKS_TEMPLATES)
             if user_tasks_dir:
                 filepaths_to_check.append(os.path.join(user_tasks_dir, task_name))
             
-            global_tasks_dir = ProgramConfig.current.get(ProgramSetting.PATHS_TASKS_TEMPLATES) # Assuming this is a shared path
-            if global_tasks_dir and global_tasks_dir != user_tasks_dir: 
-                filepaths_to_check.append(os.path.join(global_tasks_dir, task_name))
+            # Assuming global_tasks_dir might also come from config if it's different
+            # For now, if no distinct global path is configured, it's just user_tasks_dir.
+            # If you have a separate global tasks path in your config, retrieve it here.
+            # Example: global_tasks_dir = prog.config.get(ProgramSetting.GLOBAL_TASKS_TEMPLATES_PATH)
+            # if global_tasks_dir and global_tasks_dir != user_tasks_dir: 
+            #     filepaths_to_check.append(os.path.join(global_tasks_dir, task_name))
 
             found_path = None
             for fp in filepaths_to_check:
@@ -210,10 +214,10 @@ class CliArgs:
                     break
             
             if not found_path:
+                func.log(f"Task template '{args.task}' not found in configured paths.", level="ERROR")
                 raise FileNotFoundError(f"Task template '{args.task}' not found in configured paths.")
 
             task_content = func.read_file(found_path)
-            # Use BaseModel.create_message for consistency
             prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, task_content))
 
     def _has_message(self, prog, args):
@@ -223,9 +227,6 @@ class CliArgs:
             prog.chat._add_message( 
                 BaseModel.create_message(ChatRoles.USER, sys.stdin.read().strip())
             )
-            # Removed the assistant confirmation message "content recieved from pipe!"
-            # This was causing the "Chat history ends with an 'assistant' message" warning
-            # and is not relevant for the LLM's context.
 
         if prog.chat.images and len(prog.chat.images):
             message = prog.llm.load_images(prog.chat.images)
@@ -245,3 +246,4 @@ class CliArgs:
                 output_filename=prog.output_filename,
             )
             sys.exit(0)
+

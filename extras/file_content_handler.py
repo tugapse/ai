@@ -85,7 +85,7 @@ class FileContentHandler:
         if end_match:
             if self._is_active:
                 self.printed_create_file = False
-                self._buffer += cleaned_buffer[:end_match.start()]
+                self._buffer += cleaned_buffer[:end_match.end()]
                 
                 # Retrieve metadata, providing defaults
                 file_name_base = self._file_metadata.get('name', 'untitled_file')
