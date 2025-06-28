@@ -4,6 +4,8 @@ import argparse
 import json
 from typing import Optional # FIXED: Added import for Optional
 
+__version__ = "1.4.9"
+
 # Add the project root to the sys.path to allow imports from core
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))
 
