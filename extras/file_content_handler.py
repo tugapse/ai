@@ -120,10 +120,11 @@ class FileContentHandler:
                     final_file_name += ".txt"
                 elif not final_file_name.strip():
                      final_file_name = "untitled.txt"
-
+                save_buffer = self._buffer.strip()
+                if save_buffer.endswith("</file>"): save_buffer = save_buffer[:-len("</file>")]
                 file_data_to_save = {
                     "name": final_file_name,
-                    "content": self._buffer.strip(),
+                    "content": save_buffer,
                     "original_name": file_name_base,
                     "type": file_type,
                     "ext": file_ext_attr

@@ -54,7 +54,6 @@ class OllamaModel(BaseModel):
                         functions.log("INFO: Ollama generation interrupted by stop event.")
                         response.close()
                         break
-                functions.out("\n")
             except KeyboardInterrupt:
                 functions.log("\nINFO: Ctrl+C detected. Stopping Ollama generation...")
                 if 'response' in locals() and hasattr(response, 'close'):
