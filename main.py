@@ -79,13 +79,14 @@ def init_program_and_args(args) -> Program:
     Initializes the program components and processes CLI arguments.
     """
     
+    global clear_console 
     
     prog = Program()
     prog.load_config(args=args) 
     
     if args.debug_console: 
         func.log("DEBUG MODE Enabled") # Reverted to func.log
-        func.CLEAR_CONSOLE = False
+        clear_console = False
         func.LOCK_LOG = False 
         prog.config.set(ProgramSetting.PRINT_LOG, True)
         prog.config.set(ProgramSetting.PRINT_DEBUG, True)
@@ -126,10 +127,14 @@ def run():
                  func.log(f"LLM generation stopped successfully.") 
         else:
             func.log(f"LLM object not initialized or does not support graceful stop.", level="ERROR") 
-            sys.exit(0)
+        sys.exit(0)
 
     except Exception as e:
-        if args and args.debug_console: 
+        is_debug_console = False
+        if args: 
+            is_debug_console = getattr(args, 'debug_console', False)
+
+        if is_debug_console: 
             raise e
         else:
             func.log(f"An unexpected error occurred: {e}", level="ERROR") 
