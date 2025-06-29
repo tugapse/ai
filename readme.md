@@ -1,119 +1,128 @@
 # AI Assistant
 ================
-A conversational AI assistant built with Python and Ollama.
+
+A conversational AI assistant built with Python, supporting various AI models including Ollama and Hugging Face Transformers.
 
 ## Features
-----------------
-### Natural Language Processing (NLP)
-The AI assistant uses natural language processing (NLP) to understand and respond to user input. This allows for more accurate and helpful responses, as well as the ability to handle complex queries and conversations.
+-------------
 
-### Contextual Understanding
-The AI assistant is designed to understand context and follow a conversation. This means that it can keep track of what has been discussed previously and use this information to inform its responses.
+### Core AI Capabilities: NLP and Contextual Understanding
 
-### Multiple Models and Prompts
-The AI assistant supports multiple models and prompts, allowing users to choose the best one for their needs. This includes options such as:
+The AI Assistant's ability to engage in natural, coherent conversations, understand complex queries, and maintain context throughout a dialogue is powered by its flexible integration with diverse Large Language Models (LLMs). This pluggable architecture supports:
 
-* Large language model: This is a powerful model that can handle complex queries and conversations.
-* Small language model: This is a smaller model that is better suited for simple queries and conversations.
-* General conversation prompt: This is a general-purpose prompt that can be used to start a conversation on any topic.
+*   Ollama Server Models: For efficient, local inference, allowing you to run powerful models directly on your hardware. This provides robust Natural Language Processing (NLP) and contextual understanding without relying on external API calls.
+*   Hugging Face Transformers Models: For access to a vast ecosystem of pre-trained and fine-tunable models. This enables the assistant to leverage state-of-the-art NLP techniques and deep contextual understanding across a wide range of tasks and model architectures (e.g., causal language models, sequence-to-sequence models).
 
-### File and Folder Support
-The AI assistant supports loading files and folders, allowing users to pass in large amounts of text data. This can be useful for tasks such as:
+### Versatile Model and Prompt Management
 
-* Analyzing large datasets
-* Generating reports or summaries
-* Creating chatbots or virtual assistants
+The AI Assistant supports multiple models and prompts, allowing users to choose the best configuration for their specific needs:
 
-### Output Options
-The AI assistant provides several output options, including:
+*   Multiple Models: Utilize large language models for complex queries or smaller models for simpler conversations.
+*   Custom Prompts: Apply general conversation prompts or specialized system prompts to guide the AI's behavior and conversational style.
 
-* Text: The default output format is plain text.
-* JSON: The AI assistant can also output its responses in JSON format.
-* CSV: The AI assistant can also output its responses in CSV format.
+### Comprehensive File and Folder Support
 
-## Installation
------------------
-To install this project, simply run the following commands:
-```bash
-sudo apt install portaudio19-dev
-sudo apt install python3-pip
-pip install -r requirements.txt
-```
-## Ollama Integration
----------------------
-This program also uses the Ollama application from ollama.com, which provides a powerful and flexible way to generate text based on user input. By integrating Ollama into this program, we can take advantage of its advanced language processing capabilities and provide even more accurate and helpful responses.
+The AI assistant can load and process large amounts of text data from files and folders, which is incredibly useful for tasks such as:
 
-## Config File Option (Optional)
-If you want to use a different configuration file, you can set an environment variable `AI_ASSISTANT_CONFIG_FILENAME` with the path to your desired config file. For example:
-
-### Unix/Linux/MacOS
-To set this environment variable on Linux/macOS systems, run the following command in your terminal:
-```bash
-export AI_ASSISTANT_CONFIG_FILENAME="/path/to/your/config.json"                                                                                                             
-```                                                                                                                                                                         
-This will allow you to specify a custom configuration file that overrides the default one used by the AI Assistant.
-
-### Windows
-
-1. Right-click on "Computer" or "This PC" and select "Properties".
-2. Click on "Advanced system settings" (on older versions of Windows, click on "System Properties").
-3. In the System Properties window, click on the "Environment Variables" button.
-4. Under "User variables", click "New". Name the variable `AI_ASSISTANT_CONFIG_FILENAME` and set its value to the path of your desired config file (e.g., `C:\Path\To\Your\Config.json`).
-
+*   Analyzing large datasets
+*   Generating reports or summaries
+*   Creating chatbots or virtual assistants
 
 ## Usage
---------------
-To use this program, simply run the `bin/{so required ext}` file from the command line. You can then interact with the AI assistant by typing commands and prompts.
+---------
 
-Example usage:
-```bash
-$ bash bin/sh
+The AI Assistant offers two primary modes of operation: an interactive chat mode for continuous conversation, and direct command-line execution for specific tasks or automated workflows.
+
+### Interactive Chat Mode
+
+If you run the program without specific task-oriented command-line arguments (like `--msg`, `--file`, `--task`, or `--generate-config`), it will launch into an interactive chat loop, allowing for continuous dialogue:
+
+```sh
+../run.sh
 Welcome to the AI Assistant! What would you like to talk about?
+> How can I help you?
+(AI responds)
 ```
-## CLI Options
-----------------
-The AI assistant provides several command-line interface (CLI) options that allow you to customize its behavior. These options include:
 
-* `--msg <message>`: Direct question
-* `--model <model_name>`: Model to use
-* `--system <prompt_name>`: Pass a prompt name
-* `--system-file <filename>`: Pass a prompt filename
-* `--list-models`: See a list of models available
-* `--file <filename>`/`--files <filename>`: Load a file and pass it as a message
-* `--load-folder <folder_name>`/`--folder <folder_name>`: Load multiple files from folder and pass them as a message with file location and file content
-* `--extension <extension>`/`--ext <extension>`: Provides File extension for folder files search
-* `--task <template_name>`/`--task-file <filename>`: Name of the template inside prompt_templates/task, do not insert .md
-* `--output-file <filename>`: Filename where the output of automatic actions will be saved
+### Direct Command-Line Execution
+
+For one-off questions, automated tasks, or configuration generation, you can pass arguments directly to the `run.sh` script. The program will execute the specified action and then exit (unless the action naturally leads to prolonged output, like `--print-chat`):
+
+Example: Ask a direct question:
+
+```sh
+./run.sh --msg "What is the capital of Portugal?"
+```
+
+Example: Summarize a file and save the output:
+
+```sh
+./run.sh --file "my_document.txt" --task "summarize" --output-file "summary.md"
+```
+
+## CLI Options
+--------------
+
+The AI Assistant provides a comprehensive set of command-line interface (CLI) options to customize its behavior, control input/output, and trigger specific functionalities. These options are passed to the `run.sh` script.
+
+### Model and Interaction Control
+
+*   `--msg <message>` / `-m <message>`: Directly pass a single question or statement to the AI. The assistant will process this message and then exit.
+*   `--model <model_name>` / `-md <model_name>`: Specify which AI model to use for the current session.
+*   `--system <prompt_name>` / `-s <prompt_name>`: Apply a predefined system prompt (template name from `prompt_templates/system/`) to guide the AI’s persona or behavior.
+*   `--system-file <filename>` / `-sf <filename>`: Load a system prompt from a specific file.
+
+### Data Input Options
+
+*   `--file <filename>` / `-f <filename>`: Load the content of a single text file and pass it as input to the AI.
+*   `--image <image_file>` / `-i <image_file>`: Load an image file and pass it as input to the AI. Requires an AI model capable of multimodal (image understanding) capabilities.
+*   `--load-folder <folder_name>` / `-D <folder_name>`: Load the content of multiple text files from a specified folder.
+*   `--extension <extension>` / `-e <extension>`: Used with `--load-folder` to filter files by a specific extension (e.g., py, md, txt).
+
+### Automated Tasks and Output
+
+*   `--task <template_name>` / `-t <template_name>`: Execute a predefined task or template (name from `prompt_templates/task/`). This instructs the AI to perform a specific type of action (e.g., summarize, generate code, brainstorm).
+*   `--task-file <filename>` / `-tf <filename>`: Load a task definition from a specific file.
+*   `--output-file <filename>` / `-o <filename>`: Redirect the AI’s generated output to a specified file instead of printing it to the console.
+
+### Program Control and Debugging
+
+*   `--no-log` / `-q`: Suppress informational "log" messages from being printed to the console.
+*   `--no-out`: Suppress the main AI output message from being printed to the console (useful when combined with `--output-file`).
+*   `--debug`: Enable debug mode, which prevents the console from being cleared and may provide more detailed error traceback information.
+
+## Model Configuration Generation
+-------------------------------
+
+Beyond the general usage, the AI Assistant provides specialized options for generating model configuration files. These files are crucial for defining how different AI models are loaded and behave within the application.
+
+For detailed instructions on generating model configuration files, including available model types and examples, please refer to the dedicated Model Configuration Manager README.
 
 ## Contributing
-----------------
-If you'd like to contribute to this project, please fork it on GitHub and submit a pull request. We welcome any suggestions or patches that can improve the functionality of this project.
+--------------
+
+If you’d like to contribute to this project, please fork the repository on GitHub and submit a pull request. I’m always happy to see suggestions or patches that could improve the Assistant’s functionality.
 
 ## License
--------------
+---------
+
 N/A
 
 ## Credits
---------------
-* Fábio Almeida - Original Author
-* Ollama - AI Model Library Used in This Project (https://ollama.com)
-* Python - Programming Language Used to Develop this Project (https://www.python.org)
+----------
 
+I’m the one who built this AI Assistant, and it’s been an absolutely fascinating journey! It’s incredibly rewarding to see all these different technologies – Python, sophisticated NLP techniques, and the power of Large Language Models – come together to create something like this.
+
+I owe a *huge* debt of gratitude to the team at Ollama. Their platform and libraries have been instrumental in making the local model inference so smooth and efficient.  And I’m also incredibly impressed by the breadth and depth of the resources available through Hugging Face Transformers – a truly impressive ecosystem for anyone working with NLP.
+
+This project really is a testament to the power of combining these incredible tools, and I'm so excited to share it with the community!  I’ve learned so much throughout this process, and I'm already thinking about ways to expand its capabilities.
 
 ## Contact
---------------
+-------------
 
 If you have any questions or need further assistance, please don't hesitate to reach out. You can contact me at [your email address] or through the GitHub issues page for this project.
 
-## Acknowledgments
------------------
+## Acknowledgements
+------------------
 
-I would like to thank the Ollama team for providing their AI model library and for their support in developing this project.
-
-## Changelog
---------------
-
-* [Version 1.0]: Initial release of the AI assistant.
-* [Version 1.1]: Added support for multiple models and prompts.
-* [Version 1.2]: Improved language processing capabilities through integration with Ollama.
-
+I’m incredibly grateful to the Ollama team for building such a fantastic AI model library, and to the entire Python community for their continuous innovation and support. It's a really inspiring environment to be a part of, and it makes projects like this possible.

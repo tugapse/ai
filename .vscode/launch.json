@@ -9,7 +9,7 @@
             "name": "Python Debugger: Init file",
             "type": "debugpy",
             "request": "launch",
-            "program": "/home/fabio/playground/ai/init.py",
+            "program": "main.py",
             "console": "integratedTerminal"
         },
     ]
