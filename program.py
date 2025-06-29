@@ -92,8 +92,8 @@ class Program:
         # 4. Setup Logging and Output Managers (now using session_paths)
         self.thinking_log_manager = ThinkingLogManager(log_file_name=self.session_thinking_log_filepath)
 
-        print_mode = self.config.get(ProgramSetting.PRINT_MODE, "every_x_tokens")
-        tokens_per_print = self.config.get(ProgramSetting.TOKENS_PER_PRINT, 10)
+        print_mode = self.config.get(ProgramSetting.PRINT_MODE, "line_or_x_tokens")
+        tokens_per_print = self.config.get(ProgramSetting.TOKENS_PER_PRINT, 20)
         self.output_printer = OutputPrinter(
             print_mode=print_mode, tokens_per_print=tokens_per_print
         )
@@ -107,6 +107,7 @@ class Program:
             thinking_mode=thinking_mode,
             enable_thinking_display=enable_thinking_display
         )
+        self.config.save_config()
 
 
     def init_model_params(self):
