@@ -9,8 +9,16 @@ class EngineType(Enum):
 
 class ModelType(Enum):
     """
-    Enum to define the different types of LLM models based on their architecture.
+    Defines the architectural types of language models supported by the application.
     """
-    CAUSAL_LM = "causal_lm"
-    SEQ2SEQ_LM = "seq2seq_lm"
-    OLLAMA_MODEL = "ollama" # Can be used for specific Ollama model types if needed
+    CAUSAL_LM = "causal_lm"       # Models like GPT, Llama (decoder-only)
+    SEQ2SEQ_LM = "seq2seq_lm"     # Models like T5, BART (encoder-decoder)
+    OLLAMA = "ollama"             # Models served via Ollama
+    GGUF = "gguf"                 # GGUF quantized models (typically run with llama.cpp bindings)
+
+    def __str__(self):
+        return self.value
+
+    def __repr__(self):
+        return self.name
+

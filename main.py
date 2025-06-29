@@ -2,7 +2,7 @@ import sys
 import os
 import argparse
 import json
-from typing import Optional # FIXED: Added import for Optional
+from typing import Optional
 
 __version__ = "1.4.9"
 
@@ -10,7 +10,7 @@ __version__ = "1.4.9"
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))
 
 from program import Program
-from config import ProgramConfig, ProgramSetting # Now using ProgramSetting as a class of string constants
+from config import ProgramConfig, ProgramSetting
 from entities.model_enums import ModelType
 import functions as func
 from color import Color
@@ -43,8 +43,6 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     parser.add_argument("--debug-console","-dc", action="store_true", help='Set this flag to NOT clear console (for debugging)')
 
     config_group = parser.add_argument_group('Model Config Generation', 'Use these arguments to generate a new model JSON config file.')
-    # MODIFIED: Changed help text to reflect that --generate-config now expects a filename
-    # which will be saved in the default models directory.
     config_group.add_argument('--generate-config', metavar='FILENAME', type=str, help='Generate a model config and save it to the specified FILENAME in the default models directory, then exit.')
     config_group.add_argument('--model-name', type=str, help="The name of the model to include in the config (e.g., 'meta-llama/Llama-2-7b-chat-hf'). Required by --generate-config.")
     config_group.add_argument('--model-type', type=str, choices=[t.value for t in ModelType], help='The architectural type of the model. Required by --generate-config.')
@@ -58,51 +56,46 @@ def print_chat_header(prog: Program) -> None:
     """
     func.set_console_title("Ai assistant: " + prog.model_chat_name)
 
-    # MODIFIED: Use ProgramSetting.SYSTEM_PROMPT_FILE for consistency with new config structure
     system_p_file_path = prog.config.get(
-        ProgramSetting.SYSTEM_PROMPT_FILE, "" # Use SYSTEM_PROMPT_FILE which holds the resolved path
+        ProgramSetting.SYSTEM_PROMPT_FILE, ""
     )
     system_p_file: str = (
         os.path.basename(system_p_file_path).replace(".md", "").replace("_", " ")
     )
     system_p_file = system_p_file.capitalize()
 
-    func.out(Color.GREEN, end="")
-    func.out(
+    func.out(Color.GREEN, end="") # Reverted to func.out
+    func.out( # Reverted to func.out
         f"# Starting {Color.YELLOW}{ prog.model_chat_name }{Color.GREEN} assistant"
     )
     if prog.model_variant:
-        func.out(f"# variant {Color.YELLOW}{ prog.model_variant }{Color.GREEN}")
-    func.out(f"# Using {Color.YELLOW}{ system_p_file }{Color.GREEN} file system")
-    func.out(f"{Color.RESET}--------------------------")
+        func.out(f"# variant {Color.YELLOW}{ prog.model_variant }{Color.GREEN}") # Reverted to func.out
+    func.out(f"# Using {Color.YELLOW}{ system_p_file }{Color.GREEN} file system") # Reverted to func.out
+    func.out(f"{Color.RESET}--------------------------") # Reverted to func.out
 
 
-def init_program_and_args(args) -> Program: # Changed return type hint
+def init_program_and_args(args) -> Program:
     """
     Initializes the program components and processes CLI arguments.
     """
     
-    global clear_console
+    global clear_console 
     
     prog = Program()
-    # MODIFIED: ProgramConfig.load() now handles initializing the singleton and its defaults.
-    # We pass args to prog.load_config so it can override defaults with CLI arguments.
     prog.load_config(args=args) 
     
     if args.debug_console: 
-        print("DEBUG MODE Enabled")
+        func.log("DEBUG MODE Enabled") # Reverted to func.log
         clear_console = False
-        func.LOCK_LOG = False # Directly set LOCK_LOG in functions module
-        # MODIFIED: Use ProgramSetting constants for consistency
+        func.LOCK_LOG = False 
         prog.config.set(ProgramSetting.PRINT_LOG, True)
         prog.config.set(ProgramSetting.PRINT_DEBUG, True)
     else:
-        func.LOCK_LOG = True # Directly set LOCK_LOG in functions module
-        # MODIFIED: Use ProgramSetting constants for consistency
+        func.LOCK_LOG = True 
         prog.config.set(ProgramSetting.PRINT_LOG, False)
         prog.config.set(ProgramSetting.PRINT_DEBUG, False)
 
-    prog.init_program(args) # Program initialized with args
+    prog.init_program(args) 
 
     return prog
 
@@ -114,49 +107,37 @@ if __name__ == "__main__":
         clear_console = True
         parser, args = load_args()
         
-        # Initialize program and parse args
-        # The prog object, which holds the ProgramConfig, is returned here
-        # and then passed to CliArgs.
         prog = init_program_and_args(args)
         
-        # Instantiate CliArgs and parse remaining arguments.
-        # _handle_config_generation in CliArgs will exit if --generate-config was used.
         cli_args_processor = CliArgs()
-        cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser) # Pass prog object
+        cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
 
         if clear_console: 
             func.clear_console()
 
         print_chat_header(prog=prog)
-        
-        # Start the chat loop. Direct messages are handled and exit within CliArgs.
-        # So, if we reach here, it's for interactive chat.
         prog.start_chat_loop()
-
     except KeyboardInterrupt:
-        print(f"\n{Color.YELLOW}Detected Ctrl+C. Attempting to stop LLM generation gracefully...{Color.RESET}")
+        func.log(f"Detected Ctrl+C. Attempting to stop LLM generation gracefully...", level="WARNING") 
         if prog and prog.llm:
             prog.llm.stop_generation_event.set() 
             prog.llm.join_generation_thread(timeout=10)
             if prog.llm._generation_thread and prog.llm._generation_thread.is_alive():
-                 print(f"{Color.RED}WARNING: LLM generation thread did not terminate cleanly.{Color.RESET}")
+                 func.log(f"LLM generation thread did not terminate cleanly.", level="WARNING") 
             else:
-                 print(f"{Color.GREEN}LLM generation stopped successfully.{Color.RESET}")
+                 func.log(f"LLM generation stopped successfully.") 
         else:
-            print(f"{Color.RED}LLM object not initialized or does not support graceful stop.{Color.RESET}")
+            func.log(f"LLM object not initialized or does not support graceful stop.", level="ERROR") 
         sys.exit(0)
 
     except Exception as e:
-        # If an error occurs before args is defined, or if debug_console isn't set,
-        # we still want to handle gracefully.
         is_debug_console = False
-        if args: # Check if args is not None
+        if args: 
             is_debug_console = getattr(args, 'debug_console', False)
 
         if is_debug_console: 
             raise e
         else:
-            print(f"{Color.RED}\nAn unexpected error occurred: {e} {Color.RESET}")
-            # Do not re-raise e here, sys.exit(1) is sufficient if not in debug mode.
+            func.log(f"An unexpected error occurred: {e}", level="ERROR") 
             sys.exit(1)
 
