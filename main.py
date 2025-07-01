@@ -79,14 +79,13 @@ def init_program_and_args(args) -> Program:
     Initializes the program components and processes CLI arguments.
     """
     
-    global clear_console 
     
     prog = Program()
     prog.load_config(args=args) 
     
     if args.debug_console: 
         func.log("DEBUG MODE Enabled") # Reverted to func.log
-        clear_console = False
+        func.CLEAR_CONSOLE = False
         func.LOCK_LOG = False 
         prog.config.set(ProgramSetting.PRINT_LOG, True)
         prog.config.set(ProgramSetting.PRINT_DEBUG, True)
@@ -104,7 +103,7 @@ if __name__ == "__main__":
     prog: Optional[Program] = None 
     args: Optional[argparse.Namespace] = None 
     try:
-        clear_console = True
+        func.CLEAR_CONSOLE = True
         parser, args = load_args()
         
         prog = init_program_and_args(args)
@@ -112,7 +111,7 @@ if __name__ == "__main__":
         cli_args_processor = CliArgs()
         cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
 
-        if clear_console: 
+        if func.CLEAR_CONSOLE: 
             func.clear_console()
 
         print_chat_header(prog=prog)
@@ -131,11 +130,7 @@ if __name__ == "__main__":
         sys.exit(0)
 
     except Exception as e:
-        is_debug_console = False
-        if args: 
-            is_debug_console = getattr(args, 'debug_console', False)
-
-        if is_debug_console: 
+        if args and args.debug_console: 
             raise e
         else:
             func.log(f"An unexpected error occurred: {e}", level="ERROR") 

@@ -9,3 +9,4 @@ testes/*
 .vscode/settings.json
 .env
 run.sh
+*.log

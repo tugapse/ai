@@ -81,6 +81,7 @@ class Program:
 
         # 2. Initialize Session Paths
         session_paths = SessionManager.initialize_session_paths(self.config)
+        
         self.session_timestamp = session_paths["session_timestamp"]
         self.session_chat_filepath = session_paths["session_chat_filepath"]
         self.session_thinking_log_filepath = session_paths["session_thinking_log_filepath"]
