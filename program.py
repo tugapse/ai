@@ -108,7 +108,6 @@ class Program:
             thinking_mode=thinking_mode,
             enable_thinking_display=enable_thinking_display
         )
-        self.config.save_config()
 
 
     def init_model_params(self):
