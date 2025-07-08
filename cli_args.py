@@ -83,7 +83,7 @@ class CliArgs:
 
                 func.log(
                     format_text(
-                        f"--- Generating config for {args.model_name} ---", Color.CYAN
+                        f"--- Generating config for {args.model_name} ---", Color.NORMAL_CYAN
                     )
                 )
 
