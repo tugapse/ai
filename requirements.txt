@@ -42,8 +42,9 @@ sympy==1.13.3
 tokenizers==0.21.1
 tqdm==4.67.1
 transformers==4.52.4
-triton==3.3.1
 typing-inspection==0.4.1
 typing_extensions==4.12.2
 urllib3==2.5.0
 pyreadline3; sys_platform == "win32"
+triton-windows; sys_platform == "win32"
+triton; sys_platform != "win32"
