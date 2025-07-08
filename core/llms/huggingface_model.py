@@ -297,7 +297,7 @@ class HuggingFaceModel(BaseModel):
 
         functions.debug("Chat method initialized, queues cleared.")
 
-        processed_messages = self._ensure_alternating_roles(messages)
+        processed_messages = messages
 
         processed_messages_log = ""
         if processed_messages:
@@ -439,6 +439,8 @@ class HuggingFaceModel(BaseModel):
         Formats chat messages into model input, ensuring the last turn is for the assistant to generate.
         This handles models with and without `apply_chat_template`.
         """
+        if self.system_prompt and not any(m["role"] == "system" for m in messages):
+                messages.insert(0, BaseModel.create_message("system", self.system_prompt))
         if (
             hasattr(self.tokenizer, "apply_chat_template")
             and self.tokenizer.apply_chat_template is not None
