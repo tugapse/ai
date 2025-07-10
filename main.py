@@ -127,7 +127,7 @@ if __name__ == "__main__":
                  func.log(f"LLM generation stopped successfully.") 
         else:
             func.log(f"LLM object not initialized or does not support graceful stop.", level="ERROR") 
-        sys.exit(0)
+            sys.exit(0)
 
     except Exception as e:
         if args and args.debug_console: 

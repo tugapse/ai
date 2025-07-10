@@ -1,5 +1,5 @@
 {
-  "MODEL_CONFIG_NAME": "qwen3",
+  "MODEL_CONFIG_NAME": "qwen3-hf",
   "SYSTEM_PROMPT_FILE": "default",
   "OLLAMA_HOST": "127.0.0.1",
 
