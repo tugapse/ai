@@ -1,5 +1,7 @@
-import sys
 import os
+os.environ['TQDM_DISABLE'] = '1'
+
+import sys
 import argparse
 import json
 from typing import Optional
@@ -12,7 +14,7 @@ from color import Color
 from cli_args import CliArgs # Import the CliArgs processor
 
 
-__version__ = "1.4.9"
+__version__ = "1.5.0"
 
 # Add the project root to the sys.path to allow imports from core
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))
@@ -20,7 +22,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))
 logging.basicConfig(level=logging.CRITICAL, format='%(name)s - %(levelname)s - %(message)s')
 
 # Set TQDM_DISABLE environment variable to suppress tqdm bars
-os.environ['TQDM_DISABLE'] = '1'
 
 
 def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
@@ -93,7 +94,6 @@ def init_program_and_args(args) -> Program:
     
     if args.debug_console: 
         func.log("DEBUG MODE Enabled") # Reverted to func.log
-        os.environ['TQDM_DISABLE'] = '0'
         clear_console = False
         func.LOCK_LOG = False 
         prog.config.set(ProgramSetting.PRINT_LOG, True)
@@ -101,7 +101,7 @@ def init_program_and_args(args) -> Program:
     else:
 
         func.LOCK_LOG = True 
-        prog.config.set(ProgramSetting.PRINT_LOG, False)
+        prog.config.set(ProgramSetting.PRINT_LOG, True)
         prog.config.set(ProgramSetting.PRINT_DEBUG, False)
 
     prog.init_program(args) 
@@ -146,7 +146,7 @@ def run():
         if is_debug_console: 
             raise e
         else:
-            func.log(f"An unexpected error occurred: {e}", level="ERROR") 
+            func.out(f"An unexpected error occurred: {e}", level="ERROR") 
             sys.exit(1)
 
 if __name__ == "__main__":
