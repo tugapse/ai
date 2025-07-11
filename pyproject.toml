@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ai"
-version = "1.4.9"
+version = "1.5.0"
 authors = [
   { name="Fabio Almeida", email="tugapse@gmail.com" },
 ]

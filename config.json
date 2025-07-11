@@ -2,23 +2,19 @@
   "MODEL_CONFIG_NAME": "qwen3-hf",
   "SYSTEM_PROMPT_FILE": "default",
   "OLLAMA_HOST": "127.0.0.1",
-
-    "PATHS_CHAT_LOG": "{root_dir}/logs/chat/",
-    "PATHS_TASKS_TEMPLATES": "{root_dir}/task/",
-    "PATHS_SYSTEM_TEMPLATES": "{root_dir}/system/",
-    "PATHS_INJECT_TEMPLATES": "{root_dir}/inject/",
-    "PATHS_WORKSPACES": "{root_dir}/workspaces/",
-    "PATHS_MODEL_CONFIGS": "{root_dir}/model-config/",
-    "PATHS_LOGS":"{root_dir}/logs/",
-
-
-
+  "PATHS_CHAT_LOG": "<root_dir>/logs/chat/",
+  "PATHS_TASKS_TEMPLATES": "<root_dir>/task/",
+  "PATHS_SYSTEM_TEMPLATES": "<root_dir>/system/",
+  "PATHS_INJECT_TEMPLATES": "<root_dir>/inject/",
+  "PATHS_WORKSPACES": "<root_dir>/workspaces/",
+  "PATHS_MODEL_CONFIGS": "<root_dir>/model-config/",
+  "PATHS_LOGS": "<root_dir>/logs/",
   "INJECT_TEMPLATES": [
     {
       "key": "{{THINKING}}",
       "value": "thinking.md"
     },
-     {
+    {
       "key": "{{FILE-MANAGER}}",
       "value": "file-manager.md"
     }

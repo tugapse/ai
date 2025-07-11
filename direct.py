@@ -1,3 +1,4 @@
+import os
 from time import time
 from typing import Union
 import functions as func
@@ -22,8 +23,6 @@ def ask(
     tokens_per_print: int = 5,
 ) -> None:
     """
-    Asks the language model a question and streams its response.
-
     Asks the language model a question and streams its response.
 
     Args:
@@ -74,14 +73,9 @@ def ask(
     if write_to_file and output_filename:
         func.write_to_file(output_filename, "")
 
-    llm_options = {
-        "num_ctx": llm.CONTEXT_WINDOW_XLARGE,
-        "temperature": 0.5,
-        "seed": llm.CONTEXT_WINDOW_SMALL,
-    }
 
     token_processor = ConsoleTokenFormatter()
-    for raw_token_string in llm.chat(message, stream=True, options=llm_options):
+    for raw_token_string in llm.chat(message, stream=True):
         if first_token_time is None:
             first_token_time = time()
         

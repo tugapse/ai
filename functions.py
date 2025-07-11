@@ -13,8 +13,8 @@ FILE_MODE_APPEND = "a"
 FILE_MODE_CREATE = "w"
 
 LOCK_LOG = False  # This variable needs to be accessible globally for logging control
-ACTIVE_LOG_FILENAME = "active_log_output.log"
-SESSION_LOG_FILENAME = "log_output.log"
+ACTIVE_LOG_FILENAME = None
+SESSION_LOG_FILENAME = None
 
 
 def set_console_title(title):
@@ -190,8 +190,6 @@ def ensure_directory_exists(path: str,silent=False):
                 f"{Color.RED}Error: Failed to create directory: {path} - {e}{Color.RESET}"
             )
             sys.exit(1)  # Exit on critical directory creation failure
-    else:
-        if not silent: log(f"Directory already exists: {path}", level="DEBUG")
 
 
 # --- Logging/Output Functions (Adapted to use ProgramConfig.current) ---
@@ -211,9 +209,11 @@ def log(text, start_line="[ * ]", level="INFO", **kargs):  # Added level for con
         level == "DEBUG"
     ):  # Debug is now handled by its own func, but keeping consistency here
         formatted_text = f"{Color.BRIGHT_CYAN}{start_line}{Color.RESET} {text}"
-
-    write_to_file(ACTIVE_LOG_FILENAME, f"{start_line} {text}\n", FILE_MODE_APPEND,True)
-    write_to_file(SESSION_LOG_FILENAME, f"{start_line} {text}\n", FILE_MODE_APPEND,True)
+    
+    if ACTIVE_LOG_FILENAME: 
+        write_to_file(ACTIVE_LOG_FILENAME, f"{start_line} {text}\n", FILE_MODE_APPEND,True)
+    if SESSION_LOG_FILENAME:
+        write_to_file(SESSION_LOG_FILENAME, f"{start_line} {text}\n", FILE_MODE_APPEND,True)
 
     if not LOCK_LOG:
         print(formatted_text, **kargs)
@@ -225,15 +225,18 @@ def debug(text, start_line="[ # ]", **kargs):
     Logs a debug message to stderr, respecting PRINT_DEBUG setting.
     """
     formatted_text = f"{Color.PURPLE}{start_line}{Color.RESET} {text}"
-    write_to_file(
-        ACTIVE_LOG_FILENAME.replace("log_", "debug_"), f"{start_line} {text}\n", FILE_MODE_APPEND,True
-    )
-    write_to_file(
-        SESSION_LOG_FILENAME.replace("log_", "debug_"),
-        f"{start_line} {text}\n",
-        FILE_MODE_APPEND,
-        True
-    )
+    if ACTIVE_LOG_FILENAME:
+        write_to_file(
+            ACTIVE_LOG_FILENAME.replace("log_", "debug_"), f"{start_line} {text}\n", FILE_MODE_APPEND,True
+        )
+    if SESSION_LOG_FILENAME:
+        write_to_file(
+            SESSION_LOG_FILENAME.replace("log_", "debug_"),
+            f"{start_line} {text}\n",
+            FILE_MODE_APPEND,
+            True
+        )
+        
     if not LOCK_LOG:
         print(formatted_text, **kargs)
         sys.stdout.flush()
