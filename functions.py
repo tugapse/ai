@@ -190,8 +190,6 @@ def ensure_directory_exists(path: str,silent=False):
                 f"{Color.RED}Error: Failed to create directory: {path} - {e}{Color.RESET}"
             )
             sys.exit(1)  # Exit on critical directory creation failure
-    else:
-        if not silent: log(f"Directory already exists: {path}", level="DEBUG")
 
 
 # --- Logging/Output Functions (Adapted to use ProgramConfig.current) ---

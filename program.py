@@ -153,6 +153,7 @@ class Program:
         )
 
 
+
     def process_token(self, token):
         """
         Processes a token using the ConsoleTokenFormatter (primarily for color).
