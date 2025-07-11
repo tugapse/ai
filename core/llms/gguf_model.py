@@ -336,7 +336,6 @@ class GGUFImageLLM(BaseModel):
                     # Re-raise or yield error to the consumer, depending on desired behavior
                     yield f"\nERROR: {error_message}"
                     break # Stop yielding on error
-            functions.out("\n") # Newline after streamed output
             functions.debug("GGUF Streamer finished yielding all tokens.")
 
             if not self.error_queue.empty():

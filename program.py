@@ -226,7 +226,6 @@ class Program:
         except Exception as e:
             error_message = f"An error occurred during chat: {e}"
             func.out(f"Error: {error_message}") # Confirmed func.out
-            func.out("\n") # Confirmed func.out
             func.log(f"{error_message}", level="CRITICAL") 
             import traceback
             func.log(f"Traceback:\n{traceback.format_exc()}", level="ERROR") 
@@ -351,7 +350,6 @@ class Program:
         try:
             with open(self.session_chat_filepath, "w", encoding="utf-8") as f:
                 json.dump(self.chat.messages, f, indent=4)
-            func.out(" ", flush=True) 
             func.log(f"Chat history saved to {self.session_chat_filepath}") 
         except Exception as e:
             func.log(f"Failed to save chat history to {self.session_chat_filepath}: {e}", level="ERROR") 
