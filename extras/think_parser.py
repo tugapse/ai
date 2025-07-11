@@ -81,7 +81,6 @@ class ThinkingAnimationHandler:
                 content_after_end_tag = cleaned_buffer[end_match.end():]
 
                 func.out("\r" + " " * self.MAX_THINKING_INDICATOR_LENGTH , flush=True)
-                # func.out("\n", flush=True)
                 
                 self._is_thinking_active = False
                 self._has_thinking_intro_printed = False
