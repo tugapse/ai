@@ -3,11 +3,15 @@ import os
 import argparse
 import json
 from typing import Optional
+import logging
 
 __version__ = "1.4.9"
 
 # Add the project root to the sys.path to allow imports from core
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))
+logging.basicConfig(level=logging.CRITICAL, format='%(name)s - %(levelname)s - %(message)s')
+# Set TQDM_DISABLE environment variable to suppress tqdm bars
+os.environ['TQDM_DISABLE'] = '1'
 
 from program import Program
 from config import ProgramConfig, ProgramSetting
@@ -86,11 +90,13 @@ def init_program_and_args(args) -> Program:
     
     if args.debug_console: 
         func.log("DEBUG MODE Enabled") # Reverted to func.log
+        os.environ['TQDM_DISABLE'] = '0'
         clear_console = False
         func.LOCK_LOG = False 
         prog.config.set(ProgramSetting.PRINT_LOG, True)
         prog.config.set(ProgramSetting.PRINT_DEBUG, True)
     else:
+
         func.LOCK_LOG = True 
         prog.config.set(ProgramSetting.PRINT_LOG, False)
         prog.config.set(ProgramSetting.PRINT_DEBUG, False)

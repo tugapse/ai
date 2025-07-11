@@ -89,18 +89,6 @@ class Program:
 
         # 3. Initialize core program components (LLM, system prompt, etc.)
         self.init() 
-        # 2. Initialize Session Paths
-        session_paths = SessionManager.initialize_session_paths(self.config)
-        self.session_timestamp = session_paths["session_timestamp"]
-        self.session_chat_filepath = session_paths["session_chat_filepath"]
-        self.session_thinking_log_filepath = session_paths["session_thinking_log_filepath"]
-        self.session_workspace_path = session_paths["session_workspace_path"]
-
-        # 3. Initialize core program components (LLM, system prompt, etc.)
-        self.init() 
-
-        # 4. Setup Logging and Output Managers (now using session_paths)
-        self.thinking_log_manager = ThinkingLogManager(log_file_name=self.session_thinking_log_filepath)
 
         # 4. Setup Logging and Output Managers (now using session_paths)
         self.thinking_log_manager = ThinkingLogManager(log_file_name=self.session_thinking_log_filepath)
