@@ -81,6 +81,7 @@ class Program:
 
         # 2. Initialize Session Paths
         session_paths = SessionManager.initialize_session_paths(self.config)
+        
         self.session_timestamp = session_paths["session_timestamp"]
         self.session_chat_filepath = session_paths["session_chat_filepath"]
         self.session_thinking_log_filepath = session_paths["session_thinking_log_filepath"]
@@ -104,8 +105,8 @@ class Program:
         # 4. Setup Logging and Output Managers (now using session_paths)
         self.thinking_log_manager = ThinkingLogManager(log_file_name=self.session_thinking_log_filepath)
 
-        print_mode = self.config.get(ProgramSetting.PRINT_MODE, "every_x_tokens")
-        tokens_per_print = self.config.get(ProgramSetting.TOKENS_PER_PRINT, 10)
+        print_mode = self.config.get(ProgramSetting.PRINT_MODE, "line_or_x_tokens")
+        tokens_per_print = self.config.get(ProgramSetting.TOKENS_PER_PRINT, 20)
         self.output_printer = OutputPrinter(
             print_mode=print_mode, tokens_per_print=tokens_per_print
         )
