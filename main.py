@@ -4,21 +4,22 @@ import argparse
 import json
 from typing import Optional
 import logging
-
-__version__ = "1.4.9"
-
-# Add the project root to the sys.path to allow imports from core
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))
-logging.basicConfig(level=logging.CRITICAL, format='%(name)s - %(levelname)s - %(message)s')
-# Set TQDM_DISABLE environment variable to suppress tqdm bars
-os.environ['TQDM_DISABLE'] = '1'
-
 from program import Program
 from config import ProgramConfig, ProgramSetting
 from entities.model_enums import ModelType
 import functions as func
 from color import Color
 from cli_args import CliArgs # Import the CliArgs processor
+
+
+__version__ = "1.4.9"
+
+# Add the project root to the sys.path to allow imports from core
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))
+
+# Set TQDM_DISABLE environment variable to suppress tqdm bars
+os.environ['TQDM_DISABLE'] = '1'
+
 
 def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     """
