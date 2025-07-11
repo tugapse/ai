@@ -20,27 +20,43 @@ readme = "README.md"
 #     "Topic :: Multimedia :: Sound/Audio :: Speech",
 #     "Environment :: Console",
 # ]
-# dependencies = [
-#     "torch",
-#     "transformers",
-#     "soundfile",
-#     "sounddevice",
-#     "numpy",
-#     "huggingface_hub",
-#     "parler_tts",
-#     "llama-cpp-python",
-#     "orpheus-cpp",
-# ]
+
+dependencies = [
+    "accelerate",
+    "bitsandbytes",
+    "colorama",
+    "dotenv",
+    "huggingface-hub",
+    "llama_cpp_python",
+    "numpy",
+    "ollama",
+    "tqdm",
+    "transformers",
+    'pyreadline3; sys_platform == "win32"',
+    'triton-windows; sys_platform == "win32"',
+    'triton; sys_platform != "win32"'
+]
+
+
+[tool.setuptools]
+packages = [
+    "core",
+    "extras",
+    "entities",
+    "services",
+    "templates"
+]
+
 
 # Optional: If your package is a command-line tool, define entry points.
 # This makes your script executable directly from the command line after installation.
 # [project.scripts]
-# Example: your-cli-command = "your_package_name.main:run_cli"
 # Adjust 'your_package_name.main' to match your actual package structure and entry point.
 
 [project.scripts]
 ai = "ai.main:run"
 
 [project.urls]
+ai = "ai.main:run_cli"
 "Homepage" = "https://github.com/tugapse/ai.git"
 "Bug Tracker" = "https://github.com/tugapse/ai.git/issues"
