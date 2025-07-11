@@ -98,8 +98,7 @@ def init_program_and_args(args) -> Program:
 
     return prog
 
-
-if __name__ == "__main__":
+def run():
     prog: Optional[Program] = None 
     args: Optional[argparse.Namespace] = None 
     try:
@@ -135,4 +134,7 @@ if __name__ == "__main__":
         else:
             func.log(f"An unexpected error occurred: {e}", level="ERROR") 
             sys.exit(1)
+
+if __name__ == "__main__":
+    run()
 

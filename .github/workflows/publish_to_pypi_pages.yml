@@ -1,0 +1,144 @@
+name: Publish to GitHub Pages PyPI Index
+
+on:
+  release:
+    types: [published] # This workflow runs when a new GitHub Release is published
+  workflow_dispatch: # Allows manual triggering from GitHub Actions tab
+
+jobs:
+  build_and_publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Needed for actions/checkout and git push
+
+    steps:
+      - name: Checkout Package Repository
+        uses: actions/checkout@v4
+        with:
+          # Ensure full history is fetched for build tools if needed
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12' # Use a specific Python version, e.g., '3.10'
+
+      - name: Install build tools and HTML parser
+        run: |
+          pip install build twine wheel toml beautifulsoup4
+
+      - name: Build sdist and wheel
+        run: |
+          python -m build
+        # The built packages will be in the 'dist/' directory of the package repo
+
+      - name: Checkout PyPI Index Repository
+        uses: actions/checkout@v4
+        with:
+          repository: tugapse/python-index
+          path: my-python-index-repo # Local path to clone the index repo
+          token: ${{ secrets.GH_PAT_INDEX_REPO }}
+
+      - name: Copy dists and Update PyPI Index HTML Files
+        run: |
+          # Get the package name directly from the original pyproject.toml
+          # The original repo is one directory level up from 'my-python-index-repo'
+          PACKAGE_NAME_RAW=$(python -c "import toml; print(toml.load('./pyproject.toml')['project']['name'])")
+          PACKAGE_NAME=$(echo "$PACKAGE_NAME_RAW" | tr '_' '-' | tr '[:upper:]' '[:lower:]')
+          export PACKAGE_NAME # Make it available as an environment variable for the Python script
+
+          echo "Processing package: $PACKAGE_NAME"
+
+          # Create package-specific directory in the index repo
+          mkdir -p my-python-index-repo/$PACKAGE_NAME
+
+          # Copy built distribution files into the package-specific directory
+          cp dist/* my-python-index-repo/$PACKAGE_NAME/
+
+          # Navigate into the cloned index repo to perform HTML updates
+          cd my-python-index-repo
+
+          # Execute Python script to handle HTML updates
+          python - <<EOF
+          import os
+          import hashlib
+          from bs4 import BeautifulSoup
+          import sys
+
+          # PACKAGE_NAME is now available as a shell variable, passed into the script
+          PACKAGE_NAME = os.environ.get("PACKAGE_NAME")
+          if not PACKAGE_NAME:
+              print("Error: PACKAGE_NAME environment variable is not set for the Python script.")
+              sys.exit(1)
+
+          print(f"Python script processing for package: {PACKAGE_NAME}")
+
+          # --- Handle package-specific index.html ---
+          package_dir_path = PACKAGE_NAME # Relative path within my-python-index-repo
+          package_index_html_path = os.path.join(package_dir_path, "index.html")
+
+          # Always regenerate the package's index.html to ensure it's up-to-date with current dist files
+          html_content = f"""
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>Links for {PACKAGE_NAME}</title>
+          </head>
+          <body>
+              <h1>Links for {PACKAGE_NAME}</h1>
+          </body>
+          </html>
+          """
+          soup = BeautifulSoup(html_content, 'html.parser')
+          body = soup.find('body')
+
+          if os.path.exists(package_dir_path):
+              for filename in sorted(os.listdir(package_dir_path)):
+                  if filename.endswith(('.whl', '.tar.gz')):
+                      filepath = os.path.join(package_dir_path, filename)
+                      with open(filepath, 'rb') as f:
+                          sha256_hash = hashlib.sha256(f.read()).hexdigest()
+                      link = soup.new_tag("a", href=f"{filename}#sha256={sha256_hash}")
+                      link.string = filename
+                      body.append(link)
+                      body.append(soup.new_tag("br"))
+          else:
+              print(f"Warning: Package directory '{package_dir_path}' not found within index repo. Skipping package index creation.")
+
+          with open(package_index_html_path, "w") as f:
+              f.write(str(soup))
+          print(f"Successfully updated {package_index_html_path}")
+
+          # --- Update the root index.html ---
+          root_index_path = "index.html"
+          root_soup = None
+          if os.path.exists(root_index_path):
+              with open(root_index_path, "r") as f:
+                  root_soup = BeautifulSoup(f, 'html.parser')
+          else:
+              root_soup = BeautifulSoup("<!DOCTYPE html><html><head><title>Simple Index</title></head><body><h1>Simple Index</h1></body></html>", 'html.parser')
+
+          root_body = root_soup.find('body')
+
+          # Check if link already exists for this package
+          existing_link = root_body.find('a', href=f"{PACKAGE_NAME}/".lower()) # Ensure lowercase for comparison
+          if not existing_link:
+              link_tag = root_soup.new_tag("a", href=f"{PACKAGE_NAME}/")
+              link_tag.string = PACKAGE_NAME
+              root_body.append(link_tag)
+              root_body.append(soup.new_tag("br")) # Use soup.new_tag for <br>
+              with open(root_index_path, "w") as f:
+                  f.write(str(root_soup))
+              print(f"Added new link for {PACKAGE_NAME} to {root_index_path}")
+          else:
+              print(f"Link for {PACKAGE_NAME} already exists in {root_index_path}. No update needed for root index.")
+          EOF
+
+      - name: Configure Git for committing
+        run: |
+          cd my-python-index-repo
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add .
+          git commit -m "Auto-update PyPI index for ${{ github.event.repository.name }} v${{ github.event.release.tag_name || 'latest' }} [skip ci]" || echo "No changes to commit" # '|| echo' prevents failure if no changes
+          git push

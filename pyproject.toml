@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai"
+version = "1.4.9"
+authors = [
+  { name="Fabio Almeida", email="tugapse@gmail.com" },
+]
+description = "ai"
+readme = "README.md"
+
+# Optional: Define minimum Python version, classifiers, and dependencies.
+# requires-python = ">=3.8, <3.13" # Example: Python 3.8 to 3.12
+# classifiers = [
+#     "Programming Language :: Python :: 3",
+#     "License :: OSI Approved :: MIT License",
+#     "Operating System :: OS Independent",
+#     "Topic :: Multimedia :: Sound/Audio :: Speech",
+#     "Environment :: Console",
+# ]
+# dependencies = [
+#     "torch",
+#     "transformers",
+#     "soundfile",
+#     "sounddevice",
+#     "numpy",
+#     "huggingface_hub",
+#     "parler_tts",
+#     "llama-cpp-python",
+#     "orpheus-cpp",
+# ]
+
+# Optional: If your package is a command-line tool, define entry points.
+# This makes your script executable directly from the command line after installation.
+# [project.scripts]
+# Example: your-cli-command = "your_package_name.main:run_cli"
+# Adjust 'your_package_name.main' to match your actual package structure and entry point.
+
+[project.scripts]
+ai = "ai.main:run"
+
+[project.urls]
+"Homepage" = "https://github.com/tugapse/ai.git"
+"Bug Tracker" = "https://github.com/tugapse/ai.git/issues"
