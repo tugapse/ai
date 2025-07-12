@@ -43,6 +43,8 @@ def install_requirements_txt():
     print(f"\n{Colors.HEADER}--- Step 1: Installing dependencies from requirements.txt ---{Colors.ENDC}")
     if get_user_confirmation("Do you want to install dependencies from 'requirements.txt'?"):
         try:
+            print(f"{Colors.CYAN}Running: pip install --upgrade pip{Colors.ENDC}")
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "pip"])
             print(f"{Colors.CYAN}Running: pip install -r requirements.txt{Colors.ENDC}")
             subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"])
             print(f"{Colors.GREEN}Successfully installed dependencies from requirements.txt.{Colors.ENDC}")
