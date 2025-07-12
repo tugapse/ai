@@ -4,5 +4,5 @@ SET folder=%~dp0%
 
 setlocal
 set PYTHONPATH=%folder%
-python "%folder%/init.py" %*
+python "%folder%/src/ai/main.py" %*
 endlocal
