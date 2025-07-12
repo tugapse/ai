@@ -65,7 +65,6 @@ class Program:
         self.output_printer: Optional[OutputPrinter] = None
         self.handler_manager: Optional[HandlerManager] = None
 
-
     def init_program(self, args: Optional[argparse.Namespace] = None) -> None:
         """
         Initializes program components based on configuration and CLI arguments.
@@ -109,7 +108,6 @@ class Program:
             enable_thinking_display=enable_thinking_display
         )
 
-
     def init_model_params(self):
         """
         Initializes or overrides default ModelParams based on the loaded LLM's properties.
@@ -151,8 +149,6 @@ class Program:
         self.command_interceptor = ChatCommandInterceptor(
             self.chat, logs_path_for_interceptor
         )
-
-
 
     def process_token(self, token):
         """
@@ -250,6 +246,7 @@ class Program:
         Called when the LLM stream finishes.
         """
         func.log("Finished LLM Response") 
+        func.out("") 
         self.clear_process_token()
         self.chat.chat_finished()
 
@@ -277,7 +274,6 @@ class Program:
         Loads the main program configuration.
         """
         self.config = ProgramConfig.load()
-
 
     def start_chat_loop(self) -> None:
         """
@@ -337,7 +333,6 @@ class Program:
         if self.llm is None:
             func.log("LLM model could not be instantiated. Exiting.", level="CRITICAL") 
             sys.exit(1)
-
 
     def _save_chat_history(self):
         """
