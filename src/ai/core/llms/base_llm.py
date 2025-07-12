@@ -147,6 +147,7 @@ class ModelParams:
         self.quantization_bits = kargs.get('quantization_bits',0)  # New: 0 for no quantization, 4 for 4-bit, 8 for 8-bit
         self.enable_thinking = kargs.get('enable_thinking',True)
         self.presence_penalty = kargs.get('presence_penalty', 1.0)
+        self.frequency_penalty = kargs.get('frequency_penalty', 1.0)
         self.use_system_prompt = kargs.get('use_system_prompt', True)
 
     def to_dict(self):
@@ -161,6 +162,7 @@ class ModelParams:
             "quantization_bits": self.quantization_bits, # Include in dict
             "enable_thinking":self.enable_thinking,
             "presence_penalty":self.presence_penalty,
+            "frequency_penalty":self.frequency_penalty,
             "use_system_prompt":self.use_system_prompt
         }
 
