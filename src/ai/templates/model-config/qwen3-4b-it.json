@@ -1,0 +1,18 @@
+{
+    "model_name": "lmstudio-community/Qwen3-4B-GGUF",
+    "model_type": "gguf",
+    "model_properties": {
+        "gguf_filename": "Qwen3-4B-Q3_K_L.gguf",
+        "model_repo_id": "lmstudio-community/Qwen3-4B-GGUF",
+        "n_gpu_layers": -1,
+        "n_ctx": 16000,
+        "verbose": false,
+        "max_new_tokens": 8192,
+        "temperature": 0.3,
+        "top_p": 0.98,
+        "top_k": 80,
+        "min_p":50,
+        "presence_penalty": 1.2,
+        "frequency_penalty": 1.89
+    }
+}
