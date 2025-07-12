@@ -57,6 +57,5 @@ packages = [
 ai = "ai.main:run"
 
 [project.urls]
-ai = "ai.main:run_cli"
 "Homepage" = "https://github.com/tugapse/ai.git"
 "Bug Tracker" = "https://github.com/tugapse/ai.git/issues"
