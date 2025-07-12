@@ -110,13 +110,7 @@ class ModelManager:
         top_k = model_properties.get("top_k")
         quantization_bits = model_properties.get("quantization_bits", 0)
 
-        model_params = ModelParams(
-            max_new_tokens=max_new_tokens,
-            temperature=temperature,
-            top_p=top_p,
-            top_k=top_k,
-            quantization_bits=quantization_bits
-        ).to_dict()
+        model_params = ModelParams(**model_properties ).to_dict()
 
         other_llm_kwargs = {k: v for k, v in model_properties.items()
                             if k not in ["quantization_bits", "n_ctx", "n_gpu_layers", "verbose",

@@ -78,7 +78,7 @@ class GGUFImageLLM(BaseModel):
         self.error_queue = queue.Queue() # Queue to communicate errors from background thread
 
         # Initialize default model options
-        self.options = model_params or ModelParams().to_dict()
+        self.options = ModelParams(**model_params).to_dict()
 
         try:
             self._load_llm_params()
