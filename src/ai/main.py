@@ -1,4 +1,5 @@
 import os
+# Set TQDM_DISABLE environment variable to suppress tqdm bars
 os.environ['TQDM_DISABLE'] = '1'
 
 import sys
@@ -19,9 +20,7 @@ __version__ = "2.0.0"
 # Add the project root to the sys.path to allow imports from core
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))
 
-logging.basicConfig(level=logging.ERROR, format='%(name)s - %(levelname)s - %(message)s')
-
-# Set TQDM_DISABLE environment variable to suppress tqdm bars
+logging.basicConfig(level=logging.CRITICAL, format='%(name)s - %(levelname)s - %(message)s')
 
 
 def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
@@ -45,8 +44,9 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     parser.add_argument("--auto-task", "-at", type=str, help="filename to a json with auto task configuration")
     parser.add_argument("--print-chat", "-p", type=str, help="filename to a json with with chat log, this can be from ai chats directory or a filename")
     
-    parser.add_argument("--no-log", "-q", help='Set this flag to NOT print "log" messages', action="store_false")
-    parser.add_argument("--no-out", help='Set this flag to NOT print "output" messages', action="store_false")
+    parser.add_argument("--print-log", help='Set this flag to print "log" messages', action="store_true")
+    parser.add_argument("--print-debug", help='Set this flag to print "debug" messages', action="store_true")
+    parser.add_argument("--no-out", "-q" ,help='Set this flag to NOT print "output" messages', action="store_false")
     
     parser.add_argument("--debug-console","-dc", action="store_true", help='Set this flag to NOT clear console (for debugging)')
 
@@ -94,15 +94,12 @@ def init_program_and_args(args) -> Program:
     
     if args.debug_console: 
         func.log("DEBUG MODE Enabled") # Reverted to func.log
+        args.print_log = True
+        args.print_debug = True
         clear_console = False
         func.LOCK_LOG = False 
         prog.config.set(ProgramSetting.PRINT_LOG, True)
         prog.config.set(ProgramSetting.PRINT_DEBUG, True)
-    else:
-
-        func.LOCK_LOG = True 
-        prog.config.set(ProgramSetting.PRINT_LOG, True)
-        prog.config.set(ProgramSetting.PRINT_DEBUG, False)
 
     prog.init_program(args) 
 

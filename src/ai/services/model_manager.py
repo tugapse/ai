@@ -157,6 +157,14 @@ class ModelManager:
                 )
                 func.log(f"Model '{model_name}' loaded as an Ollama Model.") 
             elif model_type == ModelType.GGUF:
+                import ctypes
+                from llama_cpp import llama_log_set
+                def my_log_callback(level, message, user_data):
+                    pass
+
+                log_callback = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_char_p, ctypes.c_void_p)(my_log_callback)
+                llama_log_set(log_callback, ctypes.c_void_p())
+                
                 gguf_filename = model_properties.get("gguf_filename")
                 model_repo_id = model_properties.get("model_repo_id")
                 n_ctx = model_properties.get("n_ctx")
