@@ -8,6 +8,6 @@
     "top_p": 0.95,
     "top_k": 10,
     "presence_penalty":1.5,
-        "quantization_bits": 4
+    "quantization_bits": 4
     }
 }

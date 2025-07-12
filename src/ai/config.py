@@ -144,10 +144,10 @@ class ProgramConfig(Generic[T]):
         # Default for print flags
         if self.config.get(ProgramSetting.PRINT_LOG) is None: 
             self.set(ProgramSetting.PRINT_LOG, True)
-        if self.config.get(ProgramSetting.PRINT_DEBUG) is None: 
-            self.set(ProgramSetting.PRINT_DEBUG, False)
         if self.config.get(ProgramSetting.PRINT_OUTPUT) is None: 
             self.set(ProgramSetting.PRINT_OUTPUT, True)
+        if self.config.get(ProgramSetting.PRINT_DEBUG) is None: 
+            self.set(ProgramSetting.PRINT_DEBUG, False)
         if need_save: 
             self.save_config()
             need_save = False

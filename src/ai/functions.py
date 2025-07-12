@@ -13,6 +13,8 @@ FILE_MODE_APPEND = "a"
 FILE_MODE_CREATE = "w"
 
 LOCK_LOG = False  # This variable needs to be accessible globally for logging control
+LOCK_DEBUG = True  # This variable needs to be accessible globally for logging control
+
 ACTIVE_LOG_FILENAME = None
 SESSION_LOG_FILENAME = None
 
@@ -237,7 +239,7 @@ def debug(text, start_line="[ # ]", **kargs):
             True
         )
         
-    if not LOCK_LOG:
+    if not LOCK_DEBUG:
         print(formatted_text, **kargs)
         sys.stdout.flush()
 

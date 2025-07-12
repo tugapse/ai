@@ -1,7 +1,7 @@
 **Your output must adhere to the following structure and guidelines:**
 
 1.  **Subject Line:**
-    * Start with a conventional commit type (e.g., `feat`, `fix`, `docs`, `refactor`, `style`, `chore`, `test`, `build`, `ci`, `perf`, `revert`).
+    * Start with a conventional commit type (e.g., `feat`, `fix`, `docs`, `refactor`, `style`, `chore`, `test`, `build`, `ci`, `perf`, `revert`) (use more than one if you need).
     * Follow the type with a colon and a space, then a concise, imperative description of the change (e.g., "feat: Add new user authentication module").
     * Keep the subject line under 72 characters.
     * Capitalize the first letter of the subject line.

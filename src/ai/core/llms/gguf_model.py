@@ -4,7 +4,7 @@ import queue
 import gc
 import sys
 import torch # Maintained as per your HuggingFaceModel example
-
+from transformers import AutoTokenizer
 from huggingface_hub import hf_hub_download
 from llama_cpp import Llama # Llama is correctly imported from top-level llama_cpp
 # LlamaError is not directly importable from llama_cpp or llama_cpp.llama based on your dir() output.
@@ -44,7 +44,7 @@ class GGUFImageLLM(BaseModel):
                  gguf_filename: str,
                  model_repo_id: str = None,
                  system_prompt: str = None,
-                 n_gpu_layers: int = 0, # Number of layers to offload to GPU (-1 for all, 0 for none)
+                 n_gpu_layers: int = -1, # Number of layers to offload to GPU (-1 for all, 0 for none)
                  n_ctx: int = None,   # Context window size, will default to ModelParams.num_ctx if None
                  verbose: bool = False,
                  model_params=None,
@@ -78,7 +78,7 @@ class GGUFImageLLM(BaseModel):
         self.error_queue = queue.Queue() # Queue to communicate errors from background thread
 
         # Initialize default model options
-        self.options = model_params or ModelParams().to_dict()
+        self.options = ModelParams(**model_params).to_dict()
 
         try:
             self._load_llm_params()
@@ -156,6 +156,7 @@ class GGUFImageLLM(BaseModel):
             functions.log(f"GGUF model '{self.model_name}' loaded successfully!")
         except Exception as e: # Catch generic Exception
             raise Exception(f"Failed to initialize llama_cpp model: {e}")
+     
 
     def _format_messages_to_prompt(self, messages: list) -> str:
         """
@@ -182,7 +183,7 @@ class GGUFImageLLM(BaseModel):
         
         return formatted_prompt.strip()
 
-    def _generate_in_thread(self, prompt: str, generation_options: dict, output_queue: queue.Queue):
+    def _generate_in_thread(self, messages: list, generation_options: dict, output_queue: queue.Queue):
         """
         Target function for the generation thread.
         Handles model generation and puts tokens into the output_queue.
@@ -198,20 +199,17 @@ class GGUFImageLLM(BaseModel):
                 "top_p": generation_options.get("top_p", 0.95),
                 "presence_penalty": generation_options.get("presence_penalty", 0.0),
                 "frequency_penalty": generation_options.get("frequency_penalty", 0.0),
-                "stop": ["<|im_end|>", "</s>", "```"], # Common stop sequences
-                "echo": False # Do not echo the prompt in the output
             }
 
             functions.debug(f"_generate_in_thread calling llama_model.create_completion with params: {llama_params}")
-            stream_iter = self.llama_model.create_completion(prompt, stream=True, **llama_params)
+            stream_iter = self.llama_model.create_chat_completion(messages, stream=True, **llama_params)
             
             full_response_content = ""
             for chunk in stream_iter:
                 if self.stop_generation_event.is_set():
                     functions.log("INFO: Generation stopped by user request.")
                     break
-                
-                delta = chunk["choices"][0]["text"]
+                delta = chunk["choices"][0]["delta"].get("content","")
                 full_response_content += delta
                 output_queue.put(delta) # Put token into the queue for yielding
 
@@ -247,7 +245,7 @@ class GGUFImageLLM(BaseModel):
             gc.collect() 
 
 
-    def chat(self, messages: list, images: list = None, stream: bool = True, options: object = None):
+    def chat(self, messages: list, images: list = None, stream: bool = True, options: object = {}):
         """
         Generates a chat response from the GGUF model.
         When 'stream' is True, generation happens in a separate thread and yields tokens as they are generated.
@@ -310,7 +308,7 @@ class GGUFImageLLM(BaseModel):
             output_queue = queue.Queue()
             self._generation_thread = threading.Thread(
                 target=self._generate_in_thread,
-                args=(processed_messages, current_options, output_queue)
+                args=(messages, current_options, output_queue)
             )
             self._generation_thread.start()
             functions.debug(f"Generation thread started ({self._generation_thread.name}). Starting to yield tokens from queue...")
@@ -378,8 +376,7 @@ class GGUFImageLLM(BaseModel):
             "top_p": options.get("top_p", 0.95),
             "presence_penalty": options.get("presence_penalty", 0.0),
             "frequency_penalty": options.get("frequency_penalty", 0.0),
-            "stop": ["<|im_end|>", "</s>", "```"],
-            "echo": False
+           
         }
 
         functions.debug(f"_generate_response_sync calling llama_model.create_completion with params: {llama_params}")

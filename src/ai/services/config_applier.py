@@ -44,10 +44,18 @@ class ConfigApplier:
             else:
                 func.log(f"System prompt file '{filepath}' for '--system-file' not found. Ignoring CLI override.", level="WARNING") 
 
-        if hasattr(args, "no_log") and args.no_log is not None:
-            config.set(ProgramSetting.PRINT_LOG, not args.no_log)
-            func.debug(f"CLI override: PRINT_LOG set to {not args.no_log}") 
+        if hasattr(args, "print_log") and args.print_log is not None:
+            config.set(ProgramSetting.PRINT_LOG,  args.print_log)
+            func.debug(f"CLI override: PRINT_LOG set to { args.print_log}") 
+        
+        if hasattr(args, "print_debug") and args.print_debug is not None:
+            config.set(ProgramSetting.PRINT_DEBUG,  args.print_debug)
+            func.debug(f"CLI override: PRINT_DEBUG set to { args.print_debug}")   
+            
         if hasattr(args, "no_out") and args.no_out is not None:
             config.set(ProgramSetting.PRINT_OUTPUT, not args.no_out)
             func.debug(f"CLI override: PRINT_OUTPUT set to {not args.no_out}") 
+        
+        func.LOCK_LOG = not config.get(ProgramSetting.PRINT_LOG)
+        func.LOCK_DEBUG = not config.get(ProgramSetting.PRINT_DEBUG)
 

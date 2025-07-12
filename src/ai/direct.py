@@ -2,7 +2,8 @@ import os
 from time import time
 from typing import Union
 import functions as func
-from core import OllamaModel, ChatRoles
+from core.llms.base_llm import BaseModel
+from core.chat import ChatRoles
 from extras.console import ConsoleTokenFormatter
 from core.template_injection import TemplateInjection
 from color import Color
@@ -14,7 +15,7 @@ from extras.thinking_log_manager import ThinkingLogManager
 
 
 def ask(
-    llm: OllamaModel,
+    llm: BaseModel,
     input_message: Union[str, list[str]],
     write_to_file=False,
     output_filename=None,
@@ -43,6 +44,7 @@ def ask(
     start_time = time()
     first_token_time = None
     end_time = None
+
 
     thinking_log_manager = ThinkingLogManager(log_file_name="active_thinking_process.log")
 

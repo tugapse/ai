@@ -15,11 +15,59 @@ class BaseModel:
         self.system_prompt = system_prompt
         self.listeners = {} # For event handling
         self.options = {} # Default options
-
+        self.tokenizer = None
         # Common attributes for graceful interruption
         self.stop_generation_event = threading.Event()
         self._generation_thread = None # Placeholder for potential background thread
 
+    def _prepare_input(self, messages: list):
+        """
+        Formats chat messages into model input, ensuring the last turn is for the assistant to generate.
+        This handles models with and without `apply_chat_template`.
+        """
+        if self.system_prompt and not any(m["role"] == "system" for m in messages):
+                messages.insert(0, BaseModel.create_message("system", self.system_prompt))
+        if (
+            hasattr(self.tokenizer, "apply_chat_template")
+            and self.tokenizer.apply_chat_template is not None
+        ):
+            input_string = self.tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True
+            )
+            inputs = self.tokenizer(input_string, return_tensors="pt")
+            functions.debug(
+                f"_prepare_input using apply_chat_template. Input string length: {len(input_string)}"
+            )
+            return inputs
+        else:
+            prepared_messages = []
+            if self.system_prompt and not any(m["role"] == "system" for m in messages):
+                prepared_messages.append(
+                    BaseModel.create_message("system", self.system_prompt)
+                )
+
+            for msg in messages:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                prepared_messages.append(BaseModel.create_message(role, content))
+
+            input_text = ""
+            for msg in prepared_messages:
+                if msg["role"] == "system":
+                    input_text += f"System: {msg['content']}\n"
+                elif msg["role"] == "user":
+                    input_text += f"User: {msg['content']}\n"
+                elif msg["role"] == "assistant":
+                    input_text += f"Assistant: {msg['content']}\n"
+
+            if messages and messages[-1]["role"] == "user":
+                input_text += "Assistant:"
+
+            inputs = self.tokenizer(input_text, return_tensors="pt")
+            functions.debug(
+                f"_prepare_input using manual formatting. Input text length: {len(input_text)}"
+            )
+            return inputs
 
     def add_event(self, event_name, listener):
         if event_name not in self.listeners:
@@ -99,6 +147,7 @@ class ModelParams:
         self.quantization_bits = kargs.get('quantization_bits',0)  # New: 0 for no quantization, 4 for 4-bit, 8 for 8-bit
         self.enable_thinking = kargs.get('enable_thinking',True)
         self.presence_penalty = kargs.get('presence_penalty', 1.0)
+        self.frequency_penalty = kargs.get('frequency_penalty', 1.0)
         self.use_system_prompt = kargs.get('use_system_prompt', True)
 
     def to_dict(self):
@@ -113,6 +162,7 @@ class ModelParams:
             "quantization_bits": self.quantization_bits, # Include in dict
             "enable_thinking":self.enable_thinking,
             "presence_penalty":self.presence_penalty,
+            "frequency_penalty":self.frequency_penalty,
             "use_system_prompt":self.use_system_prompt
         }
 

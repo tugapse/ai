@@ -110,13 +110,7 @@ class ModelManager:
         top_k = model_properties.get("top_k")
         quantization_bits = model_properties.get("quantization_bits", 0)
 
-        model_params = ModelParams(
-            max_new_tokens=max_new_tokens,
-            temperature=temperature,
-            top_p=top_p,
-            top_k=top_k,
-            quantization_bits=quantization_bits
-        ).to_dict()
+        model_params = ModelParams(**model_properties ).to_dict()
 
         other_llm_kwargs = {k: v for k, v in model_properties.items()
                             if k not in ["quantization_bits", "n_ctx", "n_gpu_layers", "verbose",
@@ -157,10 +151,18 @@ class ModelManager:
                 )
                 func.log(f"Model '{model_name}' loaded as an Ollama Model.") 
             elif model_type == ModelType.GGUF:
+                import ctypes
+                from llama_cpp import llama_log_set
+                def my_log_callback(level, message, user_data):
+                    pass
+
+                log_callback = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_char_p, ctypes.c_void_p)(my_log_callback)
+                llama_log_set(log_callback, ctypes.c_void_p())
+                
                 gguf_filename = model_properties.get("gguf_filename")
                 model_repo_id = model_properties.get("model_repo_id")
                 n_ctx = model_properties.get("n_ctx")
-                n_gpu_layers = model_properties.get("n_gpu_layers", 0)
+                n_gpu_layers = model_properties.get("n_gpu_layers", -1)
                 verbose = model_properties.get("verbose", False)
 
                 if not gguf_filename:
