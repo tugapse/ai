@@ -1,8 +1,6 @@
 .venv/*
 .venv_*
 logs/*
-tests/*
-testes/*
 *__pycache__/*
 *__pycache__/**
 */*__pycache__/*/**

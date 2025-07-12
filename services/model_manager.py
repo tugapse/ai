@@ -160,7 +160,7 @@ class ModelManager:
                 gguf_filename = model_properties.get("gguf_filename")
                 model_repo_id = model_properties.get("model_repo_id")
                 n_ctx = model_properties.get("n_ctx")
-                n_gpu_layers = model_properties.get("n_gpu_layers", 0)
+                n_gpu_layers = model_properties.get("n_gpu_layers", -1)
                 verbose = model_properties.get("verbose", False)
 
                 if not gguf_filename:
