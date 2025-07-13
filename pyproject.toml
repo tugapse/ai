@@ -4,22 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ai"
-version = "2.0.0"
+version = "2.1.0"
 authors = [
   { name="Fabio Almeida", email="tugapse@gmail.com" },
 ]
 description = "Ai assistant ClI"
 readme = "README.md"
 
-# Optional: Define minimum Python version, classifiers, and dependencies.
-# requires-python = ">=3.8, <3.13" # Example: Python 3.8 to 3.12
-# classifiers = [
-#     "Programming Language :: Python :: 3",
-#     "License :: OSI Approved :: MIT License",
-#     "Operating System :: OS Independent",
-#     "Topic :: Multimedia :: Sound/Audio :: Speech",
-#     "Environment :: Console",
-# ]
+requires-python = ">=3.8, <3.13"
 
 dependencies = [
     "accelerate",
@@ -36,18 +28,6 @@ dependencies = [
     'triton-windows; sys_platform == "win32"',
     'triton; sys_platform != "win32"'
 ]
-
-
-# [tool.setuptools]
-# packages = [
-    
-# ]
-
-
-# Optional: If your package is a command-line tool, define entry points.
-# This makes your script executable directly from the command line after installation.
-# [project.scripts]
-# Adjust 'your_package_name.main' to match your actual package structure and entry point.
 
 [project.scripts]
 ai = "ai.main:run"
