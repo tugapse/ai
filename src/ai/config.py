@@ -166,7 +166,7 @@ class ProgramConfig(Generic[T]):
                     pathlib.Path(filename)
                     .read_text(encoding='utf-8') 
                     .replace("<root_dir>", root_dir)
-                    .replace("/", os.path.sep)
+                    .replace("/", os.path.sep).replace("\\","\\\\")
                 )
                 dict_data: dict = json.loads(text_content) 
                 return dict_data
