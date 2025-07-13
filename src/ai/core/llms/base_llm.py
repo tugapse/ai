@@ -1,4 +1,5 @@
 import threading
+import functions
 
 class BaseModel:
     CONTEXT_WINDOW_SMALL = 2048
@@ -126,10 +127,10 @@ class BaseModel:
         Subclasses should override this if they use a separate generation thread.
         """
         if self._generation_thread and self._generation_thread.is_alive():
-            print("INFO: Waiting for LLM generation thread to finish...")
+            functions.log("INFO: Waiting for LLM generation thread to finish...")
             self._generation_thread.join(timeout=timeout)
             if self._generation_thread.is_alive():
-                print("WARNING: LLM generation thread did not terminate within timeout.")
+                functions.log("WARNING: LLM generation thread did not terminate within timeout.")
         self.stop_generation_event.clear() # Always clear the event after potential use
 
 class ModelParams:

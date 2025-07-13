@@ -10,7 +10,7 @@ from color import Color
 from extras.output_printer import OutputPrinter
 from extras.think_parser import ThinkingAnimationHandler
 from extras.thinking_log_manager import ThinkingLogManager
-
+from program import ProgramConfig, ProgramSetting
 
 
 
@@ -51,18 +51,23 @@ def ask(
     injection_template = TemplateInjection(llm.system_prompt)
     llm.system_prompt = injection_template.replace_system_template()
 
-
+    _config = ProgramConfig.current
+    _think_mode = _config.get(ProgramSetting.THINKING_MODE, thinking_mode)
+    _print_mode = _config.get(ProgramSetting.PRINT_MODE, print_mode)
+    _tokens_per_print = _config.get(ProgramSetting.TOKENS_PER_PRINT, tokens_per_print)
+    
     enable_thinking_display = True
+    ThinkingAnimationHandler.THINKING_PREFIX = "Processing request"
     thinking_handler = ThinkingAnimationHandler(
         enable_display=enable_thinking_display,
-        mode=thinking_mode,
+        mode=_think_mode,
         log_manager=thinking_log_manager
     )
 
-    output_printer = OutputPrinter(print_mode=print_mode, tokens_per_print=tokens_per_print)
+    output_printer = OutputPrinter(print_mode=_print_mode, tokens_per_print=tokens_per_print)
 
     if isinstance(input_message, str):
-        message = [OllamaModel.create_message(ChatRoles.USER, input_message)]
+        message = [BaseModel.create_message(ChatRoles.USER, input_message)]
     elif isinstance(input_message, list):
         message = input_message
         sum(len(line.get("content", "") or "") for line in input_message)

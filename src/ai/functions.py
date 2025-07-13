@@ -201,16 +201,7 @@ def log(text, start_line="[ * ]", level="INFO", **kargs):  # Added level for con
     """
     Logs an informational message to stderr, respecting PRINT_LOG setting.
     """
-    # Ensure ProgramConfig.current is loaded before trying to access settings
-    formatted_text = f"{Color.BLUE}{start_line}{Color.RESET} {text}"
-    if level == "ERROR":
-        formatted_text = f"{Color.RED}{start_line}{Color.RESET} {text}"
-    elif level == "WARNING":
-        formatted_text = f"{Color.YELLOW}{start_line}{Color.RESET} {text}"
-    elif (
-        level == "DEBUG"
-    ):  # Debug is now handled by its own func, but keeping consistency here
-        formatted_text = f"{Color.BRIGHT_CYAN}{start_line}{Color.RESET} {text}"
+    formatted_text = get_formatted_text(text,start_line=start_line, level=level)
     
     if ACTIVE_LOG_FILENAME: 
         write_to_file(ACTIVE_LOG_FILENAME, f"{start_line} {text}\n", FILE_MODE_APPEND,True)
@@ -221,12 +212,11 @@ def log(text, start_line="[ * ]", level="INFO", **kargs):  # Added level for con
         print(formatted_text, **kargs)
         sys.stdout.flush()  # Ensure it's flushed immediately
 
-
-def debug(text, start_line="[ # ]", **kargs):
+def debug(text, start_line="[ # ]",  level="DEBUG", **kargs):
     """
     Logs a debug message to stderr, respecting PRINT_DEBUG setting.
     """
-    formatted_text = f"{Color.PURPLE}{start_line}{Color.RESET} {text}"
+    formatted_text = get_formatted_text(text, start_line=start_line, level=level)
     if ACTIVE_LOG_FILENAME:
         write_to_file(
             ACTIVE_LOG_FILENAME.replace("log_", "debug_"), f"{start_line} {text}\n", FILE_MODE_APPEND,True
@@ -234,7 +224,7 @@ def debug(text, start_line="[ # ]", **kargs):
     if SESSION_LOG_FILENAME:
         write_to_file(
             SESSION_LOG_FILENAME.replace("log_", "debug_"),
-            f"{start_line} {text}\n",
+            formatted_text,
             FILE_MODE_APPEND,
             True
         )
@@ -244,10 +234,21 @@ def debug(text, start_line="[ # ]", **kargs):
         sys.stdout.flush()
 
 
-def out(text, **kargs):
+def out(text,  level="INFO", **kargs):
     """
     Prints output message to stdout, respecting PRINT_OUTPUT setting.
     """
-
-    print(text, **kargs)
+    formatted_text = get_formatted_text(text,level=level)
+    print(formatted_text, **kargs)
     sys.stdout.flush()  # Ensure it's flushed immediately
+
+def get_formatted_text(text, level="INFO", start_line="[ * ]"):
+    formatted_text = text
+    if level == "ERROR":
+        formatted_text = f"{Color.RED}{start_line}{Color.RESET} {text}"
+    elif level == "WARNING":
+        formatted_text = f"{Color.YELLOW}{start_line}{Color.RESET} {text}"
+    elif level == "DEBUG":
+        formatted_text = f"{Color.BRIGHT_CYAN}{start_line}{Color.RESET} {text}"
+    return formatted_text
+        
