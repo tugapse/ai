@@ -29,7 +29,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     """
     parser = argparse.ArgumentParser(description="AI Assistant")
 
-    parser.add_argument("--msg", "-m", type=str, help="Direct question", default="hello :)")
+    parser.add_argument("--msg", "-m", type=str, help="Direct question", default=None)
     parser.add_argument("--model", "-md", type=str, help="Model config filename to use (e.g., 'gemma-3-4b-it.json')")
     parser.add_argument("--system", "-s", type=str, help="pass a prompt name ")
     parser.add_argument("--system-file", "-sf", type=str, help="pass a prompt filename")
