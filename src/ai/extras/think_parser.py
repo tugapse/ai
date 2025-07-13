@@ -87,7 +87,7 @@ class ThinkingAnimationHandler:
 
                 self._token_accumulation_buffer = content_after_end_tag.strip()
                 
-                return self._is_thinking_active, ""
+                return self._is_thinking_active, self._token_accumulation_buffer 
             else:
                 self._token_accumulation_buffer = self.THINK_END_PATTERN.sub('', cleaned_buffer)
 

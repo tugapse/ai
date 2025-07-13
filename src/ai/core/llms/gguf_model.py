@@ -357,7 +357,7 @@ class GGUFImageLLM(BaseModel):
                     f"This often indicates an issue with model execution or parameters."
                     f"\nDetails: {e}"
                 )
-                functions.log(error_message)
+                functions.log(error_message, level="ERROR")
                 import traceback
                 functions.log(f"Traceback:\n{traceback.format_exc()}")
                 yield error_message
