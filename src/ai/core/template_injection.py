@@ -10,7 +10,7 @@ class TemplateInjection():
     
     def replace_system_template(self):
 
-        injections = ProgramConfig.current.config.get("INJECT_TEMPLATES")
+        injections = ProgramConfig.current.config.get("INJECT_TEMPLATES",[])
         replaced_text = self.system_template
         
         for inj in injections:
