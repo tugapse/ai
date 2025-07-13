@@ -201,7 +201,7 @@ def log(text, start_line="[ * ]", level="INFO", **kargs):  # Added level for con
     """
     Logs an informational message to stderr, respecting PRINT_LOG setting.
     """
-    formated_text = get_formated_text(text,start_line=start_line, level=level)
+    formatted_text = get_formatted_text(text,start_line=start_line, level=level)
     
     if ACTIVE_LOG_FILENAME: 
         write_to_file(ACTIVE_LOG_FILENAME, f"{start_line} {text}\n", FILE_MODE_APPEND,True)
@@ -216,7 +216,7 @@ def debug(text, start_line="[ # ]",  level="DEBUG", **kargs):
     """
     Logs a debug message to stderr, respecting PRINT_DEBUG setting.
     """
-    formatted_text = get_formated_text(text, start_line=start_line, level=level)
+    formatted_text = get_formatted_text(text, start_line=start_line, level=level)
     if ACTIVE_LOG_FILENAME:
         write_to_file(
             ACTIVE_LOG_FILENAME.replace("log_", "debug_"), f"{start_line} {text}\n", FILE_MODE_APPEND,True
@@ -238,11 +238,11 @@ def out(text,  level="INFO", **kargs):
     """
     Prints output message to stdout, respecting PRINT_OUTPUT setting.
     """
-    formated_text = get_formated_text(text,level=level)
-    print(formated_text, **kargs)
+    formatted_text = get_formatted_text(text,level=level)
+    print(formatted_text, **kargs)
     sys.stdout.flush()  # Ensure it's flushed immediately
 
-def get_formated_text(text, level="INFO", start_line="[ * ]"):
+def get_formatted_text(text, level="INFO", start_line="[ * ]"):
     formatted_text = text
     if level == "ERROR":
         formatted_text = f"{Color.RED}{start_line}{Color.RESET} {text}"

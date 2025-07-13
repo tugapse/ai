@@ -79,13 +79,13 @@ class ThinkingAnimationHandler:
             if self._is_thinking_active:
                 content_after_end_tag = cleaned_buffer[end_match.end():]
 
-                func.out("\r" + (" " * self.get_max_thinking_indicator_length() ), flush=True)
+                func.out("\r" + (" " * self.get_max_thinking_indicator_length() )+"\r", end="")
                 
                 self._is_thinking_active = False
                 self._has_thinking_intro_printed = False
                 self._current_thinking_count = 0
 
-                self._token_accumulation_buffer = content_after_end_tag
+                self._token_accumulation_buffer = content_after_end_tag.strip()
                 
                 return self._is_thinking_active, ""
             else:
