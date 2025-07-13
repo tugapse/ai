@@ -19,15 +19,14 @@ class ThinkingAnimationHandler:
     PROGRESS_BAR_LENGTH = 5
     THINKING_PREFIX = "Thinking"
     MAX_UNTILL_THINK_DRAW = 3
-    MAX_THINKING_INDICATOR_LENGTH = len(THINKING_PREFIX + "... [" + '-' * PROGRESS_BAR_LENGTH + "]") + 1
 
     THINK_START_PATTERN = re.compile(r'\s*<think>\s*')
     THINK_END_PATTERN = re.compile(r'\s*</think>\s*')
     CONTROL_CHARS_PATTERN = re.compile(r'[\x00-\x09\x0B-\x1F\x7F]')
 
     PARTIAL_TAG_PATTERN = re.compile(r'<th(?:in(?:k>)?|/th(?:ink>)?|i|n|k|/i|/n|/k)?')
-
-
+    
+    
     def __init__(self, enable_display: bool = True, mode: str = "dots", log_manager: ThinkingLogManager = None):
         """
         Initializes the ThinkingAnimationHandler.
@@ -80,7 +79,7 @@ class ThinkingAnimationHandler:
             if self._is_thinking_active:
                 content_after_end_tag = cleaned_buffer[end_match.end():]
 
-                func.out("\r" + " " * self.MAX_THINKING_INDICATOR_LENGTH , flush=True)
+                func.out("\r" + (" " * self.get_max_thinking_indicator_length() ), flush=True)
                 
                 self._is_thinking_active = False
                 self._has_thinking_intro_printed = False
@@ -142,3 +141,6 @@ class ThinkingAnimationHandler:
             return self._is_thinking_active, token_content_for_display
         else:
             return self._is_thinking_active, ""
+    
+    def get_max_thinking_indicator_length(self):
+        return len(self.THINKING_PREFIX + "... [" + '-' * self.PROGRESS_BAR_LENGTH + "]") + 1

@@ -57,6 +57,7 @@ def ask(
     _tokens_per_print = _config.get(ProgramSetting.TOKENS_PER_PRINT, tokens_per_print)
     
     enable_thinking_display = True
+    ThinkingAnimationHandler.THINKING_PREFIX = "Processing request"
     thinking_handler = ThinkingAnimationHandler(
         enable_display=enable_thinking_display,
         mode=_think_mode,
