@@ -123,16 +123,16 @@ def run():
         print_chat_header(prog=prog)
         prog.start_chat_loop()
     except KeyboardInterrupt:
-        func.log(f"Detected Ctrl+C. Attempting to stop LLM generation gracefully...", level="WARNING") 
+        func.log(f"Detected Ctrl+C. Attempting to stop LLM generation gracefully...") 
         if prog and prog.llm:
             prog.llm.stop_generation_event.set() 
             prog.llm.join_generation_thread(timeout=10)
             if prog.llm._generation_thread and prog.llm._generation_thread.is_alive():
-                 func.log(f"LLM generation thread did not terminate cleanly.", level="WARNING") 
+                 func.log(f"LLM generation thread did not terminate cleanly.") 
             else:
                  func.log(f"LLM generation stopped successfully.") 
         else:
-            func.log(f"LLM object not initialized or does not support graceful stop.", level="ERROR") 
+            func.log(f"LLM object not initialized or does not support graceful stop.",) 
         sys.exit(0)
 
     except Exception as e:
@@ -143,7 +143,7 @@ def run():
         if is_debug_console: 
             raise e
         else:
-            func.out(f"An unexpected error occurred: {e}", level="ERROR") 
+            func.out(f"An unexpected error occurred: {e}",) 
             sys.exit(1)
 
 if __name__ == "__main__":

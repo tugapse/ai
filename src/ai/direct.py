@@ -10,7 +10,7 @@ from color import Color
 from extras.output_printer import OutputPrinter
 from extras.think_parser import ThinkingAnimationHandler
 from extras.thinking_log_manager import ThinkingLogManager
-from core.program import ProgramConfig
+from program import ProgramConfig, ProgramSetting
 
 
 
