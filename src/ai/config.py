@@ -166,7 +166,9 @@ class ProgramConfig(Generic[T]):
                     pathlib.Path(filename)
                     .read_text(encoding='utf-8') 
                     .replace("<root_dir>", root_dir)
-                    .replace("/", os.path.sep).replace("\\","\\\\")
+                    .replace("\\\\","/") # convert any \\ into /
+                    .replace("/", os.path.sep) # convert to system slash \ or /
+                    .replace("\\","\\\\") # replace windows \ to \\
                 )
                 dict_data: dict = json.loads(text_content) 
                 return dict_data
@@ -218,7 +220,6 @@ class ProgramConfig(Generic[T]):
                 elif os.path.isfile(src_item_path):
                     # If it's a file, copy it directly
                     shutil.copy2(src_item_path, dest_item_path) # copy2 preserves metadata
-            os.sync()
             self.logger.info("Templates copied successfully.")
         except Exception as e:
             self.logger.error(f"Error copying templates: {e}")
