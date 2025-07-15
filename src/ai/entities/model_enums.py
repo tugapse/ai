@@ -6,6 +6,8 @@ class EngineType(Enum):
     """
     HUGGINGFACE = "huggingface"
     OLLAMA = "ollama"
+    GGUF = "gguf"                 # GGUF quantized models (typically run with llama.cpp bindings)
+    
 
 class ModelType(Enum):
     """
@@ -22,3 +24,8 @@ class ModelType(Enum):
     def __repr__(self):
         return self.name
 
+class InferenceBackend(Enum):
+    GPU_CUDA = "cuda"
+    GPU_AMD = "amd"
+    CPU = "cpu"
+    

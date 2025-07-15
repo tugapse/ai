@@ -100,12 +100,12 @@ class T5Model(BaseModel):
 
         if quantization_config:
             load_kwargs["quantization_config"] = quantization_config
-            if torch.cuda.is_available():
+            if self.is_gpu_available():
                 load_kwargs["device_map"] = "auto"
             functions.log(f"Attempting to load model: {self.model_name} with {self.quantization_bits}-bit quantization config.")
         else:
             functions.log("INFO: Loading model without quantization (either not requested or bitsandbytes not available/failed).")
-            if torch.cuda.is_available():
+            if self.is_gpu_available():
                 load_kwargs["torch_dtype"] = torch.bfloat16
                 load_kwargs["device_map"] = "auto"
 
@@ -127,7 +127,7 @@ class T5Model(BaseModel):
 
         context_string = self._prepare_input(messages)
 
-        if torch.cuda.is_available():
+        if self.is_gpu_available():
             functions.log("INFO: Clearing CUDA cache before generation...")
             torch.cuda.empty_cache()
             gc.collect()
@@ -139,7 +139,7 @@ class T5Model(BaseModel):
             truncation=True
         )
 
-        if torch.cuda.is_available():
+        if self.is_gpu_available():
             inputs_on_device = {k: v.to('cuda') for k, v in inputs.items()}
         else:
             inputs_on_device = inputs

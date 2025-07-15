@@ -144,7 +144,7 @@ class HuggingFaceModel(BaseModel):
 
         if quantization_config:
             load_kwargs["quantization_config"] = quantization_config
-            if torch.cuda.is_available():
+            if self.is_gpu_available():
                 load_kwargs["device_map"] = "auto"
             functions.log(
                 f"Attempting to load model: {self.model_name} with {self.quantization_bits}-bit quantization config."
@@ -153,7 +153,7 @@ class HuggingFaceModel(BaseModel):
             functions.log(
                 "Loading model without quantization (either not requested or bitsandbytes not available/failed)."
             )
-            if torch.cuda.is_available():
+            if self.is_gpu_available():
                 load_kwargs["torch_dtype"] = (
                     torch.bfloat16
                 )  # Use bfloat16 for better precision on newer GPUs
@@ -311,7 +311,7 @@ class HuggingFaceModel(BaseModel):
             f"Processed messages. Input for LLM will be based on: '{processed_messages_log}'..."
         )
 
-        if torch.cuda.is_available():
+        if self.is_gpu_available():
             functions.debug("Clearing CUDA cache before generation...")
             torch.cuda.empty_cache()
             gc.collect()
@@ -321,7 +321,7 @@ class HuggingFaceModel(BaseModel):
             f"Input data prepared. Input IDs shape: {input_data['input_ids'].shape}"
         )
 
-        if torch.cuda.is_available():
+        if self.is_gpu_available():
             inputs_on_device = {k: v.to("cuda") for k, v in input_data.items()}
         else:
             inputs_on_device = input_data
