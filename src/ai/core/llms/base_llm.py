@@ -1,5 +1,8 @@
 import threading
 import functions
+import torch
+from entities.model_enums import InferenceBackend
+
 
 class BaseModel:
     CONTEXT_WINDOW_SMALL = 2048
@@ -111,16 +114,6 @@ class BaseModel:
         # For now, just return a placeholder message or empty dict
         return {"role": "user", "content": "Images provided (content omitted for base model)"}
 
-    # Abstract methods (to be implemented by subclasses)
-    def chat(self, messages: list, images: list = None, stream: bool = True, options: object = {}):
-        raise NotImplementedError
-
-    def list(self):
-        raise NotImplementedError
-
-    def pull(self, model_name, stream=True):
-        raise NotImplementedError
-
     def join_generation_thread(self, timeout: float = None):
         """
         Placeholder for joining the generation thread.
@@ -132,7 +125,22 @@ class BaseModel:
             if self._generation_thread.is_alive():
                 functions.log("WARNING: LLM generation thread did not terminate within timeout.")
         self.stop_generation_event.clear() # Always clear the event after potential use
+    
+    # Abstract methods (to be implemented by subclasses)
+    def chat(self, messages: list, images: list = None, stream: bool = True, options: object = {}):
+        raise NotImplementedError
 
+    def list(self):
+        raise NotImplementedError
+
+    def pull(self, model_name, stream=True):
+        raise NotImplementedError
+
+    def is_gpu_available():
+        if self.device_type == InferenceBackend.GPU_CUDA:
+            torch.cuda.is_available()
+        return False
+        
 class ModelParams:
     """
     A simple class to hold model parameters.
@@ -150,6 +158,7 @@ class ModelParams:
         self.presence_penalty = kargs.get('presence_penalty', 1.0)
         self.frequency_penalty = kargs.get('frequency_penalty', 1.0)
         self.use_system_prompt = kargs.get('use_system_prompt', True)
+        self.inference_backend :InferenceBackend = InferenceBackend.CPU
 
     def to_dict(self):
         return {
@@ -166,4 +175,6 @@ class ModelParams:
             "frequency_penalty":self.frequency_penalty,
             "use_system_prompt":self.use_system_prompt
         }
+
+
 

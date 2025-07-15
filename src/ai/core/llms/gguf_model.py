@@ -239,7 +239,7 @@ class GGUFImageLLM(BaseModel):
         # Note: llama_cpp handles its own CUDA memory. `torch.cuda.empty_cache()`
         # might not directly apply here if llama_cpp is not using PyTorch's CUDA context.
         # However, for consistency with HuggingFaceModel, including similar cleanup.
-        if torch.cuda.is_available(): # Check if CUDA is available before attempting
+        if self.is_gpu_available(): # Check if CUDA is available before attempting
             functions.debug("Clearing CUDA cache after GGUF generation thread join (if CUDA is used by llama_cpp).")
             # A direct equivalent for llama_cpp might involve its internal APIs if exposed.
             gc.collect() 
