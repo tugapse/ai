@@ -1,3 +1,4 @@
+import gc
 import threading
 import functions
 import torch
@@ -23,7 +24,7 @@ class BaseModel:
         # Common attributes for graceful interruption
         self.stop_generation_event = threading.Event()
         self._generation_thread = None # Placeholder for potential background thread
-        self.inference_device = InferenceBackend.CPU
+        self.inference_device = InferenceBackend.GPU_CUDA if torch.cuda.is_available() else InferenceBackend.CPU 
 
     def _prepare_input(self, messages: list):
         """
@@ -137,10 +138,19 @@ class BaseModel:
     def pull(self, model_name, stream=True):
         raise NotImplementedError
 
-    def is_gpu_available():
-        if self.device_type == InferenceBackend.GPU_CUDA:
+    def is_gpu_available(self):
+        if self.inference_device == InferenceBackend.GPU_CUDA:
             torch.cuda.is_available()
+        elif self.inference_device == InferenceBackend.GPU_AMD:
+            # TODO add implentations here for direct_ml and override in gguf
+            return False
         return False
+    
+    def clean_cache(self):
+        functions.debug("Clearing cache")
+        if self.is_gpu_available(): 
+            torch.cuda.empty_cache()
+        gc.collect()
         
 class ModelParams:
     """
