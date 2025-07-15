@@ -138,7 +138,7 @@ class BaseModel:
         raise NotImplementedError
 
     def is_gpu_available():
-        if self.inference_device == InferenceBackend.GPU_CUDA:
+        if self.device_type == InferenceBackend.GPU_CUDA:
             torch.cuda.is_available()
         return False
         
