@@ -121,7 +121,7 @@ def run():
             func.clear_console()
 
         print_chat_header(prog=prog)
-        prog.start_chat_loop()
+        prog.run()
     except KeyboardInterrupt:
         func.log(f"Detected Ctrl+C. Attempting to stop LLM generation gracefully...") 
         if prog and prog.llm:

@@ -275,7 +275,7 @@ class Program:
         """
         self.config = ProgramConfig.load()
 
-    def start_chat_loop(self) -> None:
+    def run(self) -> None:
         """
         Starts the main interactive chat loop.
         """
