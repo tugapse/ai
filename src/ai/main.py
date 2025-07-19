@@ -52,7 +52,6 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
 
     config_group = parser.add_argument_group('Model Config Generation', 'Use these arguments to generate a new model JSON config file.')
     config_group.add_argument('--generate-config', metavar='FILENAME', type=str, help='Generate a model config and save it to the specified FILENAME in the default models directory, then exit.')
-    config_group.add_argument('--model-name', type=str, help="The name of the model to include in the config (e.g., 'meta-llama/Llama-2-7b-chat-hf'). Required by --generate-config.")
     config_group.add_argument('--model-type', type=str, choices=[t.value for t in ModelType], help='The architectural type of the model. Required by --generate-config.')
 
     return parser, parser.parse_args()

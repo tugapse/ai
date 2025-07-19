@@ -58,9 +58,9 @@ class CliArgs:
         :param parser: The main ArgumentParser instance for error reporting.
         """
         if args.generate_config:
-            if not args.model_name or not args.model_type:
+            if not args.model_type:
                 parser.error(
-                    "The --generate-config flag requires both --model-name and --model-type."
+                    "The --generate-config flag requires --model-type."
                 )
 
             try:
@@ -83,12 +83,12 @@ class CliArgs:
 
                 func.log(
                     format_text(
-                        f"--- Generating config for {args.model_name} ---", Color.NORMAL_CYAN
+                        f"--- Generating config for {config_filename} ---", Color.NORMAL_CYAN
                     )
                 )
 
                 new_config = ModelConfigManager.generate_default_config(
-                    model_name=args.model_name, model_type=model_type_enum
+                    model_name=args.generate_config, model_type=model_type_enum
                 )
 
                 ModelConfigManager.save_config(new_config, full_filepath) 
