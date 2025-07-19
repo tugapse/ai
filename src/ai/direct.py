@@ -11,6 +11,9 @@ from extras.output_printer import OutputPrinter
 from extras.think_parser import ThinkingAnimationHandler
 from extras.thinking_log_manager import ThinkingLogManager
 from program import ProgramConfig, ProgramSetting
+from services.session_manager import SessionManager
+from extras.handler_manager import HandlerManager
+
 
 
 
@@ -55,13 +58,22 @@ def ask(
     _think_mode = _config.get(ProgramSetting.THINKING_MODE, thinking_mode)
     _print_mode = _config.get(ProgramSetting.PRINT_MODE, print_mode)
     _tokens_per_print = _config.get(ProgramSetting.TOKENS_PER_PRINT, tokens_per_print)
+    session_paths = SessionManager.initialize_session_paths(_config)
     
     enable_thinking_display = True
     ThinkingAnimationHandler.THINKING_PREFIX = "Processing request"
+    
     thinking_handler = ThinkingAnimationHandler(
         enable_display=enable_thinking_display,
         mode=_think_mode,
         log_manager=thinking_log_manager
+    )
+    
+    handler_manager = HandlerManager(
+            log_manager=thinking_log_manager,
+            output_base_dir=session_paths["session_workspace_path"],
+            thinking_mode=thinking_mode,
+            enable_thinking_display=enable_thinking_display
     )
 
     output_printer = OutputPrinter(print_mode=_print_mode, tokens_per_print=tokens_per_print)
@@ -81,7 +93,6 @@ def ask(
         func.write_to_file(output_filename, "")
 
 
-    token_processor = ConsoleTokenFormatter()
     for raw_token_string in llm.chat(message, stream=True):
         if first_token_time is None:
             first_token_time = time()
@@ -89,8 +100,14 @@ def ask(
         is_thinking, content_after_thinking_handler = thinking_handler.process_token_and_thinking_state(raw_token_string)
 
         
-        
-        if not is_thinking and content_after_thinking_handler:
+        display_to_user, content_to_display, file_content_saved = \
+                    handler_manager.process_token_chain(raw_token_string)
+
+        if file_content_saved:
+            pass
+
+        if display_to_user:
+        # if not is_thinking and content_after_thinking_handler:
             output_printer.process_and_print(content_after_thinking_handler)
 
         if write_to_file and output_filename and content_after_thinking_handler:
@@ -102,8 +119,8 @@ def ask(
     func.out("\n")
 
     func.log(
-        f"{Color.RESET}First token :{Color.YELLOW} {func.format_execution_time(start_time, first_token_time)}"
+        f"First token :{func.format_execution_time(start_time, first_token_time)}"
     )
     func.log(
-        f"{Color.RESET}Time taken  :{Color.YELLOW} {func.format_execution_time(start_time, end_time)}"
+        f"Time taken  :{func.format_execution_time(start_time, end_time)}"
     )
