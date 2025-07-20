@@ -33,28 +33,28 @@ class T5Model(BaseModel):
         try:
             self._load_llm_params()
         except GatedRepoError as e:
-            functions.log(f"\n--- MODEL LOADING FAILED: Gated Model Access Required ---")
-            functions.log(f"To use '{self.model_name}', you need to:")
-            functions.log(f"1. Request access on Hugging Face: {e.url.replace('/resolve/main/', '/')}")
-            functions.log(f"2. Log in to Hugging Face from your terminal: `huggingface-cli login`")
-            functions.log(f"   (Get your token from: https://huggingface.co/settings/tokens)")
-            functions.log(f"----------------------------------------------------\n")
+            functions.error(f"\n--- MODEL LOADING FAILED: Gated Model Access Required ---")
+            functions.error(f"To use '{self.model_name}', you need to:")
+            functions.error(f"1. Request access on Hugging Face: {e.url.replace('/resolve/main/', '/')}")
+            functions.error(f"2. Log in to Hugging Face from your terminal: `huggingface-cli login`")
+            functions.error(f"   (Get your token from: https://huggingface.co/settings/tokens)")
+            functions.error(f"----------------------------------------------------\n")
             self.model = None
             self.tokenizer = None
             sys.exit(1)
         except RepositoryNotFoundError:
-            functions.log(f"Error: Model '{self.model_name}' not found on Hugging Face Hub. Check spelling.")
+            functions.error(f"Error: Model '{self.model_name}' not found on Hugging Face Hub. Check spelling.")
             self.model = None
             self.tokenizer = None
             sys.exit(1)
         except requests.exceptions.HTTPError as e:
-            functions.log(f"Error: Could not download model files for '{self.model_name}'. Check network, disk space, or proxy settings.")
-            functions.log(f"Details: {e}")
+            functions.error(f"Error: Could not download model files for '{self.model_name}'. Check network, disk space, or proxy settings.")
+            functions.error(f"Details: {e}")
             self.model = None
             self.tokenizer = None
             sys.exit(1)
         except Exception as e:
-            functions.log(f"CRITICAL ERROR: Model initialization failed for {self.model_name}: {e}")
+            functions.error(f"CRITICAL ERROR: Model initialization failed for {self.model_name}: {e}")
             import traceback
             traceback.functions.log_exc()
             self.model = None
@@ -94,7 +94,7 @@ class T5Model(BaseModel):
                 functions.log("Falling back to non-quantized loading.")
                 self.quantization_bits = 0
             except Exception as e:
-                functions.log(f"ERROR: Could not create BitsAndBytesConfig for {self.quantization_bits}-bit quantization: {e}")
+                functions.error(f"ERROR: Could not create BitsAndBytesConfig for {self.quantization_bits}-bit quantization: {e}")
                 functions.log("Falling back to non-quantized loading.")
                 self.quantization_bits = 0
 
@@ -163,11 +163,11 @@ class T5Model(BaseModel):
             
             yield response_text
         except KeyboardInterrupt:
-            functions.log("\nINFO: Ctrl+C detected. Stopping T5Model generation...")
+            functions.error("\nINFO: Ctrl+C detected. Stopping T5Model generation...")
             if isinstance(self, Events):
                 self.trigger(self.STREAMING_FINISHED_EVENT)
         except Exception as e:
-            functions.log(f"\nCRITICAL ERROR: An unexpected error occurred during T5Model generation: {e}")
+            functions.error(f"\nCRITICAL ERROR: An unexpected error occurred during T5Model generation: {e}")
             import traceback
             traceback.functions.log_exc()
             sys.exit(1)
@@ -242,7 +242,7 @@ class T5Model(BaseModel):
                 return message
         except Exception as e:
             message = f"Error 'pulling' model {model_name}: {e}"
-            functions.log(message)
+            functions.error(message)
             if stream:
                 yield message
             else:

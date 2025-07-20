@@ -105,7 +105,7 @@ class CliArgs:
                     f"An unexpected error occurred during config generation: {e}",
                     Color.RED,
                 )
-                func.log(f"ERROR: {error_msg}", level="ERROR")
+                func.error(f"ERROR: {error_msg}", level="ERROR")
                 print(error_msg, file=sys.stderr)
 
             sys.exit(0)
@@ -244,6 +244,7 @@ class CliArgs:
                 prog.chat.messages, 
                 write_to_file=prog.write_to_file,
                 output_filename=prog.output_filename,
+                show_think_anim=(not args.no_think_anim)
             )
             sys.exit(0)
 

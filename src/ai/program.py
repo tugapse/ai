@@ -129,7 +129,7 @@ class Program:
         self._load_model(model_config_name_to_load)
 
         if self.llm is None:
-            func.log(f"Failed to load LLM model. Exiting.", level="CRITICAL") 
+            func.error(f"Failed to load LLM model. Exiting.", level="CRITICAL") 
             sys.exit(1)
 
         self.model_name = self.llm.model_name
@@ -301,7 +301,7 @@ class Program:
         model_configs_folder = self.config.get(ProgramSetting.PATHS_MODEL_CONFIGS)
 
         if not model_configs_folder:
-            func.log(f"'{ProgramSetting.PATHS_MODEL_CONFIGS}' is not configured. Cannot load model. Please set it in config.json or ensure defaults are correct.", level="CRITICAL") 
+            func.error(f"'{ProgramSetting.PATHS_MODEL_CONFIGS}' is not configured. Cannot load model. Please set it in config.json or ensure defaults are correct.", level="CRITICAL") 
             sys.exit(1)
 
         func.ensure_directory_exists(model_configs_folder)
@@ -312,7 +312,7 @@ class Program:
         try:
             model_config = ModelManager.load_config(filename) 
         except (FileNotFoundError, json.JSONDecodeError, Exception) as e:
-            func.log(f"Failed to load model config from {filename}: {e}", level="CRITICAL") 
+            func.error(f"Failed to load model config from {filename}: {e}", level="CRITICAL") 
             sys.exit(1)
 
         model_type_from_config = model_config.get("model_type")
@@ -331,7 +331,7 @@ class Program:
         )
 
         if self.llm is None:
-            func.log("LLM model could not be instantiated. Exiting.", level="CRITICAL") 
+            func.error("LLM model could not be instantiated. Exiting.", level="CRITICAL") 
             sys.exit(1)
 
     def _save_chat_history(self):

@@ -20,7 +20,9 @@ class HandlerManager:
                  log_manager: ThinkingLogManager,
                  output_base_dir: str,
                  thinking_mode: str = "progressbar",
-                 enable_thinking_display: bool = True):
+                 enable_thinking_display: bool = True,
+                 show_thinking_animation:bool=False
+                 ):
         """
         Initializes the HandlerManager and its internal token handlers.
 
@@ -37,6 +39,7 @@ class HandlerManager:
             enable_display=enable_thinking_display,
             mode=thinking_mode,
             log_manager=log_manager,
+            show_animation=show_thinking_animation
         )
 
         self.file_content_handler: FileContentHandler = FileContentHandler(

@@ -135,7 +135,7 @@ class FileContentHandler:
                 try:
                     self.save_file(file_data_to_save)
                 except (ValueError, IOError) as e:
-                    func.log(f"[FileContentHandler ERROR] Failed to save file internally: {e}")
+                    func.error(f"[FileContentHandler ERROR] Failed to save file internally: {e}")
 
                 # Reset state for next file
                 self._is_active = False
@@ -198,11 +198,11 @@ class FileContentHandler:
         file_content = file_data.get("content", "")
 
         if not file_name:
-            func.log("[FileContentHandler ERROR] Attempted to save file without a 'name' in extracted data.")
+            func.error("[FileContentHandler ERROR] Attempted to save file without a 'name' in extracted data.")
             raise ValueError("Cannot save file: 'name' attribute is missing in extracted file data.")
 
         if not self._output_base_dir:
-            func.log(f"[FileContentHandler ERROR] Output directory not configured for file '{file_name}'. (output_base_dir is None)")
+            func.error(f"[FileContentHandler ERROR] Output directory not configured for file '{file_name}'. (output_base_dir is None)")
             raise ValueError(f"Cannot save file '{file_name}': output directory not configured for handler.")
 
         # Construct the full path, ensuring parent directories exist
@@ -220,8 +220,8 @@ class FileContentHandler:
                 f.write(file_content)
             func.out(f"': Successfully saved to: {file_path}")
         except OSError as e:
-            func.log(f"[FileContentHandler ERROR] OS error saving file '{file_name}' to {file_path}: {e}")
+            func.error(f"[FileContentHandler ERROR] OS error saving file '{file_name}' to {file_path}: {e}")
             raise IOError(f"Error writing file '{file_name}' to disk: {e}") from e
         except Exception as e:
-            func.log(f"[FileContentHandler ERROR] An unexpected error occurred while saving file '{file_name}' to {file_path}: {e}")
+            func.error(f"[FileContentHandler ERROR] An unexpected error occurred while saving file '{file_name}' to {file_path}: {e}")
             raise IOError(f"An unexpected error occurred while saving file '{file_name}': {e}") from e

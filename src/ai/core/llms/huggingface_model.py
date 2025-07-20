@@ -64,28 +64,28 @@ class HuggingFaceModel(BaseModel):
         try:
             self._load_llm_params()
         except GatedRepoError as e:
-            functions.log(
+            functions.error(
                 f"ERROR: Failed to load gated model '{self.model_name}'. Access denied or not authenticated. Details: {e}"
             )
             self.model = None
             self.tokenizer = None
             sys.exit(1)
         except RepositoryNotFoundError:
-            functions.log(
+            functions.error(
                 f"ERROR: Model '{self.model_name}' not found on Hugging Face Hub. Check spelling."
             )
             self.model = None
             self.tokenizer = None
             sys.exit(1)
         except requests.exceptions.HTTPError as e:
-            functions.log(
+            functions.error(
                 f"ERROR: Could not download model files for '{self.model_name}'. Check network, disk space, or proxy settings. Details: {e}"
             )
             self.model = None
             self.tokenizer = None
             sys.exit(1)
         except Exception as e:
-            functions.log(
+            functions.error(
                 f"CRITICAL ERROR: Model initialization failed for {self.model_name}: {e}"
             )
             import traceback
@@ -241,14 +241,14 @@ class HuggingFaceModel(BaseModel):
                 f"\nSuggestion: Try reducing 'temperature' (e.g., to 0.5 or 0.3), or disable sampling (`do_sample=False`) "
                 f"in your model configuration. If the issue persists, consider a smaller model or more VRAM, or ensure bitsandbytes is correctly installed for {self.quantization_bits}-bit quantization."
             )
-            functions.log(error_message)
+            functions.error(error_message)
             error_queue.put(error_message)
         except Exception as e:
             import traceback
 
             error_message = f"CRITICAL ERROR: An unexpected error occurred during model generation: {e}"
             error_message += f"\nTraceback:\n{traceback.format_exc()}"
-            functions.log(error_message)
+            functions.error(error_message)
             error_queue.put(error_message)
         finally:
             functions.debug(
@@ -423,10 +423,10 @@ class HuggingFaceModel(BaseModel):
                     f"\nSuggestion: Try reducing 'temperature' (e.g., to 0.5 or 0.3), or disable sampling (`do_sample=False`) "
                     f"in your model configuration. If the issue persists, consider a smaller model or more VRAM, or ensure bitsandbytes is correctly installed for {self.quantization_bits}-bit quantization."
                 )
-                functions.log(error_message)
+                functions.error(error_message)
                 sys.exit(1)
             except Exception as e:
-                functions.log(
+                functions.error(
                     f"CRITICAL ERROR: An unexpected error occurred during model generation: {e}"
                 )
                 import traceback

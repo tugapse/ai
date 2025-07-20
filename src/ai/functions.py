@@ -197,6 +197,15 @@ def ensure_directory_exists(path: str,silent=False):
 
 # --- Logging/Output Functions (Adapted to use ProgramConfig.current) ---
 
+def error(text, start_line="[ * ]", level="ERROR", **kargs):  # Added level for consistency
+    """
+    Logs an informational message to stderr, respecting PRINT_LOG setting.
+    """
+    formatted_text = get_formatted_text(text,start_line=start_line, level=level)
+    
+    print(formatted_text, **kargs)
+    sys.stdout.flush()
+    log(text,start_line=start_line, level='ERROR',**kargs)
 
 def log(text, start_line="[ * ]", level="INFO", **kargs):  # Added level for consistency
     """
@@ -230,7 +239,7 @@ def debug(text, start_line="[ # ]",  level="DEBUG", **kargs):
             True
         )
         
-    if not LOCK_DEBUG:
+    if not LOCK_DEBUG or level=="ERROR":
         print(formatted_text, **kargs)
         sys.stdout.flush()
 

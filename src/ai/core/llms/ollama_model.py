@@ -55,14 +55,14 @@ class OllamaModel(BaseModel):
                         response.close()
                         break
             except KeyboardInterrupt:
-                functions.log("\nINFO: Ctrl+C detected. Stopping Ollama generation...")
+                functions.error("\nINFO: Ctrl+C detected. Stopping Ollama generation...")
                 if 'response' in locals() and hasattr(response, 'close'):
                     try:
                         response.close()
                     except Exception as e:
                         functions.log(f"WARNING: Error closing Ollama stream: {e}")
             except Exception as e:
-                functions.log(f"\nCRITICAL ERROR: An unexpected error occurred during Ollama generation: {e}")
+                functions.error(f"\nCRITICAL ERROR: An unexpected error occurred during Ollama generation: {e}")
                 import traceback
                 traceback.functions.out_exc()
                 sys.exit(1)
@@ -73,7 +73,7 @@ class OllamaModel(BaseModel):
                                            stream=False, options=gen_options)
                 return response['message']['content']
             except Exception as e:
-                functions.log(f"\nCRITICAL ERROR: An unexpected error occurred during Ollama (non-streaming) generation: {e}")
+                functions.error(f"\nCRITICAL ERROR: An unexpected error occurred during Ollama (non-streaming) generation: {e}")
                 import traceback
                 traceback.functions.out_exc()
                 sys.exit(1)
