@@ -95,10 +95,12 @@ def init_program_and_args(args) -> Program:
         func.log("DEBUG MODE Enabled") # Reverted to func.log
         args.print_log = True
         args.print_debug = True
-        clear_console = False
+        func.ALLOW_CLEAR_CONSOLE = False
         func.LOCK_LOG = False 
         prog.config.set(ProgramSetting.PRINT_LOG, True)
         prog.config.set(ProgramSetting.PRINT_DEBUG, True)
+    else:
+        func.ALLOW_CLEAR_CONSOLE = (not args.print_log and not args.print_debug)
 
     prog.init_program(args) 
 
@@ -108,7 +110,7 @@ def run():
     prog: Optional[Program] = None 
     args: Optional[argparse.Namespace] = None 
     try:
-        func.CLEAR_CONSOLE = True
+        func.ALLOW_CLEAR_CONSOLE = True
         parser, args = load_args()
         
         prog = init_program_and_args(args)
@@ -116,7 +118,7 @@ def run():
         cli_args_processor = CliArgs()
         cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
 
-        if func.CLEAR_CONSOLE: 
+        if func.ALLOW_CLEAR_CONSOLE: 
             func.clear_console()
 
         print_chat_header(prog=prog)

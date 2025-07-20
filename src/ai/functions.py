@@ -17,6 +17,7 @@ LOCK_DEBUG = True  # This variable needs to be accessible globally for logging c
 
 ACTIVE_LOG_FILENAME = None
 SESSION_LOG_FILENAME = None
+ALLOW_CLEAR_CONSOLE = False
 
 
 def set_console_title(title):
