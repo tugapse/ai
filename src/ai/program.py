@@ -2,10 +2,7 @@
 
 import os
 import sys
-import logging 
 import json
-from datetime import datetime
-import threading
 from typing import Optional
 import argparse
 
@@ -39,7 +36,7 @@ class Program:
     """
 
     def __init__(self) -> None:
-        self.config: Optional[ProgramConfig] = None
+        self.config: ProgramConfig = ProgramConfig()
         self.model_name: str = "__no_model__"
         self.model_variant = None
         self.system_prompt: str = ""
@@ -72,6 +69,7 @@ class Program:
         """
         # 1. Load Configuration
         self.config = ProgramConfig.load()
+        assert self.config is not None
         ConfigApplier.apply_cli_args_to_config(self.config, args)
 
         self.clear_on_init: bool = args.msg is not None if args else False or (
@@ -311,7 +309,7 @@ class Program:
         model_config = None
         try:
             model_config = ModelManager.load_config(filename) 
-        except (FileNotFoundError, json.JSONDecodeError, Exception) as e:
+        except (FileNotFoundError, json.JSONDecodeError) as e:
             func.error(f"Failed to load model config from {filename}: {e}", level="CRITICAL") 
             sys.exit(1)
 

@@ -53,7 +53,7 @@ class ProgramSetting:
 
 class ProgramConfig(Generic[T]):
 
-    def __init__(self, config: dict = None) -> None:
+    def __init__(self, config: dict = {}) -> None:
         self.config = config if config is not None else {}
         self.logger = logging.Logger(name=__file__)
 
@@ -103,14 +103,14 @@ class ProgramConfig(Generic[T]):
         if not self.config.get(ProgramSetting.PATHS_MODEL_CONFIGS):
             self.set(
                 ProgramSetting.PATHS_MODEL_CONFIGS,
-                os.path.join(self.get(ProgramSetting.ROOT_DIRECTORY), "models"),
+                os.path.join(user_directory, "models"),
             )
 
         # Also ensure other derived paths are set if not in config.json, relative to ROOT_DIRECTORY
         if not self.config.get(ProgramSetting.PATHS_LOGS):
             self.set(
                 ProgramSetting.PATHS_LOGS,
-                os.path.join(self.get(ProgramSetting.ROOT_DIRECTORY), "logs"),
+                os.path.join(user_directory, "logs"),
             )
         if not self.config.get(ProgramSetting.PATHS_CHAT_LOG):
             self.set(
@@ -120,16 +120,15 @@ class ProgramConfig(Generic[T]):
         if not self.config.get(ProgramSetting.PATHS_WORKSPACES):
             self.set(
                 ProgramSetting.PATHS_WORKSPACES,
-                os.path.join(self.get(ProgramSetting.ROOT_DIRECTORY), "workspaces"),
+                os.path.join(user_directory, "workspaces"),
             )
 
         # Adding default for PATHS_GENERATED_FILES if it's meant to be distinct from workspaces
         if not self.config.get(ProgramSetting.PATHS_GENERATED_FILES):
             self.set(
                 ProgramSetting.PATHS_GENERATED_FILES,
-                os.path.join(
-                    self.get(ProgramSetting.ROOT_DIRECTORY), "generated_files"
-                ),
+                os.path.join(user_directory, "generated_files"
+                )
             )
 
         # Set default template paths if not already configured in config.json
