@@ -1,7 +1,7 @@
 import json
 import os
 from core.chat import Chat
-from color import Color, pformat_text
+from color import Color
 from extras import ConsoleChatReader
 import functions as func
 
@@ -52,7 +52,7 @@ class ChatCommandInterceptor:
             if self.handled_extra_command(command_text):
                 return
         else:
-            pformat_text("Invalid Command")
+            func.out("Invalid Command")
 
         self.chat.terminate_command()
 
@@ -67,7 +67,7 @@ class ChatCommandInterceptor:
 
         with open(os.path.join(self.root_folder, filename), 'w') as f:
             json.dump(self.chat.messages, f)
-            pformat_text("=== Session saved ===", color=Color.YELLOW)
+            func.out("=== Session saved ===",level="INFO")
 
     def load_session(self, filename: str) -> None:
         """
@@ -78,14 +78,14 @@ class ChatCommandInterceptor:
         """
 
         if not os.path.exists(os.path.join(self.root_folder, filename)):
-            pformat_text("=== Session not found ===", color=Color.YELLOW)
+            func.out("=== Session not found ===",level="WARNING")
             return
         with open(os.path.join(self.root_folder, filename), 'r') as f:
             self.chat.messages = json.load(f)
             reader = ConsoleChatReader(filename)
             for message in self.chat.messages:
                 reader._print_chat(message)
-            pformat_text("=== Session loaded ===", color=Color.YELLOW)
+            func.out("=== Session loaded ===",level="WARNING")
 
     def list_sessions(self) -> None:
         """
