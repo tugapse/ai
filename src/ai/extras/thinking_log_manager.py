@@ -37,7 +37,7 @@ class ThinkingLogManager:
         self._lock_fd = None
         self._default_log_filename = None
 
-        sanitized_file_name = log_file_name.replace(" ", "_").replace(":", "_")
+        sanitized_file_name = log_file_name.replace(" ", "_")
         if not sanitized_file_name.endswith(".log"):
             sanitized_file_name += ".log"
 

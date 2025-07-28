@@ -28,25 +28,14 @@ class ModelConfigManager:
         Returns:
             dict: A dictionary representing the default model configuration.
         """
-        config = {
-            "model_name": model_name,
-            "model_type": model_type.value,
-            "model_properties": {
-                "max_new_tokens": 1024,
-                "do_sample": True,
-                "temperature": 0.7,
-                "top_p": 0.95,
-                "top_k": 50,
-                "quantization_bits": 0
-            }
-        }
-
-        # Model-type specific adjustments can still be made if necessary
-        if model_type == ModelType.SEQ2SEQ_LM:
-            # T5 models (seq2seq) might prefer slightly different defaults
-            config["model_properties"]["temperature"] = 0.9
-            config["model_properties"]["top_p"] = 0.9
-
+        config = {}
+        if model_type == ModelType.OLLAMA:
+            config = ModelConfigManager._generate_ollama_config(model_name)
+        elif model_type == ModelType.CAUSAL_LM:
+            config = ModelConfigManager._generate_causal_lm_config(model_name)
+        elif model_type == ModelType.GGUF:
+            config = ModelConfigManager._generate_gguf_config(model_name)
+        
         return config
 
     @staticmethod
@@ -97,72 +86,57 @@ class ModelConfigManager:
         except Exception as e:
             print(f"ERROR: Failed to save model config to {filepath}: {e}")
             raise e
-
-# --- Command-Line Interface for Generating Config Files ---
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Generate a default model configuration file.",
-        formatter_class=argparse.RawTextHelpFormatter # For better help text formatting
-    )
-
-    parser.add_argument(
-        "-m", "--model-name",
-        required=True,
-        type=str,
-        help="The name of the model (e.g., 'meta-llama/Llama-2-7b-chat-hf')."
-    )
-    parser.add_argument(
-        "-t", "--model-type",
-        required=True,
-        type=str,
-        choices=[t.value for t in ModelType],
-        help="The architectural type of the model."
-    )
-    parser.add_argument(
-        "-o", "--output-file",
-        required=True,
-        type=str,
-        help="The path where the generated JSON configuration file will be saved."
-    )
-
-    args = parser.parse_args()
-
-    try:
+    
+    @staticmethod
+    def _generate_gguf_config(model_name):
+        return {
+            "model_name": model_name,
+            "model_type": 'gguf',
+            "model_properties": {
+                "gguf_filename": "gguf_filename",
+                "model_repo_id": "model_repo_id",
+                "n_gpu_layers": -1,
+                "n_ctx": 8192,
+                "verbose": False,
+                "max_new_tokens": 4096,
+                "temperature": 0.3,
+                "top_p": 0.95,
+                "top_k":50,
+                "presence_penalty": 1.1,
+                "frequency_penalty":1.2
+            }
+        }
         
-
-        # Convert string argument back to Enum member
-        model_type_enum = ModelType(args.model_type)
-
-        # Log the action
-        print(format_text(
-            f"--- Generating config for {args.model_name} ---", Color.BLUE
-        ))
-
-        # Generate the configuration dictionary
-        new_config = ModelConfigManager.generate_default_config(
-            model_name=args.model_name,
-            model_type=model_type_enum
-        )
-
-        # Save the configuration to the specified file
-        ModelConfigManager.save_config(new_config, args.output_file)
-
-        # Print success message to the console
-        success_message = format_text(
-            f"\nSuccessfully generated and saved configuration to: ", Color.GREEN
-        ) + format_text(f"{args.output_file}", Color.YELLOW)
-        print(success_message)
-        print(json.dumps(new_config, indent=2))
-
-
-    except ValueError as e:
-        # This will catch errors if the string from args doesn't match an Enum value
-        error_msg = format_text(f"ERROR: Invalid parameter value provided. {e}", Color.RED)
-        print(error_msg)
-        print(error_msg, file=sys.stderr)
-        sys.exit(1)
-    except Exception as e:
-        error_msg = format_text(f"An unexpected error occurred: {e}", Color.RED)
-        print(f"ERROR: {error_msg}")
-        print(error_msg, file=sys.stderr)
-        sys.exit(1)
+    @staticmethod
+    def _generate_causal_lm_config(model_name):
+        return {
+            "model_name": model_name,
+            "model_type": 'causal_lm',
+            "model_properties": {
+                "max_new_tokens": 8192,
+                "do_sample": True,
+                "temperature": 0.1,
+                "top_p": 0.95,
+                "top_k": 10,
+                "presence_penalty":1.5,
+                "frequency_penalty":1.2,
+                "quantization_bits": 8
+            }
+        }
+        
+    @staticmethod
+    def _generate_ollama_config(model_name):
+        return {
+            "model_name": model_name,
+            "model_type": 'ollama',
+            "model_properties": {
+                "max_new_tokens": 8192,
+                "do_sample": True,
+                "temperature": 0.1,
+                "top_p": 0.95,
+                "top_k": 10,
+                "presence_penalty":1.5,
+                "frequency_penalty":1.2
+                
+            }
+        }

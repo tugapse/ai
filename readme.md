@@ -22,7 +22,7 @@ The AI Assistant supports multiple models and prompts, allowing users to choose 
 
 ### Comprehensive File and Folder Support
 
-The AI assistant can load and process large amounts of text data from files and folders, which is incredibly useful for tasks such as:
+The AI assistant can load and process text data from files and folders, which is incredibly useful for tasks such as:
 
 *   Analyzing large datasets
 *   Generating reports or summaries
@@ -39,9 +39,9 @@ If you run the program without specific task-oriented command-line arguments (li
 
 ```sh
 ../run.sh
-Welcome to the AI Assistant! What would you like to talk about?
-> How can I help you?
-(AI responds)
+User: hello
+Assistant: Hello. How can I assist you today?
+
 ```
 
 ### Direct Command-Line Execution
@@ -111,16 +111,16 @@ N/A
 ## Credits
 ----------
 
-I’m the one who built this AI Assistant, and it’s been an absolutely fascinating journey! It’s incredibly rewarding to see all these different technologies – Python, sophisticated NLP techniques, and the power of Large Language Models – come together to create something like this.
+I have to say, building this AI Assistant has been an absolute blast. It's amazing to see how all these different technologies - Python, NLP techniques, and Large Language Models - come together in such a seamless way.
 
-I owe a *huge* debt of gratitude to the team at Ollama. Their platform and libraries have been instrumental in making the local model inference so smooth and efficient.  And I’m also incredibly impressed by the breadth and depth of the resources available through Hugging Face Transformers – a truly impressive ecosystem for anyone working with NLP.
+I have to give a huge thanks to the team at Ollama for getting me started on this project. They provided me with the foundation I needed to get going, and their platform really made it easy to work with local models. But as I dug deeper, Hugging Face Transformers opened up a whole new world of possibilities for me. Their resources and libraries allowed me to explore even more advanced NLP techniques and push the boundaries of what this AI Assistant could do.
 
-This project really is a testament to the power of combining these incredible tools, and I'm so excited to share it with the community!  I’ve learned so much throughout this process, and I'm already thinking about ways to expand its capabilities.
+This project is a perfect example of what happens when you combine cutting-edge tools in a really smart way. I've learned so much throughout this process, and I'm already itching to see where we can take it next. There are already plenty of ideas floating around in my head for how we can expand its capabilities - stay tuned!
 
 ## Contact
 -------------
 
-If you have any questions or need further assistance, please don't hesitate to reach out. You can contact me at [your email address] or through the GitHub issues page for this project.
+If you have any questions or need further assistance, please don't hesitate to reach out. You can contact me at tugapse@gmail.com or through the GitHub issues page for this project.
 
 ## Acknowledgements
 ------------------

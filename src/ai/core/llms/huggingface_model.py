@@ -64,28 +64,28 @@ class HuggingFaceModel(BaseModel):
         try:
             self._load_llm_params()
         except GatedRepoError as e:
-            functions.log(
+            functions.error(
                 f"ERROR: Failed to load gated model '{self.model_name}'. Access denied or not authenticated. Details: {e}"
             )
             self.model = None
             self.tokenizer = None
             sys.exit(1)
         except RepositoryNotFoundError:
-            functions.log(
+            functions.error(
                 f"ERROR: Model '{self.model_name}' not found on Hugging Face Hub. Check spelling."
             )
             self.model = None
             self.tokenizer = None
             sys.exit(1)
         except requests.exceptions.HTTPError as e:
-            functions.log(
+            functions.error(
                 f"ERROR: Could not download model files for '{self.model_name}'. Check network, disk space, or proxy settings. Details: {e}"
             )
             self.model = None
             self.tokenizer = None
             sys.exit(1)
         except Exception as e:
-            functions.log(
+            functions.error(
                 f"CRITICAL ERROR: Model initialization failed for {self.model_name}: {e}"
             )
             import traceback
@@ -144,7 +144,7 @@ class HuggingFaceModel(BaseModel):
 
         if quantization_config:
             load_kwargs["quantization_config"] = quantization_config
-            if torch.cuda.is_available():
+            if self.is_gpu_available():
                 load_kwargs["device_map"] = "auto"
             functions.log(
                 f"Attempting to load model: {self.model_name} with {self.quantization_bits}-bit quantization config."
@@ -153,7 +153,7 @@ class HuggingFaceModel(BaseModel):
             functions.log(
                 "Loading model without quantization (either not requested or bitsandbytes not available/failed)."
             )
-            if torch.cuda.is_available():
+            if self.is_gpu_available():
                 load_kwargs["torch_dtype"] = (
                     torch.bfloat16
                 )  # Use bfloat16 for better precision on newer GPUs
@@ -241,14 +241,14 @@ class HuggingFaceModel(BaseModel):
                 f"\nSuggestion: Try reducing 'temperature' (e.g., to 0.5 or 0.3), or disable sampling (`do_sample=False`) "
                 f"in your model configuration. If the issue persists, consider a smaller model or more VRAM, or ensure bitsandbytes is correctly installed for {self.quantization_bits}-bit quantization."
             )
-            functions.log(error_message)
+            functions.error(error_message)
             error_queue.put(error_message)
         except Exception as e:
             import traceback
 
             error_message = f"CRITICAL ERROR: An unexpected error occurred during model generation: {e}"
             error_message += f"\nTraceback:\n{traceback.format_exc()}"
-            functions.log(error_message)
+            functions.error(error_message)
             error_queue.put(error_message)
         finally:
             functions.debug(
@@ -311,7 +311,7 @@ class HuggingFaceModel(BaseModel):
             f"Processed messages. Input for LLM will be based on: '{processed_messages_log}'..."
         )
 
-        if torch.cuda.is_available():
+        if self.is_gpu_available():
             functions.debug("Clearing CUDA cache before generation...")
             torch.cuda.empty_cache()
             gc.collect()
@@ -321,7 +321,7 @@ class HuggingFaceModel(BaseModel):
             f"Input data prepared. Input IDs shape: {input_data['input_ids'].shape}"
         )
 
-        if torch.cuda.is_available():
+        if self.is_gpu_available():
             inputs_on_device = {k: v.to("cuda") for k, v in input_data.items()}
         else:
             inputs_on_device = input_data
@@ -423,10 +423,10 @@ class HuggingFaceModel(BaseModel):
                     f"\nSuggestion: Try reducing 'temperature' (e.g., to 0.5 or 0.3), or disable sampling (`do_sample=False`) "
                     f"in your model configuration. If the issue persists, consider a smaller model or more VRAM, or ensure bitsandbytes is correctly installed for {self.quantization_bits}-bit quantization."
                 )
-                functions.log(error_message)
+                functions.error(error_message)
                 sys.exit(1)
             except Exception as e:
-                functions.log(
+                functions.error(
                     f"CRITICAL ERROR: An unexpected error occurred during model generation: {e}"
                 )
                 import traceback

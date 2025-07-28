@@ -1,0 +1,16 @@
+# Llama_cpp - VULCAN - Windows - AMD
+# need Vulcan SDK to be installed
+# VULKAN_SDK and VULKAN_SDK_PATH to be set
+
+$env:CMAKE_ARGS = "-DGGML_VULKAN=on"
+pip install llama-cpp-python --no-cache-dir --force-reinstall --upgrade
+# -------------------------------------
+
+# Llama_cpp - W/L - CUDA
+CMAKE_ARGS="-DGGML_CUDA=on -DGGML_CUDA_FORCE_CUBLAS=on -DLLAVA_BUILD=off -DCMAKE_CUDA_ARCHITECTURES=native" FORCE_CMAKE=1 
+pip install llama-cpp-python --no-cache-dir --force-reinstall --upgrade
+# ---------------------------------------------------------------
+
+# Pytorch AMD direct_ml
+pip install torch-directml
+# ------------------------------------

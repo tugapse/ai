@@ -51,7 +51,7 @@ class ModelManager:
         Loads and parses a JSON model configuration file.
         """
         if not os.path.exists(filepath):
-            func.log(f"Model configuration file '{filepath}' not found.", level="ERROR") 
+            func.error(f"Model configuration file '{filepath}' not found.", level="ERROR") 
             raise FileNotFoundError(f"Model configuration file '{filepath}' not found.")
 
         try:
@@ -60,10 +60,10 @@ class ModelManager:
             func.log(f"Loaded model config from {filepath}") 
             return model_config
         except json.JSONDecodeError as e:
-            func.log(f"Invalid JSON in '{filepath}'. Please check its format. Error: {e}", level="ERROR") 
+            func.error(f"Invalid JSON in '{filepath}'. Please check its format. Error: {e}", level="ERROR") 
             raise json.JSONDecodeError(f"Invalid JSON in '{filepath}'", e.doc, e.pos)
         except Exception as e:
-            func.log(f"Failed to load model config from {filepath}: {e}", level="ERROR") 
+            func.error(f"Failed to load model config from {filepath}: {e}", level="ERROR") 
             raise e
 
     @staticmethod
@@ -76,7 +76,7 @@ class ModelManager:
                 json.dump(config, f, indent=2)
             func.log(f"Saved model config to {filepath}") 
         except Exception as e:
-            func.log(f"Failed to save model config to {filepath}: {e}", level="ERROR") 
+            func.error(f"Failed to save model config to {filepath}: {e}", level="ERROR") 
             raise e
 
     @staticmethod
@@ -185,7 +185,7 @@ class ModelManager:
                 func.log(f"Unhandled model_type '{model_type.value}'.", level="ERROR")
                 return None
         except Exception as e:
-            func.log(f"Failed to instantiate model '{model_name}': {e}", level="ERROR")
+            func.error(f"Failed to instantiate model '{model_name}': {e}", level="ERROR")
             return None
 
         return llm_instance

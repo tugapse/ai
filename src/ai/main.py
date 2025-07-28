@@ -15,7 +15,7 @@ from color import Color
 from cli_args import CliArgs # Import the CliArgs processor
 
 
-__version__ = "2.1.0"
+__version__ = "2.1.1"
 
 # Add the project root to the sys.path to allow imports from core
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))
@@ -43,6 +43,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     parser.add_argument("--output-file", "-o", type=str, help="filename where the output of automatic actions will be saved")
     parser.add_argument("--auto-task", "-at", type=str, help="filename to a json with auto task configuration")
     parser.add_argument("--print-chat", "-p", type=str, help="filename to a json with with chat log, this can be from ai chats directory or a filename")
+    parser.add_argument("--no-think-anim", action="store_true", default=False, help="show thinking animantion")
     
     parser.add_argument("--print-log","-pl", help='Set this flag to print "log" messages', action="store_true")
     parser.add_argument("--print-debug","-pdb", help='Set this flag to print "debug" messages', action="store_true")
@@ -52,7 +53,6 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
 
     config_group = parser.add_argument_group('Model Config Generation', 'Use these arguments to generate a new model JSON config file.')
     config_group.add_argument('--generate-config', metavar='FILENAME', type=str, help='Generate a model config and save it to the specified FILENAME in the default models directory, then exit.')
-    config_group.add_argument('--model-name', type=str, help="The name of the model to include in the config (e.g., 'meta-llama/Llama-2-7b-chat-hf'). Required by --generate-config.")
     config_group.add_argument('--model-type', type=str, choices=[t.value for t in ModelType], help='The architectural type of the model. Required by --generate-config.')
 
     return parser, parser.parse_args()
@@ -96,10 +96,12 @@ def init_program_and_args(args) -> Program:
         func.log("DEBUG MODE Enabled") # Reverted to func.log
         args.print_log = True
         args.print_debug = True
-        clear_console = False
+        func.ALLOW_CLEAR_CONSOLE = False
         func.LOCK_LOG = False 
         prog.config.set(ProgramSetting.PRINT_LOG, True)
         prog.config.set(ProgramSetting.PRINT_DEBUG, True)
+    else:
+        func.ALLOW_CLEAR_CONSOLE = (not args.print_log and not args.print_debug)
 
     prog.init_program(args) 
 
@@ -109,7 +111,7 @@ def run():
     prog: Optional[Program] = None 
     args: Optional[argparse.Namespace] = None 
     try:
-        func.CLEAR_CONSOLE = True
+        func.ALLOW_CLEAR_CONSOLE = True
         parser, args = load_args()
         
         prog = init_program_and_args(args)
@@ -117,14 +119,14 @@ def run():
         cli_args_processor = CliArgs()
         cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
 
-        if func.CLEAR_CONSOLE: 
+        if func.ALLOW_CLEAR_CONSOLE: 
             func.clear_console()
 
         print_chat_header(prog=prog)
-        prog.start_chat_loop()
+        prog.run()
     except KeyboardInterrupt:
-        func.log(f"Detected Ctrl+C. Attempting to stop LLM generation gracefully...") 
         if prog and prog.llm:
+            func.log(f"Detected Ctrl+C. Attempting to stop LLM generation gracefully...") 
             prog.llm.stop_generation_event.set() 
             prog.llm.join_generation_thread(timeout=10)
             if prog.llm._generation_thread and prog.llm._generation_thread.is_alive():
