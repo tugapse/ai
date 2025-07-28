@@ -15,7 +15,7 @@ from color import Color
 from cli_args import CliArgs # Import the CliArgs processor
 
 
-__version__ = "2.1.0"
+__version__ = "2.1.1"
 
 # Add the project root to the sys.path to allow imports from core
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))
