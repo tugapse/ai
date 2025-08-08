@@ -177,5 +177,4 @@ class ThinkingAnimationHandler:
         )
         
     def print_think(self,message, **kargs):
-        if False:
-            func.out(message, **kargs )
+        func.out(message, **kargs )

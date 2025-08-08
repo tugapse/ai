@@ -43,7 +43,6 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     parser.add_argument("--output-file", "-o", type=str, help="filename where the output of automatic actions will be saved")
     parser.add_argument("--auto-task", "-at", type=str, help="filename to a json with auto task configuration")
     parser.add_argument("--print-chat", "-p", type=str, help="filename to a json with with chat log, this can be from ai chats directory or a filename")
-    parser.add_argument("--no-think-anim", action="store_true", default=False, help="show thinking animantion")
     
     parser.add_argument("--print-log","-pl", help='Set this flag to print "log" messages', action="store_true")
     parser.add_argument("--print-debug","-pdb", help='Set this flag to print "debug" messages', action="store_true")
