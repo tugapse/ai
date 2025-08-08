@@ -62,7 +62,7 @@ class Program:
         self.output_printer: Optional[OutputPrinter] = None
         self.handler_manager: Optional[HandlerManager] = None
 
-    def init_program(self, args: Optional[argparse.Namespace] = None) -> None:
+    def init_program(self, args: Optional[argparse.Namespace]) -> None:
         """
         Initializes program components based on configuration and CLI arguments.
         This is the main entry point for setup and now also controls the program's flow.
@@ -103,7 +103,8 @@ class Program:
             log_manager=self.thinking_log_manager,
             output_base_dir=self.session_workspace_path,
             thinking_mode=thinking_mode,
-            enable_thinking_display=enable_thinking_display
+            enable_thinking_display=enable_thinking_display,
+            show_thinking_animation= args.no_think_anim
         )
 
     def init_model_params(self):
