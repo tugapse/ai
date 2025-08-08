@@ -104,7 +104,7 @@ class Program:
             output_base_dir=self.session_workspace_path,
             thinking_mode=thinking_mode,
             enable_thinking_display=enable_thinking_display,
-            show_thinking_animation= args.no_think_anim
+            show_thinking_animation= True
         )
 
     def init_model_params(self):
