@@ -5,6 +5,9 @@ from core.events import Events
 from color import Color, format_text
 import functions as func
 from core.llms.base_llm import BaseModel
+from prompt_toolkit import PromptSession
+from prompt_toolkit.history import InMemoryHistory
+from prompt_toolkit.formatted_text import ANSI
 
 # Assuming ProgramConfig and ProgramSetting are accessible here if needed for paths
 # from config import ProgramConfig, ProgramSetting 
@@ -53,6 +56,7 @@ class Chat(Events):
         self._is_multiline_input = False
         self._multiline_input = ""
         self.session_chat_filepath = None 
+        self.prompt_session = PromptSession(history=InMemoryHistory())
 
     def _add_message(self, message_dict: dict):
         """
@@ -95,10 +99,14 @@ class Chat(Events):
     def process_loop_frame(self):
         # Only prompt for input if not running a command AND not waiting for an LLM response
         if not self.running_command and not self.waiting_for_response:
-            if self._is_multiline_input:
-                user_input = input("... ")
-            else:
-                user_input = input(format_text(self.user_prompt, Color.BLUE) )
+            try:
+                if self._is_multiline_input:
+                    user_input = self.prompt_session.prompt("... ")
+                else:
+                    user_input = self.prompt_session.prompt(ANSI(format_text(self.user_prompt, Color.BLUE)))
+            except (KeyboardInterrupt, EOFError):
+                self.terminate_chat()
+                return
 
             if len(user_input.strip()) == 0:
                 func.out("\r",end="",flush=True)
