@@ -57,7 +57,7 @@ Register-ArgumentCompleter -CommandName 'ai.ps1' -ScriptBlock {
     $prevParameterAst = $commandAst.FindAll({ $args[0] -is [System.Management.Automation.Language.CommandParameterAst] }, $true) | Select-Object -Last 1 -ErrorAction SilentlyContinue
     $prevParameterName = $prevParameterAst.ParameterName
 
-    # Use a switch statement to provide different completions based on the previous parameter.
+    # Provide different completions based on the previous parameter.
     switch ($prevParameterName) {
         # Handles `--model-type` with fixed options
         "model-type" {
