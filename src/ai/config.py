@@ -39,6 +39,7 @@ class ProgramSetting:
     ROOT_DIRECTORY = "ROOT_DIRECTORY"
 
     PATHS_GENERATED_FILES = "PATHS_GENERATED_FILES"
+    AGENT_PROMPTS_PATH = "prompts"
 
     # --- Program Settings for Thinking Logic and Output Control ---
     THINKING_MODE = "THINKING_MODE"
@@ -79,8 +80,8 @@ class ProgramConfig(Generic[T]):
 
         # Check if config.json exists in that path, if not, copy it
         user_config_filename: str = os.path.join(user_directory, "config.json")
-        need_save = False
-        if not exists(path=user_config_filename):
+        need_save = True
+        if not exists(path=user_config_filename) or need_save:
             self.logger.info(
                 f"config.json not found in {user_directory}. Copying default config."
             )

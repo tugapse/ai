@@ -28,6 +28,8 @@ from extras import HandlerManager
 from extras.thinking_log_manager import ThinkingLogManager
 from extras.output_printer import OutputPrinter
 from extras import ConsoleTokenFormatter
+from agents.agent import MessageOrchestrator, LLMConnector, ToolRegistry, load_pipeline_config
+import agents.agent_tools as agent_tools
 
 
 class Program:
@@ -256,6 +258,43 @@ class Program:
         if self.active_executor:
             self.active_executor.output_requested()
 
+    def run_agent_flow(self, user_prompt: str):
+        if not user_prompt:
+            try:
+                user_prompt = self.chat.prompt_session.prompt("Agent Task: ")
+            except (KeyboardInterrupt, EOFError):
+                func.out("Agent task cancelled.")
+                return
+
+        if not user_prompt:
+            func.out("Agent task cannot be empty.")
+            return
+
+        func.log(f"{Color.NORMAL_CYAN}--- Starting Multi-Agent Orchestrator ---{Color.RESET}")
+
+        pipeline_config = load_pipeline_config(self, "pipelines/dev_pipeline.json")
+        if not pipeline_config:
+            func.error("Failed to load pipeline config. Aborting.")
+            return
+
+        connector = LLMConnector(self.llm)
+        registry = ToolRegistry()
+        for name, tool_ref in agent_tools.AVAILABLE_TOOLS.items():
+            registry.register_tool(name, tool_ref)
+
+        orchestrator = MessageOrchestrator(
+            connector=connector,
+            registry=registry,
+            pipeline_config=pipeline_config
+        )
+
+        try:
+            orchestrator.run_loop(user_prompt)
+        except Exception as e:
+            func.error(f"Orchestrator encountered an error: {e}")
+        finally:
+            func.out("\nAgent flow finished. Returning to chat.")
+
     def load_events(self):
         """
         Loads event listeners for chat and LLM events using EventBinder.
@@ -267,6 +306,7 @@ class Program:
             output_requested_callback=self.output_requested,
             llm_stream_finished_callback=self.llm_stream_finished
         )
+        self.chat.add_event(self.chat.EVENT_AGENT_RUN_REQUESTED, self.run_agent_flow)
 
     def load_config(self, args: Optional[argparse.Namespace] = None):
         """

@@ -44,6 +44,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     parser.add_argument("--auto-task", "-at", type=str, help="filename to a json with auto task configuration")
     parser.add_argument("--print-chat", "-p", type=str, help="filename to a json with with chat log, this can be from ai chats directory or a filename")
     
+    parser.add_argument("--agents", help='Use agent mode', action="store_true")
     parser.add_argument("--print-log","-pl", help='Set this flag to print "log" messages', action="store_true")
     parser.add_argument("--print-debug","-pdb", help='Set this flag to print "debug" messages', action="store_true")
     parser.add_argument("--no-out", "-q" ,help='Set this flag to NOT print "output" messages', action="store_false")
@@ -133,7 +134,7 @@ def run():
             else:
                  func.log(f"LLM generation stopped successfully.") 
         else:
-            func.log(f"LLM object not initialized or does not support graceful stop.",) 
+            func.log(f"LLM object not initialized or does not support graceful stop.") 
         sys.exit(0)
 
     except Exception as e:
@@ -144,9 +145,8 @@ def run():
         if is_debug_console: 
             raise e
         else:
-            func.out(f"An unexpected error occurred: {e}",) 
+            func.out(f"An unexpected error occurred: {e}") 
             sys.exit(1)
 
 if __name__ == "__main__":
     run()
-

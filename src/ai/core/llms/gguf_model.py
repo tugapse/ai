@@ -40,7 +40,7 @@ class GGUFImageLLM(BaseModel):
         self._n_gpu_layers = n_gpu_layers
         self._n_ctx = n_ctx
         self._verbose = verbose
-        self.llama_model = None
+        self.llama_model: Llama|None = None
         self._llama_init_kwargs = kwargs
         self.error_queue = queue.Queue()
 
@@ -203,9 +203,7 @@ class GGUFImageLLM(BaseModel):
 
         return formatted_prompt.strip()
 
-    def _generate_in_thread(
-        self, messages: list, generation_options: dict, output_queue: queue.Queue
-    ):
+    def _generate_in_thread(self, messages: list, generation_options: dict, output_queue: queue.Queue):
         """
         Target function for the generation thread.
         Handles model generation and puts tokens into the output_queue.

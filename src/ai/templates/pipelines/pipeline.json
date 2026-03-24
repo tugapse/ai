@@ -1,0 +1,28 @@
+{
+  "name": "Standard Development Workflow",
+  "description": "A standard multi-agent coding loop.",
+  "entry_point": "PLANNER",
+  "max_iterations": 50,
+  "agents": {
+    "PLANNER": {
+      "prompt_file": "agents/planner.md",
+      "tools": ["read_dir", "smart_search"],
+      "allowed_targets": ["MASTER", "CRITIC"]
+    },
+    "CRITIC": {
+      "prompt_file": "agents/critic.md",
+      "tools": [],
+      "allowed_targets": ["PLANNER", "MASTER"]
+    },
+    "MASTER": {
+      "prompt_file": "agents/master.md",
+      "tools": ["smart_search", "read_dir"],
+      "allowed_targets": ["ENGINEER", "SECRETARY", "STOP"]
+    },
+    "ENGINEER": {
+      "prompt_file": "agents/engineer.md",
+      "tools": ["read_file", "write_file", "grep_file"],
+      "allowed_targets": ["MASTER"]
+    }
+  }
+}

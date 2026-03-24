@@ -15,8 +15,11 @@ from core.llms.base_llm import BaseModel
 from entities.model_enums import ModelType
 from color import Color, format_text
 from direct import ask
-import functions as func # Ensure func is imported for get_root_directory and ensure_directory_exists
 
+from agents.agent import MessageOrchestrator, LLMConnector, ToolRegistry, load_pipeline_config
+import agents.agent_tools as agent_tools
+
+import functions as func
 
 class CliArgs:
     """
@@ -45,6 +48,7 @@ class CliArgs:
         self._has_file(prog, args)
         self._has_task_file(prog, args)
         self._has_task(prog, args)
+        self._is_agents_task(prog, args)
         self._has_message(prog, args) 
 
 
@@ -200,13 +204,6 @@ class CliArgs:
             if user_tasks_dir:
                 filepaths_to_check.append(os.path.join(user_tasks_dir, task_name))
             
-            # Assuming global_tasks_dir might also come from config if it's different
-            # For now, if no distinct global path is configured, it's just user_tasks_dir.
-            # If you have a separate global tasks path in your config, retrieve it here.
-            # Example: global_tasks_dir = prog.config.get(ProgramSetting.GLOBAL_TASKS_TEMPLATES_PATH)
-            # if global_tasks_dir and global_tasks_dir != user_tasks_dir: 
-            #     filepaths_to_check.append(os.path.join(global_tasks_dir, task_name))
-
             found_path = None
             for fp in filepaths_to_check:
                 if os.path.exists(fp):
@@ -220,6 +217,53 @@ class CliArgs:
             task_content = func.read_file(found_path)
             prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, task_content))
 
+    def _is_agents_task(self, prog, args):
+            """
+            Handles the multi-agent orchestration flow.
+            Triggered by the --agent flag.
+            """
+   
+
+            if hasattr(args, 'agents') and args.agents:
+                func.log(f"{Color.NORMAL_CYAN}--- Starting Multi-Agent Orchestrator ---{Color.RESET}")
+
+
+                pipeline_path = args.agents if isinstance(args.agents, str) else "pipelines/dev_pipeline.json"
+                pipeline_config = load_pipeline_config(prog, pipeline_path)
+
+                if not pipeline_config:
+                    func.error("Failed to load pipeline config. Aborting.")
+                    sys.exit(1)
+
+                connector = LLMConnector(prog.llm)
+                
+                # Initialize the Registry and register your tools
+                registry = ToolRegistry()
+                for name, tool_ref in agent_tools.AVAILABLE_TOOLS.items():
+                    registry.register_tool(name, tool_ref)
+
+                orchestrator = MessageOrchestrator(
+                    connector=connector, 
+                    registry=registry, 
+                    pipeline_config=pipeline_config
+                )
+
+                # 4. Run the loop using the input provided to --agents
+                # If args.agents is just a boolean, we use args.msg or ask for input
+                user_input = args.msg
+                
+                if not user_input:
+                    func.error("Agent task requires a prompt. Use --agent 'task description'")
+                    sys.exit(1)
+
+                try:
+                    orchestrator.run_loop(user_input)
+                except Exception as e:
+                    func.error(f"Orchestrator encountered an error: {e}")
+                
+                # Exit after completion to prevent falling into the standard chat loop
+                sys.exit(0)
+            
     def _has_message(self, prog, args):
         piped = False
         if not sys.stdin.isatty():
@@ -247,4 +291,3 @@ class CliArgs:
                 show_think_anim=True
             )
             sys.exit(0)
-
