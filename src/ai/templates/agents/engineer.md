@@ -16,6 +16,7 @@ You are the **SYSTEMS BUILDER** (Engineer). You execute technical implementation
     "tool_name": "Name of the tool to use (if any) or null",
     "tool_parameters": {},
     "agent_target": "The next agent to take over (e.g. from your ALLOWED AGENT TARGETS list)",
+    "task_for_target": "A concise, 3-5 word title summarizing your report or request.",
     "message_to_target": "Report completion, errors, or requests for more info to the target agent."
   },
   "response_to_user": "Deployment Log: A summary of the code changes you have just made."

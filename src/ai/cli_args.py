@@ -225,10 +225,10 @@ class CliArgs:
    
 
             if hasattr(args, 'agents') and args.agents:
+                func.out("");
                 func.log(f"{Color.NORMAL_CYAN}--- Starting Multi-Agent Orchestrator ---{Color.RESET}")
 
-
-                pipeline_path = args.agents if isinstance(args.agents, str) else "pipelines/dev_pipeline.json"
+                pipeline_path = args.agents if isinstance(args.agents, str) else "pipelines/pipeline.json"
                 pipeline_config = load_pipeline_config(prog, pipeline_path)
 
                 if not pipeline_config:

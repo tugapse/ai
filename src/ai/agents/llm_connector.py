@@ -30,15 +30,16 @@ class LLMConnector:
             tool_descriptions = agent_config.get("tool_descriptions", "")
             allowed_targets = agent_config.get("allowed_targets", ["STOP"])
             
-            injection = f"\n\n--- DYNAMIC CONSTRAINTS ---\n"
+            injection_lines = ["\n\n--- DYNAMIC CONSTRAINTS ---"]
             if allowed_tools and tool_descriptions:
-                injection += f"AVAILABLE TOOLS:\n{tool_descriptions}\n"
+                injection_lines.append(f"AVAILABLE TOOLS:\n{tool_descriptions}")
             else:
-                injection += "AVAILABLE TOOLS: None. You cannot use tools.\n"
-            injection += f"ALLOWED AGENT TARGETS: {', '.join(allowed_targets)}\n"
-            injection += "If you change agents, provide a 'message_to_target' in your 'action' block to instruct them.\n"
-            injection += "---------------------------\n"
-            system_content += injection
+                injection_lines.append("AVAILABLE TOOLS: None. You cannot use tools.")
+            
+            injection_lines.append(f"ALLOWED AGENT TARGETS: {', '.join(allowed_targets)}")
+            injection_lines.append("If you change agents, provide a 'message_to_target' in your 'action' block to instruct them.")
+            injection_lines.append("---------------------------")
+            system_content += "\n".join(injection_lines)
 
         messages = [
             BaseModel.create_message(ChatRoles.SYSTEM, system_content),
@@ -46,8 +47,8 @@ class LLMConnector:
         ]
 
         output_buffer = io.StringIO()
-        agent_name = os.path.basename(system_prompt_path).upper().replace(".TXT", "")
-        func.out(f"\n{Color.BLUE}[*] Active Agent: {agent_name}{Color.RESET}", end="")
+        agent_name = os.path.splitext(os.path.basename(system_prompt_path))[0].upper()
+        func.log(f"[*] Active Agent: {agent_name}")
 
         with redirect_stdout(output_buffer):
             ask(self.llm, messages, show_think_anim=True, print_mode="token")
@@ -62,18 +63,13 @@ class LLMConnector:
             if not match: 
                 raise ValueError("No JSON object found in response.")
             
-            content = match.group(1)
-            content = content.replace('"""', '"')
+            content = match.group(1).replace('"""', '"')
 
             def fix_newlines(m):
-                start = m.group(1)
-                body = m.group(2).replace('\n', '\\n').replace('\r', '\\r')
-                end = m.group(3)
-                return start + body + end
+                return m.group(1) + m.group(2).replace('\n', '\\n').replace('\r', '\\r') + m.group(3)
 
             content = re.sub(r'(\":\s*\")(.*?)(\"(?:,|\s*\}))', fix_newlines, content, flags=re.DOTALL)
-            parsed = json.loads(content, strict=False)
-            return parsed
+            return json.loads(content, strict=False)
         except Exception as e:
             func.error(f"\n{Color.RED}[CRITICAL PARSING ERROR]:{Color.RESET} {e}")
             return {"status": "FAILED", "error": f"Invalid JSON: {str(e)}"}

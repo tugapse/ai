@@ -1,11 +1,11 @@
-from typing import Dict, Any
+from typing import Dict, Any, Callable
 import functions as func
 
 class ToolRegistry:
     def __init__(self):
-        self._tools = {}
+        self._tools: Dict[str, Callable] = {}
 
-    def register_tool(self, name: str, func_ref: callable):
+    def register_tool(self, name: str, func_ref: Callable):
         self._tools[name] = func_ref
         
     def get_tool_info(self, name: str) -> str:
@@ -18,8 +18,7 @@ class ToolRegistry:
 
     def execute_tool(self, name: str, params: Dict[str, Any]) -> Dict[str, Any]:
         if name not in self._tools:
-            error_msg = f"Tool '{name}' does not exist."
-            return {"status": "FAILED", "error": error_msg}
+            return {"status": "FAILED", "error": f"Tool '{name}' does not exist."}
     
         try:
             p = params if isinstance(params, dict) else {}

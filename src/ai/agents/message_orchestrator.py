@@ -1,12 +1,12 @@
 import json
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import functions as func
 from color import Color
 
 from .tool_registry import ToolRegistry
 from .llm_connector import LLMConnector
 
-MAX_ITTERATIONS = 100
+MAX_ITERATIONS = 100
 
 class MessageOrchestrator:
     def __init__(self, connector: LLMConnector, registry: ToolRegistry, pipeline_config: Dict[str, Any]):
@@ -28,7 +28,8 @@ class MessageOrchestrator:
         self.agent_memory = {
             agent_name: {
                 "notes": "System initialized.",
-                "messages_received": []
+                "messages_received": [],
+                "current_task": "Waiting for tasks..."
             }
             for agent_name in self.agents.keys()
         }
@@ -36,16 +37,30 @@ class MessageOrchestrator:
     def run_loop(self, user_prompt: str):
         func.log("Starting Pipeline Loop")
         current_agent = self.pipeline_config.get("entry_point", "MASTER")
-        max_iterations = self.pipeline_config.get("max_iterations", MAX_ITTERATIONS)
+        max_iterations = self.pipeline_config.get("max_iterations", MAX_ITERATIONS)
         
         self.agent_memory[current_agent]["messages_received"].append({
             "from": "USER",
-            "message": user_prompt
+            "message": user_prompt,
+            "task": user_prompt
         })
         
         for i in range(max_iterations):
-            func.log(f"{Color.BLUE}Execution loop iteration {i+1}/{max_iterations}. Agent: {current_agent}{Color.RESET}")
+            func.log(f"Execution loop iteration {i+1}/{max_iterations}. Agent: {current_agent}")
             
+            msgs = self.agent_memory[current_agent].get("messages_received", [])
+            for msg in reversed(msgs):
+                if msg.get("from") != "SYSTEM":
+                    self.agent_memory[current_agent]["current_task"] = msg.get("task") or msg.get("message", "")
+                    break
+            
+            active_task = self.agent_memory[current_agent].get("current_task", "")
+            clean_task = " ".join(active_task.split())
+            display_task = clean_task[:60] + ("..." if len(clean_task) > 60 else "")
+            if not display_task: display_task = "an ongoing task..."
+            
+            func.out(f"\r\033[K{Color.BLUE}[ * ] {current_agent} is working on: {display_task}{Color.RESET}", end="", flush=True)
+
             # Use a copy so we don't permanently modify the base config
             agent_config = self.agents.get(current_agent, {}).copy()
             if not agent_config:
@@ -65,8 +80,14 @@ class MessageOrchestrator:
             )
             
             if response.get("status") == "FAILED":
-                func.error(f"Agent {current_agent} failed.")
-                break
+                func.out("\r\033[K", end="", flush=True)
+                error_msg = response.get("error", "Unknown error")
+                func.error(f"Agent {current_agent} failed: {error_msg}. Retrying...")
+                self.agent_memory[current_agent]["messages_received"].append({
+                    "from": "SYSTEM",
+                    "message": f"Your last output was invalid JSON. Error: {error_msg}. Please strictly fix your formatting, ensure all code quotes and newlines are properly escaped, and try again."
+                })
+                continue
 
             next_agent = self._process_agent_response(response, current_agent, agent_config)
             if next_agent is None or next_agent == "STOP": 
@@ -77,7 +98,11 @@ class MessageOrchestrator:
 
     def _prepare_payload(self, user_prompt: str, current_agent: str) -> Dict[str, Any]:
         current_step = next((s for s in self.context["plan"] if s["step"] == self.context["current_step_index"]), {})
-        known_files = [res["parameters"].get("path") for res in self.context["tool_results"] if res["tool"] == "write_file" and res["result"].get("status") == "SUCCESS"]
+        known_files = [
+            res["parameters"].get("path") 
+            for res in self.context["tool_results"] 
+            if res["tool"] == "write_file" and res["result"].get("status") == "SUCCESS"
+        ]
 
         memory = self.agent_memory.get(current_agent, {})
 
@@ -99,34 +124,48 @@ class MessageOrchestrator:
         return payload
 
     def _process_agent_response(self, response: Dict[str, Any], current_agent: str, agent_config: Dict[str, Any]) -> str:
-        if thought := response.get("thought"):
-            func.out(f"\n{Color.BOLD}[{current_agent} THOUGHT]:{Color.RESET} {thought}")
-        
-        if msg_to_user := response.get("response_to_user"):
-            func.out(f"{Color.PURPLE}Message: {msg_to_user}{Color.RESET}")
-        
-        if notes := response.get("notes"):
-            func.out(f"{Color.NORMAL_CYAN}Notes saved.{Color.RESET}")
-            self.agent_memory[current_agent]["notes"] = notes
-            
-        # Clear read messages
-        self.agent_memory[current_agent]["messages_received"] = []
-
         action = response.get("action", {})
         tool_name = action.get("tool_name")
+        params = action.get("tool_parameters", {})
+        agent_target = action.get("agent_target")
         
-        current_fp = f"{tool_name}-{json.dumps(action.get('tool_parameters'))}"
+        self._handle_agent_outputs(response, current_agent, tool_name)
+
+        self._update_stagnation_tracking(tool_name, params)
+        
+        target_raw = "" if not agent_target or str(agent_target).strip().lower() == "null" else str(agent_target).strip().upper()
+        is_tool_empty = not tool_name or str(tool_name).lower() == "null"
+        
+        target = self._validate_target(target_raw, is_tool_empty, current_agent, agent_config)
+        if target == current_agent and target_raw != current_agent:
+            return current_agent
+
+        if target == "STOP":
+            return "STOP"
+
+        if not is_tool_empty:
+            if not self._handle_tool_execution(tool_name, params, current_agent, agent_config):
+                return current_agent
+                
+            if not target or target == "NULL":
+                return current_agent
+                
+        self._handle_inter_agent_messaging(action, target, current_agent)
+
+        return target if target and target != "NULL" else current_agent
+
+    def _update_stagnation_tracking(self, tool_name: Optional[str], params: Dict[str, Any]) -> None:
+        current_fp = f"{tool_name}-{json.dumps(params)}"
         if current_fp == self.context["last_action_fp"]:
             self.context["repeat_count"] += 1
         else:
             self.context["repeat_count"] = 0
         self.context["last_action_fp"] = current_fp
-        
-        agent_target = action.get("agent_target")
-        if not agent_target or str(agent_target).strip().lower() == "null":
-            target_raw = ""
-        else:
-            target_raw = str(agent_target).strip().upper()
+
+    def _validate_target(self, target_raw: str, is_tool_empty: bool, current_agent: str, agent_config: Dict[str, Any]) -> str:
+        # AUTO-CORRECT: If the agent targets itself with no tool, it implies it wants to yield to the user.
+        if target_raw == current_agent and is_tool_empty:
+            target_raw = "STOP"
             
         allowed_targets = agent_config.get("allowed_targets", ["STOP"])
         
@@ -138,11 +177,7 @@ class MessageOrchestrator:
             })
             return current_agent
             
-        target = target_raw
-        
-        is_tool_empty = not tool_name or str(tool_name).lower() == "null"
-
-        if is_tool_empty and not target:
+        if is_tool_empty and not target_raw:
             func.error(f"Agent {current_agent} did not use a tool or specify a target.")
             self.agent_memory[current_agent]["messages_received"].append({
                 "from": "SYSTEM",
@@ -150,52 +185,73 @@ class MessageOrchestrator:
             })
             return current_agent
 
-        if target == "STOP" and is_tool_empty:
-            msg = response.get("response_to_user", "")
-            if not any(x in msg for x in ["/", ".py", ":", "["]):
-                func.error("REJECTION: Agent tried to stop without proof.")
-                self.agent_memory[current_agent]["messages_received"].append({
-                    "from": "SYSTEM",
-                    "message": "REJECTION: Provide File:Line proof in 'response_to_user' before stopping."
-                })
-                return current_agent
-            return "STOP"
+        return target_raw
 
-        if not is_tool_empty:
-            if tool_name not in agent_config.get("tools", []):
-                func.error(f"Agent {current_agent} tried to use unauthorized tool: {tool_name}")
-                self.agent_memory[current_agent]["messages_received"].append({
-                    "from": "SYSTEM",
-                    "message": f"Unauthorized tool '{tool_name}'. Allowed tools: {agent_config.get('tools', [])}"
-                })
-                return current_agent
-                
-            params = action.get("tool_parameters", {})
-            func.out(f"{Color.BLUE}[TOOL CALL]: {tool_name}{Color.RESET}")
-            result = self.registry.execute_tool(tool_name, params)
+    def _handle_agent_outputs(self, response: Dict[str, Any], current_agent: str, tool_name: Optional[str]) -> None:
+        if thought := response.get("thought"):
+            func.log(f"[{current_agent} THOUGHT]: {thought}")
+        
+        if msg_to_user := response.get("response_to_user"):
+            tool_str = f" {Color.BRIGHT_BLACK}[Tool: {tool_name}]{Color.RESET}" if tool_name and str(tool_name).lower() != "null" else ""
+            func.out(f"\r\033[K{Color.GREEN}[{current_agent}]{Color.RESET}{tool_str} \n{msg_to_user}\n")
+        else:
+            func.out("\r\033[K", end="", flush=True)
             
-            self.context["tool_results"].append({
-                "step": self.context["current_step_index"],
-                "agent": current_agent,
-                "tool": tool_name, 
-                "parameters": params,
-                "result": result.get("output", result) 
+        if notes := response.get("notes"):
+            func.log("Notes saved.")
+            self.agent_memory[current_agent]["notes"] = notes
+            
+        # Clear read messages
+        self.agent_memory[current_agent]["messages_received"] = []
+
+    def _handle_tool_execution(self, tool_name: str, params: Dict[str, Any], current_agent: str, agent_config: Dict[str, Any]) -> bool:
+        if tool_name not in agent_config.get("tools", []):
+            func.error(f"Agent {current_agent} tried to use unauthorized tool: {tool_name}")
+            self.agent_memory[current_agent]["messages_received"].append({
+                "from": "SYSTEM",
+                "message": f"Unauthorized tool '{tool_name}'. Allowed tools: {agent_config.get('tools', [])}"
             })
+            return False
             
-            if result.get("status") == "SUCCESS":
-                self.context["current_step_index"] += 1
-                func.log(f"Step completed. Current Index: {self.context['current_step_index']}")
-                
-            if not target or target == "NULL":
-                return current_agent
-                
+        # --- HUMAN IN THE LOOP (HITL) SENSITIVE TOOL GUARD ---
+        if tool_name in ["write_file", "delete_item"]:
+            target_path = params.get("path", "unknown path")
+            func.out(f"\n{Color.BG_YELLOW}{Color.NORMAL_BLACK} [ ACTION REQUIRED ] {Color.RESET} {Color.YELLOW}Agent '{current_agent}' wants to execute '{tool_name}' on '{target_path}'.{Color.RESET}")
+            user_auth = input(f"Allow this action? (y/n): ").strip().lower()
+            
+            if user_auth not in ['y', 'yes']:
+                func.out(f"{Color.RED}Action denied by user.{Color.RESET}")
+                self.agent_memory[current_agent]["messages_received"].append({
+                    "from": "USER",
+                    "message": f"I denied your request to execute '{tool_name}' on '{target_path}'. Please explain why you need to do this, or ask me for clarification."
+                })
+                return False
+
+        func.log(f"[TOOL CALL]: {tool_name}")
+        result = self.registry.execute_tool(tool_name, params)
+        
+        self.context["tool_results"].append({
+            "step": self.context["current_step_index"],
+            "agent": current_agent,
+            "tool": tool_name, 
+            "parameters": params,
+            "result": result.get("output", result) 
+        })
+        
+        if result.get("status") == "SUCCESS":
+            self.context["current_step_index"] += 1
+            func.log(f"Step completed. Current Index: {self.context['current_step_index']}")
+
+        return True
+
+    def _handle_inter_agent_messaging(self, action: Dict[str, Any], target: str, current_agent: str) -> None:
         message_to_target = action.get("message_to_target")
+        task_for_target = action.get("task_for_target", "")
         if message_to_target and target != "STOP" and target != current_agent:
             if target in self.agent_memory:
                 self.agent_memory[target]["messages_received"].append({
                     "from": current_agent,
-                    "message": message_to_target
+                    "message": message_to_target,
+                    "task": task_for_target
                 })
-                func.out(f"{Color.BRIGHT_CYAN}[MESSAGE] {current_agent} -> {target}: {message_to_target}{Color.RESET}")
-
-        return target if target and target != "NULL" else current_agent
+                func.log(f"[MESSAGE] {current_agent} -> {target}: {message_to_target}")
