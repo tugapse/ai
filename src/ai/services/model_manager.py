@@ -8,9 +8,8 @@ from typing import Optional
 import functions as func 
 
 from entities.model_enums import ModelType
-from color import Color, format_text 
 
-from core.llms import ModelParams, BaseModel, OllamaModel, HuggingFaceModel, T5Model, GGUFImageLLM
+from core.llms import ModelParams, BaseModel
 
 class ModelManager:
     """
@@ -103,13 +102,7 @@ class ModelManager:
             return None
 
         func.log(f"Selected model: {model_name} (Type: {model_type.value})") 
-
-        max_new_tokens = model_properties.get("max_new_tokens")
-        temperature = model_properties.get("temperature")
-        top_p = model_properties.get("top_p")
-        top_k = model_properties.get("top_k")
         quantization_bits = model_properties.get("quantization_bits", 0)
-
         model_params = ModelParams(**model_properties ).to_dict()
 
         other_llm_kwargs = {k: v for k, v in model_properties.items()
@@ -121,6 +114,7 @@ class ModelManager:
         llm_instance: Optional[BaseModel] = None
         try:
             if model_type == ModelType.CAUSAL_LM:
+                from core.llms import HuggingFaceModel
                 llm_instance = HuggingFaceModel(
                     model_name=model_name,
                     system_prompt=system_prompt,
@@ -130,6 +124,7 @@ class ModelManager:
                 )
                 func.log(f"Model '{model_name}' loaded as a Causal Language Model (HuggingFace).") 
             elif model_type == ModelType.SEQ2SEQ_LM:
+                from core.llms import T5Model
                 llm_instance = T5Model(
                     model_name=model_name,
                     system_prompt=system_prompt,
@@ -139,6 +134,7 @@ class ModelManager:
                 )
                 func.log(f"Model '{model_name}' loaded as a Seq2Seq Language Model (T5-type).") 
             elif model_type == ModelType.OLLAMA:
+                from core.llms import OllamaModel
                 if not ollama_host:
                     func.log("Ollama host not provided. Using default 'http://localhost:11434'.", level="WARNING") 
 
@@ -151,6 +147,7 @@ class ModelManager:
                 )
                 func.log(f"Model '{model_name}' loaded as an Ollama Model.") 
             elif model_type == ModelType.GGUF:
+                from core.llms import GGUFImageLLM
                 import ctypes
                 from llama_cpp import llama_log_set
                 def my_log_callback(level, message, user_data):
@@ -181,6 +178,24 @@ class ModelManager:
                     **other_llm_kwargs
                 )
                 func.log(f"Model '{model_name}' loaded as a GGUF Image LLM.") 
+            elif model_type == ModelType.GEMINI:
+                from core.llms.gemini import GeminiAPIModel
+                llm_instance = GeminiAPIModel(
+                    model_name=model_name,
+                    system_prompt=system_prompt,
+                    model_params=model_params,
+                    **other_llm_kwargs
+                )
+                func.log(f"Model '{model_name}' loaded as a Gemini Model.")
+            elif model_type == ModelType.OPEN_AI:
+                from core.llms.open_ai import OpenAIAPIModel
+                llm_instance = OpenAIAPIModel(
+                    model_name=model_name,
+                    system_prompt=system_prompt,
+                    model_params=model_params,
+                    **other_llm_kwargs
+                )
+                func.log(f"Model '{model_name}' loaded as an OpenAI Model.")
             else:
                 func.log(f"Unhandled model_type '{model_type.value}'.", level="ERROR")
                 return None
@@ -189,4 +204,3 @@ class ModelManager:
             return None
 
         return llm_instance
-

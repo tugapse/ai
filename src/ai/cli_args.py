@@ -48,7 +48,6 @@ class CliArgs:
         self._has_file(prog, args)
         self._has_task_file(prog, args)
         self._has_task(prog, args)
-        self._is_agents_task(prog, args)
         self._has_message(prog, args) 
 
 
@@ -216,18 +215,37 @@ class CliArgs:
 
             task_content = func.read_file(found_path)
             prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, task_content))
+            
+    def _has_message(self, prog, args):
+        piped = False
+        has_agent = args.agents is not None
+        user_input = args.task or args.msg
 
-    def _is_agents_task(self, prog, args):
-            """
-            Handles the multi-agent orchestration flow.
-            Triggered by the --agent flag.
-            """
-   
 
-            if hasattr(args, 'agents') and args.agents:
-                func.out("");
-                func.log(f"{Color.NORMAL_CYAN}--- Starting Multi-Agent Orchestrator ---{Color.RESET}")
+        if not sys.stdin.isatty():
+            piped = True
+            user_input=sys.stdin.read().strip()
+            prog.chat._add_message( 
+                BaseModel.create_message(ChatRoles.USER,user_input )
+            )
 
+        if prog.chat.images and len(prog.chat.images):
+            message = prog.llm.load_images(prog.chat.images)
+            prog.chat.messages.append(message)
+
+        if args.msg:
+            prog.chat._add_message( 
+                BaseModel.create_message(ChatRoles.USER, args.msg)
+            )
+
+        if args.task_file:
+            user_input = func.read_file(args.task_file)
+        
+        if piped or (user_input is not None and user_input.strip() != "" ):
+            
+            func.log("INFO: Detected message/task input. Starting direct ask.")
+            if has_agent:
+                
                 pipeline_path = args.agents if isinstance(args.agents, str) else "pipelines/pipeline.json"
                 pipeline_config = load_pipeline_config(prog, pipeline_path)
 
@@ -247,10 +265,6 @@ class CliArgs:
                     registry=registry, 
                     pipeline_config=pipeline_config
                 )
-
-                # 4. Run the loop using the input provided to --agents
-                # If args.agents is just a boolean, we use args.msg or ask for input
-                user_input = args.msg
                 
                 if not user_input:
                     func.error("Agent task requires a prompt. Use --agent 'task description'")
@@ -263,31 +277,12 @@ class CliArgs:
                 
                 # Exit after completion to prevent falling into the standard chat loop
                 sys.exit(0)
-            
-    def _has_message(self, prog, args):
-        piped = False
-        if not sys.stdin.isatty():
-            piped = True
-            prog.chat._add_message( 
-                BaseModel.create_message(ChatRoles.USER, sys.stdin.read().strip())
-            )
-
-        if prog.chat.images and len(prog.chat.images):
-            message = prog.llm.load_images(prog.chat.images)
-            prog.chat.messages.append(message)
-
-        if args.msg:
-            prog.chat._add_message( 
-                BaseModel.create_message(ChatRoles.USER, args.msg)
-            )
-
-        if piped or args.msg or args.task or args.task_file:
-            func.log("INFO: Detected message/task input. Starting direct ask.")
-            ask(
-                prog.llm,
-                prog.chat.messages, 
-                write_to_file=prog.write_to_file,
-                output_filename=prog.output_filename,
-                show_think_anim=True
-            )
+            else:
+                ask(
+                    prog.llm,
+                    prog.chat.messages, 
+                    write_to_file=prog.write_to_file,
+                    output_filename=prog.output_filename,
+                    show_think_anim=True
+                )
             sys.exit(0)
