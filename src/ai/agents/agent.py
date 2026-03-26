@@ -41,3 +41,5 @@ def load_pipeline_config(prog, pipeline_file: str) -> dict:
     except Exception as e:
         func.error(f"Failed to parse pipeline config: {e}")
         return {}
+    
+    
