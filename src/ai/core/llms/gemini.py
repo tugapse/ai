@@ -2,6 +2,8 @@ import os
 import threading
 import io
 import gc
+import time
+import re
 from .base_llm import BaseModel, ModelParams 
 import functions as func
 
@@ -35,25 +37,38 @@ class GeminiAPIModel(BaseModel):
         self.client = self.genai_module.Client(api_key=self.api_key)
         
         # Configuration mapping
-        self.config = self.genai_types.GenerateContentConfig(
-            system_instruction=self.system_prompt,
-            temperature=kargs.get('temperature', 0.5),
-            max_output_tokens=kargs.get('max_new_tokens', 2048),
-            top_p=kargs.get('top_p', 0.95),
-            top_k=kargs.get('top_k', 50),
-            presence_penalty=kargs.get('presence_penalty', 1.0),
-            frequency_penalty=kargs.get('frequency_penalty', 1.0),
-        )
+        model_params = kargs.get('model_params', {}) or {}
+        
+        config_kwargs = {}
+        for param_name, api_name in [
+            ('temperature', 'temperature'),
+            ('max_new_tokens', 'max_output_tokens'),
+            ('top_p', 'top_p'),
+            ('top_k', 'top_k'),
+            ('presence_penalty', 'presence_penalty'),
+            ('frequency_penalty', 'frequency_penalty')
+        ]:
+            val = model_params.get(param_name, kargs.get(param_name))
+            if val is not None:
+                config_kwargs[api_name] = val
+
+        if self.system_prompt:
+            config_kwargs["system_instruction"] = self.system_prompt
+            
+        self.config = self.genai_types.GenerateContentConfig(**config_kwargs)
 
     def _convert_messages_to_api(self, messages: list):
         """Converts internal messages to Gemini 'user'/'model' format."""
         api_history = []
+        if not messages:
+            return api_history
         for msg in messages:
             if msg['role'] == 'system': continue
             role = "user" if msg['role'] == "user" else "model"
             api_history.append({"role": role, "parts": [{"text": msg['content']}]})
         return api_history
 
+   
     def load_images(self, images: list):
         """Lazy-loads PIL to process images into Gemini Parts."""
         try:
@@ -78,7 +93,7 @@ class GeminiAPIModel(BaseModel):
                 func.error(f"Failed to process image for Gemini: {e}")
         return image_parts
 
-    def chat(self, messages: list, images: list = None, stream: bool = True, options: object = None):
+    def chat(self, messages: list, images: list = [], stream: bool = True, options: object = None):
         """Main chat entry point compatible with BaseModel threading."""
         self.stop_generation_event.clear()
         
@@ -98,35 +113,92 @@ class GeminiAPIModel(BaseModel):
                 )
                 self._generation_thread.start()
             else:
-                response = self.client.models.generate_content(
-                    model=self.model_name,
-                    contents=current_content,
-                    config=self.config
-                )
-                return response.text
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        response = self.client.models.generate_content(
+                            model=self.model_name,
+                            contents=current_content,
+                            config=self.config
+                        )
+                        return response.text
+                    except Exception as e:
+                        error_msg = str(e)
+                        if "429" in error_msg and "RESOURCE_EXHAUSTED" in error_msg and attempt < max_retries - 1:
+                            match = re.search(r"retry in ([\d\.]+)s", error_msg)
+                            wait_time = float(match.group(1)) + 2.0 if match else 15.0
+                            
+                            msg = f"Gemini API rate limit hit. Waiting {wait_time:.1f}s before retry ({attempt+1}/{max_retries})..."
+                            func.out(f"\n[ * ] {msg}")
+                            func.log(msg, level="WARNING")
+                            
+                            for _ in range(int(wait_time)):
+                                if self.stop_generation_event.is_set(): break
+                                time.sleep(1)
+                            if not self.stop_generation_event.is_set(): time.sleep(wait_time - int(wait_time))
+                            continue
+                            
+                        if "unexpected model name format" in error_msg:
+                            err_text = f"Gemini API Error: Invalid model name '{self.model_name}'. Use a specific model like 'gemini-2.0-flash'."
+                            func.error(err_text)
+                            return err_text
+                        else:
+                            func.error(f"Gemini API Error: {e}")
+                            return f"Gemini API Error: {e}"
         except Exception as e:
-            func.error(f"Gemini API Error: {e}")
-            self.trigger(BaseModel.STREAMING_FINISHED_EVENT)
+            func.error(f"Gemini Setup Error: {e}")
+            return f"Gemini Setup Error: {e}"
 
     def _run_streaming_chat(self, current_content, history):
         """Background thread for token streaming."""
+        full_contents = history + [{"role": "user", "parts": [{"text": c} if isinstance(c, str) else c for c in current_content]}]
+        max_retries = 3
+        
         try:
-            full_contents = history + [{"role": "user", "parts": [{"text": c} if isinstance(c, str) else c for c in current_content]}]
-            
-            response_stream = self.client.models.generate_content_stream(
-                model=self.model_name,
-                contents=full_contents,
-                config=self.config
-            )
-
-            for chunk in response_stream:
-                if self.stop_generation_event.is_set():
-                    func.log("Generation stopped by user.")
-                    break
-                if chunk.text:
-                    self.trigger("token", chunk.text)
-        except Exception as e:
-            func.error(f"Gemini Stream Error: {e}")
+            for attempt in range(max_retries):
+                try:
+                    response_stream = self.client.models.generate_content_stream(
+                        model=self.model_name,
+                        contents=full_contents,
+                        config=self.config
+                    )
+        
+                    for chunk in response_stream:
+                        if self.stop_generation_event.is_set():
+                            func.log("Generation stopped by user.")
+                            return
+                        if chunk.text:
+                            self.trigger("token", chunk.text)
+                    break  # Success, exit retry loop
+        
+                except Exception as e:
+                    error_msg = str(e)
+                    if "429" in error_msg and "RESOURCE_EXHAUSTED" in error_msg and attempt < max_retries - 1:
+                        match = re.search(r"retry in ([\d\.]+)s", error_msg)
+                        wait_time = float(match.group(1)) + 2.0 if match else 15.0
+                        
+                        msg = f"Gemini API rate limit hit. Waiting {wait_time:.1f}s before retry ({attempt+1}/{max_retries})..."
+                        func.out(f"\n[ * ] {msg}")
+                        func.log(msg, level="WARNING")
+                        self.trigger("token", f"\n[Rate limit reached, waiting {wait_time:.1f}s to retry...]\n")
+                        
+                        for _ in range(int(wait_time)):
+                            if self.stop_generation_event.is_set(): break
+                            time.sleep(1)
+                        if not self.stop_generation_event.is_set(): time.sleep(wait_time - int(wait_time))
+                        
+                        if self.stop_generation_event.is_set():
+                            break
+                        continue  # Retry loop
+        
+                    if "unexpected model name format" in error_msg:
+                        err_text = f"Gemini Stream Error: Invalid model name '{self.model_name}'. Use a specific model like 'gemini-2.0-flash'."
+                        func.error(err_text)
+                        self.trigger("token", err_text)
+                    else:
+                        func.error(f"Gemini Stream Error: {e}")
+                        self.trigger("token", f"Gemini API Error: {e}")
+                    break  # Break on other non-retriable errors
         finally:
             self.trigger(BaseModel.STREAMING_FINISHED_EVENT)
 

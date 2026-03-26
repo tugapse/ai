@@ -14,6 +14,18 @@ import functions
 from color import Color
 from typing import List, Dict, Any
 
+# TEMPORARY HACK
+import warnings
+
+# This silences only the specific deprecation warning from huggingface_hub
+warnings.filterwarnings(
+    "ignore", 
+    message=".*local_dir_use_symlinks.*", 
+    category=UserWarning, 
+    module="huggingface_hub"
+)
+
+
 class GGUFImageLLM(BaseModel):
     """
     A child class that extends BaseModel to use a GGUF model for text generation.
