@@ -35,7 +35,8 @@ class MessageOrchestrator:
                 "notes": "System initialized.",
                 "messages_received": [],
                 "history": [],
-                "current_task": "Waiting for tasks..."
+                "current_task": "Waiting for tasks...",
+                "manifest":{}
             }
             for agent_name in self.agents.keys()
         }
@@ -114,13 +115,13 @@ class MessageOrchestrator:
         Constructs the data packet for the LLM, including history, notes, 
         tool outcomes, and stagnation warnings.
         """
-        current_step = next((s for s in self.context["plan"] if s["step"] == self.context["current_step_index"]), {})
         known_fileS_locations = [
             res["parameters"].get("path") 
             for res in self.context["tool_results"] 
             if res["tool"] == "write_file" and res["result"].get("status") == "SUCCESS"
         ]
 
+        manifest = self.agent_memory.get(current_agent, {})
         memory = self.agent_memory.get(current_agent, {})
         agent_config = self.agents.get(current_agent, {})
         is_management = agent_config.get("role") == MANAGER_AGENT_ROLE
@@ -155,6 +156,10 @@ class MessageOrchestrator:
         tool_name = action.get("tool_name")
         params = action.get("tool_parameters", {})
         agent_target = str(action.get("agent_target", "")).strip().upper()
+        
+        func.log(f"Agent manifest Old: {Color.YELLOW}{response.get('manifest', {})}{Color.RESET}")
+        self.agent_memory[current_agent]["manifest"] = response.get("manifest", {})
+        func.log(f"Agent manifest {Color.YELLOW}{response.get('manifest', {})}{Color.RESET}")
         
         self._handle_agent_outputs(response, current_agent, tool_name)
         self._update_stagnation_tracking(tool_name, params)

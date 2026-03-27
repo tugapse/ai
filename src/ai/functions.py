@@ -214,7 +214,7 @@ def log(text, start_line="[ * ]", level="INFO", **kargs):  # Added level for con
     formatted_text = get_formatted_text(text,start_line=start_line, level=level)
     
     if ACTIVE_LOG_FILENAME: 
-        write_to_file(ACTIVE_LOG_FILENAME, f"{start_line} {text}\n", FILE_MODE_APPEND,True)
+        write_to_file(ACTIVE_LOG_FILENAME, f"{formatted_text}\n", FILE_MODE_APPEND,True)
     if SESSION_LOG_FILENAME:
         write_to_file(SESSION_LOG_FILENAME, f"{start_line} {text}\n", FILE_MODE_APPEND,True)
 
@@ -229,7 +229,7 @@ def debug(text, start_line="[ # ]",  level="DEBUG", **kargs):
     formatted_text = get_formatted_text(text, start_line=start_line, level=level)
     if ACTIVE_LOG_FILENAME:
         write_to_file(
-            ACTIVE_LOG_FILENAME.replace("log_", "debug_"), f"{start_line} {text}\n", FILE_MODE_APPEND,True
+            ACTIVE_LOG_FILENAME.replace("log_", "debug_"), f"{formatted_text}\n", FILE_MODE_APPEND,True
         )
     if SESSION_LOG_FILENAME:
         write_to_file(

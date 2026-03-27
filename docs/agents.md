@@ -1,66 +1,127 @@
-# Agent Execution Framework (Runtime & Logic)
+# Agent System Documentation
 
-This document outlines the architecture of the AI Agent system, focusing on how reasoning is translated into system-level actions through our specialized Toolset.
+This document provides an overview of the agent system, how to use it in your code, and how to interact with it from the command line.
 
----
+## How the Agent System Works
 
-## 🤖 The Interaction Loop (Reasoning & Feedback)
+The agent system is designed as a pipeline of autonomous agents orchestrated by a central `MessageOrchestrator`. The behavior and structure of the pipeline are defined in a JSON configuration file.
 
-The system operates on a continuous feedback loop known as **ReAct** (Reason + Act). This ensures that the agent doesn't just "guess" but actually observes the results of its actions.
+### 1. Pipeline Configuration
 
-### 1. State Discovery (Observation)
-The loop always begins with the agent orienting itself within the environment.
-* **Action**: The agent typically executes `get_root` and `read_dir`.
-* **Goal**: To map the file structure and prevent "hallucinations" regarding file paths or project hierarchy.
+The core of the system is a JSON pipeline configuration file (e.g., `pipelines/pipeline.json`). This file defines:
 
-### 2. The Step-by-Step Cycle
-1.  **Thought**: The LLM generates internal reasoning (often wrapped in `<think>` tags). It analyzes the task and decides which tool is required.
-2.  **Action**: The orchestrator extracts the structured tool call (JSON) and executes the corresponding Linux/Python function.
-3.  **Observation**: The output of the tool (e.g., lines found by `grep` or file content) is fed back into the agent’s prompt as a "System" or "Tool" message.
-4.  **Evaluation**: The agent evaluates if the goal was met. If the tool returned a `FAILED` status, the agent adjusts its strategy and tries again.
+- **Agents:** A set of agents, each with a specific role, a system prompt (defining its personality and capabilities), and a list of tools it can use.
+- **Pipeline Flow:** The entry point for the pipeline (which agent starts first) and the maximum number of iterations the orchestrator should run.
+- **Transitions:** Agents can transition to other agents, creating complex workflows.
 
----
+### 2. Message Orchestrator
 
-## 🛠️ Specialized Toolset (Linux-Native API)
+The `MessageOrchestrator` is the brain of the agent system. It is responsible for:
 
-Our tools are designed to be "LLM-friendly," providing structured outputs that are easy for models to parse and act upon.
+- **Initialization:** Reading the pipeline configuration and setting up the agents.
+- **State Management:** Maintaining the global state of the task, including the plan, tool results, and conversation history.
+- **Agent Execution:** Running the main loop that activates agents in sequence.
+- **Communication:** Facilitating message passing between agents.
 
-### Core Capabilities:
+### 3. The Agent Interaction Loop
 
-| Tool | Purpose | Key Feature |
-| :--- | :--- | :--- |
-| `read_dir` | Explores the filesystem. | Returns distinct lists of files and folders. |
-| `read_file` | Retrieves code/text content. | **1MB Safety Limit** to prevent context window overflow. |
-| `write_file` | Modifies or creates files. | Uses `os.fsync` for **Atomic Persistence** (data is physically synced). |
-| `grep_file` | High-speed pattern matching. | Uses **Native Linux Grep** with line numbers and context (`-C`). |
-| `delete_item` | Cleanup and refactoring. | Recursive deletion with strict path validation. |
+The orchestrator executes a loop that represents the agentic workflow. In each iteration:
 
----
+1.  The current agent is selected.
+2.  A payload is constructed containing the current task, context, history, and any incoming messages.
+3.  This payload is sent to the agent's underlying Large Language Model (LLM) via the `LLMConnector`.
 
-## 🔒 Security & Robustness (The "Safety Jail")
+### 4. LLM Connector
 
-To ensure the agent remains helpful and harmless to the host system, multiple layers of protection are active:
+The `LLMConnector` is responsible for communicating with the LLM. It:
 
-* **Logical Chroot**: Every tool uses a `_is_safe_path` filter. The agent is strictly prohibited from accessing, reading, or deleting files outside the defined `PROJECT_ROOT`.
-* **Context Protection**: The system automatically detects binary files or oversized text files. Instead of crashing the session, it returns a structured error, forcing the agent to use more efficient tools like `grep_file`.
-* **Atomic Operations**: By forcing disk synchronization on every write, we ensure that the file system remains in a consistent state even if the process is interrupted.
+- Takes the payload from the orchestrator.
+- Reads the agent's specific system prompt from a file.
+- Injects dynamic constraints into the prompt, such as the list of available tools and the allowed agent transitions.
+- Sends the final prompt to the LLM and returns the response.
 
----
+### 5. Agent Response and Tool Use
 
-## 🗺️ Execution Flow Diagram
+The LLM's response is expected to be a JSON object containing:
 
-```mermaid
-sequenceDiagram
-    participant A as AI Agent (LLM)
-    participant O as Orchestrator
-    participant T as Toolset (Linux/Python)
-    participant D as Disk/OS
+- **`thought`:** The agent's reasoning process.
+- **`response_to_user`:** A message to be displayed to the user.
+- **`action`:** An object specifying the action to be taken, which can be:
+    - **`tool_name`:** The name of the tool to use.
+    - **`tool_parameters`:** The parameters for the tool.
+    - **`agent_target`:** The next agent to transition to.
 
-    A->>O: Request Action (e.g., grep_file "API_KEY")
-    O->>T: Validate Path & Permissions
-    T->>D: Execute Native Linux Command
-    D-->>T: System Output
-    T-->>O: Format as JSON (Status: SUCCESS)
-    O-->>A: Provide Observation (Tool Output)
-    A->>A: Reason on Output
-    Note over A: Goal Reached? If not, repeat loop.
+The `MessageOrchestrator` parses this response and executes the requested action.
+
+### 6. Inter-Agent Communication
+
+Agents can collaborate by passing messages to each other. When an agent's response includes an `agent_target`, the `MessageOrchestrator` routes the `message_to_target` to the specified agent's inbox.
+
+### 7. Human-in-the-Loop (HITL)
+
+To ensure safety and provide oversight, the system incorporates a Human-in-the-Loop (HITL) mechanism for sensitive operations. Before executing a command via the `execute_command` tool or writing to a file with `write_file` or `patch_file`, the system will prompt the user for confirmation.
+
+## How to Use the Agent System in Code
+
+You can integrate the agent system into your Python code by following these steps:
+
+1.  **Create an LLM Instance:** Instantiate a language model from `src/ai/core/llms`.
+2.  **Initialize Components:**
+    - Create an `LLMConnector` with the LLM instance.
+    - Create a `ToolRegistry` and register your desired tools from `src/ai/agents/agent_tools.py`.
+3.  **Load Configuration:** Load your pipeline's JSON configuration file using the `load_pipeline_config` function.
+4.  **Create the Orchestrator:** Instantiate the `MessageOrchestrator` with the connector, registry, and pipeline configuration.
+5.  **Run the Loop:** Call the `run_loop` method of the orchestrator, providing the initial user prompt.
+
+```python
+from ai.agents.agent import MessageOrchestrator, LLMConnector, ToolRegistry, load_pipeline_config
+from ai.agents.agent_tools import AVAILABLE_TOOLS
+from ai.core.llms.gemini import Gemini # Or any other LLM
+
+# 1. Create an LLM instance
+llm = Gemini()
+
+# 2. Initialize components
+connector = LLMConnector(llm)
+registry = ToolRegistry()
+for name, tool_ref in AVAILABLE_TOOLS.items():
+    registry.register_tool(name, tool_ref)
+
+# 3. Load pipeline configuration
+# Assuming 'prog' is an object with a 'config' attribute
+# In a standalone script, you might need to load the main config differently
+pipeline_config = load_pipeline_config(prog, "pipelines/pipeline.json")
+
+# 4. Create the orchestrator
+orchestrator = MessageOrchestrator(
+    connector=connector,
+    registry=registry,
+    pipeline_config=pipeline_config
+)
+
+# 5. Run the loop
+user_prompt = "This is your task. Go and solve it."
+orchestrator.run_loop(user_prompt)
+```
+
+## How to Use the Agent System on the CLI
+
+You can run the agent system directly from the command line using the `--agents` argument.
+
+### Basic Usage
+
+```bash
+python -m ai --agents "Your task description here"
+```
+
+This command will use the default pipeline configuration located at `pipelines/pipeline.json`.
+
+### Specifying a Pipeline
+
+To use a custom pipeline configuration, provide the path to your JSON file:
+
+```bash
+python -m ai --agents /path/to/your/pipeline.json "Your task description here"
+```
+
+The agent system will then execute the task as defined in your custom pipeline.

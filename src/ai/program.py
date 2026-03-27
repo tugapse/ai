@@ -272,7 +272,7 @@ class Program:
 
         func.log(f"{Color.NORMAL_CYAN}--- Starting Multi-Agent Orchestrator ---{Color.RESET}")
 
-        pipeline_config = load_pipeline_config(self, "pipelines/dev_pipeline.json")
+        pipeline_config = load_pipeline_config(self, "pipelines/pipeline.json")
         if not pipeline_config:
             func.error("Failed to load pipeline config. Aborting.")
             return
