@@ -2,31 +2,31 @@
   "name": "Cowboy Development Workflow",
   "description": "A high-fidelity multi-agent loop with strategic planning, technical scouting, and shell execution.",
   "entry_point": "MASTER",
-  "max_iterations": 100,
+  "max_iterations": 300,
   "agents": {
-    "PLANNER_HELPER": {
-      "role": "management",
+    "PLANNER": {
+      "role": "labor",
       "prompt_file": "agents/planner_helper.md",
       "tools": ["read_dir", "read_files", "smart_search", "send_notification"],
       "allowed_targets": ["USER", "MASTER"]
     },
     "MASTER": {
       "role": "management",
-      "prompt_file": "agents/master_document.md",
-      "tools": ["send_notification","read_dir", "smart_search","web_search"],
-      "allowed_targets": ["ENGINEER", "SECRETARY", "SYSTEM_OPERATOR", "USER", "STOP"]
+      "prompt_file": "agents/master.md",
+      "tools": ["send_notification","read_dir" , "read_files", "smart_search","web_search"],
+      "allowed_targets": ["PLANNER", "MASTER","ENGINEER", "SECRETARY", "SYSTEM_OPERATOR", "USER", "STOP"]
     },
     "ENGINEER": {
       "role": "labor",
       "prompt_file": "agents/engineer.md",
       "tools": ["read_file", "read_files", "write_file", "patch_file", "grep_file"],
-      "allowed_targets": ["MASTER", "SECRETARY", "USER"]
+      "allowed_targets": ["ENGINEER","MASTER", "SECRETARY", "USER"]
     },
     "SECRETARY": {
       "role": "labor",
       "prompt_file": "agents/secretary.md",
       "tools": ["read_dir", "read_files", "read_file", "smart_search", "grep_file", "web_search", "web_read"],
-      "allowed_targets": ["MASTER"]
+      "allowed_targets": ["SECRETARY","MASTER"]
     },
     "SYSTEM_OPERATOR": {
       "role": "labor",

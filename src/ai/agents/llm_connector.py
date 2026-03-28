@@ -42,13 +42,13 @@ class LLMConnector:
             system_content += "\n".join(injection_lines)
 
         messages = [
-            BaseModel.create_message(ChatRoles.SYSTEM, system_content),
+            BaseModel.create_message(ChatRoles.USER, system_content),
             BaseModel.create_message(ChatRoles.USER, json.dumps(json_input, indent=2)),
         ]
 
         output_buffer = io.StringIO()
         agent_name = os.path.splitext(os.path.basename(system_prompt_path))[0].upper()
-        func.log(f"[*] Active Agent: {agent_name}")
+        func.log(f"{Color.BOLD}[*] Active Agent: {agent_name}", level="DEBUG")
 
         with redirect_stdout(output_buffer):
             ask(self.llm, messages, show_think_anim=True, print_mode="token")

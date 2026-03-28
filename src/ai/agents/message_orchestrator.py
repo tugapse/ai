@@ -18,6 +18,7 @@ class MessageOrchestrator:
         self.pipeline_config = pipeline_config
         self.agents = pipeline_config.get("agents", {})
         self.history = []
+        self.auto_authorized_tools = set()
         
         # Global context for roadmap tracking and stagnation prevention
         self.context = {
@@ -73,7 +74,7 @@ class MessageOrchestrator:
             if not display_task: display_task = "an ongoing task..."
             
             # Status Bar
-            func.out(f"\r\033[K{Color.BLUE}[ * ] {current_agent} is working on: {display_task}{Color.RESET}", end="", flush=True)
+            func.out(f"{Color.BLUE}[ * ] {current_agent} is: {display_task}{Color.RESET}", end="", flush=True)
 
             agent_config = self.agents.get(current_agent, {}).copy()
             if not agent_config:
@@ -121,7 +122,6 @@ class MessageOrchestrator:
             if res["tool"] == "write_file" and res["result"].get("status") == "SUCCESS"
         ]
 
-        manifest = self.agent_memory.get(current_agent, {})
         memory = self.agent_memory.get(current_agent, {})
         agent_config = self.agents.get(current_agent, {})
         is_management = agent_config.get("role") == MANAGER_AGENT_ROLE
@@ -157,7 +157,6 @@ class MessageOrchestrator:
         params = action.get("tool_parameters", {})
         agent_target = str(action.get("agent_target", "")).strip().upper()
         
-        func.log(f"Agent manifest Old: {Color.YELLOW}{response.get('manifest', {})}{Color.RESET}")
         self.agent_memory[current_agent]["manifest"] = response.get("manifest", {})
         func.log(f"Agent manifest {Color.YELLOW}{response.get('manifest', {})}{Color.RESET}")
         
@@ -166,9 +165,9 @@ class MessageOrchestrator:
         
         # --- NEW: USER COMMUNICATION GATE ---
         if agent_target == "USER":
-            self.registry.execute_tool("send_notification", {"title": "Action Required", "message": f"{current_agent} needs input."})
             question = action.get("message_to_target") or "The agent needs clarification."
-            func.out(f"\n{Color.BG_BLUE}{Color.NORMAL_WHITE} [ PROPOSAL / QUESTION FROM {current_agent} ] {Color.RESET}")
+            self.registry.execute_tool("send_notification", {"title": "Action Required", "message": f"{current_agent}: {question}."})
+            func.out(f"\n{Color.BG_BLUE}{Color.NORMAL_GREEN} [ Question from {current_agent.lower()} ] {Color.RESET}")
             user_reply = input(f"{question}{Color.RESET}\n> ").strip()
             self.agent_memory[current_agent]["messages_received"].append({"from": "USER", "message": user_reply, "task": user_reply})
             return current_agent
@@ -200,7 +199,7 @@ class MessageOrchestrator:
     def _validate_target(self, target_raw: str, is_tool_empty: bool, current_agent: str, agent_config: Dict[str, Any]) -> str:
         """Original validation logic + auto-correct for idle loops."""
         if target_raw == "USER": return "USER"
-        if target_raw == current_agent and is_tool_empty: return "STOP"
+        # TBD if target_raw == current_agent and is_tool_empty: return "STOP"
             
         allowed_targets = agent_config.get("allowed_targets", ["STOP", "USER"])
         if target_raw and target_raw not in allowed_targets:
@@ -238,27 +237,59 @@ class MessageOrchestrator:
         self.agent_memory[current_agent]["messages_received"] = []
 
     def _handle_tool_execution(self, tool_name: str, params: Dict[str, Any], current_agent: str, agent_config: Dict[str, Any]) -> bool:
-        """Authorizes and executes tools with HITL gates for writing and terminal access."""
         if tool_name not in agent_config.get("tools", []):
             self.agent_memory[current_agent]["messages_received"].append({"from": "SYSTEM", "message": f"Unauthorized tool: {tool_name}"})
             return False
-            
-        # --- HITL: TERMINAL COWBOY GATE ---
-        if tool_name == "execute_command":
-            cmd = params.get("command", "")
-            func.out(f"\n{Color.BG_RED}{Color.NORMAL_WHITE} [ TERMINAL ACCESS REQUEST ] {Color.RESET}")
-            func.out(f"{Color.YELLOW}Command: {Color.RESET}{Color.BOLD}{cmd}{Color.RESET}")
-            if input(f"Authorize execution? (y/n): ").lower() not in ['y', 'yes']:
-                self.agent_memory[current_agent]["messages_received"].append({"from": "USER", "message": f"DENIED: I did not allow command '{cmd}'."})
-                return False
 
-        # --- HITL: FILE WRITE GATE ---
-        if tool_name in ["write_file", "patch_file"] and not params.get("dry_run"):
-            target_path = params.get("path", "unknown")
-            func.out(f"{Color.BG_YELLOW}{Color.NORMAL_BLACK} [ ACTION REQUIRED ] {Color.RESET} {Color.YELLOW}Modify '{target_path}'?{Color.RESET}")
-            if input(f"Allow? (y/n): ").lower() not in ['y', 'yes']:
-                self.agent_memory[current_agent]["messages_received"].append({"from": "USER", "message": f"DENIED: Write to '{target_path}' blocked."})
-                return False
+        # Check if the tool is already globally authorized for this session
+        if tool_name in self.auto_authorized_tools:
+            func.log(f"Auto-executing {tool_name} (Session Authorized)")
+            is_authorized = True
+        else:
+            is_authorized = False
+            
+            # --- TERMINAL GATE ---
+            if tool_name == "execute_command":
+                func.out(f"\n{Color.BG_RED} [ TERMINAL REQUEST ] {Color.RESET} {Color.BOLD}{params.get('command')}{Color.RESET}")
+                choice = input(f"Authorize? (y/n/all): ").lower()
+                if choice == 'all':
+                    self.auto_authorized_tools.add(tool_name)
+                    is_authorized = True
+                elif choice in ['y', 'yes']:
+                    is_authorized = True
+
+            # --- PATCH GATE ---
+            elif tool_name == "patch_file":
+                func.out(f"\n{Color.BG_CYAN} [ PATCH PROPOSAL ] {Color.RESET} {Color.NORMAL_CYAN}{params.get('path')}{Color.RESET}")
+                func.out(f"{Color.RED}- {params.get('search')[:100]}...{Color.RESET}")
+                func.out(f"{Color.GREEN}+ {params.get('replace')[:100]}...{Color.RESET}")
+                choice = input(f"Apply patch? (y/n/all): ").lower()
+                if choice == 'all':
+                    self.auto_authorized_tools.add(tool_name)
+                    is_authorized = True
+                elif choice in ['y', 'yes']:
+                    is_authorized = True
+
+            # --- WRITE GATE ---
+            elif tool_name == "write_file":
+                func.out(f"\n{Color.BG_YELLOW} [ WRITE REQUEST ] {Color.RESET} Overwrite {params.get('path')}?")
+                choice = input(f"Allow? (y/n/all): ").lower()
+                if choice == 'all':
+                    self.auto_authorized_tools.add(tool_name)
+                    is_authorized = True
+                elif choice in ['y', 'yes']:
+                    is_authorized = True
+            
+            # Default for non-sensitive tools (read_file, etc.)
+            else:
+                is_authorized = True
+
+        if not is_authorized:
+            self.agent_memory[current_agent]["messages_received"].append({
+                "from": "USER", 
+                "message": f"DENIED: {tool_name} was blocked by user."
+            })
+            return False
 
         func.log(f"[TOOL CALL]: {tool_name}")
         result = self.registry.execute_tool(tool_name, params)
