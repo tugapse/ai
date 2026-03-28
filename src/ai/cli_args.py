@@ -40,7 +40,6 @@ class CliArgs:
         
         # Non-exiting actions
         self._is_print_chat(args)
-        self._is_auto_task(args, parser=args_parser)
         self._is_list_models(args)
         self._has_output_files(prog, args)
         self._has_image(prog, args) 
@@ -133,13 +132,6 @@ class CliArgs:
 
             reader = ConsoleChatReader(json_filename)
             reader.load()
-            sys.exit(0)
-
-    def _is_auto_task(self, args, parser: argparse):
-        if args.auto_task:
-            from core.tasks import AutomatedTask
-
-            AutomatedTask(parser).run_task(config_filename=args.auto_task)
             sys.exit(0)
 
     def _is_list_models(self, args):
