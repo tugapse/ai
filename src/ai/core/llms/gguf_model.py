@@ -230,7 +230,7 @@ class GGUFImageLLM(BaseModel):
 
             # LOG OUTPUT TOKEN COUNT
             output_tokens = self.llama_model.tokenize(full_response_content.encode("utf-8"), add_bos=False)
-            functions.log(full_response_content)
+            functions.debug(full_response_content)
             functions.log(f"{Color.GREEN}Streaming Finished. Output tokens: {len(output_tokens)}/{llama_params.get('max_tokens')}{Color.RESET}")
 
             output_queue.put(None)
@@ -288,7 +288,7 @@ class GGUFImageLLM(BaseModel):
                     continue
         else:
             response_text = self._generate_response_sync(messages, current_options)
-            yield response_text
+            return response_text
 
     def _generate_response_sync(self, messages: list, options: dict = {}):
         """Unified sync generation with final token counting."""
@@ -299,7 +299,7 @@ class GGUFImageLLM(BaseModel):
         output = self.llama_model.create_chat_completion(
             messages, stream=False, **llama_params
         )
-        response_text = output["choices"][0]["message"]["content"]
+        response_text = str(output["choices"][0]["message"]["content"])
         
         # LOG OUTPUT TOKEN COUNT
         output_tokens = self.llama_model.tokenize(response_text.encode("utf-8"), add_bos=False)

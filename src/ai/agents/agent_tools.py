@@ -91,7 +91,6 @@ def _sanitize_output_path(full_path: str) -> str:
 def execute_command(**kwargs) -> Dict[str, Any]:
     """
     Executes a shell command on the local system. This is a powerful 'Cowboy' tool.
-    MANDATORY: Every execution requires explicit User Authorization via the Orchestrator.
     Use this for installing dependencies, running tests, or building the project.
     Parameters:
       - command: The full shell command string to execute (e.g., 'npm install').

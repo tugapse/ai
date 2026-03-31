@@ -29,7 +29,7 @@ def ask(
     Asks the language model a question and streams its response.
 
     Args:
-        llm (OllamaModel): The language model bot instance.
+        llm The language model bot instance.
         input_message (Union[str, list[str]]): The user's input message.
                                                Can be a string or a list of message dictionaries.
         write_to_file (bool): If True, the LLM's output will be written to a file.
@@ -56,7 +56,8 @@ def ask(
     _think_mode = _config.get(ProgramSetting.THINKING_MODE, thinking_mode)
     _print_mode = _config.get(ProgramSetting.PRINT_MODE, print_mode)
     _tokens_per_print = _config.get(ProgramSetting.TOKENS_PER_PRINT, tokens_per_print)
-    _show_think_animation = _config.get(ProgramSetting.SHOW_THINK_ANIMATION, show_think_anim)
+    _show_think_animation = show_think_anim
+    func.log(f"Thinking animation: {show_think_anim}",level="WARNING")
     session_paths = SessionManager.initialize_session_paths(_config)
 
     enable_thinking_display = True

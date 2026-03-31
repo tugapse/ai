@@ -142,6 +142,8 @@ def format_execution_time(start_time, end_time):
     """
     Formats the elapsed time between start_time and end_time into HH:MM:SS format.
     """
+    if start_time is None or end_time is None:
+        return "N/A"
     elapsed_seconds = end_time - start_time
     hours = int(elapsed_seconds // 3600)
     minutes = int((elapsed_seconds % 3600) // 60)

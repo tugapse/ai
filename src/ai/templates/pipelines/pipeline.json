@@ -13,7 +13,7 @@
     "MASTER": {
       "role": "management",
       "prompt_file": "agents/master.md",
-      "tools": ["send_notification","read_dir" , "read_files", "smart_search","web_search"],
+      "tools": ["send_notification","read_dir" , "read_files","read_file", "smart_search","web_search"],
       "allowed_targets": ["PLANNER", "MASTER","ENGINEER", "SECRETARY", "SYSTEM_OPERATOR", "USER", "STOP"]
     },
     "ENGINEER": {

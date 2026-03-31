@@ -183,7 +183,7 @@ class CliArgs:
     def _has_task_file(self, prog, args):
         if args.task_file:
             task_content = func.read_file(args.task_file)
-            prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, task_content))
+            prog.chat._add_message(BaseModel.create_message(ChatRoles.SYSTEM, task_content))
 
     def _has_task(self, prog, args):
         if args.task:
@@ -210,7 +210,7 @@ class CliArgs:
             
     def _has_message(self, prog, args):
         piped = False
-        has_agent = args.agents is not None
+        has_agent = args.agent
         user_input = args.task or args.msg
 
 
@@ -238,7 +238,7 @@ class CliArgs:
             func.log("INFO: Detected message/task input. Starting direct ask.")
             if has_agent:
                 
-                pipeline_path = args.agents if isinstance(args.agents, str) else "pipelines/pipeline.json"
+                pipeline_path = args.pipeline or "pipelines/pipeline.json"
                 pipeline_config = load_pipeline_config(prog, pipeline_path)
 
                 if not pipeline_config:
@@ -259,13 +259,15 @@ class CliArgs:
                 )
                 
                 if not user_input:
-                    func.error("Agent task requires a prompt. Use --agent 'task description'")
+                    func.error("Agent task requires a prompt. Use --msg THE_MESSAGE --agents (--pipeline PATH_TO_PIPELINE) defaults to 'pipelines/pipeline.json'")
                     sys.exit(1)
 
                 try:
                     orchestrator.run_loop(user_input)
                 except Exception as e:
                     func.error(f"Orchestrator encountered an error: {e}")
+                    import traceback
+                    func.error(traceback.format_exc())
                 
                 # Exit after completion to prevent falling into the standard chat loop
                 sys.exit(0)
@@ -275,6 +277,6 @@ class CliArgs:
                     prog.chat.messages, 
                     write_to_file=prog.write_to_file,
                     output_filename=prog.output_filename,
-                    show_think_anim=True
+                    show_think_anim=args.no_think_anim != True
                 )
             sys.exit(0)
