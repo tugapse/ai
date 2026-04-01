@@ -1,8 +1,10 @@
 import json
+import re
 from typing import Dict, Any, Optional
-from .agent_tools import send_notification
+
 import functions as func
 from color import Color
+from .terminal_ui import TerminalUI  # Importing your new shared UI class
 
 MAX_ITERATIONS = 100
 MANAGER_AGENT_ROLE = "management"
@@ -16,8 +18,7 @@ class MessageOrchestrator:
         self.history = []
         self.auto_authorized_tools = set()
         
-        # --- NEW: HIGH-COMPLEXITY CONFIGURATION ---
-        # These tools will trigger a "Ghost/Specialist" raw-text call
+        # Specialist configuration for high-complexity tasks
         self.high_complexity_tools = {
             "write_file": "You are a Senior Software Engineer. Generate the full, raw content for the file. No JSON, no preamble.",
             "patch_file": "You are a Senior Developer. Generate only the specific code block to be inserted. Raw text only.",
@@ -39,13 +40,14 @@ class MessageOrchestrator:
                 "messages_received": [],
                 "history": [],
                 "current_task": "Waiting for tasks...",
-                "manifest":{}
+                "manifest": {}
             }
             for agent_name in self.agents.keys()
         }
 
     def run_loop(self, user_prompt: str):
-        func.log("Starting Pipeline Loop")
+        TerminalUI.header("Pipeline Execution Start", "Unified Architect Orchestrator")
+        
         current_agent = self.pipeline_config.get("entry_point", "MASTER")
         max_iterations = self.pipeline_config.get("max_iterations", MAX_ITERATIONS)
         
@@ -56,22 +58,23 @@ class MessageOrchestrator:
         })
         
         for i in range(max_iterations):
-            func.log(f"Execution loop iteration {i+1}/{max_iterations}. Agent: {current_agent}")
+            memory = self.agent_memory[current_agent]
+            msgs = memory.get("messages_received", [])
             
-            msgs = self.agent_memory[current_agent].get("messages_received", [])
             for msg in reversed(msgs):
                 if msg.get("from") != "SYSTEM":
-                    self.agent_memory[current_agent]["current_task"] = msg.get("task") or msg.get("message", )
+                    memory["current_task"] = msg.get("task") or msg.get("message")
                     break
             
-            display_task = self.agent_memory[current_agent].get('manifest',{}).get("current_priority", "Understanding user request")
+            # Use the manifest's priority or fallback
+            display_task = memory.get('manifest', {}).get("current_priority", "Analyzing objectives...")
             
-            func.out(f"{Color.BLUE}[ * ] Agent {current_agent} is wortking on: {Color.RESET}{display_task}", end="", flush=True)
-            func.debug("Current task: " + display_task)
+            # Update the status (overwriting the thinking animation)
+            TerminalUI.status(current_agent, display_task)
 
             agent_config = self.agents.get(current_agent, {}).copy()
             if not agent_config:
-                func.error(f"Agent {current_agent} not defined.")
+                func.error(f"\n[!] Agent {current_agent} not defined.")
                 break
                 
             tool_docs = [self.registry.get_tool_info(t) for t in agent_config.get("tools", [])]
@@ -86,23 +89,25 @@ class MessageOrchestrator:
             )
             
             if response.get("status") == "FAILED":
-                func.out("\r\033[K", end="", flush=True)
+                TerminalUI.clear_line()
+                func.out(f"\n{Color.RED}⚠ Format Error in {current_agent}{Color.RESET}")
                 error_msg = response.get("error", "Unknown error")
-                self.agent_memory[current_agent]["messages_received"].append({
+                memory["messages_received"].append({
                     "from": "SYSTEM",
-                    "message": f"Your last output was invalid JSON. Error: {error_msg}. Fix your formatting and try again."
+                    "message": f"Invalid JSON. Error: {error_msg}. Please fix formatting."
                 })
                 continue
 
             next_agent = self._process_agent_response(response, current_agent, agent_config)
+            
             if next_agent is None or next_agent == "STOP": 
-                func.log("Pipeline reached STOP state.")
+                TerminalUI.log_step("Pipeline reached STOP state.", "SUCCESS")
                 break
                 
             current_agent = next_agent
 
     def _prepare_payload(self, user_prompt: str, current_agent: str) -> Dict[str, Any]:
-        known_fileS_locations = [
+        known_files = [
             res["parameters"].get("path") 
             for res in self.context["tool_results"] 
             if res["tool"] == "write_file" and res["result"].get("status") == "SUCCESS"
@@ -117,11 +122,11 @@ class MessageOrchestrator:
             "objective": user_prompt if is_management else latest_task,
             "agent_notes": memory.get("notes"),
             "messages_received": memory.get("messages_received"),
-            "conversation_history": memory.get("history",[])[-10:],
+            "conversation_history": memory.get("history", [])[-10:],
             "plan": self.context["plan"],
             "current_step": self.context["current_step_index"],
             "recent_outcomes": self.context["tool_results"][-3:],
-            "context": {"files_in_project": list(set(filter(None, known_fileS_locations)))}
+            "context": {"files_in_project": list(set(filter(None, known_files)))}
         }
         
         if self.context.get("repeat_count", 0) >= 2:
@@ -136,14 +141,14 @@ class MessageOrchestrator:
         agent_target = str(action.get("agent_target", "")).strip().upper()
         
         self.agent_memory[current_agent]["manifest"] = response.get("manifest", {})
+        self._handle_agent_outputs(response, current_agent)
         
-        self._handle_agent_outputs(response, current_agent, tool_name)
         self._update_stagnation_tracking(tool_name, params)
         
         if agent_target == "USER":
             question = action.get("message_to_target") or "The agent needs clarification."
-            self.registry.execute_tool("send_notification", {"title": "Action Required", "message": f"{current_agent}: {question}."})
-            user_reply = input(f"{question}\n> ").strip()
+            TerminalUI.message(current_agent, question, Color.NORMAL_CYAN)
+            user_reply = input(f"{Color.BLUE}❯ {Color.RESET}").strip()
             self.agent_memory[current_agent]["messages_received"].append({"from": "USER", "message": user_reply, "task": user_reply})
             return current_agent
 
@@ -153,12 +158,8 @@ class MessageOrchestrator:
         if target == "STOP": return "STOP"
 
         if not is_tool_empty:
-            # PIVOT: The tool execution now handles the specialist logic internally
             if not self._handle_tool_execution(tool_name, params, current_agent, agent_config):
                 return current_agent 
-                
-            if not target or target == "NULL":
-                return current_agent
                 
         self._handle_inter_agent_messaging(action, target, current_agent)
         return target if target and target != "NULL" else current_agent
@@ -168,32 +169,26 @@ class MessageOrchestrator:
             self.agent_memory[current_agent]["messages_received"].append({"from": "SYSTEM", "message": f"Unauthorized tool: {tool_name}"})
             return False
 
-        # ---  THE SPECIALIST INTERCEPTOR ---
+        # Specialist Interceptor
         if tool_name in self.high_complexity_tools:
-            func.log(f"{Color.NORMAL_CYAN}[ SPECIALIST ] High-complexity tool '{tool_name}' detected. Launching Ghost-Writer...{Color.RESET}")
+            TerminalUI.clear_line()
+            func.out(f"{Color.NORMAL_CYAN}◈ Launching Specialist for {tool_name}...{Color.RESET}")
             
-            # Use instructions provided by Architect, or fallback to the provided content
-            goal = params.get("instructions") or params.get("content") or "Generate high-quality content based on the current objective."
-            target_path = params.get("path", "unknown_file")
+            goal = params.get("instructions") or params.get("content") or "Complete task."
+            target_path = params.get("path", "unknown")
             
-            # Trigger a CLEAN call to the LLM (No JSON!)
             refined_content = self._call_specialist_worker(
                 role_description=self.high_complexity_tools[tool_name],
                 path=target_path,
                 goal=goal
             )
-            
-            # Inject the high-fidelity content back into the parameters
             params["content"] = refined_content
-            func.log(f"{Color.GREEN}[ SPECIALIST ] Content generation successful.{Color.RESET}")
 
-        # --- AUTHORIZATION GATES ---
-        is_authorized = self._gatekeeper(tool_name, params)
-        if not is_authorized:
+        # Authorization Gates
+        if not self._gatekeeper(tool_name, params):
             self.agent_memory[current_agent]["messages_received"].append({"from": "USER", "message": f"DENIED: {tool_name} was blocked."})
             return False
 
-        func.log(f"[TOOL CALL]: {tool_name}")
         result = self.registry.execute_tool(tool_name, params)
         
         self.context["tool_results"].append({"agent": current_agent, "tool": tool_name, "parameters": params, "result": result})
@@ -204,45 +199,38 @@ class MessageOrchestrator:
         return True
 
     def _call_specialist_worker(self, role_description: str, path: str, goal: str) -> str:
-        """
-        NEW: Performs a raw-text completion to bypass JSON formatting constraints.
-        """
         worker_payload = {
-            "task_context": f"Working on: {path}\nObjective: {goal}",
-            "instruction": "Output only the raw text/code. No explanations, no JSON braces, no markdown wrapping unless it IS a markdown file."
+            "task_context": f"File: {path}\nGoal: {goal}",
+            "instruction": "Output raw text only."
         }
-        
-        # NOTE: Your connector needs a 'send_raw_request' method that returns a plain string
-        raw_output = self.connector.send_raw_request(worker_payload, system_prompt=role_description)
-        return raw_output.strip()
+        raw_output_stream = self.connector.send_raw_request(worker_payload, system_prompt=role_description)
+        return "".join(list(raw_output_stream)).strip()
 
     def _gatekeeper(self, tool_name: str, params: Dict[str, Any]) -> bool:
-        """Centralized authorization gate for sensitive operations."""
         if tool_name in self.auto_authorized_tools or tool_name not in ["execute_command", "patch_file", "write_file"]:
             return True
             
-        func.out(f"\n{Color.BG_YELLOW}{Color.BLUE} [ AUTHORIZATION REQUIRED ] {Color.RESET} Tool: {tool_name}")
-        choice = input(f"Allow '{tool_name}' for {params.get('path')or params.get('command')}? (y/n/all): ").lower()
-        func.debug(f"Request to calling Tool: {tool_name} : {params}")
+        target = params.get('path') or params.get('command') or "System"
+        TerminalUI.auth_request(tool_name, target)
+        
+        choice = input(f"Allow? (y/n/all): ").lower().strip()
         if choice == 'all':
             self.auto_authorized_tools.add(tool_name)
             return True
         return choice in ['y', 'yes']
 
-    def _handle_agent_outputs(self, response: Dict[str, Any], current_agent: str, tool_name: Optional[str]) -> None:
-        if thought := response.get("thought"):
-            func.log(f"[{current_agent} THOUGHT]: {thought}")
-        
+    def _handle_agent_outputs(self, response: Dict[str, Any], current_agent: str) -> None:
         if msg_to_user := response.get("response_to_user"):
-            func.out(f"\r\033[K{Color.GREEN}[{current_agent}]{Color.RESET} \n{msg_to_user}")
+            TerminalUI.message(current_agent, msg_to_user)
             
-        if notes := response.get("notes"):
-            self.agent_memory[current_agent]["notes"] = notes
-            
-        for m in self.agent_memory[current_agent]["messages_received"]:
-            self.agent_memory[current_agent]["history"].append(m)
-        self.agent_memory[current_agent]["history"].append({"from": "SELF", "thought": thought, "response": msg_to_user})
-        self.agent_memory[current_agent]["messages_received"] = []
+        memory = self.agent_memory[current_agent]
+        memory["notes"] = response.get("notes", memory["notes"])
+        
+        # Cleanup messages for history
+        for m in memory["messages_received"]:
+            memory["history"].append(m)
+        memory["history"].append({"from": "SELF", "thought": response.get("thought"), "response": msg_to_user})
+        memory["messages_received"] = []
 
     def _update_stagnation_tracking(self, tool_name: Optional[str], params: Dict[str, Any]) -> None:
         current_fp = f"{tool_name}-{json.dumps(params)}"
@@ -256,20 +244,20 @@ class MessageOrchestrator:
         if target_raw == "USER": return "USER"
         allowed_targets = agent_config.get("allowed_targets", ["STOP", "USER"])
         if target_raw and target_raw not in allowed_targets:
-            self.agent_memory[current_agent]["messages_received"].append({"from": "SYSTEM", "message": f"Invalid transition target '{target_raw}'. Allowed: {allowed_targets}."})
+            self.agent_memory[current_agent]["messages_received"].append({"from": "SYSTEM", "message": f"Invalid transition target '{target_raw}'."})
             return current_agent
         if is_tool_empty and not target_raw:
-            self.agent_memory[current_agent]["messages_received"].append({"from": "SYSTEM", "message": "You must either call a tool or transition."})
+            self.agent_memory[current_agent]["messages_received"].append({"from": "SYSTEM", "message": "Call a tool or transition."})
             return current_agent
         return target_raw
 
     def _handle_inter_agent_messaging(self, action: Dict[str, Any], target: str, current_agent: str) -> None:
-        message_to_target = action.get("message_to_target")
-        task_for_target = action.get("task_for_target", "")
-        if message_to_target and target != "STOP" and target != current_agent:
+        msg = action.get("message_to_target")
+        task = action.get("task_for_target", "")
+        if msg and target != "STOP" and target != current_agent:
             if target in self.agent_memory:
                 self.agent_memory[target]["messages_received"].append({
                     "from": current_agent,
-                    "message": message_to_target,
-                    "task": task_for_target
+                    "message": msg,
+                    "task": task
                 })
