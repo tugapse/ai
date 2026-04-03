@@ -85,7 +85,8 @@ class LLMConnector:
             # Look for JSON between braces, potentially inside markdown blocks
             match = re.search(r'(\{.*\})', raw_string, re.DOTALL)
             if not match: 
-                func.error("Parser could not find a valid JSON object in response.")
+                func.error(f"Parser could not find a valid JSON object in response. \n{raw_string}")
+                exit(1)
                 return {"status": "FAILED", "error": "No JSON object found."}
             
             content = match.group(1).replace('"""', '"')

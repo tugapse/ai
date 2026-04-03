@@ -182,7 +182,7 @@ class MessageOrchestrator:
                 goal=goal
             )
             params["content"] = refined_content
-
+        func.log(f"Calling tool [{tool_name}] with: {params}")
         # Authorization Gates
         if not self._gatekeeper(tool_name, params):
             self.agent_memory[current_agent]["messages_received"].append({"from": "USER", "message": f"DENIED: {tool_name} was blocked."})
@@ -210,7 +210,7 @@ class MessageOrchestrator:
             return True
             
         target = params.get('path') or params.get('command') or "System"
-        TerminalUI.auth_request(tool_name, target)
+        TerminalUI.auth_request(tool_name, target,params.get('command',""))
 
         # Send a desktop notification to grab user's attention for authorization
         self.registry.execute_tool("send_notification", {
