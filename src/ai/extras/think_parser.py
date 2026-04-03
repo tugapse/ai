@@ -104,22 +104,30 @@ class ThinkingAnimationHandler:
             return self._is_thinking_active, ""
 
     def _draw_animation_frame(self):
-        """Helper to handle specific animation drawing modes."""
-        if self.mode == "dots":
-            self.print_think(".", end="", flush=True)
-        elif self.mode == "spinner":
-            idx = (self._current_thinking_count // self.MAX_UNTILL_THINK_DRAW) % len(self.SPINNER_CHARS)
-            char = self.SPINNER_CHARS[idx]
-            self.print_think(f"\r{self.THINKING_PREFIX}... {char}", end="", flush=True)
-        elif self.mode == "progressbar":
-            pos = ((self._current_thinking_count // self.MAX_UNTILL_THINK_DRAW) - 1) % self.PROGRESS_BAR_LENGTH
-            bar = ["-"] * self.PROGRESS_BAR_LENGTH
-            bar[pos] = "#"
-            bar_str = "".join(bar)
-            self.print_think(f"\r{self.THINKING_PREFIX}... [{bar_str}]", end="", flush=True)
+            """Helper to handle specific animation drawing modes."""
+            # ANSI escape code to clear the entire line
+            clear_line = "\033[2K"
+
+            if self.mode == "dots":
+                self.print_think(".", end="", flush=True)
+
+            elif self.mode == "spinner":
+                idx = (self._current_thinking_count // self.MAX_UNTILL_THINK_DRAW) % len(self.SPINNER_CHARS)
+                char = self.SPINNER_CHARS[idx]
+                # Clear line, return to start, then print
+                self.print_think(f"\r{clear_line}{self.THINKING_PREFIX}... {char}", end="", flush=True)
+
+            elif self.mode == "progressbar":
+                pos = ((self._current_thinking_count // self.MAX_UNTILL_THINK_DRAW) - 1) % self.PROGRESS_BAR_LENGTH
+                bar = ["-"] * self.PROGRESS_BAR_LENGTH
+                bar[pos] = "#"
+                bar_str = "".join(bar)
+                # Clear line, return to start, then print
+                self.print_think(f"\r{clear_line}{self.THINKING_PREFIX}... [{bar_str}]", end="", flush=True)
 
     def get_max_thinking_indicator_length(self):
         return len(self.THINKING_PREFIX + "... [" + "-" * self.PROGRESS_BAR_LENGTH + "]") + 1
         
     def print_think(self, message, **kargs):
-        func.out(message, **kargs)
+        if self.show_animation: 
+            func.out(message, **kargs)

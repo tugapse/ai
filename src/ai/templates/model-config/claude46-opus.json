@@ -1,0 +1,17 @@
+{
+  "model_name": "claude46-opus",
+  "model_type": "gguf",
+  "model_properties": {
+    "gguf_filename": "Qwen3.5-27B.Q4_K_M.gguf",
+    "model_repo_id": "Jackrong/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-GGUF",
+    "n_gpu_layers": 20,
+    "n_ctx": 15192,
+    "verbose": false,
+    "max_new_tokens": 4096,
+    "temperature": 0.3,
+    "top_p": 0.95,
+    "top_k": 50,
+    "presence_penalty": 1.1,
+    "frequency_penalty": 1.2
+  }
+}

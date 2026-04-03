@@ -87,7 +87,6 @@ class MessageOrchestrator:
                 agent_config["prompt_file_path"],
                 agent_config=agent_config
             )
-            
             if response.get("status") == "FAILED":
                 TerminalUI.clear_line()
                 func.out(f"\n{Color.RED}⚠ Format Error in {current_agent}{Color.RESET}")
@@ -212,6 +211,13 @@ class MessageOrchestrator:
             
         target = params.get('path') or params.get('command') or "System"
         TerminalUI.auth_request(tool_name, target)
+
+        # Send a desktop notification to grab user's attention for authorization
+        self.registry.execute_tool("send_notification", {
+            "title": "Authorization Required",
+            "message": f"Agent wants to run '{tool_name}'. Please check your terminal to approve or deny.",
+            "urgency": "critical"
+        })
         
         choice = input(f"Allow? (y/n/all): ").lower().strip()
         if choice == 'all':

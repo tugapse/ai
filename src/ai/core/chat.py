@@ -9,8 +9,6 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.formatted_text import ANSI
 
-# Assuming ProgramConfig and ProgramSetting are accessible here if needed for paths
-# from config import ProgramConfig, ProgramSetting
 
 
 class ChatRoles:

@@ -277,6 +277,7 @@ class CliArgs:
                     prog.chat.messages, 
                     write_to_file=prog.write_to_file,
                     output_filename=prog.output_filename,
-                    show_think_anim=args.no_think_anim != True
+                    hide_think_anim=args.no_think_anim,
+                    print_output=args.no_out != True
                 )
             sys.exit(0)

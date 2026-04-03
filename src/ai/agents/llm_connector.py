@@ -2,8 +2,8 @@ import os
 import json
 import io
 import re
-from contextlib import redirect_stdout
 from typing import Dict, Any, Optional, List
+import tempfile
 
 import functions as func
 from color import Color
@@ -66,16 +66,18 @@ class LLMConnector:
         return self._execute_llm_call(messages).strip()
 
     def _execute_llm_call(self, messages: List[Dict[str, str]]) -> str:
-        """Unifies the LLM execution and stdout redirection."""
-        output_buffer = io.StringIO()
-        try:
-            with redirect_stdout(output_buffer):
-                # Using 'ask' from direct.py to manage the stream/animation
-                ask(self.llm, messages, show_think_anim=False, print_mode="line")
-            return output_buffer.getvalue()
-        except Exception as e:
-            func.error(f"LLM Execution failed: {e}")
-            return ""
+        """Unifies the LLM execution and captures output to a file."""
+        # Create a temporary file to capture output cleanly, avoiding stdout redirection.
+        with tempfile.NamedTemporaryFile(mode='w+', delete=True, encoding='utf-8') as tmp_file:
+            try:
+                # Using 'ask' from direct.py, directing output to a temp file.
+                # The 'output_file' parameter is assumed to exist in the 'ask' function.
+                ask(self.llm, messages, hide_think_anim=True, print_output=False, print_mode="line", output_filename=tmp_file.name, write_to_file=True)
+                tmp_file.seek(0)  # Go back to the beginning of the file to read it.
+                return tmp_file.read()
+            except Exception as e:
+                func.error(f"LLM Execution failed: {e}")
+                return ""
 
     def _validate_json(self, raw_string: str) -> Dict[str, Any]:
         """Cleans and parses JSON blocks from raw LLM output."""
@@ -94,7 +96,7 @@ class LLMConnector:
 
             # Look for "key": "value" patterns and fix newlines in the value part
             content = re.sub(r'(\":\s*\")(.*?)(\"(?:,|\s*\}))', fix_newlines, content, flags=re.DOTALL)
-            
+
             return json.loads(content, strict=False)
             
         except Exception as e:

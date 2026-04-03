@@ -268,7 +268,15 @@ class GGUFImageLLM(BaseModel):
         current_options = self.options.copy()
         current_options.update(options)
 
-        functions.log(f"Context token: {self.get_templated_prompt_tokens_info(messages).get('token_count')}/{self._n_ctx}" ,level="DEBUG")
+        token_info = self.get_templated_prompt_tokens_info(messages)
+        token_count = token_info["token_count"]
+
+        if(token_count > self._n_ctx):
+            if stream: yield "{'SYSTEM_ADVISORY':'WARNING: Previous action exced the maximum contxt size, use another approach!'}"
+            else: return "{'SYSTEM_ADVISORY':'WARNING: Previous action exced the maximum contxt size, use another approach!'}"
+            functions.error(f"Context token: {token_count}/{self._n_ctx}" ,level="DEBUG")
+            
+        functions.log(f"Context token: {token_count}/{self._n_ctx}" ,level="DEBUG")
 
         if stream:
             output_queue = queue.Queue()

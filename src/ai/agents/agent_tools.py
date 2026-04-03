@@ -187,6 +187,11 @@ def write_file(**kwargs) -> Dict[str, Any]:
         return {"status": "FAILED", "error": str(e)}
 
 
+import os
+import re
+import subprocess
+from typing import Any, Dict
+
 def smart_search(**kwargs) -> Dict[str, Any]:
     """
     Finds files using keyword or regex search. Inspects both names and content.
@@ -194,7 +199,7 @@ def smart_search(**kwargs) -> Dict[str, Any]:
       - pattern: The string or regex pattern to search for (e.g., "config", "index.*").
       - path: (Optional) The directory to start searching from. Defaults to project root.
     """
-    func.log(f"Tool execution: smart_search")
+    func.log("Tool execution: smart_search")
     try:
         full_path = _resolve_path(kwargs)
         raw_pattern = kwargs.get("pattern") or kwargs.get("search")
@@ -205,30 +210,62 @@ def smart_search(**kwargs) -> Dict[str, Any]:
         if not raw_pattern or not isinstance(raw_pattern, str):
             return {"status": "FAILED", "error": "No valid search pattern provided."}
 
-        pattern = raw_pattern.strip("*").replace("*", ".*")
+        # Prepare pattern for regex compatibility
+        # If it's a simple glob, convert to regex; otherwise, keep as-is for ERE
+        pattern_str = raw_pattern
+        if "*" in pattern_str and not any(c in pattern_str for c in "(|)"):
+            pattern_str = pattern_str.replace("*", ".*")
+
         results = {"matched_filenames": [], "matched_content": []}
 
-        for root, dirs, files in os.walk(full_path):
-            for name in dirs + files:
-                if pattern.lower().replace(".*", "") in name.lower():
-                    results["matched_filenames"].append(
-                        _sanitize_output_path(os.path.join(root, name))
-                    )
+        # 1. Filename search using compiled regex to match grep behavior
+        try:
+            regex_compiled = re.compile(pattern_str, re.IGNORECASE)
+            for root, dirs, files in os.walk(full_path):
+                # Search both directories and files
+                for name in dirs + files:
+                    if regex_compiled.search(name):
+                        full_match_path = os.path.join(root, name)
+                        results["matched_filenames"].append(
+                            _sanitize_output_path(full_match_path)
+                        )
+        except re.error:
+            # Fallback to simple substring match if regex is malformed
+            literal_pattern = raw_pattern.lower().replace(".*", "").replace("*", "")
+            for root, dirs, files in os.walk(full_path):
+                for name in dirs + files:
+                    if literal_pattern in name.lower():
+                        results["matched_filenames"].append(
+                            _sanitize_output_path(os.path.join(root, name))
+                        )
 
-        grep_cmd = ["grep", "-E", "-n", "-i", "-r", "-H", "-C", "1", "-I", pattern, full_path]
+        # 2. Content search using grep with Extended Regex (-E)
+        # We use raw_pattern directly as subprocess handles the shell escaping
+        grep_cmd = [
+            "grep", "-E", "-n", "-i", "-r", "-H", 
+            "-C", "1", "-I", raw_pattern, full_path
+        ]
+        
         grep_res = subprocess.run(grep_cmd, capture_output=True, text=True)
+        
+        # grep exit code 0 = matches found, 1 = no matches found
         if grep_res.returncode <= 1:
+            raw_lines = grep_res.stdout.splitlines()
+            # Limit output to 50 lines to manage context window
             results["matched_content"] = [
                 line.replace(PROJECT_ROOT, "@ROOT").replace(os.sep, "/")
-                for line in grep_res.stdout.splitlines()[:50]
+                for line in raw_lines[:50]
             ]
+            if len(raw_lines) > 50:
+                results["matched_content"].append("... [Output truncated. Refine search for more results] ...")
 
         return {"status": "SUCCESS", **results}
+
     except Exception as e:
         func.error(f"smart_search failed: {e}")
         return {"status": "FAILED", "error": str(e)}
-
-
+    
+    
 def patch_file(**kwargs) -> Dict[str, Any]:
     """
     Surgically replaces a block of text within a file.

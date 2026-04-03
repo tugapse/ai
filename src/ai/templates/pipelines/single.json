@@ -8,9 +8,15 @@
     "MASTER": {
       "role": "management",
       "prompt_file": "agents/single_agent.md",
-      "tools": ["send_notification","read_dir" ,"smart_search", "read_file","read_files","write_file", 
-      "patch_file", "web_search", "web_read","execute_command"],
+      "tools": ["read_dir" ,"smart_search", "read_file","read_files","write_file", 
+      "patch_file", "web_search", "web_read"],
       "allowed_targets": ["MASTER", "USER", "STOP"]
+    },
+       "SYSTEM_OPERATOR": {
+      "role": "labor",
+      "prompt_file": "agents/operator.md",
+      "tools": ["execute_command", "send_notification"],
+      "allowed_targets": ["MASTER"]
     }
 
   }

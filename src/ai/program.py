@@ -103,7 +103,6 @@ class Program:
 
         self.handler_manager = HandlerManager(
             log_manager=self.thinking_log_manager,
-            output_base_dir=self.session_workspace_path,
             thinking_mode=thinking_mode,
             enable_thinking_display=enable_thinking_display,
             show_thinking_animation= True

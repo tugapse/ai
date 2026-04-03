@@ -49,8 +49,8 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     
     parser.add_argument("--print-log","-pl", help='Set this flag to print "log" messages', action="store_true")
     parser.add_argument("--print-debug","-pdb", help='Set this flag to print "debug" messages', action="store_true")
-    parser.add_argument("--no-out", "-q" ,help='Set this flag to NOT print "output" messages', action="store_false")
-    parser.add_argument("--no-think-anim", "-nta" ,help='Set this flag to NOT print "Thinking" amnimation', action="store_false")
+    parser.add_argument("--no-out", "-q" ,help='Set this flag to NOT print "output" messages', action="store_true")
+    parser.add_argument("--no-think-anim", "-nta" ,help='Set this flag to NOT print "Thinking" amnimation', action="store_true")
     
     parser.add_argument("--debug-console","-dc", action="store_true", help='Set this flag to NOT clear console (for debugging)')
 
