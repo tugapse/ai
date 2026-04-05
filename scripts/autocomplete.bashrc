@@ -2,6 +2,8 @@
 # This script handles all flags and arguments defined in the argparse setup.
 
 _ai_completion() {
+    AI_ASSISTANT_DIRECTORY="${AI_ASSISTANT_DIRECTORY:-~/Ai}"
+
     local cur prev words cword
     _init_completion || return
 
@@ -37,8 +39,28 @@ _ai_completion() {
         return
     fi
     
-    # Handle specific argument completions (e.g., filenames)
+    # Handle specific argument completions
     case "${prev}" in
+        --model-type)
+            options="causal_lm ollama gguf"
+            COMPREPLY=( $(compgen -W "${options}" -- "${cur}") )
+            return
+            ;;
+        --task|-t)
+            options="$(ls "$AI_ASSISTANT_DIRECTORY/task" | grep .md | sed 's/\.md//' | tr "\n"  " " )"
+            COMPREPLY=( $(compgen -W "${options}" -- "${cur}") )
+            return
+            ;;
+        --model|-md)
+            options="$(ls "$AI_ASSISTANT_DIRECTORY/model-config" | grep .json | sed 's/\.json//' | tr "\n"  " " )"
+            COMPREPLY=( $(compgen -W "${options}" -- "${cur}") )
+            return
+            ;;
+        --system|-s)
+            options="$(ls "$AI_ASSISTANT_DIRECTORY/system" | grep .md | sed 's/\.md//' | tr "\n"  " " )"
+            COMPREPLY=( $(compgen -W "${options}" -- "${cur}") )
+            return
+            ;;
         --file|-f|--image|-i|--system-file|-sf|--load-folder|-D|--auto-task|-at|--output-file|-o|--print-chat|-p)
             _filedir
             return

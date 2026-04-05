@@ -39,6 +39,7 @@ class ProgramSetting:
     ROOT_DIRECTORY = "ROOT_DIRECTORY"
 
     PATHS_GENERATED_FILES = "PATHS_GENERATED_FILES"
+    AGENT_PROMPTS_PATH = "prompts"
 
     # --- Program Settings for Thinking Logic and Output Control ---
     THINKING_MODE = "THINKING_MODE"
@@ -79,8 +80,9 @@ class ProgramConfig(Generic[T]):
 
         # Check if config.json exists in that path, if not, copy it
         user_config_filename: str = os.path.join(user_directory, "config.json")
+        
         need_save = False
-        if not exists(path=user_config_filename):
+        if not exists(path=user_config_filename) or need_save:
             self.logger.info(
                 f"config.json not found in {user_directory}. Copying default config."
             )
@@ -152,7 +154,7 @@ class ProgramConfig(Generic[T]):
 
         # Set default model config name if not present
         if not self.config.get(ProgramSetting.MODEL_CONFIG_NAME):
-            self.set(ProgramSetting.MODEL_CONFIG_NAME, "default_model_config.json")
+            self.set(ProgramSetting.MODEL_CONFIG_NAME, "default.json")
 
         # Set default Ollama host if not present
         if not self.config.get(ProgramSetting.OLLAMA_HOST):
@@ -168,7 +170,7 @@ class ProgramConfig(Generic[T]):
         if self.config.get(ProgramSetting.ENABLE_THINKING_DISPLAY) is None:
             self.set(ProgramSetting.ENABLE_THINKING_DISPLAY, True)
         if not self.config.get(ProgramSetting.PRINT_MODE):
-            self.set(ProgramSetting.PRINT_MODE, "every_x_tokens")
+            self.set(ProgramSetting.PRINT_MODE, "token")
         if not self.config.get(ProgramSetting.TOKENS_PER_PRINT):
             self.set(ProgramSetting.TOKENS_PER_PRINT, 10)
 

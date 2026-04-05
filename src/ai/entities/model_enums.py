@@ -17,6 +17,8 @@ class ModelType(Enum):
     SEQ2SEQ_LM = "seq2seq_lm"     # Models like T5, BART (encoder-decoder)
     OLLAMA = "ollama"             # Models served via Ollama
     GGUF = "gguf"                 # GGUF quantized models (typically run with llama.cpp bindings)
+    GEMINI = "gemini"             # Gemini Model (Google hosted)
+    OPEN_AI = "openai"            # Chat GPT Model (Open AI hosted)
 
     def __str__(self):
         return self.value

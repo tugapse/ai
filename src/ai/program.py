@@ -1,15 +1,16 @@
-# program.py
-
 import os
+import re
 import sys
 import json
-from typing import Optional
 import argparse
+import traceback
+import unicodedata
+from typing import Optional
 
 # Core components
 from config import ProgramConfig, ProgramSetting
 from core import ChatCommandInterceptor, CommandExecutor
-from core.llms import ModelParams, BaseModel 
+from core.llms.base_llm import ModelParams, BaseModel 
 from core.chat import Chat, ChatRoles
 
 # Utility/Helper components
@@ -29,10 +30,13 @@ from extras.thinking_log_manager import ThinkingLogManager
 from extras.output_printer import OutputPrinter
 from extras import ConsoleTokenFormatter
 
+from agents.agent import MessageOrchestrator, LLMConnector, ToolRegistry, load_pipeline_config
+import agents.agent_tools as agent_tools
 
 class Program:
     """
-    Main program class for the AI assistant.
+    Main program class for the AI assistant. 
+    Hardened for Qwen3 stability and clean CLI exit.
     """
 
     def __init__(self) -> None:
@@ -52,7 +56,7 @@ class Program:
 
         self.model_params: dict = ModelParams().to_dict()
 
-        # Session-specific paths, managed by SessionManager
+        # Session-specific paths
         self.session_timestamp: str = ""
         self.session_chat_filepath: Optional[str] = None
         self.session_thinking_log_filepath: Optional[str] = None
@@ -62,204 +66,227 @@ class Program:
         self.output_printer: Optional[OutputPrinter] = None
         self.handler_manager: Optional[HandlerManager] = None
 
-    def init_program(self, args: Optional[argparse.Namespace]) -> None:
-        """
-        Initializes program components based on configuration and CLI arguments.
-        This is the main entry point for setup and now also controls the program's flow.
-        """
-        # 1. Load Configuration
+    def load_config(self, args: Optional[argparse.Namespace] = None):
+        """Loads the main program configuration."""
         self.config = ProgramConfig.load()
-        assert self.config is not None
+
+    def init_program(self, args: Optional[argparse.Namespace]) -> None:
+        """Initializes components based on configuration and CLI arguments."""
+        if not self.config:
+            self.load_config(args)
+            
         ConfigApplier.apply_cli_args_to_config(self.config, args)
 
-        self.clear_on_init: bool = args.msg is not None if args else False or (
-            getattr(args, "debug_console", False) if args else False
-        )
-
-        # 2. Initialize Session Paths
-        session_paths = SessionManager.initialize_session_paths(self.config)
+        self.clear_on_init = args.msg is not None if args else False
         
+        session_paths = SessionManager.initialize_session_paths(self.config)
         self.session_timestamp = session_paths["session_timestamp"]
         self.session_chat_filepath = session_paths["session_chat_filepath"]
         self.session_thinking_log_filepath = session_paths["session_thinking_log_filepath"]
         self.session_workspace_path = session_paths["session_workspace_path"]
 
-        # 3. Initialize core program components (LLM, system prompt, etc.)
         self.init() 
 
-        # 4. Setup Logging and Output Managers (now using session_paths)
         self.thinking_log_manager = ThinkingLogManager(log_file_name=self.session_thinking_log_filepath)
 
-        print_mode = self.config.get(ProgramSetting.PRINT_MODE, "line_or_x_tokens")
-        tokens_per_print = self.config.get(ProgramSetting.TOKENS_PER_PRINT, 20)
         self.output_printer = OutputPrinter(
-            print_mode=print_mode, tokens_per_print=tokens_per_print
+            print_mode=self.config.get(ProgramSetting.PRINT_MODE, "line_or_x_tokens"),
+            tokens_per_print=self.config.get(ProgramSetting.TOKENS_PER_PRINT, 20)
         )
-
-        thinking_mode = self.config.get(ProgramSetting.THINKING_MODE, "progressbar")
-        enable_thinking_display = self.config.get(ProgramSetting.ENABLE_THINKING_DISPLAY, True)
 
         self.handler_manager = HandlerManager(
             log_manager=self.thinking_log_manager,
-            output_base_dir=self.session_workspace_path,
-            thinking_mode=thinking_mode,
-            enable_thinking_display=enable_thinking_display,
-            show_thinking_animation= True
+            thinking_mode=self.config.get(ProgramSetting.THINKING_MODE, "progressbar"),
+            enable_thinking_display=self.config.get(ProgramSetting.ENABLE_THINKING_DISPLAY, True),
+            show_thinking_animation=True
         )
 
     def init_model_params(self):
-        """
-        Initializes or overrides default ModelParams based on the loaded LLM's properties.
-        This ensures model-specific settings from the config file are applied.
-        """
         if self.llm and hasattr(self.llm, 'options'):
             self.model_params = ModelParams(**self.llm.options).to_dict()
         else:
             self.model_params = ModelParams().to_dict()
 
     def init(self) -> None:
-        """
-        Initializes core program components like system prompt, LLM, and command interceptor.
-        """
+        func.log("Program: Core init...")
         system_file = self.config.get(ProgramSetting.SYSTEM_PROMPT_FILE)
-        self.system_prompt = PromptLoader.load_system_prompt(self.config, system_file)
+        self.system_prompt = self.read_system_file(system_file)
 
         model_config_name_to_load = self.config.get(ProgramSetting.MODEL_CONFIG_NAME)
         self._load_model(model_config_name_to_load)
 
         if self.llm is None:
-            func.error(f"Failed to load LLM model. Exiting.", level="CRITICAL") 
+            func.error("Program: LLM could not be loaded.", level="CRITICAL") 
             sys.exit(1)
 
         self.model_name = self.llm.model_name
-        spliced_model_name = self.model_name.split(":")
-        self.model_chat_name: str = spliced_model_name[0]
-        self.model_variant = (
-            spliced_model_name[1] if len(spliced_model_name) > 1 else None
-        )
-
         self.init_model_params()
 
-        logs_path_for_interceptor = self.config.get(ProgramSetting.PATHS_LOGS)
-        if not logs_path_for_interceptor:
-            logs_path_for_interceptor = os.path.join(func.get_root_directory(), "logs")
-            func.log(f"'{ProgramSetting.PATHS_LOGS}' not found in config. Using fallback: {logs_path_for_interceptor}", level="WARNING") 
+        logs_path = self.config.get(ProgramSetting.PATHS_LOGS) or os.path.join(func.get_root_directory(), "logs")
+        self.command_interceptor = ChatCommandInterceptor(self.chat, logs_path)
 
-        self.command_interceptor = ChatCommandInterceptor(
-            self.chat, logs_path_for_interceptor
-        )
+    def read_system_file(self, system_file: str) -> str:
+        return PromptLoader.load_system_prompt(self.config, system_file)
 
     def process_token(self, token):
-        """
-        Processes a token using the ConsoleTokenFormatter (primarily for color).
-        """
         return self.token_processor.process_token(token)
 
     def clear_process_token(self):
-        """
-        Clears the internal state of ConsoleTokenFormatter.
-        """
         self.token_processor.clear_process_token()
 
-    def start_chat(self, user_input):
-        """
-        Initiates the LLM chat session for a given user input.
-        """
+    def output_requested(self):
+        if self.active_executor:
+            self.active_executor.output_requested()
+
+    def _handle_tool_call(self, tool_call_string: str):
+        func.log(f"Program: Handling tool call: {tool_call_string}", level="INFO")
+
+        # For now, we'll just log the tool call and add a placeholder result.
+        # In a real scenario, you would parse this and execute the tool.
+        tool_name = "unknown_tool"
+        # Basic parsing to find tool name
+        try:
+            lines = tool_call_string.strip().split('\n')
+            if len(lines) > 1:
+                tool_name = lines[1].strip()
+        except Exception as e:
+            func.log(f"Could not parse tool name from call: {e}", level="WARN")
+
+        # Add the original tool call message from the assistant
+        self.chat.messages.append(
+            BaseModel.create_message(ChatRoles.ASSISTANT, tool_call_string)
+        )
+
+        # Add a placeholder tool result message
+        tool_result_content = f"<result>\nTool '{tool_name}' executed successfully.\n</result>"
+        self.chat.messages.append(
+            BaseModel.create_message(ChatRoles.TOOL, tool_result_content)
+        )
+
+        # Save history and trigger a new turn to process the result
+        self._save_chat_history()
+        func.log("Program: Tool call handled. Triggering next AI turn.")
+        self.start_chat(user_input=None) # Pass None to indicate it's a continuation
+
+    def start_chat(self, user_input: Optional[str]):
+        # State machine for stream processing
+        STREAM_STATE_NORMAL = "normal"
+        STREAM_STATE_TOOL_CAPTURE = "tool_capture"
+        
+        # Initialization
+        stream_state = STREAM_STATE_NORMAL
         started_response = False
+        llm_response_accumulated = ""
+        tool_buffer = ""
+        is_first_token = True
 
         if self.llm is None:
-            func.log("LLM is not initialized. Cannot start chat.", level="CRITICAL") 
+            func.log("Program: LLM is None, cannot chat.", level="CRITICAL")
             return
 
-        outs = self.llm.chat(
-            self.chat.messages,
-            stream=True,
-            images=self.chat.images,
-            options=self.model_params
-        )
         try:
-            llm_response_accumulated = ""
+            func.log("Program: LLM Chat starting...")
+            outs = self.llm.chat(
+                self.chat.messages,
+                stream=True,
+                images=self.chat.images,
+                options=self.model_params
+            )
+
             for raw_token_string in outs:
-                new_token = self.output_printer.process_token(raw_token_string)
+                # 1. Sanitize Token ("Clean-Pipe")
+                sanitized_token = unicodedata.normalize('NFKC', raw_token_string)
+                sanitized_token = re.sub(r'[^\x20-\x7E\n\t]', '', sanitized_token)
+
+                if not sanitized_token:
+                    continue
+
+                # 2. State Transition and Buffering Logic
+                if is_first_token:
+                    is_first_token = False
+                    if sanitized_token.strip().startswith("<tool>"):
+                        func.log("Program: Tool mode detected.", level="INFO")
+                        stream_state = STREAM_STATE_TOOL_CAPTURE
+                
+                if stream_state == STREAM_STATE_TOOL_CAPTURE:
+                    tool_buffer += sanitized_token
+                    if "</tool>" in tool_buffer:
+                        end_tag_index = tool_buffer.find("</tool>") + len("</tool>")
+                        final_tool_call = tool_buffer[:end_tag_index]
+                        
+                        self._handle_tool_call(final_tool_call)
+                        return # End this chat turn; the tool handler will start the next one
+                    continue
+
+                # 3. Normal Processing (if not in tool mode)
+                new_token = self.output_printer.process_token(sanitized_token)
                 if new_token is None:
                     continue
 
-                display_to_user, content_to_display, file_content_saved = \
-                    self.handler_manager.process_token_chain(new_token)
-
-                if file_content_saved:
-                    pass
+                display_to_user, content_to_display, _ = self.handler_manager.process_token_chain(new_token)
 
                 if display_to_user:
                     if not started_response:
-                        func.out( # Confirmed func.out
-                            format_text(self.chat.assistant_prompt, Color.PURPLE)
-                            + Color.RESET, end="" 
-                        )
+                        func.out(format_text(self.chat.assistant_prompt, Color.PURPLE) + Color.RESET, end="")
                         started_response = True
 
-                    formatted_token_for_display = self.token_processor.process_token(
-                        content_to_display
-                    )
-
+                    formatted_token = self.token_processor.process_token(content_to_display)
                     self.chat.current_message += content_to_display
                     llm_response_accumulated += content_to_display
+                    func.out(formatted_token, end="")
 
-                    func.out(formatted_token_for_display, end="") # Confirmed func.out
-
-                    if (
-                        self.write_to_file
-                        and self.output_filename
-                        and formatted_token_for_display.strip()
-                    ):
-                        func.write_to_file( 
-                            self.output_filename,
-                            formatted_token_for_display,
-                            func.FILE_MODE_APPEND,
-                        )
+            func.log("Program: Stream iterator finished.")
 
         except Exception as e:
-            error_message = f"An error occurred during chat: {e}"
-            func.out(f"Error: {error_message}") # Confirmed func.out
-            func.log(f"{error_message}", level="CRITICAL") 
-            import traceback
-            func.log(f"Traceback:\n{traceback.format_exc()}", level="ERROR") 
-            llm_response_accumulated = f"ERROR: {error_message}"
+            func.log(f"Program: Error in start_chat: {e}", level="CRITICAL")
+            func.log(f"Traceback:\n{traceback.format_exc()}", level="ERROR")
+            llm_response_accumulated = f"ERROR: {e}"
 
         finally:
-            if self.output_printer:
-                self.output_printer.flush_buffers()
+            # This finally block only runs for NORMAL responses or errors.
+            # Tool calls will `return` early from the function.
+            if stream_state == STREAM_STATE_NORMAL:
+                if self.output_printer:
+                    self.output_printer.flush_buffers()
 
-            if llm_response_accumulated:
-                self.chat.messages.append(
-                    BaseModel.create_message(
-                        ChatRoles.ASSISTANT, llm_response_accumulated.strip()
+                if llm_response_accumulated:
+                    self.chat.messages.append(
+                        BaseModel.create_message(ChatRoles.ASSISTANT, llm_response_accumulated.strip())
                     )
-                )
 
-            self._save_chat_history()
-            self.llm_stream_finished()
+                self._save_chat_history()
+                self.llm_stream_finished()
 
     def llm_stream_finished(self, data=""):
-        """
-        Called when the LLM stream finishes.
-        """
-        func.log("Finished LLM Response") 
+        func.log("Program: Stream finished.") 
         func.out("") 
         self.clear_process_token()
         self.chat.chat_finished()
 
-    def output_requested(self):
-        """
-        Handles requests for output from the active command executor.
-        """
-        if self.active_executor:
-            self.active_executor.output_requested()
+    def run_agent_flow(self, user_prompt: str):
+        func.log("Program: Starting Agent Orchestrator...")
+        pipeline_config = load_pipeline_config(self, "pipelines/pipeline.json")
+        if not pipeline_config:
+            func.error("Program: Missing pipeline config.")
+            return
+
+        connector = LLMConnector(self.llm)
+        registry = ToolRegistry()
+        for name, tool_ref in agent_tools.AVAILABLE_TOOLS.items():
+            registry.register_tool(name, tool_ref)
+
+        orchestrator = MessageOrchestrator(
+            connector=connector, registry=registry, pipeline_config=pipeline_config
+        )
+
+        try:
+            orchestrator.run_loop(user_prompt)
+        except Exception as e:
+            func.error(f"Program: Orchestrator error: {e}")
+        finally:
+            func.log("Program: Agent Flow finished.")
 
     def load_events(self):
-        """
-        Loads event listeners for chat and LLM events using EventBinder.
-        """
         EventBinder.bind_core_events(
             chat=self.chat,
             llm=self.llm,
@@ -267,83 +294,52 @@ class Program:
             output_requested_callback=self.output_requested,
             llm_stream_finished_callback=self.llm_stream_finished
         )
-
-    def load_config(self, args: Optional[argparse.Namespace] = None):
-        """
-        Loads the main program configuration.
-        """
-        self.config = ProgramConfig.load()
-
-    def run(self) -> None:
-        """
-        Starts the main interactive chat loop.
-        """
-        self.load_events()
-        self.chat.loop()
-
-    def read_system_file(self, system_file: str) -> str:
-        """
-        Reads and processes the content of a system prompt file using PromptLoader.
-        """
-        return PromptLoader.load_system_prompt(self.config, system_file)
+        self.chat.add_event(self.chat.EVENT_AGENT_RUN_REQUESTED, self.run_agent_flow)
 
     def _load_model(self, model_config_name: str) -> None:
-        """
-        Loads the LLM model configuration and instantiates the model
-        using ModelManager.
-        """
-        func.log(f"Attempting to load model from config '{model_config_name}'") 
-
+        func.log(f"Program: Loading model {model_config_name}") 
         if not model_config_name.endswith(".json"):
             model_config_name += ".json"
 
-        model_configs_folder = self.config.get(ProgramSetting.PATHS_MODEL_CONFIGS)
+        folder = self.config.get(ProgramSetting.PATHS_MODEL_CONFIGS)
+        filename = os.path.join(folder, model_config_name)
 
-        if not model_configs_folder:
-            func.error(f"'{ProgramSetting.PATHS_MODEL_CONFIGS}' is not configured. Cannot load model. Please set it in config.json or ensure defaults are correct.", level="CRITICAL") 
-            sys.exit(1)
-
-        func.ensure_directory_exists(model_configs_folder)
-
-        filename = os.path.join(model_configs_folder, model_config_name)
-
-        model_config = None
         try:
             model_config = ModelManager.load_config(filename) 
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            func.error(f"Failed to load model config from {filename}: {e}", level="CRITICAL") 
-            sys.exit(1)
-
-        model_type_from_config = model_config.get("model_type")
-
-        ollama_host = None
-        if model_type_from_config == "ollama":
-            ollama_host = self.config.get(ProgramSetting.OLLAMA_HOST)
-            if not ollama_host:
-                func.log(f"'{ProgramSetting.OLLAMA_HOST}' not configured. Using default Ollama host.", level="WARNING") 
-                ollama_host = "http://localhost:11434"
-
-        self.llm = ModelManager.load_model_instance(
-            model_config=model_config,
-            system_prompt=self.system_prompt,
-            ollama_host=ollama_host
-        )
-
-        if self.llm is None:
-            func.error("LLM model could not be instantiated. Exiting.", level="CRITICAL") 
+            self.model_chat_name = model_config.get("model_name", self.model_chat_name)
+            self.llm = ModelManager.load_model_instance(
+                model_config=model_config,
+                system_prompt=self.system_prompt,
+                ollama_host=self.config.get(ProgramSetting.OLLAMA_HOST)
+            )
+        except Exception as e:
+            func.error(f"Program: Load model error: {e}", level="CRITICAL") 
             sys.exit(1)
 
     def _save_chat_history(self):
-        """
-        Saves the current chat history to the session's JSON file.
-        """
         if not self.session_chat_filepath:
-            func.log(f"Session chat file path not initialized. Cannot save chat history.", level="WARNING") 
             return
-
         try:
             with open(self.session_chat_filepath, "w", encoding="utf-8") as f:
                 json.dump(self.chat.messages, f, indent=4)
-            func.log(f"Chat history saved to {self.session_chat_filepath}") 
         except Exception as e:
-            func.log(f"Failed to save chat history to {self.session_chat_filepath}: {e}", level="ERROR") 
+            func.log(f"Program: Failed to save history: {e}", level="ERROR")
+
+    def cleanup(self):
+        func.log("Program: Running cleanup...")
+        if self.llm and hasattr(self.llm, 'close'):
+            self.llm.close()
+
+    def run(self) -> None:
+        func.log("Program: Main loop starting.")
+        self.load_events()
+        try:
+            self.chat.loop()
+        finally:
+            self.cleanup()
+            func.log("Program: Forcing OS exit to bypass Segfault.")
+            os._exit(0)
+
+if __name__ == "__main__":
+    p = Program()
+    p.run()

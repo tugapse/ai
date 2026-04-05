@@ -1,6 +1,6 @@
 # services/event_binder.py
 
-from core.llms import BaseModel
+from core.llms.base_llm import BaseModel
 from core.chat import Chat
 from typing import Callable
 

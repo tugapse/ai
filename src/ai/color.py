@@ -8,6 +8,8 @@ class Color:
     YELLOW = '\033[93m' # Original YELLOW was bright yellow
     BLUE = '\033[94m' # Original BLUE was bright blue
     PURPLE = '\033[95m' # Original PURPLE was bright magenta
+    CYAN = '\033[36m'
+    
 
     # Standard (Normal) Text Colors (Foreground) - New names for these
     NORMAL_BLACK = '\033[30m'

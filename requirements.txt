@@ -1,13 +1,8 @@
-accelerate
-bitsandbytes
 colorama
 dotenv
 huggingface-hub
-llama_cpp_python
-numpy
-ollama
-tqdm
-transformers
 pyreadline3; sys_platform == "win32"
 triton-windows; sys_platform == "win32"
 triton; sys_platform != "win32"
+prompt_toolkit
+requests

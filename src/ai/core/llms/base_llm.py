@@ -1,7 +1,6 @@
 import gc
 import threading
 import functions
-import torch
 from entities.model_enums import InferenceBackend
 
 
@@ -24,7 +23,19 @@ class BaseModel:
         # Common attributes for graceful interruption
         self.stop_generation_event = threading.Event()
         self._generation_thread = None # Placeholder for potential background thread
-        self.inference_device = InferenceBackend.GPU_CUDA if torch.cuda.is_available() else InferenceBackend.CPU 
+        self.inference_device = InferenceBackend.CPU # Default to CPU, lazy-load torch for GPU check
+
+    def init_pytorch_cuda(self):
+        try:
+            import torch
+            if torch.cuda.is_available():
+                self.inference_device = InferenceBackend.GPU_CUDA
+                functions.log("PyTorch CUDA available. Set inference device to GPU.")
+            else:
+                functions.log("PyTorch CUDA not available. Using CPU.")
+        except ImportError:
+            functions.log("PyTorch not found. Using CPU.")
+            pass
 
     def _prepare_input(self, messages: list):
         """
@@ -140,7 +151,11 @@ class BaseModel:
 
     def is_gpu_available(self):
         if self.inference_device == InferenceBackend.GPU_CUDA:
-            torch.cuda.is_available()
+            try:
+                import torch
+                return torch.cuda.is_available()
+            except ImportError:
+                return False
         elif self.inference_device == InferenceBackend.GPU_AMD:
             # TODO add implentations here for direct_ml and override in gguf
             return False
@@ -148,8 +163,12 @@ class BaseModel:
     
     def clean_cache(self):
         functions.debug("Clearing cache")
-        if self.is_gpu_available(): 
-            torch.cuda.empty_cache()
+        if self.is_gpu_available():
+            try:
+                import torch
+                torch.cuda.empty_cache()
+            except ImportError:
+                functions.log("PyTorch not available, cannot clear CUDA cache.")
         gc.collect()
         
 class ModelParams:

@@ -1,128 +1,143 @@
 # AI Assistant
-================
 
-A conversational AI assistant built with Python, supporting various AI models including Ollama and Hugging Face Transformers.
+![Version](https://img.shields.io/badge/version-2.2.0-orange)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-## Features
--------------
+A modular conversational AI framework built with Python. It provides a unified interface for **Ollama** and **Hugging Face Transformers**, supporting advanced file ingestion, autonomous agent workflows, and multimodal analysis.
 
-### Core AI Capabilities: NLP and Contextual Understanding
+---
 
-The AI Assistant's ability to engage in natural, coherent conversations, understand complex queries, and maintain context throughout a dialogue is powered by its flexible integration with diverse Large Language Models (LLMs). This pluggable architecture supports:
+## ✨ Features
 
-*   Ollama Server Models: For efficient, local inference, allowing you to run powerful models directly on your hardware. This provides robust Natural Language Processing (NLP) and contextual understanding without relying on external API calls.
-*   Hugging Face Transformers Models: For access to a vast ecosystem of pre-trained and fine-tunable models. This enables the assistant to leverage state-of-the-art NLP techniques and deep contextual understanding across a wide range of tasks and model architectures (e.g., causal language models, sequence-to-sequence models).
+* **Hybrid LLM Integration:** Toggle between Ollama (local inference) and Hugging Face (GGUF/PyTorch) models.
+* **Autonomous Agents:** Enable tool-use for terminal execution, file manipulation, and smart searching.
+* **Contextual Data Ingestion:** Load text data from individual files or entire directories for analysis, reporting, or code reviews.
+* **Automated Task Pipeline:** Execute predefined logic (summarize, brainstorm, code) using prompt templates.
+* **Multimodal Support:** Analyze images using vision-capable models (VLMs).
+* **Flexible Interaction:** Persistent interactive chat mode or single-command CLI execution.
 
-### Versatile Model and Prompt Management
+---
 
-The AI Assistant supports multiple models and prompts, allowing users to choose the best configuration for their specific needs:
+## 🤖 Autonomous Agents
 
-*   Multiple Models: Utilize large language models for complex queries or smaller models for simpler conversations.
-*   Custom Prompts: Apply general conversation prompts or specialized system prompts to guide the AI's behavior and conversational style.
+The assistant includes an **Agentic Mode** that allows the LLM to interact with your system via a suite of tools. 
 
-### Comprehensive File and Folder Support
+* **Toolbox:** Includes `smart_search`, `patch_file`, `execute_command`, and more.
+* **Safety (HITL):** Sensitive operations require manual user authorization (Human-In-The-Loop) unless explicitly whitelisted.
+* **Iteration:** Agents can self-correct and iterate through multiple steps to complete complex tasks.
 
-The AI assistant can load and process text data from files and folders, which is incredibly useful for tasks such as:
 
-*   Analyzing large datasets
-*   Generating reports or summaries
-*   Creating chatbots or virtual assistants
+> For a full list of available tools, safety configurations, and agentic workflows, please refer to the [**Agent Documentation**](docs/agents.md).
 
-## Usage
----------
+---
 
-The AI Assistant offers two primary modes of operation: an interactive chat mode for continuous conversation, and direct command-line execution for specific tasks or automated workflows.
+## ⚙️ Installation & Setup
+
+1.  **Clone the Repository:**
+    ```bash
+    git clone [https://github.com/tugapse/ai.git](https://github.com/tugapse/ai.git)
+    cd ai
+    ```
+
+2.  **Install Dependencies:**
+    The included installer automatically detects your hardware and configures the environment (including CUDA support).
+    ```bash
+    python install_deps.py --auto-accept
+    ```
+
+---
+
+## 🚀 Usage
 
 ### Interactive Chat Mode
-
-If you run the program without specific task-oriented command-line arguments (like `--msg`, `--file`, `--task`, or `--generate-config`), it will launch into an interactive chat loop, allowing for continuous dialogue:
-
-```sh
-../run.sh
-User: hello
-Assistant: Hello. How can I assist you today?
-
+Run without arguments to start a continuous dialogue:
+```bash
+./run.sh
 ```
 
-### Direct Command-Line Execution
+### Agent Mode (Autonomous)
+Run the assistant with tool-access enabled:
+```bash
+./run.sh --agents --msg "Locate all .py files in /src and check them for security vulnerabilities."
+```
 
-For one-off questions, automated tasks, or configuration generation, you can pass arguments directly to the `run.sh` script. The program will execute the specified action and then exit (unless the action naturally leads to prolonged output, like `--print-chat`):
-
-Example: Ask a direct question:
-
-```sh
+### Direct Command Execution
+**Ask a single question:**
+```bash
 ./run.sh --msg "What is the capital of Portugal?"
 ```
 
-Example: Summarize a file and save the output:
-
-```sh
-./run.sh --file "my_document.txt" --task "summarize" --output-file "summary.md"
+**Summarize a file and save the output:**
+```bash
+./run.sh --file "document.txt" --task "summarize" --output-file "summary.md"
 ```
 
-## CLI Options
---------------
+**Analyze a source folder:**
+```bash
+./run.sh --load-folder "./src" --ext "py" --task "code_review"
+```
 
-The AI Assistant provides a comprehensive set of command-line interface (CLI) options to customize its behavior, control input/output, and trigger specific functionalities. These options are passed to the `run.sh` script.
+---
 
-### Model and Interaction Control
+## 📖 CLI Reference
 
-*   `--msg <message>` / `-m <message>`: Directly pass a single question or statement to the AI. The assistant will process this message and then exit.
-*   `--model <model_name>` / `-md <model_name>`: Specify which AI model to use for the current session.
-*   `--system <prompt_name>` / `-s <prompt_name>`: Apply a predefined system prompt (template name from `prompt_templates/system/`) to guide the AI’s persona or behavior.
-*   `--system-file <filename>` / `-sf <filename>`: Load a system prompt from a specific file.
+### Model & Interaction
+| Flag | Alias | Description |
+| :--- | :--- | :--- |
+| `--agents` | | Enable Agentic Mode (allows tool-use and autonomous iterations). |
+| `--msg` | `-m` | Direct question or statement. |
+| `--model` | `-md` | Model config filename (e.g., `gemma-2b.json`). |
+| `--system` | `-s` | Name of a predefined system prompt template. |
+| `--system-file` | `-sf` | Path to a specific system prompt `.md` file. |
+| `--list-models` | `-l` | List all available model configurations. |
 
-### Data Input Options
+### Data & Files
+| Flag | Alias | Description |
+| :--- | :--- | :--- |
+| `--file` | `-f` | Pass a text file's content as a message. |
+| `--image` | `-i` | Pass an image file (requires multimodal model). |
+| `--load-folder` | `-D` | Load multiple files from a directory. |
+| `--ext` | `-e` | Filter folder search by extension (e.g., `py`, `md`). |
 
-*   `--file <filename>` / `-f <filename>`: Load the content of a single text file and pass it as input to the AI.
-*   `--image <image_file>` / `-i <image_file>`: Load an image file and pass it as input to the AI. Requires an AI model capable of multimodal (image understanding) capabilities.
-*   `--load-folder <folder_name>` / `-D <folder_name>`: Load the content of multiple text files from a specified folder.
-*   `--extension <extension>` / `-e <extension>`: Used with `--load-folder` to filter files by a specific extension (e.g., py, md, txt).
+### Automation & Debugging
+| Flag | Alias | Description |
+| :--- | :--- | :--- |
+| `--task` | `-t` | Execute a prompt template from `prompt_templates/`. |
+| `--output-file` | `-o` | Redirect AI output to a specific file. |
+| `--print-log` | `-pl` | Show informational log messages. |
+| `--no-out` | `-q` | Suppress the main AI response in the console. |
+| `--debug-console`| `-dc` | Disable console clearing and show full debug logs. |
 
-### Automated Tasks and Output
+---
 
-*   `--task <template_name>` / `-t <template_name>`: Execute a predefined task or template (name from `prompt_templates/task/`). This instructs the AI to perform a specific type of action (e.g., summarize, generate code, brainstorm).
-*   `--task-file <filename>` / `-tf <filename>`: Load a task definition from a specific file.
-*   `--output-file <filename>` / `-o <filename>`: Redirect the AI’s generated output to a specified file instead of printing it to the console.
+## 🔧 Model Configuration Generation
 
-### Program Control and Debugging
+The AI Assistant provides specialized options for generating model configuration files, defining how models are loaded and behave within the application.
 
-*   `--no-log` / `-q`: Suppress informational "log" messages from being printed to the console.
-*   `--no-out`: Suppress the main AI output message from being printed to the console (useful when combined with `--output-file`).
-*   `--debug`: Enable debug mode, which prevents the console from being cleared and may provide more detailed error traceback information.
+**Generate a new configuration:**
+```bash
+python main.py --generate-config "new_model" --model-type "gguf"
+```
 
-## Model Configuration Generation
--------------------------------
+* **--generate-config:** Specify the filename to save the new JSON config (you can ommit .json).
+* **--model-type:** Choose the architectural type (`ollama`, `causallm`, or `gguf`).
 
-Beyond the general usage, the AI Assistant provides specialized options for generating model configuration files. These files are crucial for defining how different AI models are loaded and behave within the application.
+For detailed instructions on configuration parameters, refer to the [**Model Configuration Manager README**](docs/MODEL_CONFIG.md).
 
-For detailed instructions on generating model configuration files, including available model types and examples, please refer to the dedicated Model Configuration Manager README.
+---
 
-## Contributing
---------------
+## ❤️ Credits & Acknowledgements
 
-If you’d like to contribute to this project, please fork the repository on GitHub and submit a pull request. I’m always happy to see suggestions or patches that could improve the Assistant’s functionality.
+* **Ollama:** For providing the foundation for local model serving.
+* **Hugging Face:** For the Transformers ecosystem and GGUF support.
+* **The Python Community:** For continuous innovation in AI tooling.
 
-## License
----------
+---
 
-N/A
+## 📄 License
+MIT
 
-## Credits
-----------
-
-I have to say, building this AI Assistant has been an absolute blast. It's amazing to see how all these different technologies - Python, NLP techniques, and Large Language Models - come together in such a seamless way.
-
-I have to give a huge thanks to the team at Ollama for getting me started on this project. They provided me with the foundation I needed to get going, and their platform really made it easy to work with local models. But as I dug deeper, Hugging Face Transformers opened up a whole new world of possibilities for me. Their resources and libraries allowed me to explore even more advanced NLP techniques and push the boundaries of what this AI Assistant could do.
-
-This project is a perfect example of what happens when you combine cutting-edge tools in a really smart way. I've learned so much throughout this process, and I'm already itching to see where we can take it next. There are already plenty of ideas floating around in my head for how we can expand its capabilities - stay tuned!
-
-## Contact
--------------
-
-If you have any questions or need further assistance, please don't hesitate to reach out. You can contact me at tugapse@gmail.com or through the GitHub issues page for this project.
-
-## Acknowledgements
-------------------
-
-I’m incredibly grateful to the Ollama team for building such a fantastic AI model library, and to the entire Python community for their continuous innovation and support. It's a really inspiring environment to be a part of, and it makes projects like this possible.
+## 📧 Contact
+**Maintainer:** Fabio Almeida 
+**Email:** tugapse@gmail.com

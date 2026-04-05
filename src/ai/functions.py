@@ -142,6 +142,8 @@ def format_execution_time(start_time, end_time):
     """
     Formats the elapsed time between start_time and end_time into HH:MM:SS format.
     """
+    if start_time is None or end_time is None:
+        return "N/A"
     elapsed_seconds = end_time - start_time
     hours = int(elapsed_seconds // 3600)
     minutes = int((elapsed_seconds % 3600) // 60)
@@ -214,7 +216,7 @@ def log(text, start_line="[ * ]", level="INFO", **kargs):  # Added level for con
     formatted_text = get_formatted_text(text,start_line=start_line, level=level)
     
     if ACTIVE_LOG_FILENAME: 
-        write_to_file(ACTIVE_LOG_FILENAME, f"{start_line} {text}\n", FILE_MODE_APPEND,True)
+        write_to_file(ACTIVE_LOG_FILENAME, f"{formatted_text}\n", FILE_MODE_APPEND,True)
     if SESSION_LOG_FILENAME:
         write_to_file(SESSION_LOG_FILENAME, f"{start_line} {text}\n", FILE_MODE_APPEND,True)
 
@@ -229,7 +231,7 @@ def debug(text, start_line="[ # ]",  level="DEBUG", **kargs):
     formatted_text = get_formatted_text(text, start_line=start_line, level=level)
     if ACTIVE_LOG_FILENAME:
         write_to_file(
-            ACTIVE_LOG_FILENAME.replace("log_", "debug_"), f"{start_line} {text}\n", FILE_MODE_APPEND,True
+            ACTIVE_LOG_FILENAME.replace("log_", "debug_"), f"{formatted_text}\n", FILE_MODE_APPEND,True
         )
     if SESSION_LOG_FILENAME:
         write_to_file(
