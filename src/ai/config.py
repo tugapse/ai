@@ -81,7 +81,7 @@ class ProgramConfig(Generic[T]):
         # Check if config.json exists in that path, if not, copy it
         user_config_filename: str = os.path.join(user_directory, "config.json")
         
-        need_save = True
+        need_save = False
         if not exists(path=user_config_filename) or need_save:
             self.logger.info(
                 f"config.json not found in {user_directory}. Copying default config."
