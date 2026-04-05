@@ -1,11 +1,25 @@
+import logging
+import os
 import threading
 import sys
 import queue
 import gc
-import os
+import warnings
+
+# 2. Suppress bitsandbytes welcome message and library warnings
+os.environ['BITSANDBYTES_NOWELCOME'] = '1'
+# 3. Suppress Hugging Face Hub "Unauthenticated" warnings
+# This silences the specific logger that complains about the HF_TOKEN
+logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
+# 4. Suppress the 'bitsandbytes' FutureWarnings specifically
+# This targets the _check_is_size warnings you're seeing
+warnings.filterwarnings("ignore", category=FutureWarning, module="bitsandbytes")
+# 5. Optional: Suppress standard Transformers warnings if they get loud
+os.environ["TRANSFORMERS_VERBOSITY"] = "error"
 
 # DEFERRED IMPORTS: These are imported inside methods to avoid eager loading.
-# import torch
+import torch
+from transformers import TextIteratorStreamer,  StoppingCriteriaList
 # from transformers import (
 #     AutoModelForCausalLM,
 #     AutoTokenizer,
@@ -103,6 +117,7 @@ class HuggingFaceModel(BaseModel):
         """Loads the tokenizer and model from Hugging Face."""
         self.init_pytorch_cuda() # Check for GPU availability via torch
         import torch
+        self.torch_lib = torch
         from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
         functions.log(f"Attempting to load model: {self.model_name}...")

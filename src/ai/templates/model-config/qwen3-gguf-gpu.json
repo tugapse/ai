@@ -5,7 +5,7 @@
         "gguf_filename": "Qwen3-8B-Q4_K_M.gguf",
         "model_repo_id": "Qwen/Qwen3-8B-GGUF",
         "n_gpu_layers": -1,
-        "n_ctx": 4000,
+        "n_ctx": 8192,
         "verbose": true,
         "max_new_tokens": 3500,
         "temperature": 0.7,

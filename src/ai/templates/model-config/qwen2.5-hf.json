@@ -1,8 +1,9 @@
 {
-    "model_name": "Qwen/Qwen3-8B",
+    "model_name": "Qwen/Qwen2.5-7B-Instruct",
     "model_type": "causal_lm",
     "model_properties": {
-    "max_new_tokens": 8192,
+    "n_ctx": 10000,
+    "max_new_tokens": 1024,
     "do_sample": true,
     "temperature": 0.1,
     "top_p": 0.95,
