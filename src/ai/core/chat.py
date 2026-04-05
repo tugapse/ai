@@ -26,6 +26,7 @@ class ChatRoles:
     ASSISTANT = "assistant"
     SYSTEM = "system"
     CONTROL = "control"
+    TOOL = "tool"
 
 
 class Chat(Events):

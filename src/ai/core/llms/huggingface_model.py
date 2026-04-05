@@ -407,23 +407,44 @@ class HuggingFaceModel(BaseModel):
                 f"Generation thread started ({self._generation_thread.name}). Starting to yield tokens from streamer..."
             )
 
-            for new_token in streamer:
+            try:
+                for new_token in streamer:
+                    yield new_token
+                    # Check for errors from the background thread
+                    if not self.error_queue.empty():
+                        error_message = self.error_queue.get()
+                        functions.log(
+                            f"ERROR: Error received from generation thread during streaming: {error_message}"
+                        )
+                        # Stop yielding and exit the loop on error
+                        break
+                functions.debug("Streamer finished yielding all tokens.")
 
-                yield new_token
-                if not self.error_queue.empty():
-                    error_message = self.error_queue.get()
-                    functions.log(
-                        f"ERROR: Error received from generation thread during streaming: {error_message}"
-                    )
-                    sys.exit(1)
-            functions.debug("Streamer finished yielding all tokens.")
+            except KeyboardInterrupt:
+                functions.log("\nInterrupted by user. Signaling thread to stop...")
+                self.stop_generation_event.set()
+                # The streamer loop will break because the background thread will call streamer.end()
+                # We can yield a final message to the user
+                yield "\n[Generation stopped by user]"
+                # The generator will now exit gracefully.
+                return
+            finally:
+                # This block ensures we wait for the thread to finish if it's still running,
+                # for example, after a KeyboardInterrupt or an error.
+                if self._generation_thread and self._generation_thread.is_alive():
+                    functions.debug("Waiting for generation thread to join...")
+                    self._generation_thread.join(timeout=5.0)
+                    if self._generation_thread.is_alive():
+                        functions.log("Warning: Generation thread did not join cleanly.")
+                functions.debug("Chat method streaming block finished.")
 
+
+            # Check for any final errors after the loop finishes
             if not self.error_queue.empty():
                 error_message = self.error_queue.get()
                 functions.log(
                     f"ERROR: Error received from generation thread after streaming: {error_message}"
                 )
-                sys.exit(1)
 
         else:  # Non-streaming path
             functions.debug("Entering non-streaming (synchronous) generation path.")

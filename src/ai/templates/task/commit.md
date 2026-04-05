@@ -13,5 +13,6 @@
     * Do not speculate on intent or impact.
     * Wrap lines at 72 characters.
 3. **Output:** Provide **ONLY** the raw commit message. Do not include markdown code blocks (```), conversational filler, or explanations.
+4. ***Empty commit message* If you dont see a gitdiff message in the user payload. Do NOT wast time thinking, just output "No Changes Detected"
 
 **Input Diff:**

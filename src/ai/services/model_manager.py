@@ -141,7 +141,6 @@ class ModelManager:
             func.log(f"Unknown model_type '{model_type_str}' in model configuration.", level="ERROR")
             return None
 
-        # --- THE GATEKEEPER ---
         # If this returns False, we stop here and avoid the 'Lazy Import' crash.
         if not ModelManager.is_engine_installed(model_type, model_name):
             from color import Color
@@ -198,7 +197,7 @@ class ModelManager:
                 )
                 func.log(f"Model '{model_name}' loaded as an Ollama Model.") 
             elif model_type == ModelType.GGUF:
-                from core.llms.minimal_gguf import MinimalGGUFLLM
+
                 import ctypes
                 from llama_cpp import llama_log_set
                 def my_log_callback(level, message, user_data):
@@ -216,7 +215,8 @@ class ModelManager:
                 if not gguf_filename:
                     func.log("'gguf_filename' is required for 'gguf' model_type in model properties.", level="ERROR") 
                     return None
-                llm_instance = MinimalGGUFLLM(
+                from core.llms.gguf_model import GGUFImageLLM
+                llm_instance = GGUFImageLLM(
                     model_name=model_name,
                     gguf_filename=gguf_filename,
                     model_repo_id=model_repo_id,

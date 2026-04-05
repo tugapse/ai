@@ -1,8 +1,10 @@
 import os
+import re
 import sys
 import json
 import argparse
 import traceback
+import unicodedata
 from typing import Optional
 
 # Core components
@@ -136,12 +138,50 @@ class Program:
         if self.active_executor:
             self.active_executor.output_requested()
 
-    def start_chat(self, user_input):
+    def _handle_tool_call(self, tool_call_string: str):
+        func.log(f"Program: Handling tool call: {tool_call_string}", level="INFO")
+
+        # For now, we'll just log the tool call and add a placeholder result.
+        # In a real scenario, you would parse this and execute the tool.
+        tool_name = "unknown_tool"
+        # Basic parsing to find tool name
+        try:
+            lines = tool_call_string.strip().split('\n')
+            if len(lines) > 1:
+                tool_name = lines[1].strip()
+        except Exception as e:
+            func.log(f"Could not parse tool name from call: {e}", level="WARN")
+
+        # Add the original tool call message from the assistant
+        self.chat.messages.append(
+            BaseModel.create_message(ChatRoles.ASSISTANT, tool_call_string)
+        )
+
+        # Add a placeholder tool result message
+        tool_result_content = f"<result>\nTool '{tool_name}' executed successfully.\n</result>"
+        self.chat.messages.append(
+            BaseModel.create_message(ChatRoles.TOOL, tool_result_content)
+        )
+
+        # Save history and trigger a new turn to process the result
+        self._save_chat_history()
+        func.log("Program: Tool call handled. Triggering next AI turn.")
+        self.start_chat(user_input=None) # Pass None to indicate it's a continuation
+
+    def start_chat(self, user_input: Optional[str]):
+        # State machine for stream processing
+        STREAM_STATE_NORMAL = "normal"
+        STREAM_STATE_TOOL_CAPTURE = "tool_capture"
+        
+        # Initialization
+        stream_state = STREAM_STATE_NORMAL
         started_response = False
         llm_response_accumulated = ""
+        tool_buffer = ""
+        is_first_token = True
 
         if self.llm is None:
-            func.log("Program: LLM is None, cannot chat.", level="CRITICAL") 
+            func.log("Program: LLM is None, cannot chat.", level="CRITICAL")
             return
 
         try:
@@ -154,7 +194,32 @@ class Program:
             )
 
             for raw_token_string in outs:
-                new_token = self.output_printer.process_token(raw_token_string)
+                # 1. Sanitize Token ("Clean-Pipe")
+                sanitized_token = unicodedata.normalize('NFKC', raw_token_string)
+                sanitized_token = re.sub(r'[^\x20-\x7E\n\t]', '', sanitized_token)
+
+                if not sanitized_token:
+                    continue
+
+                # 2. State Transition and Buffering Logic
+                if is_first_token:
+                    is_first_token = False
+                    if sanitized_token.strip().startswith("<tool>"):
+                        func.log("Program: Tool mode detected.", level="INFO")
+                        stream_state = STREAM_STATE_TOOL_CAPTURE
+                
+                if stream_state == STREAM_STATE_TOOL_CAPTURE:
+                    tool_buffer += sanitized_token
+                    if "</tool>" in tool_buffer:
+                        end_tag_index = tool_buffer.find("</tool>") + len("</tool>")
+                        final_tool_call = tool_buffer[:end_tag_index]
+                        
+                        self._handle_tool_call(final_tool_call)
+                        return # End this chat turn; the tool handler will start the next one
+                    continue
+
+                # 3. Normal Processing (if not in tool mode)
+                new_token = self.output_printer.process_token(sanitized_token)
                 if new_token is None:
                     continue
 
@@ -173,21 +238,24 @@ class Program:
             func.log("Program: Stream iterator finished.")
 
         except Exception as e:
-            func.log(f"Program: Error in start_chat: {e}", level="CRITICAL") 
-            func.log(f"Traceback:\n{traceback.format_exc()}", level="ERROR") 
+            func.log(f"Program: Error in start_chat: {e}", level="CRITICAL")
+            func.log(f"Traceback:\n{traceback.format_exc()}", level="ERROR")
             llm_response_accumulated = f"ERROR: {e}"
 
         finally:
-            if self.output_printer:
-                self.output_printer.flush_buffers()
+            # This finally block only runs for NORMAL responses or errors.
+            # Tool calls will `return` early from the function.
+            if stream_state == STREAM_STATE_NORMAL:
+                if self.output_printer:
+                    self.output_printer.flush_buffers()
 
-            if llm_response_accumulated:
-                self.chat.messages.append(
-                    BaseModel.create_message(ChatRoles.ASSISTANT, llm_response_accumulated.strip())
-                )
+                if llm_response_accumulated:
+                    self.chat.messages.append(
+                        BaseModel.create_message(ChatRoles.ASSISTANT, llm_response_accumulated.strip())
+                    )
 
-            self._save_chat_history()
-            self.llm_stream_finished()
+                self._save_chat_history()
+                self.llm_stream_finished()
 
     def llm_stream_finished(self, data=""):
         func.log("Program: Stream finished.") 
@@ -238,6 +306,7 @@ class Program:
 
         try:
             model_config = ModelManager.load_config(filename) 
+            self.model_chat_name = model_config.get("model_name", self.model_chat_name)
             self.llm = ModelManager.load_model_instance(
                 model_config=model_config,
                 system_prompt=self.system_prompt,

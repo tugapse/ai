@@ -1,33 +1,22 @@
 import os
 import warnings
 import logging
-# Set TQDM_DISABLE environment variable to suppress tqdm bars
-os.environ['TQDM_DISABLE'] = '1'
-# 1. Suppress TQDM (already there, but keep it at the top)
-os.environ['TQDM_DISABLE'] = '1'
 
-# 2. Suppress bitsandbytes welcome message and library warnings
-os.environ['BITSANDBYTES_NOWELCOME'] = '1'
 
-# 3. Suppress Hugging Face Hub "Unauthenticated" warnings
-# This silences the specific logger that complains about the HF_TOKEN
-logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
+def hack_warnings():
+    os.environ['TQDM_DISABLE'] = '1'
+    os.environ['BITSANDBYTES_NOWELCOME'] = '1'
+    os.environ["TRANSFORMERS_VERBOSITY"] = "error"
+    logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
+    logging.getLogger("huggingface_hub.utils._http").setLevel(logging.ERROR)
+    logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
+    warnings.filterwarnings("ignore", category=FutureWarning, module="bitsandbytes")
+    warnings.filterwarnings("ignore", message=".*local_dir_use_symlinks.*")
 
-# 4. Suppress the 'bitsandbytes' FutureWarnings specifically
-# This targets the _check_is_size warnings you're seeing
-warnings.filterwarnings("ignore", category=FutureWarning, module="bitsandbytes")
-
-# 5. Optional: Suppress standard Transformers warnings if they get loud
-os.environ["TRANSFORMERS_VERBOSITY"] = "error"
-# 1. Kill the specific sub-logger that is leaking the warning
-logging.getLogger("huggingface_hub.utils._http").setLevel(logging.ERROR)
-
-# 2. Kill the parent logger just to be safe
-logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
+hack_warnings()
 
 import sys
 import argparse
-import json
 import importlib.util # Added for dynamic loading
 from typing import Optional
 
