@@ -280,4 +280,6 @@ class CliArgs:
                     hide_think_anim=args.no_think_anim,
                     print_output=args.no_out != True
                 )
-            sys.exit(0)
+            # [CRITICAL] Use os._exit(0) for a hard exit to prevent C-level segfaults
+            # from llama_cpp during the standard Python cleanup process.
+            os._exit(0)

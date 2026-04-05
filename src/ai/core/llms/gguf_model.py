@@ -52,6 +52,12 @@ class GGUFImageLLM(BaseModel):
         self._n_gpu_layers = n_gpu_layers
         self._n_ctx = n_ctx
         self._verbose = verbose
+
+        # Manually set inference device for GGUF based on n_gpu_layers
+        # This avoids importing torch in the base class for the check.
+        if self._n_gpu_layers != 0:
+            from entities.model_enums import InferenceBackend
+            self.inference_device = InferenceBackend.GPU_CUDA
         self.llama_model: Llama|None = None
         self._llama_init_kwargs = kwargs
         self.error_queue = queue.Queue()
@@ -216,6 +222,19 @@ class GGUFImageLLM(BaseModel):
                 "frequency_penalty": generation_options.get("frequency_penalty", 0.0),
             }
 
+            # --- CRASH PAYLOAD INTERCEPTOR ---
+            import json
+            try:
+                dump_data = {
+                    "messages": messages,
+                    "generation_params": llama_params
+                }
+                with open("tempfolder/crash_payload.json", "w", encoding="utf-8") as f:
+                    json.dump(dump_data, f, indent=2)
+            except Exception as e:
+                print(f"DEBUG: Payload dump failed: {e}")
+            # --- END INTERCEPTOR ---
+
             stream_iter = self.llama_model.create_chat_completion(
                 messages, stream=True, **llama_params
             )
@@ -304,6 +323,32 @@ class GGUFImageLLM(BaseModel):
             "max_tokens": options.get("max_new_tokens", 200),
             "temperature": options.get("temperature", 0.7),
         }
+        # --- CRASH PAYLOAD INTERCEPTOR ---
+        import json
+        try:
+            dump_data = {
+                "messages": messages,
+                "generation_params": llama_params
+            }
+            with open("tempfolder/crash_payload.json", "w", encoding="utf-8") as f:
+                json.dump(dump_data, f, indent=2)
+        except Exception as e:
+            print(f"DEBUG: Payload dump failed: {e}")
+        # --- END INTERCEPTOR ---
+
+        # --- CRASH PAYLOAD INTERCEPTOR ---
+        import json
+        try:
+            dump_data = {
+                "messages": messages,
+                "generation_params": llama_params
+            }
+            with open("tempfolder/crash_payload.json", "w", encoding="utf-8") as f:
+                json.dump(dump_data, f, indent=2)
+        except Exception as e:
+            print(f"DEBUG: Payload dump failed: {e}")
+        # --- END INTERCEPTOR ---
+
         output = self.llama_model.create_chat_completion(
             messages, stream=False, **llama_params
         )

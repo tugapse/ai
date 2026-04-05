@@ -1,18 +1,20 @@
-import torch
 import threading
 import sys
 import queue
 import gc
 import os
 
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    TextIteratorStreamer,
-    StoppingCriteria,
-    StoppingCriteriaList,
-    BitsAndBytesConfig,
-)
+# DEFERRED IMPORTS: These are imported inside methods to avoid eager loading.
+# import torch
+# from transformers import (
+#     AutoModelForCausalLM,
+#     AutoTokenizer,
+#     TextIteratorStreamer,
+#     StoppingCriteria,
+#     StoppingCriteriaList,
+#     BitsAndBytesConfig,
+# )
+
 from huggingface_hub.errors import RepositoryNotFoundError, GatedRepoError
 import requests.exceptions
 
@@ -23,16 +25,17 @@ import functions
 
 
 # Define a custom StoppingCriteria to allow external interruption
-class CustomStoppingCriteria(StoppingCriteria):
+class CustomStoppingCriteria:
     """
     Custom StoppingCriteria to stop generation when a threading.Event is set.
+    The `transformers.StoppingCriteria` parent class is added dynamically.
     """
 
     def __init__(self, stop_event: threading.Event):
         self.stop_event = stop_event
 
     def __call__(
-        self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs
+        self, input_ids: 'torch.LongTensor', scores: 'torch.FloatTensor', **kwargs
     ) -> bool:
         """
         Checks if the stop_event has been set.
@@ -53,6 +56,7 @@ class HuggingFaceModel(BaseModel):
         functions.debug(f"HuggingFaceModel __init__ called for model: {model_name}")
 
         super().__init__(model_name, system_prompt, **kargs)
+
         self.tokenizer = None
         self.model = None
         self.quantization_bits = quantization_bits
@@ -97,6 +101,10 @@ class HuggingFaceModel(BaseModel):
 
     def _load_llm_params(self):
         """Loads the tokenizer and model from Hugging Face."""
+        self.init_pytorch_cuda() # Check for GPU availability via torch
+        import torch
+        from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+
         functions.log(f"Attempting to load model: {self.model_name}...")
 
         self.tokenizer = AutoTokenizer.from_pretrained(

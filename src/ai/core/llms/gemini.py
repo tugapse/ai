@@ -19,7 +19,7 @@ import functions as func
 from color import Color  # <-- IMPORT ADICIONADO PARA CORRESPONDER À GGUF
 
 class GeminiAPIModel(BaseModel):
-    def __init__(self, model_name="gemini-2.5-flash", system_prompt=None, api_key=None, use_vertex=True, project_id=None, location="us-central1", **kargs):
+    def __init__(self, model_name="gemini-2.5-flash", system_prompt=None, api_key=None, use_vertex=False, project_id=None, location="us-central1", **kargs):
         # 1. Log Inicial espelhado da GGUF
         func.log(f"Initializing GeminiAPIModel for model: {model_name}")
         

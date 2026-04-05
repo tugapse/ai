@@ -138,7 +138,7 @@ def run():
                  func.log(f"LLM generation stopped successfully.") 
         else:
             func.log(f"LLM object not initialized or does not support graceful stop.") 
-        sys.exit(0)
+        os._exit(0)
 
     except Exception as e:
         is_debug_console = False
@@ -153,3 +153,6 @@ def run():
 
 if __name__ == "__main__":
     run()
+    # [CRITICAL] Use os._exit(0) for a hard exit to prevent C-level segfaults
+    # from llama_cpp during the standard Python cleanup process.
+    os._exit(0)

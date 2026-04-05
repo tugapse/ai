@@ -1,5 +1,4 @@
-from .base_llm import BaseModel, ModelParams
-from .ollama_model import OllamaModel
-from .huggingface_model import HuggingFaceModel
-from .t5_model import T5Model 
-from .gguf_model import GGUFImageLLM
+# Eagerly importing all models here was causing a CUDA context collision.
+# PyTorch-based models (HuggingFace, T5) were being loaded even when
+# a GGUF model was selected, causing torch to initialize CUDA first.
+# The ModelManager now handles the lazy-loading of specific model classes.

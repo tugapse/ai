@@ -9,7 +9,7 @@ import functions as func
 
 from entities.model_enums import ModelType
 
-from core.llms import ModelParams, BaseModel
+from core.llms.base_llm import ModelParams, BaseModel
 
 class ModelManager:
     """
@@ -114,7 +114,7 @@ class ModelManager:
         llm_instance: Optional[BaseModel] = None
         try:
             if model_type == ModelType.CAUSAL_LM:
-                from core.llms import HuggingFaceModel
+                from core.llms.huggingface_model import HuggingFaceModel
                 llm_instance = HuggingFaceModel(
                     model_name=model_name,
                     system_prompt=system_prompt,
@@ -124,7 +124,7 @@ class ModelManager:
                 )
                 func.log(f"Model '{model_name}' loaded as a Causal Language Model (HuggingFace).") 
             elif model_type == ModelType.SEQ2SEQ_LM:
-                from core.llms import T5Model
+                from core.llms.t5_model import T5Model
                 llm_instance = T5Model(
                     model_name=model_name,
                     system_prompt=system_prompt,
@@ -134,7 +134,7 @@ class ModelManager:
                 )
                 func.log(f"Model '{model_name}' loaded as a Seq2Seq Language Model (T5-type).") 
             elif model_type == ModelType.OLLAMA:
-                from core.llms import OllamaModel
+                from core.llms.ollama_model import OllamaModel
                 if not ollama_host:
                     func.log("Ollama host not provided. Using default 'http://localhost:11434'.", level="WARNING") 
 
@@ -147,7 +147,8 @@ class ModelManager:
                 )
                 func.log(f"Model '{model_name}' loaded as an Ollama Model.") 
             elif model_type == ModelType.GGUF:
-                from core.llms import GGUFImageLLM
+                # from core.llms.gguf_model import GGUFImageLLM
+                from core.llms.minimal_gguf import  MinimalGGUFLLM
                 import ctypes
                 from llama_cpp import llama_log_set
                 def my_log_callback(level, message, user_data):
@@ -165,8 +166,7 @@ class ModelManager:
                 if not gguf_filename:
                     func.log("'gguf_filename' is required for 'gguf' model_type in model properties.", level="ERROR") 
                     return None
-
-                llm_instance = GGUFImageLLM(
+                llm_instance = MinimalGGUFLLM(
                     model_name=model_name,
                     gguf_filename=gguf_filename,
                     model_repo_id=model_repo_id,
