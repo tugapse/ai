@@ -1,10 +1,12 @@
-import torch
 import threading
 import sys
-from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, TextIteratorStreamer, BitsAndBytesConfig
 from huggingface_hub.errors import RepositoryNotFoundError, GatedRepoError
 import requests.exceptions
 import gc
+
+# DEFERRED IMPORTS
+# import torch
+# from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, BitsAndBytesConfig
 
 from core.llms.base_llm import BaseModel, ModelParams
 from core.events import Events
@@ -26,6 +28,7 @@ class T5Model(BaseModel):
             **kargs: Additional keyword arguments passed to the BaseModel constructor.
         """
         super().__init__(model_name, system_prompt, **kargs)
+
         self.tokenizer = None
         self.model = None
         self.quantization_bits = quantization_bits 
@@ -63,6 +66,10 @@ class T5Model(BaseModel):
 
     def _load_llm_params(self):
         """Loads the tokenizer and Seq2Seq model from Hugging Face."""
+        self.init_pytorch_cuda() # Check for GPU availability via torch
+        import torch
+        from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, BitsAndBytesConfig
+
         functions.log(f"Attempting to load model: {self.model_name}...")
 
         self.tokenizer = AutoTokenizer.from_pretrained(

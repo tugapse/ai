@@ -23,13 +23,14 @@ def ask(
     thinking_mode: str = "spinner",
     print_mode: str = "line",
     tokens_per_print: int = 5,
-    show_think_anim = False
+    hide_think_anim = False,
+    print_output = True
 ) -> None:
     """
     Asks the language model a question and streams its response.
 
     Args:
-        llm (OllamaModel): The language model bot instance.
+        llm The language model bot instance.
         input_message (Union[str, list[str]]): The user's input message.
                                                Can be a string or a list of message dictionaries.
         write_to_file (bool): If True, the LLM's output will be written to a file.
@@ -56,15 +57,13 @@ def ask(
     _think_mode = _config.get(ProgramSetting.THINKING_MODE, thinking_mode)
     _print_mode = _config.get(ProgramSetting.PRINT_MODE, print_mode)
     _tokens_per_print = _config.get(ProgramSetting.TOKENS_PER_PRINT, tokens_per_print)
-    _show_think_animation = _config.get(ProgramSetting.SHOW_THINK_ANIMATION, show_think_anim)
-    session_paths = SessionManager.initialize_session_paths(_config)
+    _show_think_animation = hide_think_anim != True
 
     enable_thinking_display = True
     ThinkingAnimationHandler.THINKING_PREFIX = "Processing request"
 
     handler_manager = HandlerManager(
         log_manager=thinking_log_manager,
-        output_base_dir=session_paths["session_workspace_path"],
         thinking_mode=_think_mode,
         enable_thinking_display=enable_thinking_display,
         show_thinking_animation=_show_think_animation
@@ -93,11 +92,7 @@ def ask(
             handler_manager.process_token_chain(raw_token_string)
         )
 
-        if file_content_saved:
-            pass
-
-        if display_to_user:
-            # if not is_thinking and content_after_thinking_handler:
+        if display_to_user and print_output:
             output_printer.process_and_print(content_to_display)
 
         if write_to_file and output_filename and content_to_display:

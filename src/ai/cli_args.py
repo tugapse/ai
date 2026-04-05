@@ -15,8 +15,11 @@ from core.llms.base_llm import BaseModel
 from entities.model_enums import ModelType
 from color import Color, format_text
 from direct import ask
-import functions as func # Ensure func is imported for get_root_directory and ensure_directory_exists
 
+from agents.agent import MessageOrchestrator, LLMConnector, ToolRegistry, load_pipeline_config
+import agents.agent_tools as agent_tools
+
+import functions as func
 
 class CliArgs:
     """
@@ -34,10 +37,10 @@ class CliArgs:
         """
         # Centralized handling of config generation. This will exit if called.
         self._handle_config_generation(prog, args, args_parser) 
+        self._is_install(args)
         
         # Non-exiting actions
         self._is_print_chat(args)
-        self._is_auto_task(args, parser=args_parser)
         self._is_list_models(args)
         self._has_output_files(prog, args)
         self._has_image(prog, args) 
@@ -45,6 +48,8 @@ class CliArgs:
         self._has_file(prog, args)
         self._has_task_file(prog, args)
         self._has_task(prog, args)
+
+        # this will execute and exit if task, taskfile, pipe or message exists
         self._has_message(prog, args) 
 
 
@@ -131,12 +136,28 @@ class CliArgs:
             reader = ConsoleChatReader(json_filename)
             reader.load()
             sys.exit(0)
+    
+    def _is_install(self, args):
+        if args.install:
+            import importlib.util
 
-    def _is_auto_task(self, args, parser: argparse):
-        if args.auto_task:
-            from core.tasks import AutomatedTask
+            root = func.get_root_directory()
+            installer_path = os.path.join(root, "scripts", "install_engines.py")
 
-            AutomatedTask(parser).run_task(config_filename=args.auto_task)
+            if not os.path.exists(installer_path):
+                print(f"\033[91mError: Installer script not found at {installer_path}\033[0m")
+                sys.exit(1)
+
+            spec = importlib.util.spec_from_file_location("install_engines", installer_path)
+            installer_module = importlib.util.module_from_spec(spec)
+            
+            try:
+                spec.loader.exec_module(installer_module)
+                installer_module.main_menu()
+            except Exception as e:
+                print(f"\033[91mFailed to launch installer: {e}\033[0m")
+            
+            # 4. Always exit after the installer closes
             sys.exit(0)
 
     def _is_list_models(self, args):
@@ -188,7 +209,7 @@ class CliArgs:
     def _has_task_file(self, prog, args):
         if args.task_file:
             task_content = func.read_file(args.task_file)
-            prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, task_content))
+            prog.chat._add_message(BaseModel.create_message(ChatRoles.SYSTEM, task_content))
 
     def _has_task(self, prog, args):
         if args.task:
@@ -200,13 +221,6 @@ class CliArgs:
             if user_tasks_dir:
                 filepaths_to_check.append(os.path.join(user_tasks_dir, task_name))
             
-            # Assuming global_tasks_dir might also come from config if it's different
-            # For now, if no distinct global path is configured, it's just user_tasks_dir.
-            # If you have a separate global tasks path in your config, retrieve it here.
-            # Example: global_tasks_dir = prog.config.get(ProgramSetting.GLOBAL_TASKS_TEMPLATES_PATH)
-            # if global_tasks_dir and global_tasks_dir != user_tasks_dir: 
-            #     filepaths_to_check.append(os.path.join(global_tasks_dir, task_name))
-
             found_path = None
             for fp in filepaths_to_check:
                 if os.path.exists(fp):
@@ -219,13 +233,18 @@ class CliArgs:
 
             task_content = func.read_file(found_path)
             prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, task_content))
-
+            
     def _has_message(self, prog, args):
         piped = False
+        has_agent = args.agent
+        user_input = args.task or args.msg
+
+
         if not sys.stdin.isatty():
             piped = True
+            user_input=sys.stdin.read().strip()
             prog.chat._add_message( 
-                BaseModel.create_message(ChatRoles.USER, sys.stdin.read().strip())
+                BaseModel.create_message(ChatRoles.USER,user_input )
             )
 
         if prog.chat.images and len(prog.chat.images):
@@ -237,14 +256,56 @@ class CliArgs:
                 BaseModel.create_message(ChatRoles.USER, args.msg)
             )
 
-        if piped or args.msg or args.task or args.task_file:
+        if args.task_file:
+            user_input = func.read_file(args.task_file)
+        
+        if piped or (user_input is not None and user_input.strip() != "" ):
+            
             func.log("INFO: Detected message/task input. Starting direct ask.")
-            ask(
-                prog.llm,
-                prog.chat.messages, 
-                write_to_file=prog.write_to_file,
-                output_filename=prog.output_filename,
-                show_think_anim=True
-            )
-            sys.exit(0)
+            if has_agent:
+                
+                pipeline_path = args.pipeline or "pipelines/pipeline.json"
+                pipeline_config = load_pipeline_config(prog, pipeline_path)
 
+                if not pipeline_config:
+                    func.error("Failed to load pipeline config. Aborting.")
+                    sys.exit(1)
+
+                connector = LLMConnector(prog.llm)
+                
+                # Initialize the Registry and register your tools
+                registry = ToolRegistry()
+                for name, tool_ref in agent_tools.AVAILABLE_TOOLS.items():
+                    registry.register_tool(name, tool_ref)
+
+                orchestrator = MessageOrchestrator(
+                    connector=connector, 
+                    registry=registry, 
+                    pipeline_config=pipeline_config
+                )
+                
+                if not user_input:
+                    func.error("Agent task requires a prompt. Use --msg THE_MESSAGE --agents (--pipeline PATH_TO_PIPELINE) defaults to 'pipelines/pipeline.json'")
+                    sys.exit(1)
+
+                try:
+                    orchestrator.run_loop(user_input)
+                except Exception as e:
+                    func.error(f"Orchestrator encountered an error: {e}")
+                    import traceback
+                    func.error(traceback.format_exc())
+                
+                # Exit after completion to prevent falling into the standard chat loop
+                sys.exit(0)
+            else:
+                ask(
+                    prog.llm,
+                    prog.chat.messages, 
+                    write_to_file=prog.write_to_file,
+                    output_filename=prog.output_filename,
+                    hide_think_anim=args.no_think_anim,
+                    print_output=args.no_out != True
+                )
+            # [CRITICAL] Use os._exit(0) for a hard exit to prevent C-level segfaults
+            # from llama_cpp during the standard Python cleanup process.
+            os._exit(0)

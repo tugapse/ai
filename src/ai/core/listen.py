@@ -144,5 +144,8 @@ class Microphone(AsyncExecutor):
         return self._is_running
 
     def output_requested(self):
+        """
+        Handles output request, stopping recording if active.
+        """
         if self.is_recording():  # Stop the recording if requested
             self.stop_recording()

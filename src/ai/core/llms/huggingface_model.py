@@ -1,18 +1,34 @@
-import torch
+import logging
+import os
 import threading
 import sys
 import queue
 import gc
-import os
+import warnings
 
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    TextIteratorStreamer,
-    StoppingCriteria,
-    StoppingCriteriaList,
-    BitsAndBytesConfig,
-)
+# 2. Suppress bitsandbytes welcome message and library warnings
+os.environ['BITSANDBYTES_NOWELCOME'] = '1'
+# 3. Suppress Hugging Face Hub "Unauthenticated" warnings
+# This silences the specific logger that complains about the HF_TOKEN
+logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
+# 4. Suppress the 'bitsandbytes' FutureWarnings specifically
+# This targets the _check_is_size warnings you're seeing
+warnings.filterwarnings("ignore", category=FutureWarning, module="bitsandbytes")
+# 5. Optional: Suppress standard Transformers warnings if they get loud
+os.environ["TRANSFORMERS_VERBOSITY"] = "error"
+
+# DEFERRED IMPORTS: These are imported inside methods to avoid eager loading.
+import torch
+from transformers import TextIteratorStreamer,  StoppingCriteriaList
+# from transformers import (
+#     AutoModelForCausalLM,
+#     AutoTokenizer,
+#     TextIteratorStreamer,
+#     StoppingCriteria,
+#     StoppingCriteriaList,
+#     BitsAndBytesConfig,
+# )
+
 from huggingface_hub.errors import RepositoryNotFoundError, GatedRepoError
 import requests.exceptions
 
@@ -23,16 +39,17 @@ import functions
 
 
 # Define a custom StoppingCriteria to allow external interruption
-class CustomStoppingCriteria(StoppingCriteria):
+class CustomStoppingCriteria:
     """
     Custom StoppingCriteria to stop generation when a threading.Event is set.
+    The `transformers.StoppingCriteria` parent class is added dynamically.
     """
 
     def __init__(self, stop_event: threading.Event):
         self.stop_event = stop_event
 
     def __call__(
-        self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs
+        self, input_ids: 'torch.LongTensor', scores: 'torch.FloatTensor', **kwargs
     ) -> bool:
         """
         Checks if the stop_event has been set.
@@ -53,6 +70,7 @@ class HuggingFaceModel(BaseModel):
         functions.debug(f"HuggingFaceModel __init__ called for model: {model_name}")
 
         super().__init__(model_name, system_prompt, **kargs)
+
         self.tokenizer = None
         self.model = None
         self.quantization_bits = quantization_bits
@@ -97,6 +115,11 @@ class HuggingFaceModel(BaseModel):
 
     def _load_llm_params(self):
         """Loads the tokenizer and model from Hugging Face."""
+        self.init_pytorch_cuda() # Check for GPU availability via torch
+        import torch
+        self.torch_lib = torch
+        from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+
         functions.log(f"Attempting to load model: {self.model_name}...")
 
         self.tokenizer = AutoTokenizer.from_pretrained(
@@ -384,23 +407,44 @@ class HuggingFaceModel(BaseModel):
                 f"Generation thread started ({self._generation_thread.name}). Starting to yield tokens from streamer..."
             )
 
-            for new_token in streamer:
+            try:
+                for new_token in streamer:
+                    yield new_token
+                    # Check for errors from the background thread
+                    if not self.error_queue.empty():
+                        error_message = self.error_queue.get()
+                        functions.log(
+                            f"ERROR: Error received from generation thread during streaming: {error_message}"
+                        )
+                        # Stop yielding and exit the loop on error
+                        break
+                functions.debug("Streamer finished yielding all tokens.")
 
-                yield new_token
-                if not self.error_queue.empty():
-                    error_message = self.error_queue.get()
-                    functions.log(
-                        f"ERROR: Error received from generation thread during streaming: {error_message}"
-                    )
-                    sys.exit(1)
-            functions.debug("Streamer finished yielding all tokens.")
+            except KeyboardInterrupt:
+                functions.log("\nInterrupted by user. Signaling thread to stop...")
+                self.stop_generation_event.set()
+                # The streamer loop will break because the background thread will call streamer.end()
+                # We can yield a final message to the user
+                yield "\n[Generation stopped by user]"
+                # The generator will now exit gracefully.
+                return
+            finally:
+                # This block ensures we wait for the thread to finish if it's still running,
+                # for example, after a KeyboardInterrupt or an error.
+                if self._generation_thread and self._generation_thread.is_alive():
+                    functions.debug("Waiting for generation thread to join...")
+                    self._generation_thread.join(timeout=5.0)
+                    if self._generation_thread.is_alive():
+                        functions.log("Warning: Generation thread did not join cleanly.")
+                functions.debug("Chat method streaming block finished.")
 
+
+            # Check for any final errors after the loop finishes
             if not self.error_queue.empty():
                 error_message = self.error_queue.get()
                 functions.log(
                     f"ERROR: Error received from generation thread after streaming: {error_message}"
                 )
-                sys.exit(1)
 
         else:  # Non-streaming path
             functions.debug("Entering non-streaming (synchronous) generation path.")

@@ -1,0 +1,17 @@
+{
+  "model_name": "llama-3.1",
+  "model_type": "gguf",
+  "model_properties": {
+    "gguf_filename": "Llama-3.1-8B-Instruct-Q4_K_M.gguf",
+    "model_repo_id": "unsloth/Llama-3.1-8B-Instruct-GGUF",
+    "n_gpu_layers": -1,
+    "n_ctx": 8192,
+    "verbose": false,
+    "max_new_tokens": 4096,
+    "temperature": 0.7,
+    "top_p": 0.95,
+    "top_k": 50,
+    "presence_penalty": 1.1,
+    "frequency_penalty": 1.2
+  }
+}

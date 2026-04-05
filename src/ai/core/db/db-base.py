@@ -1,5 +1,4 @@
 import chromadb
-from transformers import AutoTokenizer, AutoModel
 import uuid  # Import the uuid module
 from enum import Enum
 
@@ -10,12 +9,28 @@ class ModelNames(Enum):
 
 class BaseDB:
     def __init__(self, collection_name="my_records", model: ModelNames = ModelNames.SENTENCE_TRANSFORMERS_ALL_MINILM_L6_V2, path="db"):
-        self.client = chromadb.PersistentClient(path=path)  # Removed session_name
+        self.client = chromadb.PersistentClient(path=path)
         self.collection = self.client.get_or_create_collection(collection_name)
-        self.tokenizer = AutoTokenizer.from_pretrained(model.value)
-        self.model = AutoModel.from_pretrained(model.value)
+        self.model_name = model
+        self.tokenizer = None
+        self.model = None
+
+    def _initialize_embedding_model(self):
+        """Lazy-loads the tokenizer and model on first use."""
+        if self.model is None:
+            try:
+                from transformers import AutoTokenizer, AutoModel
+                self.tokenizer = AutoTokenizer.from_pretrained(self.model_name.value)
+                self.model = AutoModel.from_pretrained(self.model_name.value)
+            except ImportError:
+                print("ERROR: `transformers` library not installed. Please install it to use embedding features.")
+                raise
+            except Exception as e:
+                print(f"ERROR: Failed to load embedding model '{self.model_name.value}': {e}")
+                raise
 
     def generate_embedding(self, text):
+        self._initialize_embedding_model() # Ensure model is loaded
         inputs = self.tokenizer(text, padding=True, truncation=True, return_tensors="pt")
         outputs = self.model(**inputs)
         # Generate the embedding by averaging the hidden states
