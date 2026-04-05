@@ -38,7 +38,6 @@ class Program:
     """
 
     def __init__(self) -> None:
-        func.log("Program: Initializing state...")
         self.config: ProgramConfig = ProgramConfig()
         self.model_name: str = "__no_model__"
         self.model_variant = None
@@ -67,12 +66,10 @@ class Program:
 
     def load_config(self, args: Optional[argparse.Namespace] = None):
         """Loads the main program configuration."""
-        func.log("Program: Loading config...")
         self.config = ProgramConfig.load()
 
     def init_program(self, args: Optional[argparse.Namespace]) -> None:
         """Initializes components based on configuration and CLI arguments."""
-        func.log("Program: Initializing components...")
         if not self.config:
             self.load_config(args)
             

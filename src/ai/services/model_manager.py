@@ -14,8 +14,48 @@ from core.llms.base_llm import ModelParams, BaseModel
 class ModelManager:
     """
     Manages the creation, loading, and saving of model configuration files,
-    and now also handles the instantiation of model objects.
+    and handles the instantiation of model objects with environment checks.
     """
+
+    @staticmethod
+    def is_engine_installed(model_type: ModelType, model_name: str = "") -> bool:
+        """
+        Checks the installed_engines.json config manually by stepping up
+        from src/ai/services/ to the project root.
+        """
+        root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+        config_path = os.path.join(root_dir, "installed_engines.json")
+        
+        # If the file isn't there, we assume nothing is installed
+        if not os.path.exists(config_path):
+            return False 
+
+        # Mapping Enums to JSON IDs
+        mapping = {
+            ModelType.GGUF: "gguf",
+            ModelType.OLLAMA: "ollama",
+            ModelType.CAUSAL_LM: "transformers",
+            ModelType.SEQ2SEQ_LM: "transformers",
+            ModelType.OPEN_AI: "openai",
+            ModelType.GEMINI: "gemini_api"
+        }
+
+        engine_id = mapping.get(model_type)
+        
+        # Gemini logic: Split API vs Vertex
+        if model_type == ModelType.GEMINI and "vertex" in model_name.lower():
+            engine_id = "gemini_vertex"
+
+        if not engine_id:
+            return True # If it's a type we don't manage, let it through
+
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                installed_config = json.load(f)
+                state = installed_config.get(engine_id, {})
+                return state.get("installed", False)
+        except Exception:
+            return False # Fail safe
 
     @staticmethod
     def generate_default_config(
@@ -101,6 +141,17 @@ class ModelManager:
             func.log(f"Unknown model_type '{model_type_str}' in model configuration.", level="ERROR")
             return None
 
+        # --- THE GATEKEEPER ---
+        # If this returns False, we stop here and avoid the 'Lazy Import' crash.
+        if not ModelManager.is_engine_installed(model_type, model_name):
+            from color import Color
+            func.error(
+                f"The engine for {Color.YELLOW}{model_type.value}{Color.RED} is not installed.\n"
+                f"Run '{Color.CYAN} ai --install{Color.RED}' to configure it.",
+                level="ERROR"
+            )
+            return None
+
         func.log(f"Selected model: {model_name} (Type: {model_type.value})") 
         quantization_bits = model_properties.get("quantization_bits", 0)
         model_params = ModelParams(**model_properties ).to_dict()
@@ -147,8 +198,7 @@ class ModelManager:
                 )
                 func.log(f"Model '{model_name}' loaded as an Ollama Model.") 
             elif model_type == ModelType.GGUF:
-                # from core.llms.gguf_model import GGUFImageLLM
-                from core.llms.minimal_gguf import  MinimalGGUFLLM
+                from core.llms.minimal_gguf import MinimalGGUFLLM
                 import ctypes
                 from llama_cpp import llama_log_set
                 def my_log_callback(level, message, user_data):

@@ -37,6 +37,7 @@ class CliArgs:
         """
         # Centralized handling of config generation. This will exit if called.
         self._handle_config_generation(prog, args, args_parser) 
+        self._is_install(args)
         
         # Non-exiting actions
         self._is_print_chat(args)
@@ -47,6 +48,8 @@ class CliArgs:
         self._has_file(prog, args)
         self._has_task_file(prog, args)
         self._has_task(prog, args)
+
+        # this will execute and exit if task, taskfile, pipe or message exists
         self._has_message(prog, args) 
 
 
@@ -132,6 +135,29 @@ class CliArgs:
 
             reader = ConsoleChatReader(json_filename)
             reader.load()
+            sys.exit(0)
+    
+    def _is_install(self, args):
+        if args.install:
+            import importlib.util
+
+            root = func.get_root_directory()
+            installer_path = os.path.join(root, "scripts", "install_engines.py")
+
+            if not os.path.exists(installer_path):
+                print(f"\033[91mError: Installer script not found at {installer_path}\033[0m")
+                sys.exit(1)
+
+            spec = importlib.util.spec_from_file_location("install_engines", installer_path)
+            installer_module = importlib.util.module_from_spec(spec)
+            
+            try:
+                spec.loader.exec_module(installer_module)
+                installer_module.main_menu()
+            except Exception as e:
+                print(f"\033[91mFailed to launch installer: {e}\033[0m")
+            
+            # 4. Always exit after the installer closes
             sys.exit(0)
 
     def _is_list_models(self, args):
