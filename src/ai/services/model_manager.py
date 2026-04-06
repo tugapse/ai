@@ -233,6 +233,7 @@ class ModelManager:
                 llm_instance = GeminiAPIModel(
                     model_name=model_name,
                     system_prompt=system_prompt,
+                    use_vertex=model_params.get("vertex_ai", False),
                     model_params=model_params,
                     **other_llm_kwargs
                 )
