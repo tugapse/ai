@@ -1,182 +1,166 @@
 import os
-import sys
+import time
 import threading
 import queue
-import time
 import numpy as np
-import logging
+import pyaudio
 import contextlib
+import sys
 from abc import ABC, abstractmethod
 from typing import Optional
+import functions as func
 
 class BaseVoiceModule(ABC):
-    def __init__(self, sample_rate=24000, device_index=13):
+    """
+    Core Voice Orchestrator.
+    Updated with 'Buffer Drain' logic to prevent cutting off the end of sentences.
+    """
+    def __init__(self, sample_rate: int = 24000, device_index: Optional[int] = None):
         self.sample_rate = sample_rate
         self.device_index = device_index
         
-        self._text_buffer = ""
-        self._audio_segments = []
-        self._token_queue = queue.Queue()
+        self._text_queue = queue.Queue()
         self._audio_queue = queue.Queue()
         
-        self._abort_signal = threading.Event()
-        self._initialized = False
-        self._is_running = True
+        self.pa = None
+        self.stream = None
+        self.active_sample_rate = sample_rate
         
-        self.pa = None      
-        self.stream = None  
-        self.sf = None
-
-        self.gen_thread = threading.Thread(target=self._generation_loop, daemon=True)
-        self.play_thread = threading.Thread(target=self._playback_loop, daemon=True)
-        self.gen_thread.start()
-        self.play_thread.start()
-
-    @abstractmethod
-    def _initialize_model(self): pass
-
-    @abstractmethod
-    def _run_inference(self, text) -> np.ndarray: pass
-
-    def _init_audio_hardware(self):
-        import pyaudio
-        import soundfile as sf
-        self.sf = sf
-        if self.pa is None: self.pa = pyaudio.PyAudio()
-        if self.stream is None:
-            # Use Int16 for maximum Linux ALSA/Pipewire compatibility
-            self.stream = self.pa.open(
-                format=pyaudio.paInt16,
-                channels=1,
-                rate=self.sample_rate,
-                output=True,
-                output_device_index=self.device_index,
-                frames_per_buffer=1024
-            )
+        self._is_running = True
+        self._abort_signal = threading.Event()
+        
+        self._gen_thread = threading.Thread(target=self._generation_loop, daemon=True)
+        self._play_thread = threading.Thread(target=self._playback_loop, daemon=True)
+        
+        self._gen_thread.start()
+        self._play_thread.start()
 
     @contextlib.contextmanager
-    def _silence_system_stderr(self):
+    def _silence_stderr(self):
+        """Suppresses ALSA/JACK/PortAudio noise."""
+        new_target = os.open(os.devnull, os.O_WRONLY)
+        old_target = os.dup(sys.stderr.fileno())
         try:
-            new_target = os.open(os.devnull, os.O_WRONLY)
-            old_target = os.dup(2)
-            sys.stderr.flush()
-            os.dup2(new_target, 2)
-            os.close(new_target)
+            os.dup2(new_target, sys.stderr.fileno())
             yield
         finally:
-            os.dup2(old_target, 2)
+            os.dup2(old_target, sys.stderr.fileno())
             os.close(old_target)
+            os.close(new_target)
 
-    def preload(self):
-        self._lazy_init()
+    def _init_audio_hardware(self):
+        with self._silence_stderr():
+            if self.pa is None:
+                self.pa = pyaudio.PyAudio()
 
-    def _lazy_init(self):
-        if not self._initialized:
-            # We only silence the C-level noise, Python errors will still show
-            with self._silence_system_stderr():
-                self._init_audio_hardware()
-                self._initialize_model()
-                self._initialized = True
-            print(f"[*] {self.__class__.__name__}: Logic Integrated.", file=sys.stderr)
+            rates = [int(self.sample_rate), 44100, 48000]
+            for rate in rates:
+                try:
+                    self.stream = self.pa.open(
+                        format=pyaudio.paFloat32,
+                        channels=1,
+                        rate=rate,
+                        output=True,
+                        output_device_index=self.device_index,
+                        frames_per_buffer=1024
+                    )
+                    self.active_sample_rate = rate
+                    return
+                except Exception:
+                    continue
+        
+        func.log("BaseVoice: CRITICAL - No supported sample rate found.", level="ERROR")
 
-    def process_token(self, token: str):
-        if not self._abort_signal.is_set():
-            self._token_queue.put(token)
+    @abstractmethod
+    def _run_inference(self, text: str) -> np.ndarray:
+        pass
+
+    def process_token(self, text: str):
+        if text and self._is_running:
+            self._text_queue.put(text)
 
     def abort(self):
-        """Emergency Stop: Wipes queues without breaking the internal counters."""
+        """Clears queues and signals threads to stop current work."""
         self._abort_signal.set()
-        
-        try:
-            while not self._token_queue.empty():
-                self._token_queue.get_nowait()
-                self._token_queue.task_done()
-        except (queue.Empty, ValueError):
-            pass
-
-        try:
-            while not self._audio_queue.empty():
-                self._audio_queue.get_nowait()
-                self._audio_queue.task_done()
-        except (queue.Empty, ValueError):
-            pass
-
-        self._text_buffer = ""
-        self._audio_segments = []
-        
-        time.sleep(0.1) 
+        while not self._text_queue.empty():
+            try: self._text_queue.get_nowait(); self._text_queue.task_done()
+            except: break
+        while not self._audio_queue.empty():
+            try: self._audio_queue.get_nowait(); self._audio_queue.task_done()
+            except: break
         self._abort_signal.clear()
-
-    def collect_audio(self) -> Optional[np.ndarray]:
-        if not self._initialized: return None
-        self._token_queue.put("<<FLUSH>>")
-        try:
-            while not self._token_queue.empty() or not self._audio_queue.empty():
-                if self._abort_signal.is_set(): return None
-                time.sleep(0.05)
-        except KeyboardInterrupt:
-            self.abort()
-            return None
-            
-        if self._audio_segments:
-            full_audio = np.concatenate(self._audio_segments)
-            self._audio_segments = []
-            return full_audio
-        return None
 
     def _generation_loop(self):
         while self._is_running:
             try:
-                token = self._token_queue.get(timeout=0.1)
-                if token is None: break
-                if self._abort_signal.is_set():
-                    self._token_queue.task_done()
-                    continue
-                if token == "<<FLUSH>>":
-                    if self._text_buffer.strip(): self._generate_chunk(self._text_buffer.strip())
-                    self._text_buffer = ""
-                    self._token_queue.task_done()
-                    continue
-                self._text_buffer += token
-                if any(p in token for p in [".", "!", "?", ":"]) or len(self._text_buffer.split()) > 20:
-                    self._generate_chunk(self._text_buffer.strip())
-                    self._text_buffer = "" 
-                self._token_queue.task_done()
-            except queue.Empty: continue
-
-    def _generate_chunk(self, text):
-        if not text or self._abort_signal.is_set(): return
-        self._lazy_init()
-        try:
-            # Get raw float32 [-1.0, 1.0] from child
-            audio_np = self._run_inference(text)
-            if audio_np is not None and not self._abort_signal.is_set():
-                # Save high-quality float for recording segments
-                self._audio_segments.append(audio_np)
-                
-                # CONVERSION: Scale float32 to int16 for the hardware
-                audio_int16 = (audio_np * 32767).astype(np.int16)
-                self._audio_queue.put(audio_int16)
-        except Exception as e:
-            print(f"[!] Gen Error: {e}", file=sys.stderr)
+                text = self._text_queue.get(timeout=0.5)
+                if text is None: break
+                if not self._abort_signal.is_set():
+                    audio = self._run_inference(text)
+                    if audio is not None and len(audio) > 0:
+                        self._audio_queue.put(audio)
+                self._text_queue.task_done()
+            except queue.Empty:
+                continue
 
     def _playback_loop(self):
         while self._is_running:
             try:
-                audio_chunk = self._audio_queue.get(timeout=0.1)
+                audio_chunk = self._audio_queue.get(timeout=0.5)
                 if audio_chunk is None: break
-                if not self._abort_signal.is_set() and self.stream:
-                    # Write the raw int16 bytes to the soundcard
-                    self.stream.write(audio_chunk.tobytes())
+
+                if self.stream is None:
+                    self._init_audio_hardware()
+
+                if self.stream and not self._abort_signal.is_set():
+                    # Resampling logic
+                    if self.active_sample_rate != self.sample_rate:
+                        duration = len(audio_chunk) / self.sample_rate
+                        num_samples = int(duration * self.active_sample_rate)
+                        audio_chunk = np.interp(
+                            np.linspace(0, len(audio_chunk), num_samples),
+                            np.arange(len(audio_chunk)),
+                            audio_chunk
+                        ).astype(np.float32)
+
+                    try:
+                        self.stream.write(audio_chunk.tobytes())
+                    except Exception:
+                        self.stream = None 
+                
                 self._audio_queue.task_done()
-            except queue.Empty: continue
+            except queue.Empty:
+                continue
+
+    def collect_audio(self):
+        """
+        Wait for all text to be generated and all audio to be played.
+        Added a dynamic wait to ensure the hardware buffer drains.
+        """
+        # 1. Wait for the model to finish generating all chunks
+        self._text_queue.join()
+        
+        # 2. Wait for the playback thread to finish sending chunks to the hardware
+        self._audio_queue.join()
+        
+        # 3. THE FIX: Wait for the sound card's internal buffer to actually play.
+        # Most hardware buffers are 200ms-500ms. A 0.8s wait is a safe 'tail'.
+        if self.stream and self.stream.is_active():
+            time.sleep(2)
 
     def shutdown(self):
         self._is_running = False
-        self._token_queue.put(None)
-        if hasattr(self, 'gen_thread'): self.gen_thread.join(timeout=0.5)
-        if hasattr(self, 'play_thread'): self.play_thread.join(timeout=0.5)
-        if self.stream:
-            try: self.stream.stop_stream(); self.stream.close()
-            except: pass
-        if self.pa: self.pa.terminate()
+        self._text_queue.put(None)
+        self._audio_queue.put(None)
+        
+        with self._silence_stderr():
+            if self.stream:
+                try:
+                    self.stream.stop_stream()
+                    self.stream.close()
+                except: pass
+            if self.pa:
+                try: self.pa.terminate()
+                except: pass
+        
+        func.log("BaseVoice: Hardware released.")

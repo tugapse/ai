@@ -209,15 +209,15 @@ class MessageOrchestrator:
         if tool_name in self.auto_authorized_tools or tool_name not in ["execute_command", "patch_file", "write_file"]:
             return True
             
-        target = params.get('path') or params.get('command') or "System"
-        TerminalUI.auth_request(tool_name, target,params.get('command',""))
+        target = params.get('path') or "System"
+        TerminalUI.auth_request(tool_name, target, params.get('command',""))
 
-        # Send a desktop notification to grab user's attention for authorization
-        self.registry.execute_tool("send_notification", {
-            "title": "Authorization Required",
-            "message": f"Agent wants to run '{tool_name}'. Please check your terminal to approve or deny.",
-            "urgency": "critical"
-        })
+        # # Send a desktop notification to grab user's attention for authorization
+        # self.registry.execute_tool("send_notification", {
+        #     "title": "Authorization Required",
+        #     "message": f"Agent wants to run '{tool_name}'. Please check your terminal to approve or deny.",
+        #     "urgency": "critical"
+        # })
         
         choice = input(f"Allow? (y/n/all): ").lower().strip()
         if choice == 'all':

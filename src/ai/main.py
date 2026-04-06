@@ -1,178 +1,147 @@
 import os
-import warnings
-import logging
-
-
-def hack_warnings():
-    os.environ['TQDM_DISABLE'] = '1'
-    os.environ['BITSANDBYTES_NOWELCOME'] = '1'
-    os.environ["TRANSFORMERS_VERBOSITY"] = "error"
-    logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
-    logging.getLogger("huggingface_hub.utils._http").setLevel(logging.ERROR)
-    logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
-    warnings.filterwarnings("ignore", category=FutureWarning, module="bitsandbytes")
-    warnings.filterwarnings("ignore", message=".*local_dir_use_symlinks.*")
-
-hack_warnings()
-
 import sys
 import argparse
-import importlib.util # Added for dynamic loading
+import warnings
+import logging
 from typing import Optional
 
+# Core imports
 from program import Program
-from config import ProgramConfig, ProgramSetting
+from config import ProgramSetting
 from entities.model_enums import ModelType
 import functions as func
 from color import Color 
 from cli_args import CliArgs 
 
+__version__ = "2.3.2"
 
-
-
-__version__ = "2.2.0"
-
-# Add the project root to the sys.path to allow imports from core
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))
-
-logging.basicConfig(level=logging.ERROR, format='%(name)s - %(levelname)s - %(message)s')
-
-def handle_install(args: argparse.Namespace) -> None:
-    """
-    Checks for the --install flag and launches the manager.
-    Navigates from src/ai/main.py up to project_root/install_engines.py
-    """
-    if hasattr(args, 'install') and args.install:
-        # Step up two levels: src/ai/ -> src/ -> root/
-        root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-        installer_path = os.path.join(root, "scripts/install_engines.py")
-
-        if not os.path.exists(installer_path):
-            func.out(f"{Color.RED}[ ! ] Installer script not found at: {installer_path}{Color.RESET}")
-            sys.exit(1)
-
-        # Dynamically load the installer module from the root
-        spec = importlib.util.spec_from_file_location("install_engines", installer_path)
-        installer_module = importlib.util.module_from_spec(spec)
-        
-        try:
-            # This executes the script logic (including main_menu)
-            spec.loader.exec_module(installer_module)
-            # Just in case it doesn't auto-run, we call it explicitly
-            if hasattr(installer_module, 'main_menu'):
-                installer_module.main_menu()
-        except Exception as e:
-            func.out(f"{Color.RED}[ ! ] Failed to launch installer: {e}{Color.RESET}")
-        
-        # Hard exit to prevent main.py from trying to load components
-        os._exit(0)
+def hack_warnings():
+    """Suppresses library-specific noise."""
+    os.environ['TQDM_DISABLE'] = '1'
+    os.environ['BITSANDBYTES_NOWELCOME'] = '1'
+    os.environ["TRANSFORMERS_VERBOSITY"] = "error"
+    logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
+    logging.getLogger("huggingface_hub.utils._http").setLevel(logging.ERROR)
+    warnings.filterwarnings("ignore", category=FutureWarning, module="bitsandbytes")
+    warnings.filterwarnings("ignore", message=".*local_dir_use_symlinks.*")
 
 def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
-    # ... (Your existing load_args code remains exactly the same) ...
-    parser = argparse.ArgumentParser(description="AI Assistant")
+    """Defines and parses EVERY flag expected by the CliArgs processor."""
+    parser = argparse.ArgumentParser(description=f"JARVIS AI Assistant v{__version__}")
+    
+    # Core Chat Args
     parser.add_argument("--msg", "-m", type=str, help="Direct question", default=None)
-    parser.add_argument("--model", "-md", type=str, help="Model config filename to use")
-    parser.add_argument("--system", "-s", type=str, help="pass a prompt name ")
-    parser.add_argument("--system-file", "-sf", type=str, help="pass a prompt filename")
-    parser.add_argument("--list-models", "-l", action="store_true", help="See a list of models available")
+    parser.add_argument("--model", "-md", type=str, help="Model config filename")
+    parser.add_argument("--system", "-s", type=str, help="System prompt name")
+    parser.add_argument("--system-file", "-sf", type=str, help="System prompt filename")
+    parser.add_argument("--list-models", "-l", action="store_true", help="See available models")
+    
+    # File & Context Args
     parser.add_argument("--file", "-f", type=str, help="Load a file")
-    parser.add_argument("--image", "-i", type=str, help="Load a image file")
+    parser.add_argument("--image", "-i", type=str, help="Load an image file")
     parser.add_argument("--load-folder", "-D", type=str, help="Load multiple files from folder")
     parser.add_argument("--ext", "-e", type=str, help="File extension for folder search")
-    parser.add_argument("--task", "-t", type=str, help="template name")
-    parser.add_argument("--task-file", "-tf", type=str, help="template filename")
-    parser.add_argument("--output-file", "-o", type=str, help="output filename")
-    parser.add_argument("--auto-task", "-at", type=str, help="json auto task config")
-    parser.add_argument("--print-chat", "-p", type=str, help="print chat log")
     
-    parser.add_argument("--install", help='Install/Update dependencies', action="store_true")
-    parser.add_argument("--agent", help='Use agent mode', action="store_true")
+    # Task & Automation Args
+    parser.add_argument("--task", "-t", type=str, help="Template name")
+    parser.add_argument("--task-file", "-tf", type=str, help="Template filename")
+    parser.add_argument("--output-file", "-o", type=str, help="Output filename")
+    parser.add_argument("--auto-task", "-at", type=str, help="JSON auto-task config")
+    parser.add_argument("--agent", action="store_true", help='Use agent mode')
     parser.add_argument("--pipeline", "-ppl", type=str, help="Pipeline filename.json")
     
-    parser.add_argument("--print-log","-pl", help='print "log" messages', action="store_true")
-    parser.add_argument("--print-debug","-pdb", help='print "debug" messages', action="store_true")
-    parser.add_argument("--no-out", "-q" ,help='NOT print "output" messages', action="store_true")
-    parser.add_argument("--no-think-anim", "-nta" ,help='NOT print "Thinking" animation', action="store_true")
-    
-    parser.add_argument("--debug-console","-dc", action="store_true", help='NOT clear console')
+    # Display & Debug Args
+    parser.add_argument("--print-chat", "-p", type=str, help="Print chat log")
+    parser.add_argument("--print-log", "-pl", action="store_true", help='Print logs')
+    parser.add_argument("--print-debug", "-pdb", action="store_true", help='Print debug info')
+    parser.add_argument("--no-out", "-q", action="store_true", help='Quiet mode')
+    parser.add_argument("--no-think-anim", "-nta", action="store_true", help='Disable thinking animation')
+    parser.add_argument("--debug-console", "-dc", action="store_true", help='Disable console clearing')
 
+    # Extra Modules
+    parser.add_argument( "--modules",     nargs="+", help="Enable specific modules (e.g., --modules voice )",default=[]     )
+    
+    # System Args
+    parser.add_argument("--install", help='Install/Update dependencies', action="store_true")
+
+    # Config Generation Group
     config_group = parser.add_argument_group('Model Config Generation')
     config_group.add_argument('--generate-config', metavar='FILENAME', type=str)
     config_group.add_argument('--model-type', type=str, choices=[t.value for t in ModelType])
 
     return parser, parser.parse_args()
 
-
 def print_chat_header(prog: Program) -> None:
-    # ... (Your existing print_chat_header code remains exactly the same) ...
-    func.set_console_title("Ai assistant: " + prog.model_chat_name)
-    system_p_file_path = prog.config.get(ProgramSetting.SYSTEM_PROMPT_FILE, "")
-    system_p_file: str = os.path.basename(system_p_file_path).replace(".md", "").replace("_", " ")
-    system_p_file = system_p_file.capitalize()
+    """Displays the stylized JARVIS boot header."""
+    chat_name = prog.models.get_chat_name()
+    func.set_console_title(f"JARVIS AI: {chat_name}")
+    
+    system_p_path = prog.config.get(ProgramSetting.SYSTEM_PROMPT_FILE)
+    if system_p_path:
+        system_name = os.path.basename(str(system_p_path)).replace(".md", "").replace("_", " ").capitalize()
+    else:
+        system_name = "Default"
 
-    func.out(Color.GREEN, end="")
-    func.out(f"# Starting {Color.YELLOW}{ prog.model_chat_name }{Color.GREEN} assistant")
-    if prog.model_variant:
-        func.out(f"# variant {Color.YELLOW}{ prog.model_variant }{Color.GREEN}")
-    func.out(f"# Using {Color.YELLOW}{ system_p_file }{Color.GREEN} file system")
+    func.out(f"{Color.GREEN}# Starting {Color.YELLOW}{chat_name}{Color.GREEN} assistant")
+    func.out(f"# Using {Color.YELLOW}{system_name}{Color.GREEN} logic system")
     func.out(f"{Color.RESET}--------------------------")
 
-
-def init_program_and_args(args) -> Program:
-    # ... (Your existing init_program_and_args code remains exactly the same) ...
-    global clear_console 
-    prog = Program()
-    prog.load_config(args=args) 
-    
-    if args.debug_console: 
-        func.log("DEBUG MODE Enabled")
-        args.print_log = True
-        args.print_debug = True
-        func.ALLOW_CLEAR_CONSOLE = False
-        func.LOCK_LOG = False 
-        prog.config.set(ProgramSetting.PRINT_LOG, True)
-        prog.config.set(ProgramSetting.PRINT_DEBUG, True)
-    else:
-        func.ALLOW_CLEAR_CONSOLE = (not args.print_log and not args.print_debug)
-
-    prog.init_program(args) 
-    return prog
-
 def run():
+    hack_warnings()
     prog: Optional[Program] = None 
     args: Optional[argparse.Namespace] = None 
+    
     try:
-        func.ALLOW_CLEAR_CONSOLE = True
+        # 1. Parse Args
         parser, args = load_args()
         
-        handle_install(args)
+        # 2. Instantiate and load settings
+        prog = Program()
+        prog.load_config(args=args) 
         
-        prog = init_program_and_args(args)
+        # 3. Apply Environment Logic
+        if args.debug_console: 
+            func.log("DEBUG MODE Enabled")
+            func.ALLOW_CLEAR_CONSOLE = False
+            func.LOCK_LOG = False 
+            prog.config.set(ProgramSetting.PRINT_LOG, True)
+            prog.config.set(ProgramSetting.PRINT_DEBUG, True)
+        else:
+            func.ALLOW_CLEAR_CONSOLE = (not args.print_log and not args.print_debug)
         
+
+        
+        # 5. Initialize Hardware and Logic Services
+        prog.init_program(args)         
+        
+        # 4. Process CLI Instructions
         cli_args_processor = CliArgs()
         cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
+        
+   
 
+        # 6. Final UI Prep
         if func.ALLOW_CLEAR_CONSOLE: 
             func.clear_console()
 
         print_chat_header(prog=prog)
+        
+        # 7. Start the main loop
         prog.run()
         
     except KeyboardInterrupt:
-        if prog and prog.llm:
-            func.log(f"Detected Ctrl+C. Attempting to stop LLM generation gracefully...") 
-            prog.llm.stop_generation_event.set() 
-            prog.llm.join_generation_thread(timeout=10)
         os._exit(0)
-
     except Exception as e:
-        is_debug_console = getattr(args, 'debug_console', False) if args else False
-        if is_debug_console: 
-            raise e
+        # If in debug mode, show full traceback, otherwise show clean error
+        is_debug = getattr(args, 'debug_console', False) if args else False
+        if is_debug:
+            import traceback
+            traceback.print_exc()
         else:
-            func.out(f"An unexpected error occurred: {e}") 
-            sys.exit(1)
+            func.out(f"{Color.RED}[ ! ] Error: {e}{Color.RESET}") 
+        sys.exit(1)
 
 if __name__ == "__main__":
+    # Ensure local module directory is in the sys path
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))
     run()
-    os._exit(0)

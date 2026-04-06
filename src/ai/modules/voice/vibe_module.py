@@ -3,25 +3,48 @@ import torch
 import copy
 import numpy as np
 from modules.voice.base_module import BaseVoiceModule
+import functions as func
 
 class VibeVoiceModule(BaseVoiceModule):
+    """
+    VibeVoice-Realtime-0.5B implementation.
+    Auto-detects hardware (CUDA/CPU) and provides the 'preload' hook for the Registry.
+    """
     def __init__(self, model_id="microsoft/VibeVoice-Realtime-0.5B", voice_file="en-Carter_man.pt", **kwargs):
+        # Initialize the base class (starts audio queues and playback threads)
         super().__init__(sample_rate=24000, **kwargs)
+        
         self.model_id = model_id
         self.voice_file = voice_file
+        
+        # Runtime hardware state
         self.model = None
         self.processor = None
         self.voice_embeddings = None
-        self.model_dtype = None
         self.device = None
+        self.model_dtype = None
+
+    def preload(self):
+        """
+        FIX: This is the method the ModuleRegistry calls.
+        It triggers the actual model loading sequence.
+        """
+        func.log("VibeVoice: Preloading model components...")
+        self._initialize_model()
 
     def _initialize_model(self):
+        """
+        Auto-detects hardware and loads the VibeVoice weights.
+        """
         from vibevoice import VibeVoiceStreamingForConditionalGenerationInference, VibeVoiceStreamingProcessor
         
+        # 1. Hardware Detection
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model_dtype = torch.float16 if "cuda" in self.device else torch.float32
         
-        # Robust Path Discovery
+        func.log(f"VibeVoice: Initializing on {self.device.upper()} ({self.model_dtype})")
+
+        # 2. Path Discovery for Voice Files
         current_file_path = os.path.dirname(os.path.abspath(__file__))
         voices_dir = None
         for i in range(4):
@@ -31,56 +54,59 @@ class VibeVoiceModule(BaseVoiceModule):
                 break
         
         if not voices_dir:
-            raise FileNotFoundError("[!] VibeVoice: Could not locate 'voices' directory.")
+            func.log("VibeVoice: WARNING - Could not locate 'voices' directory.", level="WARN")
+            voice_path = None
+        else:
+            voice_path = os.path.join(voices_dir, self.voice_file)
+            if not os.path.exists(voice_path):
+                # Fallback to first available voice if preferred one is missing
+                available = [f for f in os.listdir(voices_dir) if f.endswith('.pt')]
+                if available:
+                    voice_path = os.path.join(voices_dir, available[0])
 
-        available_voices = [f for f in os.listdir(voices_dir) if f.endswith('.pt')]
-        selected_voice = self.voice_file if self.voice_file in available_voices else available_voices[0]
-        voice_path = os.path.join(voices_dir, selected_voice)
-
-        # LOAD: Keep the original object type (ModelOutput)
-        raw_embeddings = torch.load(voice_path, map_location=self.device, weights_only=False)
-        self.voice_embeddings = self._recursive_cast(raw_embeddings)
+        # 3. Load Components
+        if voice_path and os.path.exists(voice_path):
+            func.log(f"VibeVoice: Loading voice profile: {os.path.basename(voice_path)}")
+            raw_embeddings = torch.load(voice_path, map_location=self.device, weights_only=False)
+            self.voice_embeddings = self._recursive_cast(raw_embeddings)
         
         self.processor = VibeVoiceStreamingProcessor.from_pretrained(self.model_id)
+        
+        func.log("VibeVoice: Loading model weights (this may take a moment)...")
         self.model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
-            self.model_id, torch_dtype=self.model_dtype
+            self.model_id, dtype=self.model_dtype
         ).to(self.device)
         
         if hasattr(self.model, "set_ddpm_inference_steps"):
             self.model.set_ddpm_inference_steps(num_steps=5)
+            
+        func.log("VibeVoice: Model ready.")
 
     def _recursive_cast(self, obj):
-        """
-        CRITICAL FIX: This now modifies objects in-place or preserves their class type
-        to ensure attribute access (like .past_key_values) doesn't break.
-        """
+        """Moves tensors and dicts to the selected device/dtype."""
         if isinstance(obj, torch.Tensor):
-            if obj.is_floating_point():
-                return obj.to(device=self.device, dtype=self.model_dtype)
-            return obj.to(device=self.device)
-        
+            return obj.to(device=self.device, dtype=self.model_dtype if obj.is_floating_point() else None)
         elif isinstance(obj, dict):
-            # If it's a special dict (like ModelOutput), we must preserve its class
             for k, v in obj.items():
                 obj[k] = self._recursive_cast(v)
             return obj
-            
         elif isinstance(obj, list):
             for i in range(len(obj)):
                 obj[i] = self._recursive_cast(obj[i])
             return obj
-            
         elif hasattr(obj, "__dict__"):
-            # For custom objects that aren't dicts but have attributes
             for k, v in vars(obj).items():
                 setattr(obj, k, self._recursive_cast(v))
             return obj
-            
         return obj
 
-    def _run_inference(self, text) -> np.ndarray:
-        # Use the already-cast embeddings as the prompt cache
-        # We use deepcopy so the model doesn't modify our master voice file in VRAM
+    def _run_inference(self, text: str) -> np.ndarray:
+        """
+        Converts text tokens to audio. This is the heart of the engine.
+        """
+        if not self.model or not text.strip():
+            return np.zeros(1, dtype=np.float32)
+
         prompt_cache = copy.deepcopy(self.voice_embeddings)
         
         raw_inputs = self.processor.process_input_with_cached_prompt(
@@ -91,15 +117,13 @@ class VibeVoiceModule(BaseVoiceModule):
         )
         
         inputs = self._recursive_cast(raw_inputs)
-        tokenizer = getattr(self.processor, "tokenizer", self.processor)
         
         with torch.no_grad():
-            autocast_device = "cuda" if "cuda" in self.device else "cpu"
-            with torch.amp.autocast(device_type=autocast_device, dtype=self.model_dtype):
-                # VibeVoice generate needs all_prefilled_outputs to be the exact object type
+            autocast_dev = "cuda" if "cuda" in str(self.device) else "cpu"
+            with torch.amp.autocast(device_type=autocast_dev, dtype=self.model_dtype):
                 output = self.model.generate(
                     **inputs, 
-                    tokenizer=tokenizer, 
+                    tokenizer=self.processor.tokenizer, 
                     cfg_scale=1.5, 
                     all_prefilled_outputs=prompt_cache
                 )
@@ -109,4 +133,11 @@ class VibeVoiceModule(BaseVoiceModule):
         else:
             audio_tensor = output.wav if hasattr(output, 'wav') else output.audio
             
-        return audio_tensor.cpu().numpy().squeeze().astype(np.float32)
+        # Convert to numpy and return to BaseVoiceModule for playback
+        audio_data = audio_tensor.cpu().numpy().squeeze().astype(np.float32)
+        
+        # Diagnostic Log
+        max_amp = np.max(np.abs(audio_data)) if len(audio_data) > 0 else 0
+        func.log(f"VibeVoice: Audio generated (Peak Amplitude: {max_amp:.4f})", level="DEBUG")
+        
+        return audio_data

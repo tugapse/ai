@@ -71,7 +71,6 @@ class LLMConnector:
         with tempfile.NamedTemporaryFile(mode='w+', delete=True, encoding='utf-8') as tmp_file:
             try:
                 # Using 'ask' from direct.py, directing output to a temp file.
-                # The 'output_file' parameter is assumed to exist in the 'ask' function.
                 ask(self.llm, messages, hide_think_anim=True, print_output=False, print_mode="line", output_filename=tmp_file.name, write_to_file=True)
                 tmp_file.seek(0)  # Go back to the beginning of the file to read it.
                 return tmp_file.read()
@@ -86,7 +85,6 @@ class LLMConnector:
             match = re.search(r'(\{.*\})', raw_string, re.DOTALL)
             if not match: 
                 func.error(f"Parser could not find a valid JSON object in response. \n{raw_string}")
-                exit(1)
                 return {"status": "FAILED", "error": "No JSON object found."}
             
             content = match.group(1).replace('"""', '"')

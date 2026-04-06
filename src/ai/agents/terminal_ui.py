@@ -35,9 +35,8 @@ class TerminalUI:
         """
         prefix = "\r\033[K" if is_updating else ""
         func.out(
-            f"{prefix}{Color.NORMAL_CYAN}{TerminalUI.ICON_AGENT} {Color.BOLD}{agent_name}{Color.RESET} "
+            f"{prefix}Agent {Color.RESET} "
             f"is working on: {Color.YELLOW}{task}{Color.RESET}", 
-            end="", 
             flush=True
         )
 
@@ -45,7 +44,7 @@ class TerminalUI:
     def auth_request(tool_name: str, target: str, command:str = ""): 
         
         """Displays a boxed authorization request."""
-        func.out(f"\n\n{Color.BLUE}╭── {Color.BG_YELLOW}{Color.NORMAL_BLACK} AUTHORIZATION REQUIRED {Color.RESET}{Color.BLUE} ───")
+        func.out(f"{Color.BLUE}╭── {Color.BG_YELLOW}{Color.NORMAL_BLACK} AUTHORIZATION REQUIRED {Color.RESET}{Color.BLUE} ───")
         func.out(f"│ {Color.NORMAL_CYAN}TOOL:   {Color.RESET}{tool_name}")
         if command:
             func.out(f"│ {Color.NORMAL_CYAN}COMMA.: {Color.RESET}{command}")
