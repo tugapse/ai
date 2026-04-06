@@ -9,7 +9,6 @@ import time
 from typing import Optional
 
 # Core components
-from modules.voice_engine import VibeVoiceEngine
 from config import ProgramConfig, ProgramSetting
 from core import ChatCommandInterceptor, CommandExecutor
 from core.llms.base_llm import ModelParams, BaseModel 
@@ -77,11 +76,10 @@ class Program:
     def _load_modules(self):
         """Initializes modular extensions if installed."""
         if ModelManager.is_engine_installed(EngineType.VOICE_ENGINE):
+            from modules.voice.vibe_module import VibeVoiceModule
             func.log("Program: Voice Engine detected. Ready for streaming.")
-            voice = VibeVoiceEngine( 
-                voice_file="en-Mike_man.pt", 
-                device_index=13  
-            )
+            
+            voice = VibeVoiceModule()
             voice.preload()
             self.modules[EngineType.VOICE_ENGINE] = voice
 
@@ -223,21 +221,27 @@ class Program:
                     llm_response_accumulated += content_to_display
                     func.out(formatted_token, end="")
 
+        
+        
+        except KeyboardInterrupt:
+            if self.modules[EngineType.VOICE_ENGINE]:
+                self.modules[EngineType.VOICE_ENGINE].abort()
+                func.log("\n[!] Turn Interrupted.")
+
         except Exception as e:
             func.log(f"Program: Error in start_chat: {e}", level="CRITICAL")
             func.log(f"Traceback:\n{traceback.format_exc()}", level="ERROR")
             llm_response_accumulated = f"ERROR: {e}"
+
 
         finally:
             if stream_state == STREAM_STATE_NORMAL:
                 if self.output_printer:
                     self.output_printer.flush_buffers()
 
-                # 5. SYNC VOICE (Wait for current response to finish speaking)
-                if self.modules[EngineType.VOICE_ENGINE]:
-                    audio_file = self.modules[EngineType.VOICE_ENGINE].finalize_speech()
-                    if audio_file:
-                        func.log(f"Program: Turn audio saved to {audio_file}", level="DEBUG")
+                voice_module = self.modules.get(EngineType.VOICE_ENGINE)
+                if voice_module:
+                    voice_module.collect_audio()
 
                 if llm_response_accumulated:
                     self.chat.messages.append(
