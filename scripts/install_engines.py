@@ -18,13 +18,15 @@ CONFIG_FILE = os.path.join(BASE_DIR, "installed_engines.json")
 VENV_DIR = os.path.join(BASE_DIR, ".venv")
 
 # --- Registry ---
+# Added 'vibevoice' for the 0.5B Realtime TTS model
 ENGINES = [
     {"id": "gguf", "name": "GGUF (Local Inference)", "deps": ["llama-cpp-python", "huggingface-hub", "numpy"]},
     {"id": "ollama", "name": "Ollama (Local API)", "deps": ["ollama", "requests"]},
     {"id": "transformers", "name": "Transformers (HF)", "deps": ["torch", "transformers", "accelerate", "huggingface-hub"]},
     {"id": "openai", "name": "OpenAI (Cloud API)", "deps": ["openai"]},
     {"id": "gemini_api", "name": "Gemini (API Key)", "deps": ["google-generativeai"]},
-    {"id": "gemini_vertex", "name": "Gemini (Vertex AI)", "deps": ["google-cloud-aiplatform"]}
+    {"id": "gemini_vertex", "name": "Gemini (Vertex AI)", "deps": ["google-cloud-aiplatform"]},
+    {"id": "voice_engine", "name": "Voice Module (Realtime TTS)", "deps": ["vibevoice","torch", "transformers", "soundfile", "librosa", "einops", "pyaudio"]},
 ]
 
 def setup_venv():
@@ -113,24 +115,36 @@ def run_pip(engine, config, venv_python, action):
     deps = engine['deps']
     
     if action == "install":
+        # Handle GGUF specific GPU flags
         if engine['id'] == "gguf":
-            gpu = input(f"{C_CYAN}Enable CUDA (GPU) support? (y/n): {C_END}").lower() == 'y'
+            gpu = input(f"{C_CYAN}Enable CUDA (GPU) support for GGUF? (y/n): {C_END}").lower() == 'y'
             if gpu:
                 env["CMAKE_ARGS"] = "-DGGML_CUDA=on"
                 env["FORCE_CMAKE"] = "1"
+        
+        # Note for VibeVoice requirements
+        if engine['id'] == "vibevoice":
+            print(f"{C_YELLOW}>>> Note: VibeVoice-Realtime requires CUDA for low-latency output.{C_END}")
+
         cmd = [venv_python, "-m", "pip", "install", "--upgrade"] + deps
     else:
-        # Check for shared deps
-        other_deps = {d for e in ENGINES for d in e['deps'] if e['id'] != engine['id'] and config.get(e['id'], {}).get("installed")}
+        # Check for shared deps to avoid breaking other engines
+        current_config = load_config()
+        other_deps = set()
+        for e in ENGINES:
+            if e['id'] != engine['id'] and current_config.get(e['id'], {}).get("installed"):
+                other_deps.update(e['deps'])
+        
         to_remove = [d for d in deps if d not in other_deps]
         if not to_remove:
             config[engine['id']] = {"installed": False}
             save_config(config)
+            print(f"{C_YELLOW}>>> Dependencies shared. Registry updated without uninstallation.{C_END}")
             return
         cmd = [venv_python, "-m", "pip", "uninstall", "-y"] + to_remove
 
     try:
-        print(f"\n{C_BLUE}>>> Executing {action}...{C_END}")
+        print(f"\n{C_BLUE}>>> Executing {action} for {engine['name']}...{C_END}")
         subprocess.run(cmd, env=env, check=True)
         config[engine['id']] = {"installed": (action == "install")}
         save_config(config)
@@ -140,5 +154,8 @@ def run_pip(engine, config, venv_python, action):
     input("\nPress Enter to continue...")
 
 if __name__ == "__main__":
-    try: main_menu()
-    except KeyboardInterrupt: sys.exit(0)
+    try:
+        main_menu()
+    except KeyboardInterrupt:
+        print(f"\n{C_YELLOW}Exiting Engine Manager...{C_END}")
+        sys.exit(0)

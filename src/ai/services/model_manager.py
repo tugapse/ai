@@ -7,7 +7,7 @@ from typing import Optional
 
 import functions as func 
 
-from entities.model_enums import ModelType
+from entities.model_enums import ModelType, EngineType
 
 from core.llms.base_llm import ModelParams, BaseModel
 
@@ -37,7 +37,8 @@ class ModelManager:
             ModelType.CAUSAL_LM: "transformers",
             ModelType.SEQ2SEQ_LM: "transformers",
             ModelType.OPEN_AI: "openai",
-            ModelType.GEMINI: "gemini_api"
+            ModelType.GEMINI: "gemini_api",
+            EngineType.VOICE_ENGINE:"voice_engine"
         }
 
         engine_id = mapping.get(model_type)

@@ -6,7 +6,8 @@ class EngineType(Enum):
     """
     HUGGINGFACE = "huggingface"
     OLLAMA = "ollama"
-    GGUF = "gguf"                 # GGUF quantized models (typically run with llama.cpp bindings)
+    GGUF = "gguf"    
+    VOICE_ENGINE = "voice_engine" # Voice modeule
     
 
 class ModelType(Enum):
