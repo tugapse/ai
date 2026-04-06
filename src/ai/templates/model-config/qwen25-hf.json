@@ -2,7 +2,7 @@
     "model_name": "Qwen/Qwen2.5-7B-Instruct",
     "model_type": "causal_lm",
     "model_properties": {
-    "n_ctx": 10000,
+    "n_ctx": 4096,
     "max_new_tokens": 1024,
     "do_sample": true,
     "temperature": 0.1,
