@@ -1,5 +1,5 @@
 {
-  "MODEL_CONFIG_NAME": "qwen2.5-gguf",
+  "MODEL_CONFIG_NAME": "qwen25-gguf",
   "SYSTEM_PROMPT_FILE": "default",
   "OLLAMA_HOST": "127.0.0.1",
   "PATHS_CHAT_LOG": "<root_dir>/logs/chat/",

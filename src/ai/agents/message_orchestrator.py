@@ -87,6 +87,7 @@ class MessageOrchestrator:
                 agent_config["prompt_file_path"],
                 agent_config=agent_config
             )
+            
             if response.get("status") == "FAILED":
                 TerminalUI.clear_line()
                 func.out(f"\n{Color.RED}⚠ Format Error in {current_agent}{Color.RESET}")
@@ -182,7 +183,7 @@ class MessageOrchestrator:
                 goal=goal
             )
             params["content"] = refined_content
-        func.log(f"Calling tool [{tool_name}] with: {params}")
+
         # Authorization Gates
         if not self._gatekeeper(tool_name, params):
             self.agent_memory[current_agent]["messages_received"].append({"from": "USER", "message": f"DENIED: {tool_name} was blocked."})
