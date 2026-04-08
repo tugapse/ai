@@ -1,16 +1,23 @@
-## Module Purpose
-This file defines enumerations for various aspects of AI models, including engine types, architectural types, and inference backends, to standardize their representation within the application.
+## 1. Architectural Role
+Defines enumerations for different types of language model engines, architectural types of language models, and inference backends used by the application.
 
-## Interface & Exports
-*   `EngineType` (class)
-*   `ModelType` (class)
-*   `InferenceBackend` (class)
+## 2. Interface & API Surface
+| Entity | Type | Functional Responsibility |
+| :--- | :--- | :--- |
+| `EngineType` | Enum | Represents different types of LLM engines supported. |
+| `ModelType` | Enum | Defines the architectural types of language models supported. |
+| `InferenceBackend` | Enum | Specifies the inference backends available. |
 
-## Internal Logic
-The file primarily defines three enumeration classes: `EngineType`, `ModelType`, and `InferenceBackend`. `ModelType` includes custom `__str__` and `__repr__` methods to control its string representation.
+## 3. Execution Logic & Flow
+- **Initialization**: The file imports the `Enum` class from the `enum` module and defines three enumerations: `EngineType`, `ModelType`, and `InferenceBackend`.
+- **Data Path**: No data transformation occurs. The enumerations are used to represent specific values.
+- **Conditional Branching**: No conditional branching is present.
 
-## Dependencies
-*   `enum` (standard library)
+## 4. Resource Dependencies
+- **Standard Libraries**: `enum`
+- **Internal Modules**: None
+- **External Packages**: None
 
-## Constants & Environment
-None identified in source.
+## 5. Configuration & Environment
+- **Hardcoded Constants**: `HUGGINGFACE`, `OLLA`, `GGUF`, `CAUSAL_LM`, `SEQ2SEQ_LM`, `OLLAMA`, `GGUF`, `GEMINI`, `OPEN_AI`, `GPU_CUDA`, `GPU_AMD`, `CPU`
+- **Environment Lookups**: None

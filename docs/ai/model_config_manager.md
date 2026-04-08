@@ -1,38 +1,29 @@
-## Module Purpose
-This file defines the `ModelConfigManager` class, which is responsible for generating default model configurations, loading existing configurations from JSON files, and saving configurations to JSON files.
+## 1. Architectural Role
+Manages the creation, loading, and saving of model configuration files.
 
-## Interface & Exports
-*   `ModelConfigManager` (class): Manages model configuration operations.
-    *   `generate_default_config(model_name: str, model_type: ModelType) -> dict` (static method)
-    *   `load_config(filepath: str) -> dict` (static method)
-    *   `save_config(config: dict, filepath: str)` (static method)
+## 2. Interface & API Surface
+| Entity | Type | Functional Responsibility |
+| :--- | :--- | :--- |
+| `ModelConfigManager` | Class | Manages the creation, loading, and saving of model configuration files. |
+| `generate_default_config` | Static Method | Generates a default model configuration dictionary based on the specified model name and model type. |
+| `load_config` | Static Method | Loads and parses a JSON model configuration file. |
+| `save_config` | Static Method | Saves a model configuration dictionary to a JSON file. |
 
-## Internal Logic
-The `ModelConfigManager` class provides static methods to handle model configurations. `generate_default_config` acts as a dispatcher, calling private static methods (`_generate_gguf_config`, `_generate_causal_lm_config`, `_generate_ollama_config`) to create specific default configuration dictionaries based on the `ModelType` enum. The `load_config` method reads a JSON file from a given `filepath`, performing checks for file existence and valid JSON format. The `save_config` method writes a provided configuration dictionary to a specified `filepath` in JSON format with an indent of 2.
+## 3. Execution Logic & Flow
+- **Initialization**: No specific initialization occurs.
+- **Data Path**: 
+  - `generate_default_config`: Input (model_name, model_type) → Processing (generates default config based on model_type) → Output (default config dictionary).
+  - `load_config`: Input (filepath) → Processing (reads and parses JSON file) → Output (model config dictionary).
+  - `save_config`: Input (config, filepath) → Processing (writes config dictionary to JSON file) → Output (None).
+- **Conditional Branching**: 
+  - `generate_default_config`: Decides which config generation method to call based on `model_type`.
+  - `load_config`: Checks if the file exists and handles exceptions if it does not.
 
-## Dependencies
-*   `json`
-*   `os`
-*   `sys`
-*   `argparse`
-*   `entities.model_enums.ModelType`
-*   `color.Color`
-*   `color.format_text`
-*   `functions as func`
+## 4. Resource Dependencies
+- **Standard Libraries**: `os`, `json`
+- **Internal Modules**: `entities.model_enums`, `color`, `functions`
+- **External Packages**: None
 
-## Constants & Environment
-*   Hardcoded default model properties within `_generate_gguf_config`, `_generate_causal_lm_config`, and `_generate_ollama_config` methods, including:
-    *   `"gguf_filename"` (placeholder string)
-    *   `"model_repo_id"` (placeholder string)
-    *   `"n_gpu_layers": -1`
-    *   `"n_ctx": 8192`
-    *   `"verbose": False`
-    *   `"max_new_tokens": 4096` or `8192`
-    *   `"temperature": 0.3` or `0.1`
-    *   `"top_p": 0.95`
-    *   `"top_k": 50` or `10`
-    *   `"presence_penalty": 1.1` or `1.5`
-    *   `"frequency_penalty": 1.2`
-    *   `"do_sample": True`
-    *   `"quantization_bits": 8`
-*   None identified in source for environment variables.
+## 5. Configuration & Environment
+- **Hardcoded Constants**: None
+- **Environment Lookups**: None

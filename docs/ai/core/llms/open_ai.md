@@ -1,27 +1,33 @@
-## Module Purpose
-This file implements the `OpenAIAPIModel` class, which provides a lazy-loading interface for interacting with the OpenAI API for chat completions, supporting both streaming and non-streaming modes.
+## 1. Architectural Role
+This file defines a class `OpenAIAPIModel` that implements a lazy-loading OpenAI API for text completion and streaming, extending a base model class.
 
-## Interface & Exports
-*   Class: `OpenAIAPIModel`
+## 2. Interface & API Surface
+| Entity | Type | Functional Responsibility |
+| :--- | :--- | :--- |
+| `OpenAIAPIModel` | Class | Provides methods for interacting with the OpenAI API, including text completion and streaming. |
+| `__init__` | Method | Initializes the OpenAI client and sets up configuration options. |
+| `chat` | Method | Initiates a chat session with the OpenAI API, supporting streaming and text completion. |
+| `_run_streaming_chat` | Method | Handles the streaming of chat responses from the OpenAI API. |
+| `_convert_messages` | Method | Converts internal message format to the format expected by the OpenAI API. |
+| `clean_cache` | Method | Triggers garbage collection to clean up memory. |
 
-## Internal Logic
-The `OpenAIAPIModel` class initializes by attempting to import the `openai` library lazily. It retrieves the OpenAI API key from either constructor arguments or the `OPENAI_API_KEY` environment variable. Default API call options like `temperature`, `max_tokens`, `top_p`, `presence_penalty`, and `frequency_penalty` are set. The `_convert_messages` method translates an internal message format to the OpenAI API's required structure, optionally including a system prompt. The `chat` method orchestrates API calls; if `stream` is `True`, it spawns a separate thread (`_run_streaming_chat`) to handle chunked responses and trigger "token" events; otherwise, it performs a synchronous completion call. The `_run_streaming_chat` method iterates through the streaming response, triggering "token" events for each content delta until a stop event is set or the stream concludes. A `clean_cache` method explicitly triggers garbage collection.
+## 3. Execution Logic & Flow
+- **Initialization**:
+  - The `__init__` method initializes the `OpenAIAPIModel` class, setting up the OpenAI client with the provided or environment API key.
+  - It also sets up default options for the API calls.
+- **Data Path**:
+  - The `chat` method takes a list of messages and optionally images, converts them to the OpenAI format using `_convert_messages`.
+  - If streaming is enabled, it starts a new thread to handle the streaming response using `_run_streaming_chat`.
+  - If not streaming, it makes a synchronous API call to get the response.
+- **Conditional Branching**:
+  - The `chat` method checks if streaming is enabled and starts a new thread if true.
+  - The `_run_streaming_chat` method checks if the generation should be stopped using `stop_generation_event`.
 
-## Dependencies
-*   `os`
-*   `threading`
-*   `gc`
-*   `.base_llm` (for `BaseModel`)
-*   `functions` (aliased as `func`)
-*   `openai` (lazy imported `OpenAI` class)
+## 4. Resource Dependencies
+- **Standard Libraries**: `os`, `threading`, `gc`
+- **Internal Modules**: `func` (assumed to be a utility module)
+- **External Packages**: `openai`
 
-## Constants & Environment
-*   Environment Variable: `OPENAI_API_KEY`
-*   Default `model_name`: `"gpt-4o"`
-*   Default `temperature`: `0.5`
-*   Default `max_tokens`: `2048` (derived from `max_new_tokens`)
-*   Default `top_p`: `0.95`
-*   Default `presence_penalty`: `0.0`
-*   Default `frequency_penalty`: `0.0`
-*   Event Identifier: `BaseModel.STREAMING_FINISHED_EVENT`
-*   Event Identifier: `"token"`
+## 5. Configuration & Environment
+- **Hardcoded Constants**: `model_name`, `temperature`, `max_new_tokens`, `top_p`, `presence_penalty`, `frequency_penalty`
+- **Environment Lookups**: `OPENAI_API_KEY` (accessed via `os.environ.get`)

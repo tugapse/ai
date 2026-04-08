@@ -1,17 +1,27 @@
-## Module Purpose
-This file defines the `EventBinder` class, which is responsible for managing and binding event listeners to core `Chat` and LLM events within the application.
+## 1. Architectural Role
+Manages the binding of event listeners for chat and LLM events.
 
-## Interface & Exports
-*   `EventBinder` (class)
-*   `EventBinder.bind_core_events` (static method)
+## 2. Interface & API Surface
+| Entity | Type | Functional Responsibility |
+| :--- | :--- | :--- |
+| `EventBinder` | Class | Binds core application events to their respective listeners. |
+| `bind_core_events` | Static Method | Binds chat and LLM events to callback functions. |
 
-## Internal Logic
-The `EventBinder` class contains a static method `bind_core_events` that takes a `Chat` instance, a `BaseModel` (LLM) instance, and several `Callable` callback functions. This method registers the provided callbacks as listeners for specific events: `chat.EVENT_CHAT_SENT` and `chat.EVENT_OUTPUT_REQUESTED` on the `Chat` instance, and `BaseModel.STREAMING_FINISHED_EVENT` on the `BaseModel` instance if the `llm` object is provided.
+## 3. Execution Logic & Flow
+- **Initialization**: No explicit initialization occurs.
+- **Data Path**: 
+  1. The method `bind_core_events` is called with parameters: `chat`, `llm`, `start_chat_callback`, `output_requested_callback`, and `llm_stream_finished_callback`.
+  2. The `chat` instance adds an event listener for `EVENT_CHAT_SENT` using the `start_chat_callback`.
+  3. The `chat` instance adds an event listener for `EVENT_OUTPUT_REQUESTED` using the `output_requested_callback`.
+  4. If the `llm` instance exists, it adds an event listener for `STREAMING_FINISHED_EVENT` using the `llm_stream_finished_callback`.
+- **Conditional Branching**: 
+  - Checks if the `llm` instance exists before attempting to add an event listener.
 
-## Dependencies
-*   `core.llms.base_llm`
-*   `core.chat`
-*   `typing`
+## 4. Resource Dependencies
+- **Standard Libraries**: None
+- **Internal Modules**: `core.llms.base_llm`, `core.chat`
+- **External Packages**: None
 
-## Constants & Environment
-None identified in source.
+## 5. Configuration & Environment
+- **Hardcoded Constants**: None
+- **Environment Lookups**: None

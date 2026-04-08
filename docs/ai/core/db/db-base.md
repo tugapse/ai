@@ -1,32 +1,39 @@
-## Module Purpose
-This file defines a `BaseDB` class that provides a standardized interface for interacting with a ChromaDB persistent client, integrating transformer-based models for generating text embeddings to support vector database operations.
+## 1. Architectural Role
+This file defines a class `BaseDB` that provides a database interface for storing and querying records with embeddings generated from text using a specified model.
 
-## Interface & Exports
-*   Class: `ModelNames`
-*   Class: `BaseDB`
-    *   Method: `__init__`
-    *   Method: `_initialize_embedding_model`
-    *   Method: `generate_embedding`
-    *   Method: `add_record`
-    *   Method: `search_records`
-    *   Method: `get_record`
-    *   Method: `parse_search_results`
-    *   Method: `get_all_records`
+## 2. Interface & API Surface
+| Entity | Type | Functional Responsibility |
+| :--- | :--- | :--- |
+| `BaseDB` | Class | Manages a database collection for storing records with embeddings and provides methods for adding records, searching, and retrieving records. |
+| `ModelNames` | Enum | Defines a set of predefined model names for embedding generation. |
+| `add_record` | Method | Adds a new record to the database with a unique ID, combined text, and optional metadata. |
+| `search_records` | Method | Searches the database for records similar to a given query. |
+| `get_record` | Method | Retrieves a record by its unique ID. |
+| `parse_search_results` | Method | Parses search results into a structured format. |
+| `get_all_records` | Method | Retrieves all records from the database. |
 
-## Internal Logic
-The `BaseDB` class initializes a `chromadb.PersistentClient` and a collection, defaulting to a local path and collection name. It uses an internal `_initialize_embedding_model` method to lazy-load a tokenizer and model from the `transformers` library based on a specified `ModelNames` enum value, handling potential `ImportError` if the library is not installed. The `generate_embedding` method processes text through the loaded transformer model to produce a numerical embedding. Records are added using `add_record`, which generates a UUID, creates a combined text string, generates its embedding, and stores it in ChromaDB along with provided metadata (converting list metadata values to comma-separated strings). `search_records` performs a vector similarity search using an embedding generated from a query. `get_record` retrieves a specific record by its ID. `parse_search_results` structures the raw output from ChromaDB queries into a more accessible dictionary format, including `id`, `document`, `distance`, and `metadata`. `get_all_records` retrieves all entries from the collection.
+## 3. Execution Logic & Flow
+- **Initialization**:
+  - The `BaseDB` class is initialized with parameters such as `collection_name`, `model`, and `path`.
+  - A `chromadb.PersistentClient` is created with the specified `path`.
+  - A collection is retrieved or created with the specified `collection_name`.
+  - The `model_name` is set, and the `tokenizer` and `model` are initialized lazily on first use.
 
-## Dependencies
-*   `chromadb`
-*   `uuid`
-*   `enum`
-*   `transformers` (specifically `AutoTokenizer`, `AutoModel` are imported conditionally within `_initialize_embedding_model`)
+- **Data Path**:
+  - When `add_record` is called, the text is combined with the title and metadata.
+  - The embedding is generated using the `generate_embedding` method.
+  - The record is added to the collection with the generated embedding, unique ID, and metadata.
 
-## Constants & Environment
-*   `ModelNames` Enum members:
-    *   `QWEN_RE_RANKER_0_6B = "Qwen/Qwen3-Reranker-0.6B"`
-    *   `INSTRUCTOR_XL = "hkunlp/instructor-xl"`
-    *   `SENTENCE_TRANSFORMERS_ALL_MINILM_L6_V2 = "sentence-transformers/all-MiniLM-L6-v2"`
-*   Default `collection_name` for `BaseDB`: `"my_records"`
-*   Default `model` for `BaseDB`: `ModelNames.SENTENCE_TRANSFORMERS_ALL_MINILM_L6_V2`
-*   Default `path` for `chromadb.PersistentClient`: `"db"`
+- **Conditional Branching**:
+  - The `generate_embedding` method checks if the `tokenizer` and `model` are initialized and initializes them if not.
+  - The `add_record` method checks if metadata is provided and processes it if necessary.
+  - The `search_records` method generates an embedding for the query and searches the collection using this embedding.
+
+## 4. Resource Dependencies
+- **Standard Libraries**: `uuid`, `enum`
+- **Internal Modules**: None
+- **External Packages**: `chromadb`, `transformers`
+
+## 5. Configuration & Environment
+- **Hardcoded Constants**: `collection_name`, `model`, `path`
+- **Environment Lookups**: None

@@ -1,22 +1,36 @@
-## Module Purpose
-This module defines the `FileContentHandler` class, which is responsible for detecting, extracting, and saving file content embedded within `<file>...</file>` tags from an LLM's token stream, suppressing the content from direct console output.
+## 1. Architectural Role
+Handles the detection and extraction of file content enclosed within `<file>...</file>` tags from an LLM's token stream, and saves the extracted file content to disk.
 
-## Interface & Exports
-*   `FileContentHandler`: A class designed to be instantiated and used to process token streams, managing the state of file content extraction and saving. Its primary public methods are `__init__`, `process_token`, and `save_file`.
+## 2. Interface & API Surface
+| Entity | Type | Functional Responsibility |
+| :--- | :--- | :--- |
+| `FileContentHandler` | Class | Manages the detection and extraction of file content from an LLM's token stream, and saves the extracted file content to disk. |
 
-## Internal Logic
-The `FileContentHandler` class processes incoming tokens, accumulating them in an internal buffer. It uses regular expressions (`FILE_START_PATTERN`, `FILE_END_PATTERN`) to identify the opening and closing `<file>` tags, which can include `name`, `type`, and `ext` attributes. When an opening tag is found, it extracts metadata, sets an internal `_is_active` flag, and begins buffering subsequent tokens as file content. Upon detecting a closing tag, it finalizes the filename (inferring extensions from `name`, `type`, or `ext` attributes and `MIME_TYPE_TO_EXT` mapping), cleans control characters from the buffered content, and then calls its `save_file` method to write the extracted content to a specified `_output_base_dir`. During active file content accumulation, tokens are suppressed from being returned for display.
+## 3. Execution Logic & Flow
+- **Initialization**: 
+  - Initializes the `FileContentHandler` with optional `ThinkingLogManager` and `output_base_dir`.
+  - Sets up regular expressions for detecting file start and end tags, and control characters.
+  - Maps MIME types to file extensions.
+  - Creates the `output_base_dir` if specified.
+- **Data Path**:
+  - Accumulates token strings in `_token_accumulation_buffer`.
+  - Cleans the buffer of control characters.
+  - Searches for file start and end tags.
+  - If a file start tag is found, sets `_is_active` to `True` and starts accumulating content.
+  - If a file end tag is found, processes the accumulated content, determines the file name and extension, saves the file, and resets the state.
+  - If no tags are found, returns the token content for display.
+- **Conditional Branching**:
+  - Checks if the current state is inside a file content block (`_is_active`).
+  - Determines if a file start or end tag is present in the buffer.
+  - Handles the extraction and saving of file content.
 
-## Dependencies
-*   `re`
-*   `os`
-*   `functions` (imported as `func`)
-*   `extras.thinking_log_manager` (specifically `ThinkingLogManager`)
+## 4. Resource Dependencies
+- **Standard Libraries**: `os`, `re`
+- **Internal Modules**: `functions` (aliased as `func`)
+- **External Packages**: None
 
-## Constants & Environment
-*   `FILE_START_PATTERN`: A regular expression to match the opening `<file>` tag and capture its attributes.
-*   `FILE_END_PATTERN`: A regular expression to match the closing `</file>` tag.
-*   `CONTROL_CHARS_PATTERN`: A regular expression to identify and remove control characters from token strings.
-*   `MIME_TYPE_TO_EXT`: A dictionary mapping common MIME types to file extensions.
-*   `end_file_string`: An instance variable set to `"[FILE_END]"`.
-None identified in source.
+## 5. Configuration & Environment
+- **Hardcoded Constants**: 
+  - `end_file_string`: "[FILE_END]"
+  - `MIME_TYPE_TO_EXT`: Dictionary mapping MIME types to file extensions.
+- **Environment Lookups**: None

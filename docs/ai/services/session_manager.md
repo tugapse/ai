@@ -1,39 +1,42 @@
-## Module Purpose
-This module defines the `SessionManager` class, which is responsible for generating and managing session-specific file paths and directories for chat logs, thinking logs, and a workspace for generated files.
+## 1. Architectural Role
+Manages the creation of session-specific paths and timestamps, ensuring the proper setup for chat logs, thinking logs, and workspace directories.
 
-## Interface & Exports
-*   `SessionManager` (Class): Manages the creation and organization of session-specific file system resources.
-    *   `initialize_session_paths(config: ProgramConfig) -> Dict[str, str]`: Static method that generates and ensures the existence of all necessary directories and file paths for a new session, returning a dictionary of these paths.
+## 2. Interface & API Surface
+| Entity | Type | Functional Responsibility |
+| :--- | :--- | :--- |
+| `SessionManager` | Class | Manages the creation of session-specific paths and timestamps. |
+| `initialize_session_paths` | Static Method | Generates and ensures existence of session-specific directories and file paths. |
 
-## Internal Logic
-The `initialize_session_paths` method performs the following steps:
-1.  Generates a unique `session_timestamp` using the current date and time.
-2.  Initializes a dictionary `session_paths` with placeholder values.
-3.  **Chat Log Setup**: Retrieves the chat log folder path from the `config`. If configured, it ensures the directory exists and constructs the `session_chat_filepath`. Otherwise, it logs a warning.
-4.  **Thinking Log Setup**: Constructs a base directory for thinking logs within the general `logs` directory from the `config`. If a base logs directory is configured, it ensures the directory exists and constructs the `session_thinking_log_filepath`. Otherwise, it logs a warning.
-5.  **Workspace Setup**: Retrieves the workspace base path from the `config`. If not configured, it falls back to a default "workspaces" directory within the application's root. It then constructs a session-specific workspace path (`session_workspace_path`) and ensures this directory exists.
-6.  Updates global log filenames (`func.ACTIVE_LOG_FILENAME`, `func.SESSION_LOG_FILENAME`) based on the session timestamp and configuration, and initializes these log files.
-7.  Returns the `session_paths` dictionary containing all generated file and directory paths.
+## 3. Execution Logic & Flow
+- **Initialization**: The `SessionManager` class is loaded, and the `initialize_session_paths` method is called with a `ProgramConfig` object.
+- **Data Path**:
+  1. The current timestamp is generated and logged.
+  2. Session paths are initialized with default values.
+  3. Chat log setup:
+     - The chat log folder is retrieved from the configuration.
+     - If configured, the folder is ensured to exist.
+     - The chat history file path is generated and logged.
+  4. Thinking log setup:
+     - The base logs directory is retrieved from the configuration.
+     - If configured, the directory is ensured to exist.
+     - The thinking logs file path is generated and logged.
+  5. Workspace setup:
+     - The base workspace path is retrieved from the configuration.
+     - If not configured, a fallback path is used.
+     - The session workspace path is generated and ensured to exist.
+  6. Log file setup:
+     - Active log file is created and cleared.
+     - Session log file is created in append mode.
+- **Conditional Branching**:
+  - Chat log folder configuration check.
+  - Thinking logs base directory configuration check.
+  - Generated files base path configuration check.
 
-## Dependencies
-*   `os`
-*   `datetime` from `datetime`
-*   `Dict`, `Any` from `typing`
-*   `functions as func` (internal module)
-*   `ProgramConfig`, `ProgramSetting` from `config` (internal module)
+## 4. Resource Dependencies
+- **Standard Libraries**: `os`, `datetime`, `typing`
+- **Internal Modules**: `functions`, `config`
+- **External Packages**: None
 
-## Constants & Environment
-*   Hardcoded string: `"Y%m%d_%H%M%S"` (datetime format string)
-*   Hardcoded string: `"thinking"` (subdirectory name for thinking logs)
-*   Hardcoded string: `"workspaces"` (fallback subdirectory name for generated files)
-*   Hardcoded string: `"chat_history_"` (prefix for chat history filenames)
-*   Hardcoded string: `"llm_thinking_"` (prefix for thinking log filenames)
-*   Hardcoded string: `"session_"` (prefix for session workspace directory names)
-*   Hardcoded string: `"active_log_filename.log"` (filename for active log)
-*   Hardcoded string: `"logs"` (subdirectory name within `ProgramSetting.PATHS_LOGS` for session logs)
-*   `func.ACTIVE_LOG_FILENAME` (global variable, modified by this module)
-*   `func.SESSION_LOG_FILENAME` (global variable, modified by this module)
-*   `func.FILE_MODE_APPEND` (constant from `functions` module)
-*   `ProgramSetting.PATHS_CHAT_LOG` (enum member from `config` module)
-*   `ProgramSetting.PATHS_LOGS` (enum member from `config` module)
-*   `ProgramSetting.PATHS_WORKSPACES` (enum member from `config` module)
+## 5. Configuration & Environment
+- **Hardcoded Constants**: `FILE_MODE_APPEND`
+- **Environment Lookups**: `ProgramSetting.PATHS_CHAT_LOG`, `ProgramSetting.PATHS_LOGS`, `ProgramSetting.PATHS_WORKSPACES`

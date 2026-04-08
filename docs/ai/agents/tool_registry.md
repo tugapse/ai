@@ -1,18 +1,29 @@
-## Module Purpose
-This file defines the `ToolRegistry` class, which provides functionality to register, describe, and execute various callable tools. It acts as a central repository for managing tool interactions within an agent system.
+## 1. Architectural Role
+The `ToolRegistry` class is responsible for managing a registry of tools, allowing tools to be registered, retrieved, and executed.
 
-## Interface & Exports
-*   Class: `ToolRegistry`
-    *   Method: `register_tool(self, name: str, func_ref: Callable)`
-    *   Method: `get_tool_info(self, name: str) -> str`
-    *   Method: `execute_tool(self, name: str, params: Dict[str, Any]) -> Dict[str, Any]`
+## 2. Interface & API Surface
+| Entity | Type | Functional Responsibility |
+| :--- | :--- | :--- |
+| `ToolRegistry` | Class | Manages a registry of tools, allowing tools to be registered, retrieved, and executed. |
+| `register_tool` | Method | Registers a tool with a given name and function reference. |
+| `get_tool_info` | Method | Retrieves information about a tool, including its documentation. |
+| `execute_tool` | Method | Executes a tool with given parameters and returns the result. |
 
-## Internal Logic
-The `ToolRegistry` class maintains an internal dictionary, `_tools`, mapping tool names (strings) to their callable references. The `register_tool` method adds new callable functions to this dictionary. The `get_tool_info` method retrieves the docstring of a registered tool, formats it with indentation, and returns a descriptive string. The `execute_tool` method dynamically calls a registered tool with provided parameters, logs the call using `func.log`, and encapsulates the result or any execution error within a status dictionary.
+## 3. Execution Logic & Flow
+- **Initialization**: When the `ToolRegistry` class is instantiated, it initializes an empty dictionary `_tools` to store the registered tools.
+- **Data Path**:
+  1. `register_tool`: Adds a tool to the `_tools` dictionary with the provided name and function reference.
+  2. `get_tool_info`: Retrieves the documentation of a tool by its name. If the tool does not exist, it returns a default message.
+  3. `execute_tool`: Executes a tool by its name with the provided parameters. If the tool does not exist, it returns a failure message. If the execution is successful, it returns the result; otherwise, it returns an error message.
+- **Conditional Branching**:
+  - In `get_tool_info`, checks if the tool exists in the `_tools` dictionary.
+  - In `execute_tool`, checks if the tool exists in the `_tools` dictionary and handles exceptions during execution.
 
-## Dependencies
-*   `typing` (specifically `Dict`, `Any`, `Callable`)
-*   `functions` (imported as `func`)
+## 4. Resource Dependencies
+- **Standard Libraries**: `typing`
+- **Internal Modules**: `functions as func`
+- **External Packages**: None
 
-## Constants & Environment
-None identified in source.
+## 5. Configuration & Environment
+- **Hardcoded Constants**: None
+- **Environment Lookups**: None

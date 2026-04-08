@@ -1,27 +1,25 @@
-## Module Purpose
-This file defines the `ConfigApplier` class, which is responsible for applying command-line arguments parsed by `argparse` to a `ProgramConfig` instance, overriding default or loaded configuration settings.
+## 1. Architectural Role
+Applies command-line arguments to the `ProgramConfig` instance.
 
-## Interface & Exports
-*   `ConfigApplier`: A class containing static methods to modify program configuration.
-    *   `apply_cli_args_to_config(config: ProgramConfig, args: Optional[argparse.Namespace])`: A static method that takes a `ProgramConfig` object and an `argparse.Namespace` object, applying relevant CLI arguments to the configuration.
+## 2. Interface & API Surface
+| Entity | Type | Functional Responsibility |
+| :--- | :--- | :--- |
+| `ConfigApplier` | Class | Applies command-line argument values to the program configuration. |
+| `apply_cli_args_to_config` | Static Method | Processes command-line arguments and updates the `ProgramConfig` instance accordingly. |
 
-## Internal Logic
-The `apply_cli_args_to_config` method checks for the presence of specific attributes in the `args` namespace:
-1.  If `args.model` is present, it sets `ProgramSetting.MODEL_CONFIG_NAME` in `config`.
-2.  If `args.system` is present, it constructs a filepath within the `system_templates_dir` using the argument value, ensuring it ends with `.md`. If the file exists, it sets `ProgramSetting.SYSTEM_PROMPT_FILE`. Otherwise, it logs a warning.
-3.  If `args.system_file` is present, it uses the provided path directly. If the file exists, it sets `ProgramSetting.SYSTEM_PROMPT_FILE`. Otherwise, it logs a warning.
-4.  If `args.print_log` is present, it sets `ProgramSetting.PRINT_LOG`.
-5.  If `args.print_debug` is present, it sets `ProgramSetting.PRINT_DEBUG`.
-6.  If `args.no_out` is present, it sets `ProgramSetting.PRINT_OUTPUT` to the inverse of `args.no_out`.
-After applying CLI arguments, it updates `func.LOCK_LOG` and `func.LOCK_DEBUG` based on the final `ProgramSetting.PRINT_LOG` and `ProgramSetting.PRINT_DEBUG` values from the `config`.
+## 3. Execution Logic & Flow
+- **Initialization**: The class and method are initialized with a `ProgramConfig` instance and an optional `argparse.Namespace` object.
+- **Data Path**: The method processes the command-line arguments and updates the `ProgramConfig` instance with the provided values.
+- **Conditional Branching**:
+  - Checks if `args` is provided.
+  - Updates `ProgramConfig` based on the presence of `args.model`, `args.system`, `args.system_file`, `args.print_log`, `args.print_debug`, and `args.no_out`.
+  - Logs warnings if specified files do not exist.
 
-## Dependencies
-*   `os`
-*   `argparse`
-*   `typing`
-*   `functions` (imported as `func`)
-*   `config` (specifically `ProgramConfig`, `ProgramSetting`)
+## 4. Resource Dependencies
+- **Standard Libraries**: `os`, `argparse`
+- **Internal Modules**: `functions` (specifically `func.debug/log`)
+- **External Packages**: None
 
-## Constants & Environment
-*   Hardcoded string: `".md"` (used in path manipulation for `args.system`).
-*   Hardcoded string: `level="WARNING"` (used in `func.log` calls).
+## 5. Configuration & Environment
+- **Hardcoded Constants**: `ProgramSetting` enum values used for configuration keys.
+- **Environment Lookups**: None

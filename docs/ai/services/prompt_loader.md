@@ -1,22 +1,31 @@
-## Module Purpose
-This file defines the `PromptLoader` class, which is responsible for locating, loading, and performing initial processing on system prompt files based on configuration settings.
+## 1. Architectural Role
+Manages loading and processing of system prompt files.
 
-## Interface & Exports
-*   `class PromptLoader`: Manages the loading and processing of system prompt files.
-    *   `staticmethod load_system_prompt(config: ProgramConfig, system_file_setting: str) -> str`: Reads and processes the content of a system prompt file, resolving its path either explicitly or within a configured templates directory.
+## 2. Interface & API Surface
+| Entity | Type | Functional Responsibility |
+| :--- | :--- | :--- |
+| `PromptLoader` | Class | Loads and processes system prompt files based on configuration and file settings. |
+| `load_system_prompt` | Static Method | Reads and processes the content of a system prompt file. |
 
-## Internal Logic
-The `load_system_prompt` method first retrieves the system templates directory from the provided `ProgramConfig`. It then attempts to resolve the system prompt file path by checking if `system_file_setting` is an explicit existing path. If not, it attempts to find the file (appending `.md` if necessary) within the `system_templates_dir`. If a file is found, its content is read using `func.read_file`. Warnings are logged if the file is not found or if the loaded content is empty. Finally, the loaded content is passed to a `TemplateInjection` instance, and its `replace_system_template()` method is called to process the template before returning the result.
+## 3. Execution Logic & Flow
+- **Initialization**: No explicit initialization is performed.
+- **Data Path**: 
+  1. The method `load_system_prompt` is called with a `ProgramConfig` object and a `system_file_setting` string.
+  2. It first checks if `system_file_setting` is provided and if it exists.
+  3. If not, it checks if a system templates directory is specified in the configuration and if the file exists in that directory.
+  4. If a valid file path is found, it reads the content of the file.
+  5. If no valid file is found, it logs a warning.
+  6. It then processes the content using `TemplateInjection` to replace system templates.
+- **Conditional Branching**: 
+  - Checks if `system_file_setting` is provided.
+  - Checks if the file exists at the explicit path or in the templates directory.
+  - Logs warnings if the file is not found.
 
-## Dependencies
-*   `os`
-*   `pathlib.Path`
-*   `typing.Optional`
-*   `functions as func`
-*   `config.ProgramConfig`
-*   `config.ProgramSetting`
-*   `core.template_injection.TemplateInjection`
+## 4. Resource Dependencies
+- **Standard Libraries**: `os`, `pathlib`, `typing`
+- **Internal Modules**: `functions`, `config`, `core.template_injection`
+- **External Packages**: None
 
-## Constants & Environment
-*   Hardcoded string: `".md"` (used for appending to template filenames).
-*   No environment variable lookups identified in source.
+## 5. Configuration & Environment
+- **Hardcoded Constants**: None
+- **Environment Lookups**: None

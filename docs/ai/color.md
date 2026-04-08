@@ -1,65 +1,31 @@
-## Module Purpose
-This file defines a `Color` class containing a comprehensive set of ANSI escape codes for text formatting (foreground and background colors, and text effects) and provides utility functions to apply these codes to strings for terminal output.
+## 1. Architectural Role
+Manages text formatting using ANSI escape codes for colors and effects.
 
-## Interface & Exports
-*   Class: `Color`
-*   Function: `format_text`
-*   Function: `pformat_text`
+## 2. Interface & API Surface
+| Entity | Type | Functional Responsibility |
+| :--- | :--- | :--- |
+| `Color` | Class | Defines constants for various text colors, effects, and backgrounds. |
+| `format_text` | Function | Formats text with specified ANSI codes and resets the color. |
+| `pformat_text` | Function | Prints formatted text with specified ANSI codes and resets the color. |
 
-## Internal Logic
-The `Color` class is a collection of static string attributes, each representing a specific ANSI escape code for terminal formatting. These attributes cover text reset, standard and bright foreground colors, standard and bright background colors, and various text effects (e.g., bold, underline, italic). The `format_text` function concatenates multiple provided `Color` attributes with the input `text` and appends `Color.RESET` to ensure the terminal state is restored. The `pformat_text` function performs the same formatting but prints the result directly to standard output.
+## 3. Execution Logic & Flow
+- **Initialization**: No initialization required.
+- **Data Path**: 
+  1. `format_text` takes `text` and `*colors_and_effects`.
+  2. Joins `colors_and_effects` into a single string.
+  3. Returns the formatted string with `text` and `Color.RESET`.
+- **Conditional Branching**: None.
 
-## Dependencies
-None identified in source.
+## 4. Resource Dependencies
+- **Standard Libraries**: None.
+- **Internal Modules**: None.
+- **External Packages**: None.
 
-## Constants & Environment
-*   `Color.RESET`
-*   `Color.RED`
-*   `Color.GREEN`
-*   `Color.YELLOW`
-*   `Color.BLUE`
-*   `Color.PURPLE`
-*   `Color.CYAN`
-*   `Color.NORMAL_BLACK`
-*   `Color.NORMAL_RED`
-*   `Color.NORMAL_GREEN`
-*   `Color.NORMAL_YELLOW`
-*   `Color.NORMAL_BLUE`
-*   `Color.NORMAL_MAGENTA`
-*   `Color.NORMAL_CYAN`
-*   `Color.NORMAL_WHITE`
-*   `Color.NORMAL_LIGHT_GRAY`
-*   `Color.BRIGHT_BLACK`
-*   `Color.BRIGHT_CYAN`
-*   `Color.BRIGHT_WHITE`
-*   `Color.BG_BLACK`
-*   `Color.BG_RED`
-*   `Color.BG_GREEN`
-*   `Color.BG_YELLOW`
-*   `Color.BG_BLUE`
-*   `Color.BG_MAGENTA`
-*   `Color.BG_CYAN`
-*   `Color.BG_WHITE`
-*   `Color.BG_BRIGHT_BLACK`
-*   `Color.BG_BRIGHT_RED`
-*   `Color.BG_BRIGHT_GREEN`
-*   `Color.BG_BRIGHT_YELLOW`
-*   `Color.BG_BRIGHT_BLUE`
-*   `Color.BG_BRIGHT_MAGENTA`
-*   `Color.BG_BRIGHT_CYAN`
-*   `Color.BG_BRIGHT_WHITE`
-*   `Color.BOLD`
-*   `Color.DIM`
-*   `Color.ITALIC`
-*   `Color.UNDERLINE`
-*   `Color.BLINK`
-*   `Color.REVERSE`
-*   `Color.HIDDEN`
-*   `Color.STRIKETHROUGH`
-*   `Color.NO_BOLD_OR_DIM`
-*   `Color.NO_ITALIC`
-*   `Color.NO_UNDERLINE`
-*   `Color.NO_BLINK`
-*   `Color.NO_REVERSE`
-*   `Color.NO_HIDDEN`
-*   `Color.NO_STRIKETHROUGH`
+## 5. Configuration & Environment
+- **Hardcoded Constants**: 
+  - `RESET`: `\033[0m`
+  - `RED` to `BRIGHT_WHITE`: Various ANSI escape codes for colors.
+  - `BG_BLACK` to `BG_BRIGHT_WHITE`: Various ANSI escape codes for background colors.
+  - `BOLD` to `STRIKETHROUGH`: Various ANSI escape codes for text effects.
+  - `NO_BOLD_OR_DIM` to `NO_STRIKETHROUGH`: Various ANSI escape codes to disable effects.
+- **Environment Lookups**: None.

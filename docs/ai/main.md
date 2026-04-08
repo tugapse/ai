@@ -1,34 +1,25 @@
-## Module Purpose
-This file serves as the main entry point for the AI assistant application, responsible for parsing command-line arguments, initializing the core program, handling an installation routine, and orchestrating the application's execution flow.
+## 1. Architectural Role
+This file initializes and runs the main program, handling command-line arguments, loading configurations, and executing the AI assistant's core functionality.
 
-## Interface & Exports
-*   `run()`: The primary function executed when the script is run, initiating the application's lifecycle.
-*   `__version__`: A string constant representing the application's version.
+## 2. Interface & API Surface
+| Entity | Type | Functional Responsibility |
+| :--- | :--- | :--- |
+| `run` | Function | Orchestrates the main execution flow of the AI assistant. |
+| `load_args` | Function | Parses command-line arguments and returns them. |
+| `handle_install` | Function | Checks for the `--install` flag and launches the dependency installer. |
+| `init_program_and_args` | Function | Initializes the program object and sets up the environment based on the provided arguments. |
+| `print_chat_header` | Function | Prints the header for the chat interface. |
 
-## Internal Logic
-The file begins by suppressing various warnings from common libraries like `tqdm`, `bitsandbytes`, and `huggingface_hub` via `hack_warnings()` and `logging` configuration. It then dynamically adjusts `sys.path` to enable root-level imports. The `handle_install()` function checks for an `--install` flag; if present, it locates, dynamically loads, and executes an `install_engines.py` script from the project root before exiting. `load_args()` defines and parses a comprehensive set of command-line arguments for interacting with the AI assistant. `init_program_and_args()` initializes the main `Program` object, loading its configuration and setting up console behavior based on arguments. The `run()` function orchestrates these steps: loading arguments, checking for install, initializing the program, processing CLI arguments with `CliArgs`, clearing the console, printing a chat header, and finally invoking the `Program`'s main execution loop. It includes robust error handling for `KeyboardInterrupt` and general exceptions.
+## 3. Execution Logic & Flow
+- **Initialization**: The file starts by importing necessary modules and setting up logging. It then defines the `run` function, which is the entry point of the program.
+- **Data Path**: The primary data path involves parsing command-line arguments, handling the `--install` flag, initializing the program, and running the assistant.
+- **Conditional Branching**: The key decision points include checking for the `--install` flag and handling the installation process.
 
-## Dependencies
-*   `os`
-*   `warnings`
-*   `logging`
-*   `sys`
-*   `argparse`
-*   `importlib.util`
-*   `typing` (specifically `Optional`)
-*   `program` (internal module, imports `Program`)
-*   `config` (internal module, imports `ProgramConfig`, `ProgramSetting`)
-*   `entities.model_enums` (internal module, imports `ModelType`)
-*   `functions` (internal module, imports `func`)
-*   `color` (internal module, imports `Color`)
-*   `cli_args` (internal module, imports `CliArgs`)
+## 4. Resource Dependencies
+- **Standard Libraries**: `os`, `warnings`, `logging`, `sys`, `argparse`, `importlib.util`, `typing`
+- **Internal Modules**: `program`, `config`, `entities.model_enums`, `functions`, `color`, `cli_args`
+- **External Packages**: None
 
-## Constants & Environment
-*   `__version__ = "2.2.0"`
-*   Environment variables set:
-    *   `TQDM_DISABLE = '1'`
-    *   `BITSANDBYTES_NOWELCOME = '1'`
-    *   `TRANSFORMERS_VERBOSITY = "error"`
-*   Logging levels used: `logging.ERROR`
-*   Warning categories filtered: `FutureWarning` (for `bitsandbytes`)
-*   Warning messages filtered: `".*local_dir_use_symlinks.*"`
+## 5. Configuration & Environment
+- **Hardcoded Constants**: `__version__ = "2.2.0"`
+- **Environment Lookups**: `os.environ['TQDM_DISABLE']`, `os.environ['BITSANDBYTES_NOWELCOME']`, `os.environ["TRANSFORMERS_VERBOSITY"]`

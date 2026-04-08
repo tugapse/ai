@@ -1,21 +1,21 @@
-## Module Purpose
-This file is responsible for loading and validating a JSON-based pipeline configuration, ensuring that specified prompt files for agents within the pipeline exist and are correctly referenced. It also manages `sys.path` for module imports.
+## 1. Architectural Role
+This file is responsible for loading and validating the pipeline configuration JSON file, ensuring that all referenced prompt files exist.
 
-## Interface & Exports
-- `load_pipeline_config(prog, pipeline_file: str)`: A function that loads, parses, and validates a pipeline configuration file.
+## 2. Interface & API Surface
+| Entity | Type | Functional Responsibility |
+| :--- | :--- | :--- |
+| `load_pipeline_config` | Function | Loads the pipeline configuration JSON file and validates the existence of referenced prompt files. |
 
-## Internal Logic
-The file first appends the directory of the current file to `sys.path`. The `load_pipeline_config` function takes a program object (`prog`) and a `pipeline_file` path. It resolves the `pipeline_file` path relative to `ProgramSetting.ROOT_DIRECTORY` if it's not absolute, then checks for its existence. Upon successful loading of the JSON configuration, it iterates through each agent defined in the configuration. For each agent, it verifies the existence of any specified `prompt_file` and stores its absolute path as `prompt_file_path` within the agent's data. Error handling is included for missing files and JSON parsing failures.
+## 3. Execution Logic & Flow
+- **Initialization**: The function `load_pipeline_config` is called with a program object and a pipeline file path.
+- **Data Path**: The function first constructs the full path to the pipeline file. It then reads the JSON file and parses it into a dictionary.
+- **Conditional Branching**: The function checks if the prompt file specified for each agent exists. If a prompt file is missing, an error is logged, and the function returns an empty dictionary.
 
-## Dependencies
-- `os`
-- `sys`
-- `json`
-- `functions` (imported as `func`)
-- `config.ProgramSetting`
-- `.tool_registry`
-- `.llm_connector`
-- `.message_orchestrator`
+## 4. Resource Dependencies
+- **Standard Libraries**: `os`, `json`
+- **Internal Modules**: `functions as func`
+- **External Packages**: None
 
-## Constants & Environment
-None identified in source.
+## 5. Configuration & Environment
+- **Hardcoded Constants**: None
+- **Environment Lookups**: None

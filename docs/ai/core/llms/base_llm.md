@@ -1,39 +1,35 @@
-## Module Purpose
-This file defines a `BaseModel` class that serves as an abstract base for Large Language Models (LLMs), providing common functionalities such as initialization, input preparation, event handling, and resource management. It also includes a `ModelParams` class for standardizing model configuration parameters.
+## 1. Architectural Role
+`base_llm.py` defines the base class for language models, providing common functionality and structure for subclasses to implement specific model behaviors.
 
-## Interface & Exports
-*   `BaseModel`: A base class intended to be inherited by specific LLM implementations, providing shared attributes and methods for model management, input processing, and event handling.
-*   `ModelParams`: A class for encapsulating and managing various configurable parameters for LLM inference, such as context window size, token generation limits, and sampling settings.
+## 2. Interface & API Surface
+| Entity | Type | Functional Responsibility |
+| :--- | :--- | :--- |
+| `BaseModel` | Class | Manages the state and behavior of a language model, including initialization, input preparation, event handling, and resource management. |
+| `init_pytorch_cuda` | Method | Checks for PyTorch CUDA availability and sets the inference device accordingly. |
+| `_prepare_input` | Method | Formats chat messages into model input, handling both system prompts and custom tokenizers. |
+| `add_event` | Method | Adds a listener to an event. |
+| `trigger` | Method | Triggers an event and notifies all registered listeners. |
+| `create_message` | Static Method | Creates a message dictionary in the format expected by LLMs. |
+| `check_system_prompt` | Method | Ensures the system prompt is at the beginning of the messages list. |
+| `load_images` | Method | Placeholder for image loading logic. |
+| `join_generation_thread` | Method | Placeholder for joining the generation thread. |
+| `chat` | Abstract Method | To be implemented by subclasses, defines the chat interaction logic. |
+| `list` | Abstract Method | To be implemented by subclasses, defines the list functionality. |
+| `pull` | Abstract Method | To be implemented by subclasses, defines the pull functionality. |
+| `is_gpu_available` | Method | Checks if the GPU is available based on the current inference device. |
+| `clean_cache` | Method | Clears the cache, including CUDA cache if available. |
+| `ModelParams` | Class | Holds model parameters and provides a dictionary representation. |
 
-## Internal Logic
-The `BaseModel` class initializes with a model name and optional system prompt, managing event listeners and generation interruption events (`stop_generation_event`, `_generation_thread`). It includes logic to detect PyTorch CUDA availability and set the `inference_device`. The `_prepare_input` method formats chat messages for model consumption, either by using a tokenizer's `apply_chat_template` or through manual string concatenation, ensuring the system prompt is correctly placed. It provides abstract methods (`chat`, `list`, `pull`) that subclasses must implement. The `clean_cache` method handles GPU memory cleanup. The `ModelParams` class internally stores various inference parameters and provides a `to_dict` method for easy conversion.
+## 3. Execution Logic & Flow
+- **Initialization**: The `BaseModel` class is initialized with a `model_name` and an optional `system_prompt`. It sets up default options, listeners, and a stop generation event.
+- **Data Path**: The `_prepare_input` method processes chat messages into model input, handling both system prompts and custom tokenizers. The `chat` method is called to perform the actual chat interaction, which is implemented by subclasses.
+- **Conditional Branching**: The `init_pytorch_cuda` method checks for PyTorch CUDA availability and sets the inference device accordingly. The `_prepare_input` method handles different scenarios based on the tokenizer's capabilities and the presence of a system prompt.
 
-## Dependencies
-*   `gc`
-*   `threading`
-*   `functions`
-*   `entities.model_enums`
-*   `torch` (conditionally imported within `init_pytorch_cuda` and `is_gpu_available`, `clean_cache`)
+## 4. Resource Dependencies
+- **Standard Libraries**: `gc`, `threading`
+- **Internal Modules**: `functions`, `entities.model_enums`
+- **External Packages**: None
 
-## Constants & Environment
-*   `BaseModel.CONTEXT_WINDOW_SMALL`: `2048`
-*   `BaseModel.CONTEXT_WINDOW_MEDIUM`: `4096`
-*   `BaseModel.CONTEXT_WINDOW_LARGE`: `8192`
-*   `BaseModel.CONTEXT_WINDOW_XLARGE`: `16384`
-*   `BaseModel.CONTEXT_WINDOW_HUGE`: `32768`
-*   `BaseModel.CONTEXT_WINDOW_GIANT`: `65536`
-*   `BaseModel.STREAMING_FINISHED_EVENT`: `"streaming_finished"`
-*   `ModelParams` default values:
-    *   `num_ctx`: `BaseModel.CONTEXT_WINDOW_LARGE`
-    *   `max_new_tokens`: `2048`
-    *   `max_length`: `4096`
-    *   `do_sample`: `True`
-    *   `top_k`: `50`
-    *   `top_p`: `0.95`
-    *   `temperature`: `0.5`
-    *   `quantization_bits`: `0`
-    *   `enable_thinking`: `True`
-    *   `presence_penalty`: `1.0`
-    *   `frequency_penalty`: `1.0`
-    *   `use_system_prompt`: `True`
-    *   `inference_backend`: `InferenceBackend.CPU`
+## 5. Configuration & Environment
+- **Hardcoded Constants**: `CONTEXT_WINDOW_*`, `STREAMING_FINISHED_EVENT`
+- **Environment Lookups**: None

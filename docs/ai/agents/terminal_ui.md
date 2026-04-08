@@ -1,28 +1,27 @@
-## Module Purpose
-The `/home/fabio/Code/ai/src/ai/agents/terminal_ui.py` file defines the `TerminalUI` class, which is responsible for handling high-fidelity terminal formatting, icons, and layout for the Unified Architect system by providing static methods to print structured and colored output to the console.
+## 1. Architectural Role
+Handles high-fidelity terminal formatting, icons, and layout for the Unified Architect system.
 
-## Interface & Exports
-*   `TerminalUI` (class): A class containing static methods for generating various types of formatted terminal output.
-    *   `TerminalUI.header(title: str, subtitle: str = None)`
-    *   `TerminalUI.status(agent_name: str, task: str, is_updating: bool = True)`
-    *   `TerminalUI.auth_request(tool_name: str, target: str, command: str = "")`
-    *   `TerminalUI.message(agent_name: str, text: str, color: str = Color.GREEN)`
-    *   `TerminalUI.log_step(step_name: str, status: str = "SUCCESS")`
-    *   `TerminalUI.clear_line()`
+## 2. Interface & API Surface
+| Entity | Type | Functional Responsibility |
+| :--- | :--- | :--- |
+| `TerminalUI` | Class | Manages terminal UI components such as headers, status updates, authorization requests, messages, and log steps. |
+| `header` | Static Method | Prints a major section header with a title and optional subtitle. |
+| `status` | Static Method | Displays an agent's current working status. |
+| `auth_request` | Static Method | Displays a boxed authorization request. |
+| `message` | Static Method | Prints a message from an agent to the user. |
+| `log_step` | Static Method | Logs a stage completion with a status icon. |
+| `clear_line` | Static Method | Clears the current terminal line. |
 
-## Internal Logic
-The `TerminalUI` class implements static methods that construct and print strings formatted with ANSI escape codes for color, bolding, and special effects. It utilizes predefined icon constants and a `DIVIDER` string to create consistent visual elements. Methods like `status()` and `clear_line()` employ carriage returns (`\r`) and erase-line escape codes (`\033[K`) to enable dynamic, overwriting output on the terminal, suitable for status updates or animations. Output is performed via the `func.out()` utility function, ensuring proper flushing for immediate display.
+## 3. Execution Logic & Flow
+- **Initialization**: No initialization logic is present.
+- **Data Path**: Input data (e.g., agent name, task, tool name) is processed and output to the terminal.
+- **Conditional Branching**: The `status` method uses a conditional to determine whether to overwrite the line or not.
 
-## Dependencies
-*   `functions` (imported as `func`)
-*   `color` (specifically the `Color` class)
+## 4. Resource Dependencies
+- **Standard Libraries**: `None`
+- **Internal Modules**: `functions as func`, `color as Color`
+- **External Packages**: `None`
 
-## Constants & Environment
-*   `ICON_AGENT` = `"◈"`
-*   `ICON_SUCCESS` = `"✓"`
-*   `ICON_ERROR` = `"⚠"`
-*   `ICON_WAIT` = `"⏳"`
-*   `ICON_ROCKET` = `"🚀"`
-*   `ICON_TOOL` = `"🔧"`
-*   `ICON_LOCK` = `"🔒"`
-*   `DIVIDER` = `"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"`
+## 5. Configuration & Environment
+- **Hardcoded Constants**: `ICON_AGENT`, `ICON_SUCCESS`, `ICON_ERROR`, `ICON_WAIT`, `ICON_ROCKET`, `ICON_TOOL`, `ICON_LOCK`, `DIVIDER`
+- **Environment Lookups**: `None`

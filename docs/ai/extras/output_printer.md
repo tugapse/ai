@@ -1,24 +1,28 @@
-## Module Purpose
-This file defines the `OutputPrinter` class, which is responsible for managing and printing Large Language Model (LLM) output tokens to the console according to specified print modes, including buffering for line-based or token-count-based output.
+## 1. Architectural Role
+Manages how Large Language Model (LLM) output tokens are printed to the console based on the print mode, handling buffering for 'line' and 'every_x_tokens' modes.
 
-## Interface & Exports
-*   `OutputPrinter` (Class): Manages the display of tokens, offering different modes for immediate or buffered printing.
-    *   `__init__(self, print_mode: str = "token", tokens_per_print: int = 5)`: Initializes the printer with a specific mode and token buffer size.
-    *   `process_and_print(self, token_to_display: str) -> None`: Processes a token and prints it if ready according to the current `print_mode`.
-    *   `flush_buffers(self) -> None`: Empties and prints any remaining buffered content.
-    *   `process_token(self, token_to_display: str) -> str`: Processes a token and returns the string to be printed, or `None` if buffering.
+## 2. Interface & API Surface
+| Entity | Type | Functional Responsibility |
+| :--- | :--- | :--- |
+| `OutputPrinter` | Class | Manages LLM output token printing based on print mode. |
+| `process_and_print` | Method | Processes a single formatted token and prints it based on the configured mode. |
+| `flush_buffers` | Method | Prints any remaining content in buffers at the end of the stream. |
+| `process_token` | Method | Processes a single formatted token and returns the string to be printed, or None if nothing is ready to be printed yet (due to buffering). |
 
-## Internal Logic
-The `OutputPrinter` class buffers incoming tokens based on its `print_mode`.
-*   In `"token"` mode, each token is returned immediately for printing.
-*   In `"line"` mode, tokens are accumulated in `line_buffer` until a newline character (`\n`) is encountered, at which point the complete line(s) are returned, and the buffer retains any partial line.
-*   In `"every_x_tokens"` mode, tokens are accumulated in `token_buffer` and `buffered_token_count` is incremented. When `buffered_token_count` reaches `tokens_per_print`, the entire `token_buffer` is returned, and both the buffer and count are reset.
-*   In `"line_or_x_tokens"` mode, tokens are accumulated in `line_buffer` and `buffered_token_count`. Content is returned if a newline is found (prioritized) or if `buffered_token_count` reaches `tokens_per_print`. In either case, `line_buffer` and `buffered_token_count` are reset.
-*   An unknown `print_mode` triggers a warning via `func.log` and defaults to `"token"` behavior.
-The `process_and_print` method calls `process_token` and then uses `func.out` to print any non-`None` output string. `flush_buffers` ensures any remaining buffered content is printed at the end of a stream.
+## 3. Execution Logic & Flow
+- **Initialization**: The `OutputPrinter` class is initialized with a `print_mode` and `tokens_per_print`. It sets up buffers and initializes counters.
+- **Data Path**: Tokens are processed through the `process_token` method, which determines how they are buffered and printed based on the `print_mode`. The `process_and_print` method then outputs the processed token.
+- **Conditional Branching**: The key decision points are based on the `print_mode`:
+  - For `token` mode, the token is returned directly.
+  - For `line` mode, tokens are buffered until a newline is encountered, at which point the buffered line is returned.
+  - For `every_x_tokens` mode, tokens are buffered until the specified number of tokens is reached, at which point the buffered tokens are returned.
+  - For `line_or_x_tokens` mode, tokens are buffered until either a newline is encountered or the specified number of tokens is reached, at which point the buffered tokens are returned.
 
-## Dependencies
-*   `functions` (aliased as `func`): Imported for `func.out` (printing) and `func.log` (logging warnings).
+## 4. Resource Dependencies
+- **Standard Libraries**: None
+- **Internal Modules**: `functions` (aliased as `func`)
+- **External Packages**: None
 
-## Constants & Environment
-None identified in source.
+## 5. Configuration & Environment
+- **Hardcoded Constants**: `tokens_per_print` defaults to 5.
+- **Environment Lookups**: None

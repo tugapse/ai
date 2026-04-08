@@ -1,21 +1,22 @@
-## Module Purpose
-This file defines the `HandlerManager` class, which is responsible for managing the processing of tokens, specifically focusing on the thinking and animation state to differentiate between internal thoughts and actual output.
+## 1. Architectural Role
+Manages the pipeline of token processing handlers, focusing specifically on the Thinking/Animation state.
 
-## Interface & Exports
-- `HandlerManager`: A class that manages the token processing pipeline for thinking/animation states.
-  - `__init__(self, log_manager: ThinkingLogManager, thinking_mode: str = "progressbar", enable_thinking_display: bool = True, show_thinking_animation: bool = False)`: Constructor for the manager.
-  - `process_token_chain(self, initial_token: str) -> Tuple[bool, str, Optional[str]]`: Processes a token to determine if it represents a thought or user-facing output.
+## 2. Interface & API Surface
+| Entity | Type | Functional Responsibility |
+| :--- | :--- | :--- |
+| `HandlerManager` | Class | Manages the pipeline of token processing handlers, focusing specifically on the Thinking/Animation state. |
+| `process_token_chain` | Method | Processes a token to determine if it's a 'thought' or 'actual output'. Returns a tuple indicating whether to display to the user, the final content, and any file content saved. |
 
-## Internal Logic
-The `HandlerManager` initializes an instance of `ThinkingAnimationHandler`. Its core logic resides in the `process_token_chain` method, which invokes the `process_token_and_thinking_state` method of the `thinking_handler`. Based on the `is_thinking` boolean returned by this call, it either suppresses output (returns `False, "", None`) if the system is in a thinking state or returns the processed content (`True, content_from_thinking_handler, None`) if it's actual output.
+## 3. Execution Logic & Flow
+- **Initialization**: The `HandlerManager` class is initialized with a `ThinkingLogManager` instance and various configuration parameters. It creates an instance of `ThinkingAnimationHandler` with these parameters.
+- **Data Path**: The `process_token_chain` method takes an `initial_token` as input. It passes this token to the `ThinkingAnimationHandler`'s `process_token_and_thinking_state` method. Depending on whether the token is a thought or actual output, it returns a tuple indicating whether to display to the user, the final content, and `None`.
+- **Conditional Branching**: The key decision point is whether the token is a thought or actual output. If it's a thought, the method returns `False`, an empty string, and `None`. If it's actual output, it returns `True`, the content from the handler, and `None`.
 
-## Dependencies
-- `typing.Optional`
-- `typing.Tuple`
-- `extras.think_parser.ThinkingAnimationHandler`
-- `extras.thinking_log_manager.ThinkingLogManager`
+## 4. Resource Dependencies
+- **Standard Libraries**: None
+- **Internal Modules**: `extras.think_parser`, `extras.thinking_log_manager`
+- **External Packages**: None
 
-## Constants & Environment
-- `thinking_mode`: Default value `"progressbar"` in `HandlerManager.__init__`.
-- `enable_thinking_display`: Default value `True` in `HandlerManager.__init__`.
-- `show_thinking_animation`: Default value `False` in `HandlerManager.__init__`.
+## 5. Configuration & Environment
+- **Hardcoded Constants**: `thinking_mode`, `enable_thinking_display`, `show_thinking_animation`
+- **Environment Lookups**: None

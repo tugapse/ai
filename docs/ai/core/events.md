@@ -1,17 +1,29 @@
-## Module Purpose
-This file defines the `Events` class, which provides a centralized mechanism for managing and dispatching events within an AI system.
+## 1. Architectural Role
+Manages events in an AI system, providing methods to register, unregister, trigger, and add/remove listeners for events.
 
-## Interface & Exports
-*   Class: `Events`
-    *   Method: `trigger(event_name: str, data=None)`
-    *   Method: `add_event(event_name: str, listener)`
-    *   Method: `remove_event(event_name: str, listener)`
+## 2. Interface & API Surface
+| Entity | Type | Functional Responsibility |
+| :--- | :--- | :--- |
+| `Events` | Class | Manages event registration, triggering, and listener management. |
+| `_register_event` | Method | Registers an event with the system. |
+| `_unregister_event` | Method | Unregisters an event with the system. |
+| `trigger` | Method | Triggers an event with the system. |
+| `add_event` | Method | Adds a listener to an event. |
+| `remove_event` | Method | Removes a listener from an event. |
 
-## Internal Logic
-The `Events` class uses a dictionary, `self.events`, to store registered events. Each key in this dictionary is an `event_name` (string), and its corresponding value is a list of listener functions. The `_register_event` method ensures an event name exists in the dictionary before listeners are added. When `add_event` is called, it appends a `listener` function to the list associated with the given `event_name`. The `trigger` method iterates through all listeners registered for a specific `event_name` and calls each listener, optionally passing `data`. Listeners can be removed from an event using `remove_event`. The class also maintains `terminate` and `running_command` boolean flags for internal state management.
+## 3. Execution Logic & Flow
+- **Initialization**: Sets `terminate` to `False`, `running_command` to `False`, and initializes an empty `events` dictionary.
+- **Data Path**: Input → Processing → Output
+  - **Input**: Event name and optional data.
+  - **Processing**: Registers event if not already registered, triggers event by calling all registered listeners with the provided data.
+  - **Output**: None.
+- **Conditional Branching**: Checks if event exists in `events` dictionary before processing.
 
-## Dependencies
-None identified in source.
+## 4. Resource Dependencies
+- **Standard Libraries**: None
+- **Internal Modules**: None
+- **External Packages**: None
 
-## Constants & Environment
-None identified in source.
+## 5. Configuration & Environment
+- **Hardcoded Constants**: None
+- **Environment Lookups**: None

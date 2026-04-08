@@ -1,35 +1,34 @@
-## Module Purpose
-This module defines the `MessageOrchestrator` class, which is responsible for managing the execution flow of an AI agent pipeline, coordinating messages between agents, handling tool execution, and tracking pipeline state and agent memory.
+## 1. Architectural Role
+The `MessageOrchestrator` class is responsible for managing the execution flow and coordination of agents within a pipeline, handling user input, and orchestrating the interaction between agents and tools.
 
-## Interface & Exports
-- `MessageOrchestrator`: The primary class that orchestrates the AI agent pipeline.
-    - `__init__(self, connector: Any, registry: Any, pipeline_config: Dict[str, Any])`: Initializes the orchestrator with a connector, tool registry, and pipeline configuration.
-    - `run_loop(self, user_prompt: str)`: Executes the main loop of the agent pipeline, processing agent responses and managing transitions.
+## 2. Interface & API Surface
+| Entity | Type | Functional Responsibility |
+| :--- | :--- | :--- |
+| `MessageOrchestrator` | Class | Orchestrates the execution of agents in a pipeline, handling user input and coordinating interactions between agents and tools. |
+| `run_loop` | Method | Main execution loop that processes user prompts and orchestrates agent interactions. |
+| `_prepare_payload` | Method | Prepares the payload for sending to an agent, including user input, agent memory, and context. |
+| `_process_agent_response` | Method | Processes the response from an agent, handles tool execution, and manages agent transitions. |
+| `_handle_tool_execution` | Method | Executes a specific tool, handles authorization, and updates the context with the tool's result. |
+| `_call_specialist_worker` | Method | Calls a specialist worker to handle high-complexity tasks. |
+| `_gatekeeper` | Method | Authorizes tool execution based on user input and configuration. |
+| `_handle_agent_outputs` | Method | Handles outputs from agents, including messages to the user and updates to agent memory. |
+| `_update_stagnation_tracking` | Method | Tracks the repetition of actions to detect potential stagnation. |
+| `_validate_target` | Method | Validates the target agent for inter-agent communication. |
+| `_handle_inter_agent_messaging` | Method | Handles messaging between agents. |
 
-## Internal Logic
-The `MessageOrchestrator` class manages an iterative loop where a `current_agent` processes a task. It prepares a payload for the agent, sends a request via a `connector`, and processes the agent's JSON response. Key internal logic includes:
-- **Agent State Management**: Each agent has its own memory (`agent_memory`) storing notes, received messages, history, and current task.
-- **Tool Execution**: When an agent requests a tool, the orchestrator checks for authorization (`_gatekeeper`), potentially invokes a "Specialist" worker (`_call_specialist_worker`) for high-complexity tools (`write_file`, `patch_file`, `generate_doc`), and executes the tool via the `registry`.
-- **Response Processing**: Agent responses are parsed for actions (tool calls, agent transitions, user interaction), manifest updates, and messages.
-- **Inter-Agent Messaging**: Messages and tasks can be directed to other agents or the `USER`.
-- **Stagnation Tracking**: The `_update_stagnation_tracking` method monitors repeated tool calls to detect potential infinite loops.
-- **Error Handling**: Tracks consecutive JSON format failures and halts the pipeline if an agent gets stuck in a format loop.
-- **Context Management**: Maintains a `context` dictionary for tool results, plan, current step, and file information.
-- **Payload Preparation**: Constructs a detailed payload for agents, including objective, notes, messages, conversation history, plan, and recent tool outcomes.
+## 3. Execution Logic & Flow
+- **Initialization**: The `MessageOrchestrator` class is initialized with a `connector`, `registry`, and `pipeline_config`. It sets up the initial state, including the agents, history, and context.
+- **Data Path**: User input is processed through the `run_loop`, which calls `_prepare_payload` to create a payload for the current agent. The agent's response is then processed by `_process_agent_response`, which handles tool execution and agent transitions.
+- **Conditional Branching**: Key decision points include:
+  - Determining the next agent to interact with based on the current agent's response.
+  - Handling tool execution, including authorization and calling the specialist worker for high-complexity tasks.
+  - Validating the target agent for inter-agent communication.
 
-## Dependencies
-- `os`
-- `copy`
-- `json`
-- `re`
-- `typing.Dict`
-- `typing.Any`
-- `typing.Optional`
-- `functions` (aliased as `func`)
-- `color` (aliased as `Color`)
-- `terminal_ui.TerminalUI`
-- `agents.agent_tools._resolve_path`
+## 4. Resource Dependencies
+- **Standard Libraries**: `os`, `copy`, `json`, `re`
+- **Internal Modules**: `functions`, `color`, `terminal_ui`, `agents.agent_tools`
+- **External Packages**: None
 
-## Constants & Environment
-- `MAX_ITERATIONS`: `100` (Maximum number of iterations for the `run_loop`).
-- `MANAGER_AGENT_ROLE`: `"management"` (Role identifier for manager agents).
+## 5. Configuration & Environment
+- **Hardcoded Constants**: `MAX_ITERATIONS`, `MANAGER_AGENT_ROLE`
+- **Environment Lookups**: None

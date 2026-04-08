@@ -1,21 +1,34 @@
-## Module Purpose
-This file implements the `OllamaModel` class, which provides an interface for interacting with Large Language Models via the Ollama library, supporting chat, model listing, and model pulling functionalities.
+## 1. Architectural Role
+The `ollama_model.py` file implements an LLM bot using the Ollama library, providing methods for chatting, listing models, and pulling models.
 
-## Interface & Exports
-- `OllamaModel`: A class that extends `BaseModel` to provide an LLM bot implementation using Ollama.
+## 2. Interface & API Surface
+| Entity | Type | Functional Responsibility |
+| :--- | :--- | :--- |
+| `OllamaModel` | Class | Manages interactions with the Ollama LLM, including chatting, listing models, and pulling models. |
+| `join_generation_thread` | Method | Clears the stop event for generation. |
+| `chat` | Method | Handles the chat process with users, supporting streaming and non-streaming responses. |
+| `list` | Method | Lists available models. |
+| `pull` | Method | Pulls a model from the Ollama server. |
 
-## Internal Logic
-The `OllamaModel` class initializes an `ollama.Client` instance, optionally connecting to a specified host. Upon instantiation, it attempts to pull the specified model if it's not already present locally, displaying progress using `tqdm`. The `chat` method handles both streaming and non-streaming interactions, processing messages, optional image inputs, and model generation options. It includes error handling for generation and a mechanism to interrupt streaming generation via a `stop_generation_event`. The `pull` method checks for model existence and calls a private `__pull_model` method to download the model, showing a progress bar for each layer. The `join_generation_thread` method is a placeholder, as Ollama's streaming is synchronous and does not use a separate thread for generation.
+## 3. Execution Logic & Flow
+- **Initialization**: The `OllamaModel` class is initialized with parameters such as `model_name`, `system_prompt`, `host`, `keep_alive`, and `model_params`. It sets up the Ollama client and pulls the specified model.
+- **Data Path**: 
+  - **Input**: Messages and optionally images.
+  - **Processing**: 
+    - Checks the system prompt.
+    - Loads images if provided.
+    - Clears the stop generation event.
+    - Calls the Ollama client's `chat` method with the specified options.
+  - **Output**: Yields or returns the chat response.
+- **Conditional Branching**: 
+  - Streaming vs. non-streaming responses.
+  - Handling exceptions and interruptions.
 
-## Dependencies
-- `ollama`
-- `tqdm`
-- `sys`
-- `threading`
-- `core.events`
-- `core.llms.base_llm` (imported as `.base_llm`)
-- `functions`
+## 4. Resource Dependencies
+- **Standard Libraries**: `os`, `sys`, `threading`
+- **Internal Modules**: `core.events`, `functions`
+- **External Packages**: `ollama`, `tqdm`
 
-## Constants & Environment
-- `self.server_ip`: Defaults to `"127.0.0.1"` if no host is provided during initialization.
-- Model tag default: When pulling a model, if no tag is specified (e.g., `model_name` is "llama2"), `":latest"` is appended to the model name.
+## 5. Configuration & Environment
+- **Hardcoded Constants**: `127.0.0.1` (default server IP)
+- **Environment Lookups**: None
