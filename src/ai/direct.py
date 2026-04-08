@@ -89,14 +89,11 @@ def ask(
                         output_filename, content, func.FILE_MODE_APPEND
                     )
 
-        printer.flush_buffers()
+    output_printer.flush_buffers()
 
-    except KeyboardInterrupt:
-        func.log("\n[!] Task aborted.")
-    
-    finally:
-        end_time = time()
-        func.out("\n")
+    end_time = time()
+    if print_output:
+        func.out("")
 
         if first_token_time:
             latency = func.format_execution_time(start_time, first_token_time)

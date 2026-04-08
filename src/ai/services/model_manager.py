@@ -157,8 +157,7 @@ class ModelManager:
 
         other_llm_kwargs = {k: v for k, v in model_properties.items()
                             if k not in ["quantization_bits", "n_ctx", "n_gpu_layers", "verbose",
-                                         "gguf_filename", "model_repo_id", "do_sample", 
-                                         "max_new_tokens", "temperature", "top_p", "top_k"]
+                                         "gguf_filename", "model_repo_id", "do_sample"]
                            }
 
         llm_instance: Optional[BaseModel] = None

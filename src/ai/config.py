@@ -47,7 +47,12 @@ class ProgramConfig(Generic[T]):
         os.makedirs(user_directory, exist_ok=True)
         user_config_filename = os.path.join(user_directory, "config.json")
         
-        if not exists(user_config_filename):
+        need_save = True
+        if not exists(path=user_config_filename) or need_save:
+            self.logger.info(
+                f"config.json not found in {user_directory}. Copying default config."
+            )
+            # Copy default config.json
             shutil.copy(config_filename, user_config_filename)
             self.copy_templates_to_user_dir(user_directory)
 
