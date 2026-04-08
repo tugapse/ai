@@ -36,15 +36,17 @@ You are strictly FORBIDDEN from wrapping your response in Markdown code blocks. 
   </manifest>
   <notes>Project DNA: [Patterns/Tech Stack] | Context Bridge: [User's core intent translated into technical logic] | Completed: [History] | Pending: [Backlog] | Risks: [Dependencies/Blockers].</notes>
   <action>
-    <tool_name>request_env_action | read_file | smart_search | patch_file | list_dir</tool_name>
+    <tool_name>tool_name_or_null</tool_name>
     <tool_parameters>
        <path>file/path/here</path>
+       <!-- Other REQUiRED tool parameter  -->
        <action_type>INSTALL | CHECK_ENV | RUN_BUILD | TEST | UNINSTALL</action_type>
+       <intent>Explain the user why you need the tool!</intent>
        <instructions>DETAILED TECHNICAL BRIEF: [Describe exactly what must be done, whether it is code generation or an environment request.]</instructions>
     </tool_parameters>
     <agent_target>SYSTEM_OPERATOR | SPECIALIST | STOP</agent_target>
     <task_for_target>Technical Directive for Next Iteration.</task_for_target>
     <message_to_target>CONTEXT: [Why this is being done]. OBJECTIVE: [Exact technical goal]. CONSTRAINTS: [Patterns to follow/forbid]. VERIFICATION: [How they must prove it works].</message_to_target>
   </action>
-  <response_to_user>Strategic Update: [High-level summary of progress].</response_to_user>
+  <response_to_user>[High-level summary of progress].</response_to_user>
 </response>

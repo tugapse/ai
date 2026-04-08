@@ -36,7 +36,6 @@ class LLMConnector:
             ]
             system_content += "\n".join(injection)
 
-        # Note: We send the input context as XML-wrapped text for better LLM adherence
         messages = [
             BaseModel.create_message(ChatRoles.SYSTEM, system_content),
             BaseModel.create_message(ChatRoles.USER, f"<context>{str(json_input)}</context>"),
@@ -56,18 +55,13 @@ class LLMConnector:
         ]
         return self._execute_llm_call(messages).strip()
 
-
-
     def _execute_llm_call(self, messages: List[Dict[str, str]]) -> str:
         """Uses a unique, timestamped file to capture output reliably."""
         
-        # Generate a truly unique filename for this specific turn
         unique_id = uuid.uuid4().hex
         output_filename = f"llm_output_{unique_id}.tmp"
         
         try:
-            # Pass the filename directly to your ask function
-            # We assume ask() supports 'output_filename' (as seen in your original code)
             ask(
                 self.llm, 
                 messages, 
@@ -78,11 +72,9 @@ class LLMConnector:
                 write_to_file=True
             )
             
-            # Read the file content
             if os.path.exists(output_filename):
                 with open(output_filename, "r", encoding="utf-8") as f:
                     content = f.read()
-                # Clean up the file immediately
                 os.remove(output_filename)
                 return content
             else:
@@ -91,23 +83,19 @@ class LLMConnector:
                 
         except Exception as e:
             func.error(f"LLM Execution failed: {e}")
-            # Clean up if file exists despite error
             if os.path.exists(output_filename):
                 os.remove(output_filename)
             return ""
 
     def _parse_xml_response(self, raw_string: str) -> Dict[str, Any]:
             """Tolerant XML parser that auto-repairs truncated or malformed XML."""
-            import json  # Used for safe parsing of stringified manifest data
-
+            import json  
             try:
-                # 1. Directly extract the <response>...</response> block to bypass markdown wrappers
                 match = re.search(r'<response[\s\S]*?</response>', raw_string)
                 
                 if match:
                     xml_content = match.group(0)
                 else:
-                    # No closing tag found → attempt recovery
                     start = raw_string.find("<response")
                     if start == -1:
                         func.error(f"Parser could not find <response> start.")
@@ -133,10 +121,7 @@ class LLMConnector:
                     if not xml_content.endswith("</response>"):
                         xml_content += "</response>"
 
-                # 3. Parse repaired XML
                 root = ET.fromstring(xml_content)
-
-                # 4. Content Extractors
 
                 def extract_text(el):
                     """Extracts raw text, retaining inner HTML/XML tags safely as string data."""
@@ -151,27 +136,35 @@ class LLMConnector:
                     return inner_text.strip()
 
                 def extract_struct(el):
-                    """Extracts structural XML into a Python dictionary."""
+                    """Extracts structural XML into a Python dictionary or list."""
                     if el is None:
                         return None
                     children = list(el)
                     if children:
-                        return {child.tag.strip(): extract_struct(child) for child in children}
+                        result = {}
+                        for child in children:
+                            tag = child.tag.strip()
+                            child_value = extract_struct(child)
+                            
+                            if tag in result:
+                                if not isinstance(result[tag], list):
+                                    result[tag] = [result[tag]]
+                                result[tag].append(child_value)
+                            else:
+                                result[tag] = child_value
+                        return result
+                        
                     return (el.text or "").strip()
 
-                # 5. Safety catch for Orchestrator to ensure manifest is ALWAYS a dictionary
                 manifest_data = extract_struct(root.find("manifest"))
                 
                 if not isinstance(manifest_data, dict):
-                    # If LLM wrote JSON inside the manifest tag instead of XML, auto-parse it
                     try:
                         manifest_data = json.loads(manifest_data) if manifest_data else {}
                     except Exception:
                         manifest_data = {}
                 if not isinstance(manifest_data, dict):
-                    manifest_data = {}  # Bulletproof fallback
-
-                # 6. Build structured output
+                    manifest_data = {}  
                 parsed = {
                     "thought": extract_text(root.find("thought")),
                     "notes": extract_text(root.find("notes")),
@@ -191,9 +184,8 @@ class LLMConnector:
             except Exception as e:
                 func.error(f"XML Parsing Error: {e}")
                 
-                # --- DEBUGGING DUMP & PAUSE ---
                 print("\n" + "="*60)
-                print("🚨 FATAL XML PARSE ERROR - DEBUG DUMP 🚨")
+                print("FATAL XML PARSE ERROR - DEBUG DUMP ")
                 print("="*60)
                 print("RAW STRING FROM LLM:")
                 print("-" * 60)
@@ -206,8 +198,6 @@ class LLMConnector:
                     print(xml_content)
                     print("="*60 + "\n")
                 
-                # Pause execution until you press Enter
                 input("Press ENTER to acknowledge and continue, or Ctrl+C to abort...")
-                # ------------------------------
-
+                
                 return {"status": "FAILED", "error": f"XML Decode Error: {str(e)}"}

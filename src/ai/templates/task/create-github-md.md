@@ -1,22 +1,22 @@
-Given the provided code file/s :
+# TASK: INDIVIDUAL FILE DOCUMENTATION
 
-**Task:** Understand what the software do, and how it interacts to create a comprehensive README.md file for a software project.
+**OBJECTIVE:**
+Analyze the provided source code file and generate a precise technical documentation block. Treat this file as a standalone component. Do not infer details about files not provided in this turn.
 
-***Deliverables:** A Markdown file (`README.md`) that provides an introduction to the project, including its purpose, features, and usage instructions. The README.md file should be concise, clear, and easy to understand for users who are new to the project.
+**DOCUMENTATION STRUCTURE (Use Markdown H2 Headers):**
 
-***Requirements:**
-        + **Introduction**: Provide a brief overview of the project, including its purpose and main features.
-        + **Installation**: Include instructions on how to install the project, including any necessary dependencies or setup requirements.
-        + **Usage Instructions**: Provide detailed explanations of how to use the project's features and options, including step-by-step guides and examples.
-        + **Configuration**: Offer information on how to configure the project, including settings and options that can be modified.
-        + **Additional Resources**: Include any additional resources or links that may be helpful for users, such as documentation, tutorials, or community forums.
+1. **Module Purpose**: A 1-2 sentence definition of what this specific file responsible for. 
+2. **Interface & Exports**: List all primary classes, functions, or variables exported or intended for use by other modules.
+3. **Internal Logic**: Briefly describe the core algorithm or data processing steps contained within this file.
+4. **Dependencies**: List all external libraries or internal modules imported by this file.
+5. **Constants & Environment**: List any hardcoded settings, global constants, or environment variable lookups found in the code.
 
-***GitHub README.md Best Practices:**
-        + Keep it concise and easy to read
-        + Use Markdown formatting to make the text visually appealing
-        + Include relevant keywords and tags to improve discoverability
-        + Make sure it is up-to-date and reflects the current state of the project
+**STRICT 8B CONSTRAINTS:**
 
-By following these guidelines, you can create a high-quality README.md file that effectively communicates the purpose and usage of your software project to users.
+* **ZERO SPECULATION**: If the file contains no exports or no configuration, state "None identified in source."
+* **TRUTH-BOUNDED**: Only describe what is explicitly written in the code. Do not suggest "best practices" or "improvements."
+* **TECHNICAL IDENTIFIERS**: Use the exact names of functions, classes, and variables as they appear in the source.
+* **MARKDOWN FORMATTING**: Wrap all code identifiers, file names, and paths in backticks (`example_function`).
 
-# Only use INFORMATION from the provided files/s, Do NOT make up information.
+**FINAL RULE:**
+Output ONLY the Markdown content for the documentation. Do not include a preamble, conversational filler, or summary of your actions. Only use INFORMATION from the provided file.
