@@ -1,10 +1,13 @@
+import os
+import copy
 import json
 import re
 from typing import Dict, Any, Optional
 
 import functions as func
 from color import Color
-from .terminal_ui import TerminalUI  # Importing your new shared UI class
+from terminal_ui import TerminalUI  # Importing your new shared UI class
+from agents.agent_tools import _resolve_path  # Required for the Specialist to read file context
 
 MAX_ITERATIONS = 100
 MANAGER_AGENT_ROLE = "management"
@@ -17,6 +20,7 @@ class MessageOrchestrator:
         self.agents = pipeline_config.get("agents", {})
         self.history = []
         self.auto_authorized_tools = set()
+        self.format_error_count = 0  # Tracks consecutive JSON format failures
         
         # Specialist configuration for high-complexity tasks
         self.high_complexity_tools = {
@@ -30,7 +34,7 @@ class MessageOrchestrator:
             "task": "",
             "plan": [], 
             "current_step_index": 1,
-            "last_action_fp": None,
+            "action_history_fp": [],  # Sliding window for stagnation tracking
             "repeat_count": 0
         }
         
@@ -72,7 +76,8 @@ class MessageOrchestrator:
             # Update the status (overwriting the thinking animation)
             TerminalUI.status(current_agent, display_task)
 
-            agent_config = self.agents.get(current_agent, {}).copy()
+            # Deep copy to prevent accidental global registry modifications
+            agent_config = copy.deepcopy(self.agents.get(current_agent, {}))
             if not agent_config:
                 func.error(f"\n[!] Agent {current_agent} not defined.")
                 break
@@ -87,15 +92,24 @@ class MessageOrchestrator:
                 agent_config["prompt_file_path"],
                 agent_config=agent_config
             )
+            
             if response.get("status") == "FAILED":
+                self.format_error_count += 1
+                if self.format_error_count >= 3:
+                    TerminalUI.clear_line()
+                    func.out(f"\n{Color.RED}⛔ Agent {current_agent} is stuck in a format loop. Halting pipeline.{Color.RESET}")
+                    break
+
                 TerminalUI.clear_line()
-                func.out(f"\n{Color.RED}⚠ Format Error in {current_agent}{Color.RESET}")
+                func.out(f"\n{Color.RED}⚠ Format Error in {current_agent} (Strike {self.format_error_count}){Color.RESET}")
                 error_msg = response.get("error", "Unknown error")
                 memory["messages_received"].append({
                     "from": "SYSTEM",
-                    "message": f"Invalid JSON. Error: {error_msg}. Please fix formatting."
+                    "message": f"CRITICAL: Invalid JSON format. Error: {error_msg}. You must output ONLY valid JSON."
                 })
                 continue
+            else:
+                self.format_error_count = 0  # Reset strike counter on successful parse
 
             next_agent = self._process_agent_response(response, current_agent, agent_config)
             
@@ -124,14 +138,27 @@ class MessageOrchestrator:
             "conversation_history": memory.get("history", [])[-10:],
             "plan": self.context["plan"],
             "current_step": self.context["current_step_index"],
-            "recent_outcomes": self.context["tool_results"][-3:],
+            "recent_outcomes": self._format_recent_outcomes(self.context["tool_results"][-3:]),
             "context": {"files_in_project": list(set(filter(None, known_files)))}
         }
         
-        if self.context.get("repeat_count", 0) >= 2:
-            payload["SYSTEM_ADVISORY"] = "WARNING: You are repeating tool calls. Change your strategy."
+        if self.context.get("repeat_count", 0) >= 3:
+            payload["SYSTEM_ADVISORY"] = "WARNING: You are repeating the exact same tool calls. Change your strategy immediately to avoid an infinite loop."
             
         return payload
+
+    def _format_recent_outcomes(self, outcomes: list) -> list:
+        """Truncates massive tool outputs to protect the LLM context window."""
+        formatted = []
+        for o in outcomes:
+            res_str = json.dumps(o["result"])
+            if len(res_str) > 1500:
+                res_str = res_str[:1500] + "... [TRUNCATED FOR LENGTH]"
+            formatted.append({
+                "tool": o["tool"],
+                "result": res_str
+            })
+        return formatted
 
     def _process_agent_response(self, response: Dict[str, Any], current_agent: str, agent_config: Dict[str, Any]) -> str:
         action = response.get("action", {})
@@ -151,7 +178,7 @@ class MessageOrchestrator:
             self.agent_memory[current_agent]["messages_received"].append({"from": "USER", "message": user_reply, "task": user_reply})
             return current_agent
 
-        is_tool_empty = not tool_name or str(tool_name).lower() == "null"
+        is_tool_empty = not tool_name or str(tool_name).strip().upper() == "NULL"
         target = self._validate_target(agent_target, is_tool_empty, current_agent, agent_config)
 
         if target == "STOP": return "STOP"
@@ -173,7 +200,7 @@ class MessageOrchestrator:
             TerminalUI.clear_line()
             func.out(f"{Color.NORMAL_CYAN}◈ Launching Specialist for {tool_name}...{Color.RESET}")
             
-            goal = params.get("instructions") or params.get("content") or "Complete task."
+            goal = params.get("instructions") or params.get("content") or params.get("replace") or "Complete task."
             target_path = params.get("path", "unknown")
             
             refined_content = self._call_specialist_worker(
@@ -181,8 +208,13 @@ class MessageOrchestrator:
                 path=target_path,
                 goal=goal
             )
-            params["content"] = refined_content
-        func.log(f"Calling tool [{tool_name}] with: {params}")
+            
+            # Map the specialist output to the correct tool parameter
+            if tool_name == "patch_file":
+                params["replace"] = refined_content
+            else:
+                params["content"] = refined_content
+
         # Authorization Gates
         if not self._gatekeeper(tool_name, params):
             self.agent_memory[current_agent]["messages_received"].append({"from": "USER", "message": f"DENIED: {tool_name} was blocked."})
@@ -198,9 +230,19 @@ class MessageOrchestrator:
         return True
 
     def _call_specialist_worker(self, role_description: str, path: str, goal: str) -> str:
+        # Fetch current file state to prevent the Specialist from writing blindly
+        current_state = "File does not exist yet or is empty."
+        try:
+            resolved_path = _resolve_path({"path": path})
+            if os.path.exists(resolved_path):
+                with open(resolved_path, 'r', encoding='utf-8') as f:
+                    current_state = f.read()[:3000]  # Cap at 3000 chars to save context
+        except Exception:
+            pass # Fallback gracefully if path resolution fails
+
         worker_payload = {
-            "task_context": f"File: {path}\nGoal: {goal}",
-            "instruction": "Output raw text only."
+            "task_context": f"File Target: {path}\n\nCurrent State:\n{current_state}\n\nGoal:\n{goal}",
+            "instruction": "Output raw text only. Do not use markdown blocks or explanations."
         }
         raw_output_stream = self.connector.send_raw_request(worker_payload, system_prompt=role_description)
         return "".join(list(raw_output_stream)).strip()
@@ -210,7 +252,7 @@ class MessageOrchestrator:
             return True
             
         target = params.get('path') or params.get('command') or "System"
-        TerminalUI.auth_request(tool_name, target,params.get('command',""))
+        TerminalUI.auth_request(tool_name, target, params.get('command', ""))
 
         # Send a desktop notification to grab user's attention for authorization
         self.registry.execute_tool("send_notification", {
@@ -239,12 +281,22 @@ class MessageOrchestrator:
         memory["messages_received"] = []
 
     def _update_stagnation_tracking(self, tool_name: Optional[str], params: Dict[str, Any]) -> None:
-        current_fp = f"{tool_name}-{json.dumps(params)}"
-        if current_fp == self.context["last_action_fp"]:
-            self.context["repeat_count"] += 1
+        # Create a fingerprint of the current action
+        current_fp = f"{tool_name}-{json.dumps(params, sort_keys=True)}"
+        
+        self.context["action_history_fp"].append(current_fp)
+        
+        # Maintain a sliding window of the last 5 actions
+        if len(self.context["action_history_fp"]) > 5:
+            self.context["action_history_fp"].pop(0)
+            
+        # Count how many times this exact action happened recently
+        occurrences = self.context["action_history_fp"].count(current_fp)
+        
+        if occurrences >= 3:
+            self.context["repeat_count"] = occurrences
         else:
             self.context["repeat_count"] = 0
-        self.context["last_action_fp"] = current_fp
 
     def _validate_target(self, target_raw: str, is_tool_empty: bool, current_agent: str, agent_config: Dict[str, Any]) -> str:
         if target_raw == "USER": return "USER"

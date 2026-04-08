@@ -1,22 +1,35 @@
-Given the provided code file/s :
+# TASK: ATOMIC CODE COMPONENT ARCHITECTURE
 
-**Task:** Understand what the software do, and how it interacts to create a comprehensive README.md file for a software project.
+**OBJECTIVE:**
+Deconstruct the provided source code into a high-density technical map. You are documenting a single component. Do not guess its relationship to files not provided.
 
-***Deliverables:** A Markdown file (`README.md`) that provides an introduction to the project, including its purpose, features, and usage instructions. The README.md file should be concise, clear, and easy to understand for users who are new to the project.
+**DOCUMENTATION STRUCTURE:**
 
-***Requirements:**
-        + **Introduction**: Provide a brief overview of the project, including its purpose and main features.
-        + **Installation**: Include instructions on how to install the project, including any necessary dependencies or setup requirements.
-        + **Usage Instructions**: Provide detailed explanations of how to use the project's features and options, including step-by-step guides and examples.
-        + **Configuration**: Offer information on how to configure the project, including settings and options that can be modified.
-        + **Additional Resources**: Include any additional resources or links that may be helpful for users, such as documentation, tutorials, or community forums.
+## 1. Architectural Role
+Define the single responsibility of this file within the system in one high-density sentence.
 
-***GitHub README.md Best Practices:**
-        + Keep it concise and easy to read
-        + Use Markdown formatting to make the text visually appealing
-        + Include relevant keywords and tags to improve discoverability
-        + Make sure it is up-to-date and reflects the current state of the project
+## 2. Interface & API Surface
+| Entity | Type | Functional Responsibility |
+| :--- | :--- | :--- |
+| `name` | Class/Func | What does this specific item do? |
 
-By following these guidelines, you can create a high-quality README.md file that effectively communicates the purpose and usage of your software project to users.
+## 3. Execution Logic & Flow
+Map the internal logic of the file using a step-by-step sequence:
+- **Initialization**: What state is set when the file/class is first loaded?
+- **Data Path**: Trace the primary transformation of data (Input → Processing → Output).
+- **Conditional Branching**: What are the key decision points in the code?
 
-# Only use INFORMATION from the provided files/s, Do NOT make up information.
+## 4. Resource Dependencies
+- **Standard Libraries**: (e.g., `os`, `json`)
+- **Internal Modules**: (e.g., `core.utils`)
+- **External Packages**: (e.g., `colorama`)
+
+## 5. Configuration & Environment
+- **Hardcoded Constants**: List key values used for logic.
+- **Environment Lookups**: List any `os.getenv` or config-file keys accessed.
+
+**STRICT 8B CONSTRAINTS:**
+- **NO PROSE**: Start directly with the H2 headers. No "Here is the documentation."
+- **THE "HOW" RULE**: In section 3, focus on the **order of operations**. If it's a class, describe the lifecycle of an instance.
+- **IDENTIFIER INTEGRITY**: Every name in the documentation must match the code exactly.
+- **TRUTH-BOUNDED**: If no logic exists (e.g., an `__init__.py`), write "Direct exports only; no internal logic flow."

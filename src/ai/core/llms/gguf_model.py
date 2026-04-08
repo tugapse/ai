@@ -12,8 +12,6 @@ import functions
 from color import Color
 
 # --- GLOBAL STABILITY MUZZLE ---
-# This kills C-level logs globally. It is your primary defense against
-# the 'print_timings' crash identified in your logs.
 def _null_log_callback(level, message, user_data):
     pass
 _log_callback_type = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_char_p, ctypes.c_void_p)
@@ -23,8 +21,6 @@ llama_log_set(_callback_ref, ctypes.c_void_p())
 class GGUFImageLLM(BaseModel):
     """
     JARVIS GGUF Engine - Hardened for CPU.
-    This version survives system updates by aggressively silencing 
-    C-level performance logging.
     """
 
     def __init__(
@@ -46,24 +42,23 @@ class GGUFImageLLM(BaseModel):
         self.llama_model = None
         self.error_queue = queue.Queue()
         
-        # Load your config options
+        # Load config options
         self.options = ModelParams(**model_params).to_dict() if model_params else {
-            "max_tokens": 1024,
+            "max_new_tokens":2048,
             "temperature": 0.7
         }
+
+        # Debug: Check what was actually loaded for max_new_tokens
+        functions.debug(f"[GGUF Engine] Config loaded. Base max_new_tokens: {self.options.get('max_new_tokens')}, Context window (n_ctx): {self._n_ctx}")
 
         self._load_llm_params(**kwargs)
 
     def _load_llm_params(self, **kwargs):
-        """
-        Safety-first loader. We strip out the dangerous logging 
-        parameters that cause the print_timings segfault.
-        """
-        # Safety net: pop these even if they are in your config file
         kwargs.pop('verbose', None)
         kwargs.pop('print_timings', None)
         
         try:
+            functions.debug(f"[GGUF Engine] Loading model into memory...")
             self.llama_model = Llama.from_pretrained(
                 repo_id=self.model_repo_id,
                 filename=self.gguf_filename,
@@ -77,11 +72,14 @@ class GGUFImageLLM(BaseModel):
 
     def _generate_in_thread(self, messages: List[Dict[str, str]], gen_options: dict, output_queue: queue.Queue):
         """Threaded generation using internal Chat API."""
+        functions.debug("[GGUF Engine] Stream thread started.")
+        output_token_count = 0
+        
         try:
             stream_iter = self.llama_model.create_chat_completion(
                 messages=messages,
                 stream=True,
-                max_tokens=gen_options.get("max_tokens", 1024),
+                max_tokens=gen_options.get("max_new_tokens", 1024),
                 temperature=gen_options.get("temperature", 0.7),
                 top_p=gen_options.get("top_p", 0.95)
             )
@@ -89,16 +87,21 @@ class GGUFImageLLM(BaseModel):
             full_response = ""
             for chunk in stream_iter:
                 if self.stop_generation_event.is_set():
+                    functions.debug("[GGUF Engine] Generation stopped by user/system event.")
                     break
                 
                 delta = chunk["choices"][0]["delta"].get("content", "")
-                full_response += delta
-                output_queue.put(delta)
+                if delta:
+                    full_response += delta
+                    output_token_count += 1
+                    output_queue.put(delta)
 
             output_queue.put(None)
             self.trigger(BaseModel.STREAMING_FINISHED_EVENT, full_response)
+            functions.debug(f"[GGUF Engine] Stream finished normally. Total chunks/tokens generated: {output_token_count}")
             
         except Exception as e:
+            functions.error(f"[GGUF Engine] Error in generation thread: {e}")
             self.error_queue.put(str(e))
             output_queue.put(None)
         finally:
@@ -106,12 +109,12 @@ class GGUFImageLLM(BaseModel):
 
     def chat(self, messages: list, images: list = None, stream: bool = True, options: dict = {}):
         if not self.llama_model:
+            functions.error("[GGUF Engine] Attempted to chat but model is not loaded.")
             if stream: yield "Model not loaded."
             return "Model not loaded."
 
         self.stop_generation_event.clear()
 
-        # Your original image logic
         if images:
             image_msg = self.load_images(images)
             if image_msg:
@@ -120,10 +123,23 @@ class GGUFImageLLM(BaseModel):
                         messages[i]["content"] += f"\n{image_msg['content']}"
                         break
 
-        # Check system prompt and merge call options
         messages = self.check_system_prompt(messages)
+        
+        # Merge options
         current_options = self.options.copy()
         current_options.update(options)
+        
+        applied_max_new_tokens = current_options.get("max_new_tokens", 1024)
+
+        # Estimate Prompt Tokens for Debugging
+        # We join message text just to get a rough token count of the payload
+        raw_text_for_counting = "\n".join([str(m.get("content", "")) for m in messages])
+        try:
+            est_prompt_tokens = len(self.llama_model.tokenize(raw_text_for_counting.encode("utf-8")))
+        except Exception:
+            est_prompt_tokens = "Unknown"
+
+        functions.debug(f"[GGUF Engine] Starting chat | Mode: {'Stream' if stream else 'Sync'} | Max Tokens limit: {applied_max_new_tokens} | Estimated Prompt Tokens: {est_prompt_tokens}")
 
         if stream:
             q = queue.Queue()
@@ -143,12 +159,24 @@ class GGUFImageLLM(BaseModel):
                     continue
         else:
             # Sync mode
+            functions.debug("[GGUF Engine] Executing synchronous generation...")
             output = self.llama_model.create_chat_completion(
                 messages=messages,
                 stream=False,
-                max_tokens=current_options.get("max_tokens", 1024)
+                max_tokens=applied_max_new_tokens,
+                temperature=current_options.get("temperature", 0.7),
+                top_p=current_options.get("top_p", 0.95)
             )
+            
             text = output["choices"][0]["message"]["content"]
+            
+            # Extract exact usage stats given by llama_cpp
+            usage = output.get("usage", {})
+            p_tokens = usage.get("prompt_tokens", "Unknown")
+            c_tokens = usage.get("completion_tokens", "Unknown")
+            
+            functions.debug(f"[GGUF Engine] Sync Generation Complete. Prompt Tokens: {p_tokens} | Output Tokens: {c_tokens}")
+            
             self.trigger(BaseModel.STREAMING_FINISHED_EVENT, text)
             return text
 

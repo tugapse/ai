@@ -101,7 +101,7 @@ class ThinkingAnimationHandler:
             self._token_accumulation_buffer = ""
             return self._is_thinking_active, token_content_for_display
         else:
-            return self._is_thinking_active, ""
+            return self._is_thinking_active, raw_token_string
 
     def _draw_animation_frame(self):
             """Helper to handle specific animation drawing modes."""

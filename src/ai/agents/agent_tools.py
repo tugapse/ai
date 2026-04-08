@@ -44,27 +44,20 @@ def send_notification(**kwargs) -> Dict[str, Any]:
 
 
 def _resolve_path(params: Dict[str, Any]) -> str:
-    """
-    Converts @ROOT or relative paths into absolute system paths.
-    Validates that the target path stays within the PROJECT_ROOT to prevent
-    directory traversal attacks. Handles various parameter keys (path, file, etc.).
-    """
-    raw_path = (
-        params.get("path") or params.get("filepath") or params.get("location") or "."
-    )
-    normalized = raw_path.replace("@ROOT/", "./").replace("@ROOT", ".")
-    absolute_target = os.path.abspath(normalized)
+    raw_path = params.get("path") or params.get("filepath") or params.get("location") or "."
+    
+    # 1. Clean up the @ROOT alias
+    normalized = raw_path.replace("@ROOT/", "").replace("@ROOT", ".")
+    
+    # 2. ANCHOR the path to the PROJECT_ROOT (This is the missing piece)
+    # This ensures that even if normalized is '.', it becomes 'sandbox/.'
+    absolute_target = os.path.abspath(os.path.join(PROJECT_ROOT, normalized))
 
-    if not absolute_target.startswith(PROJECT_ROOT):
-        send_notification(
-            title="SECURITY ALERT",
-            message=f"Agent attempted to access forbidden path: {raw_path}",
-            urgency="critical",
-        )
-        func.error(f"Security Block: {absolute_target}")
-        raise PermissionError(
-            f"Access denied: {raw_path} is outside project boundaries."
-        )
+    # 3. Security Check
+    if not absolute_target.startswith(os.path.abspath(PROJECT_ROOT)):
+        # (Optional: send_notification here)
+        raise PermissionError(f"Access denied: {raw_path} is outside project boundaries.")
+    
     return absolute_target
 
 
@@ -89,20 +82,19 @@ def _sanitize_output_path(full_path: str) -> str:
 
 
 def execute_command(**kwargs) -> Dict[str, Any]:
-    """
-    Executes a shell command on the local system. This is a powerful 'Cowboy' tool.
-    Use this for installing dependencies, running tests, or building the project.
-    Parameters:
-      - command: The full shell command string to execute (e.g., 'npm install').
-      - path: (Optional) The directory to execute the command in (cwd). Defaults to @ROOT.
-      - timeout: (Optional) Max seconds to wait for execution (default: 60).
-    """
+    """Executes a shell command with @ROOT interpolation."""
     command = kwargs.get("command")
-    cwd_path = _resolve_path(kwargs)
-    timeout = kwargs.get("timeout", 60)
-
     if not command:
         return {"status": "FAILED", "error": "No command provided."}
+
+    # --- ADD THIS LOGIC ---
+    # Convert @ROOT to the actual system path within the command string
+    actual_root = os.path.abspath(PROJECT_ROOT)
+    command = command.replace("@ROOT/", actual_root + "/").replace("@ROOT", actual_root)
+    # ----------------------
+
+    cwd_path = _resolve_path(kwargs)
+    timeout = kwargs.get("timeout", 60)
 
     try:
         process = subprocess.run(
@@ -111,19 +103,15 @@ def execute_command(**kwargs) -> Dict[str, Any]:
         )
         return {
             "status": "SUCCESS" if process.returncode == 0 else "FAILED",
-            "stdout": process.stdout[-2000:],  # Return the tail for LLM context
+            "stdout": process.stdout[-2000:],
             "stderr": process.stderr[-2000:],
             "returncode": process.returncode,
-            "command": command,
+            "command": command, # Useful for debugging
         }
     except subprocess.TimeoutExpired:
-        return {
-            "status": "FAILED",
-            "error": f"Command timed out after {timeout} seconds.",
-        }
+        return {"status": "FAILED", "error": f"Command timed out after {timeout} seconds."}
     except Exception as e:
         return {"status": "FAILED", "error": str(e)}
-
 
 # --- FILESYSTEM & RESEARCH TOOLS ---
 

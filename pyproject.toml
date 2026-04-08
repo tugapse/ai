@@ -35,3 +35,7 @@ ai = "ai.main:run"
 [project.urls]
 "Homepage" = "https://github.com/tugapse/ai.git"
 "Bug Tracker" = "https://github.com/tugapse/ai.git/issues"
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "src/ai"]
+testpaths = ["tests"]

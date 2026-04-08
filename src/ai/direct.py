@@ -103,7 +103,8 @@ def ask(
     output_printer.flush_buffers()
 
     end_time = time()
-    func.out("\n")
+    if print_output:
+        func.out("")
 
     func.log(f"First token :{func.format_execution_time(start_time, first_token_time)}")
     func.log(f"Time taken  :{func.format_execution_time(start_time, end_time)}")

@@ -2,6 +2,10 @@
   "model_name": "gemini-2.5-flash",
   "model_type": "gemini",
   "model_properties": {
-    "vertex_ai":true
+    "vertex_ai":true,
+        "max_new_tokens": 4096,
+    "temperature": 0.7,
+    "top_p": 0.95,
+    "top_k": 50
    }
 }
