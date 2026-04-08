@@ -146,8 +146,17 @@ class GeminiAPIModel(BaseModel):
         self._append_images_to_history(history, images)
 
         current_options = self.config_kwargs.copy()
+        
+        # --- FIX: Apply orchestrator runtime limits (e.g. max_tokens) to API request ---
         if options:
-            pass
+            if 'max_tokens' in options:
+                current_options['max_output_tokens'] = options['max_tokens']
+            if 'temperature' in options:
+                current_options['temperature'] = options['temperature']
+            if 'top_p' in options:
+                current_options['top_p'] = options['top_p']
+            if 'top_k' in options:
+                current_options['top_k'] = options['top_k']
 
         # Substitui a contagem estrita de tokens do GGUF por esta estimativa rápida de debug
         func.debug(f"Gemini Processing {len(history)} messages | Stream: {stream}")
@@ -183,11 +192,17 @@ class GeminiAPIModel(BaseModel):
                 generation_config=self.config_class(**current_options)
             )
             
+            # --- FIX: Safe extraction ---
+            try:
+                resp_text = resp.text
+            except ValueError:
+                resp_text = resp.candidates[0].content.parts[0].text if resp.candidates else ""
+
             # Logs espelhados
-            func.debug(resp.text)
+            func.debug(resp_text)
             self._log_usage_metadata(resp, is_stream=False)
             
-            return resp.text
+            return resp_text
         else:
             if dynamic_system_prompt:
                 current_options['system_instruction'] = dynamic_system_prompt
@@ -198,11 +213,17 @@ class GeminiAPIModel(BaseModel):
                 config=self.genai_types.GenerateContentConfig(**current_options)
             )
             
+            # --- FIX: Safe extraction ---
+            try:
+                resp_text = resp.text
+            except ValueError:
+                resp_text = resp.candidates[0].content.parts[0].text if resp.candidates else ""
+
             # Logs espelhados
-            func.debug(resp.text)
+            func.debug(resp_text)
             self._log_usage_metadata(resp, is_stream=False)
             
-            return resp.text
+            return resp_text
 
     def _stream_generator(self, history, dynamic_system_prompt, current_options):
         full_response_content = "" # Variável acumuladora igual à GGUF class
@@ -223,10 +244,20 @@ class GeminiAPIModel(BaseModel):
                 )
                 for r in responses:
                     if self.stop_generation_event.is_set(): break
-                    if r.text:
-                        full_response_content += r.text
-                        self.trigger("token", r.text)
-                        yield r.text
+                    
+                    # --- FIX: Safe extraction for streaming chunks ---
+                    chunk_text = ""
+                    try:
+                        chunk_text = r.text
+                    except ValueError:
+                        if hasattr(r, 'candidates') and r.candidates and r.candidates[0].content.parts:
+                            chunk_text = r.candidates[0].content.parts[0].text
+
+                    if chunk_text:
+                        full_response_content += chunk_text
+                        self.trigger("token", chunk_text)
+                        yield chunk_text
+                    
                     # O Vertex AI envia os metadados no último chunk
                     if getattr(r, 'usage_metadata', None):
                         last_chunk_with_usage = r
@@ -241,10 +272,20 @@ class GeminiAPIModel(BaseModel):
                 )
                 for chunk in responses:
                     if self.stop_generation_event.is_set(): break
-                    if chunk.text: 
-                        full_response_content += chunk.text
-                        self.trigger("token", chunk.text)
-                        yield chunk.text
+                    
+                    # --- FIX: Safe extraction for streaming chunks ---
+                    chunk_text = ""
+                    try:
+                        chunk_text = chunk.text
+                    except ValueError:
+                        if hasattr(chunk, 'candidates') and chunk.candidates and chunk.candidates[0].content.parts:
+                            chunk_text = chunk.candidates[0].content.parts[0].text
+
+                    if chunk_text: 
+                        full_response_content += chunk_text
+                        self.trigger("token", chunk_text)
+                        yield chunk_text
+                    
                     if getattr(chunk, 'usage_metadata', None):
                         last_chunk_with_usage = chunk
                         

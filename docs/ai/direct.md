@@ -1,5 +1,5 @@
 ## 1. Architectural Role
-Handles the process of asking a language model a question and streaming its response, including handling thinking indicators, printing modes, and file output.
+`direct.py` is responsible for handling user input, streaming responses from a language model, and managing the display and output of the response.
 
 ## 2. Interface & API Surface
 | Entity | Type | Functional Responsibility |
@@ -7,30 +7,20 @@ Handles the process of asking a language model a question and streaming its resp
 | `ask` | Function | Asks the language model a question and streams its response. |
 
 ## 3. Execution Logic & Flow
-- **Initialization**: 
-  - Imports necessary modules and classes.
-  - Initializes `ThinkingLogManager` for logging thinking processes.
-  - Retrieves user settings from `ProgramConfig`.
-  - Initializes `HandlerManager` for managing thinking display and animation.
-  - Initializes `OutputPrinter` for handling output printing.
-- **Data Path**: 
-  - Converts `input_message` to a list of message dictionaries if it's a string.
-  - Logs the model name.
-  - Writes to file if `write_to_file` is True.
-  - Streams tokens from the language model using `llm.chat`.
-  - Processes and prints each token using `handler_manager` and `output_printer`.
-  - Writes processed content to file if `write_to_file` is True.
-- **Conditional Branching**: 
-  - Checks if `input_message` is a string or list.
-  - Determines whether to display thinking animation based on `hide_think_anim`.
-  - Decides whether to print output based on `print_output`.
+1. **Initialization**:
+   - The function `ask` is called with parameters including the language model (`llm`), input message, and various options for output formatting and behavior.
+   - A `ThinkingLogManager` is initialized to manage logging of the thinking process.
+   - Configuration settings are retrieved from `ProgramConfig` for thinking mode, print mode, tokens per print, and whether to show the thinking animation.
+   - A `HandlerManager` is created to handle the token processing and display logic.
+   - An `OutputPrinter` is initialized to manage the printing of the language model's output.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `os`, `time`, `typing`
-- **Internal Modules**: `functions`, `core.llms.base_llm`, `core.chat`, `extras.console`, `core.template_injection`, `color`, `extras.output_printer`, `extras.think_parser`, `extras.thinking_log_manager`, `program`, `services.session_manager`, `extras.handler_manager`
-- **External Packages**: None
+2. **Data Path**:
+   - The input message is converted to a list of message dictionaries if it is a string.
+   - The language model is loaded and its model name is logged.
+   - The language model's `chat` method is called with the message list, and the response is streamed token by token.
+   - Each token is processed by the `HandlerManager`, which may update the thinking log and handle the display of the token.
+   - The processed token is then printed by the `OutputPrinter` and written to a file if specified.
+   - After all tokens are processed, the `OutputPrinter` flushes any remaining buffers.
 
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-  - `ThinkingAnimationHandler.THINKING_PREFIX = "Processing request"`
-- **Environment Lookups**: None
+3. **Conditional Branching**:
+   - The
