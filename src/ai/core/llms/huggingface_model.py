@@ -20,14 +20,6 @@ os.environ["TRANSFORMERS_VERBOSITY"] = "error"
 # DEFERRED IMPORTS: These are imported inside methods to avoid eager loading.
 import torch
 from transformers import TextIteratorStreamer,  StoppingCriteriaList
-# from transformers import (
-#     AutoModelForCausalLM,
-#     AutoTokenizer,
-#     TextIteratorStreamer,
-#     StoppingCriteria,
-#     StoppingCriteriaList,
-#     BitsAndBytesConfig,
-# )
 
 from huggingface_hub.errors import RepositoryNotFoundError, GatedRepoError
 import requests.exceptions
@@ -120,16 +112,11 @@ class HuggingFaceModel(BaseModel):
         self.torch_lib = torch
         from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
-        functions.log(f"Attempting to load model: {self.model_name}...")
+        functions.log(f"Preparing to load model: {self.model_name}...")
 
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            self.model_name,
-            trust_remote_code=True,
-        )
-        if self.tokenizer.pad_token is None:
-            self.tokenizer.pad_token = self.tokenizer.eos_token
-
+        # Setup standard loading kwargs
         load_kwargs = {"trust_remote_code": True}
+        tokenizer_kwargs = {"trust_remote_code": True}
 
         quantization_config = None
         if self.quantization_bits in [4, 8]:
@@ -182,11 +169,46 @@ class HuggingFaceModel(BaseModel):
                 )  # Use bfloat16 for better precision on newer GPUs
                 load_kwargs["device_map"] = "auto"
 
-        self.model = AutoModelForCausalLM.from_pretrained(
-            self.model_name,
-            **load_kwargs,
-        )
-        functions.log(f"Successfully loaded model: {self.model_name}")
+        # --- LOCAL FIRST OFFLINE CACHE LOGIC ---
+        try:
+            functions.debug(f"Checking local cache for model {self.model_name}...")
+            
+            # 1. Try Tokenizer Locally
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                self.model_name,
+                local_files_only=True,
+                **tokenizer_kwargs
+            )
+            if self.tokenizer.pad_token is None:
+                self.tokenizer.pad_token = self.tokenizer.eos_token
+
+            # 2. Try Model Locally
+            self.model = AutoModelForCausalLM.from_pretrained(
+                self.model_name,
+                local_files_only=True,
+                **load_kwargs
+            )
+            functions.log(f"Found model in local cache. Loaded: {self.model_name}")
+
+        except Exception:
+            # 3. If local fails (files missing), Download them
+            functions.log(f"Model not found locally (or cache is incomplete). Downloading from HuggingFace...")
+            
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                self.model_name,
+                local_files_only=False,
+                **tokenizer_kwargs
+            )
+            if self.tokenizer.pad_token is None:
+                self.tokenizer.pad_token = self.tokenizer.eos_token
+
+            self.model = AutoModelForCausalLM.from_pretrained(
+                self.model_name,
+                local_files_only=False,
+                **load_kwargs
+            )
+            functions.log(f"Successfully downloaded and loaded model: {self.model_name}")
+
 
     def _ensure_alternating_roles(self, messages: list) -> list:
         """Ensures conversation roles alternate (user/assistant) and merges consecutive messages."""
@@ -588,8 +610,9 @@ class HuggingFaceModel(BaseModel):
             f"Attempting to 'pull' (download/load) Hugging Face model: {model_name}"
         )
         try:
-            _ = AutoTokenizer.from_pretrained(model_name)
-            _ = AutoModelForCausalLM.from_pretrained(model_name)
+            # We explicitly set local_files_only=False here so 'pull' forces a download/update check.
+            _ = AutoTokenizer.from_pretrained(model_name, local_files_only=False)
+            _ = AutoModelForCausalLM.from_pretrained(model_name, local_files_only=False)
             message = f"Model {model_name} 'pulled' (downloaded/loaded) successfully."
             functions.log(message)
             if stream:

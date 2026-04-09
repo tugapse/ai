@@ -58,15 +58,36 @@ class GGUFImageLLM(BaseModel):
         kwargs.pop('print_timings', None)
         
         try:
+            functions.debug(f"[GGUF Engine] Checking local cache for model...")
+            
+            # 1. Try to load from local cache first (Offline mode)
+            try:
+                model_path = hf_hub_download(
+                    repo_id=self.model_repo_id,
+                    filename=self.gguf_filename,
+                    local_files_only=True
+                )
+                functions.log(f"Found model in local cache: {model_path}")
+            except Exception:
+                # 2. If not found locally, download from HuggingFace
+                functions.log(f"Model not found locally. Downloading {self.gguf_filename} from {self.model_repo_id}...")
+                model_path = hf_hub_download(
+                    repo_id=self.model_repo_id,
+                    filename=self.gguf_filename,
+                    local_files_only=False
+                )
+                functions.log(f"Download complete: {model_path}")
+
+            # 3. Load the model directly from the resolved local path
             functions.debug(f"[GGUF Engine] Loading model into memory...")
-            self.llama_model = Llama.from_pretrained(
-                repo_id=self.model_repo_id,
-                filename=self.gguf_filename,
+            self.llama_model = Llama(
+                model_path=model_path,
                 n_ctx=self._n_ctx,
                 verbose=False,
                 **kwargs
             )
             functions.log(f"GGUF model '{self.model_name}' ready.")
+            
         except Exception as e:
             functions.error(f"Failed to load GGUF: {e}")
 

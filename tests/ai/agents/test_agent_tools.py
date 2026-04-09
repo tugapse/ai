@@ -63,6 +63,7 @@ class TestAgentToolsExtensive(unittest.TestCase):
         self.log_scenario("Security Jailbreak", "Ensure paths outside PROJECT_ROOT are strictly blocked.")
         with self.assertRaises(PermissionError):
             _resolve_path({"path": "../../etc/passwd"})
+            _resolve_path({"path": "/home/passwd"})
 
     def test_03_filesystem_lifecycle(self):
         self.log_scenario("Filesystem Lifecycle", "Test deep directory creation and file I/O.")

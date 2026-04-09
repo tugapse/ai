@@ -50,6 +50,7 @@ def save_config(config):
     with open(CONFIG_FILE, "w") as f:
         json.dump(config, f, indent=4)
 
+        
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
 
