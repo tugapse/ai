@@ -142,7 +142,7 @@ class CliArgs:
         if args.install:
             import importlib.util
 
-            root = func.get_root_directory()
+            root = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])),"..","..")
             installer_path = os.path.join(root, "scripts", "install_engines.py")
 
             if not os.path.exists(installer_path):
