@@ -49,6 +49,7 @@ class CliArgs:
         self._has_task_file(prog, args)
         self._has_task(prog, args)
 
+
         # this will execute and exit if task, taskfile, pipe or message exists
         self._has_message(prog, args) 
 

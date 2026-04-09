@@ -95,7 +95,7 @@ class MessageOrchestrator:
             
             if response.get("status") == "FAILED":
                 self.format_error_count += 1
-                if self.format_error_count >= 3:
+                if self.format_error_count >= 10:
                     TerminalUI.clear_line()
                     func.out(f"\n{Color.RED}⛔ Agent {current_agent} is stuck in a format loop. Halting pipeline.{Color.RESET}")
                     break
@@ -105,7 +105,7 @@ class MessageOrchestrator:
                 error_msg = response.get("error", "Unknown error")
                 memory["messages_received"].append({
                     "from": "SYSTEM",
-                    "message": f"CRITICAL: Invalid JSON format. Error: {error_msg}. You must output ONLY valid JSON."
+                    "message": f"CRITICAL: Invalid XML format. Error: {error_msg}. You must output ONLY valid XML."
                 })
                 continue
             else:
@@ -254,12 +254,12 @@ class MessageOrchestrator:
         target = params.get('path') or params.get('command') or "System"
         TerminalUI.auth_request(tool_name, target, params.get('command', ""))
 
-        # Send a desktop notification to grab user's attention for authorization
-        self.registry.execute_tool("send_notification", {
-            "title": "Authorization Required",
-            "message": f"Agent wants to run '{tool_name}'. Please check your terminal to approve or deny.",
-            "urgency": "critical"
-        })
+        # # Send a desktop notification to grab user's attention for authorization
+        # self.registry.execute_tool("send_notification", {
+        #     "title": "Authorization Required",
+        #     "message": f"Agent wants to run '{tool_name}'. Please check your terminal to approve or deny.",
+        #     "urgency": "critical"
+        # })
         
         choice = input(f"Allow? (y/n/all): ").lower().strip()
         if choice == 'all':
