@@ -97,3 +97,24 @@ class OutputPrinter:
             # Handle unknown print_mode by logging a warning and returning the token directly
             func.log(f"Warning: Unknown print_mode '{self.print_mode}'. Defaulting to 'token'.")
             return token_to_display
+    
+    
+    def flush(self) -> str | None:
+        """
+        Returns any remaining content in buffers at the end of the stream.
+        This allows the Orchestrator to capture the final text for the Voice Module.
+        """
+        output_string = ""
+        
+        if self.print_mode == "line" and self.line_buffer:
+            output_string = self.line_buffer
+            self.line_buffer = ""
+        elif self.print_mode == "every_x_tokens" and self.token_buffer:
+            output_string = self.token_buffer
+            self.token_buffer = ""
+        elif self.print_mode == "line_or_x_tokens" and self.line_buffer:
+            output_string = self.line_buffer
+            self.line_buffer = ""
+            self.buffered_token_count = 0
+            
+        return output_string if output_string else None

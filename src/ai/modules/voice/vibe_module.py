@@ -10,7 +10,7 @@ class VibeVoiceModule(BaseVoiceModule):
     VibeVoice-Realtime-0.5B implementation.
     Auto-detects hardware (CUDA/CPU) and provides the 'preload' hook for the Registry.
     """
-    def __init__(self, model_id="microsoft/VibeVoice-Realtime-0.5B", voice_file="en-Carter_man.pt", **kwargs):
+    def __init__(self, model_id="microsoft/VibeVoice-Realtime-0.5B", voice_file="en-Davis_man.pt", **kwargs):
         # Initialize the base class (starts audio queues and playback threads)
         super().__init__(sample_rate=24000, **kwargs)
         
@@ -138,6 +138,6 @@ class VibeVoiceModule(BaseVoiceModule):
         
         # Diagnostic Log
         max_amp = np.max(np.abs(audio_data)) if len(audio_data) > 0 else 0
-        func.log(f"VibeVoice: Audio generated (Peak Amplitude: {max_amp:.4f})", level="DEBUG")
+        func.debug(f"VibeVoice: Audio generated (Peak Amplitude: {max_amp:.4f})", level="DEBUG")
         
         return audio_data

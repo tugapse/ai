@@ -1,0 +1,18 @@
+{
+  "model_name": "deepseekr1-gguf",
+  "model_type": "gguf",
+  "model_properties": {
+    "gguf_filename": "DeepSeek-R1-0528-Qwen3-8B-UD-Q4_K_XL.gguf",
+    "model_repo_id": "unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF",
+    "n_gpu_layers": 26,
+    "n_ctx": 24000,
+    "verbose": false,
+    "max_new_tokens": 5000,
+    "temperature": 0.3,
+    "top_p": 0.98,
+    "top_k": 45,
+    "presence_penalty": 2.1,
+    "frequency_penalty": 1.5
+  }
+}
+

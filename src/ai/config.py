@@ -73,6 +73,51 @@ class ProgramConfig(Generic[T]):
         
         if self.config.get(ProgramSetting.VOICE_ENABLED) is None:
             self.set(ProgramSetting.VOICE_ENABLED, False)
+    
+    
+    def copy_templates_to_user_dir(self, user_dir: Optional[str] = None):
+        """
+        Copies the contents of the project's 'templates' directory to the user's AI assistant directory.
+        Removes the 'templates' folder level in the destination.
+        """
+        if user_dir is None:
+            self.logger.warning("User directory not specified for template copy.")
+            return
+
+        project_root_templates_dir = os.path.join(
+            dirname(__file__), "templates"
+        )  # Adjust if 'config.py' is not directly in 'core'
+
+        if not os.path.exists(project_root_templates_dir):
+            self.logger.warning(
+                f"Source templates directory not found: {project_root_templates_dir}. Skipping template copy."
+            )
+            return
+
+        self.logger.info(
+            f"Copying templates from {project_root_templates_dir} to {user_dir}"
+        )
+
+        try:
+            # Iterate over each item (file or subdirectory) within the source templates directory
+            for item_name in os.listdir(project_root_templates_dir):
+                src_item_path = os.path.join(project_root_templates_dir, item_name)
+                dest_item_path = os.path.join(
+                    user_dir, item_name
+                )  # Destination directly in user_dir
+
+                if os.path.isdir(src_item_path):
+                    # If it's a directory, copy the entire tree
+                    shutil.copytree(src_item_path, dest_item_path, dirs_exist_ok=True)
+                elif os.path.isfile(src_item_path):
+                    # If it's a file, copy it directly
+                    shutil.copy2(
+                        src_item_path, dest_item_path
+                    )  # copy2 preserves metadata
+            self.logger.info("Templates copied successfully.")
+        except Exception as e:
+            self.logger.error(f"Error copying templates: {e}")
+
 
     def _ensure_path(self, setting, subfolder):
         if not self.config.get(setting):

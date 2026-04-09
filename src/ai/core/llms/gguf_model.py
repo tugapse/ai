@@ -101,9 +101,13 @@ class GGUFImageLLM(BaseModel):
             functions.debug(f"[GGUF Engine] Stream finished normally. Total chunks/tokens generated: {output_token_count}")
             
         except Exception as e:
-            functions.error(f"[GGUF Engine] Error in generation thread: {e}")
-            self.error_queue.put(str(e))
+            import traceback
+
+            error_traceback = traceback.format_exc()
+            functions.error(f"[GGUF Engine] Error in generation thread: {e}\n{error_traceback}")
+            self.error_queue.put(str(e)) # Still put the simple error message for queue processing
             output_queue.put(None)
+
         finally:
             self.stop_generation_event.clear()
 
@@ -139,7 +143,7 @@ class GGUFImageLLM(BaseModel):
         except Exception:
             est_prompt_tokens = "Unknown"
 
-        functions.debug(f"[GGUF Engine] Starting chat | Mode: {'Stream' if stream else 'Sync'} | Max Tokens limit: {applied_max_new_tokens} | Estimated Prompt Tokens: {est_prompt_tokens}")
+        functions.debug(f"{Color.GREEN}[GGUF Engine] Starting chat | Max Tokens limit: {applied_max_new_tokens} | Estimated Prompt Tokens: {est_prompt_tokens}")
 
         if stream:
             q = queue.Queue()
@@ -175,7 +179,7 @@ class GGUFImageLLM(BaseModel):
             p_tokens = usage.get("prompt_tokens", "Unknown")
             c_tokens = usage.get("completion_tokens", "Unknown")
             
-            functions.debug(f"[GGUF Engine] Sync Generation Complete. Prompt Tokens: {p_tokens} | Output Tokens: {c_tokens}")
+            functions.debug(f"{Color.GREEN}[GGUF Engine] Sync Generation Complete. Prompt Tokens: {p_tokens} | Output Tokens: {c_tokens} {p_tokens+c_tokens} / {self._n_ctx}")
             
             self.trigger(BaseModel.STREAMING_FINISHED_EVENT, text)
             return text

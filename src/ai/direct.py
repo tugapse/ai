@@ -28,7 +28,8 @@ def ask(
     print_mode: str = "line",
     tokens_per_print: int = 5,
     hide_think_anim: bool = False,
-    print_output: bool = True
+    print_output: bool = True,
+    stream: bool = True
 ) -> None:
     """
     Executes a single LLM request (Direct Task).
@@ -69,7 +70,7 @@ def ask(
 
     # 4. Stream Loop
     try:
-        for raw_token in llm.chat(messages, stream=True):
+        for raw_token in llm.chat(messages, stream=stream):
             if first_token_time is None:
                 first_token_time = time()
 
@@ -89,10 +90,13 @@ def ask(
                         output_filename, content, func.FILE_MODE_APPEND
                     )
 
-    output_printer.flush_buffers()
+        printer.flush_buffers()
 
-    end_time = time()
-    if print_output:
+    except KeyboardInterrupt:
+        func.log("\n[!] Task aborted.")
+    
+    finally:
+        end_time = time()
         func.out("")
 
         if first_token_time:

@@ -69,7 +69,8 @@ class LLMConnector:
                 print_output=False, 
                 print_mode="line", 
                 output_filename=output_filename, 
-                write_to_file=True
+                write_to_file=True,
+                stream=True
             )
             
             if os.path.exists(output_filename):
