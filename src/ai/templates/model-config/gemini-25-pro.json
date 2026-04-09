@@ -1,5 +1,11 @@
 {
-  "model_name": "gemini-2.5-pro",
-  "model_type": "gemini",
-  "model_properties": {  }
+    "model_name": "gemini-2.5-pro",
+    "model_type": "gemini",
+    "model_properties": {
+        "vertex_ai": true,
+        "max_new_tokens": 30000,
+        "temperature": 0.7,
+        "top_p": 0.91,
+        "top_k": 35
+    }
 }

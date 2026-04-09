@@ -1,109 +1,107 @@
 import os
+import re
+import unicodedata
 from time import time
-from typing import Union
+from typing import Union, Optional, List, Dict
+
+# Core/Services
 import functions as func
+from color import Color
 from core.llms.base_llm import BaseModel
 from core.chat import ChatRoles
-from extras.console import ConsoleTokenFormatter
-from core.template_injection import TemplateInjection
-from color import Color
-from extras.output_printer import OutputPrinter
+from config import ProgramConfig, ProgramSetting
+from services.ui_orchestrator import UIOrchestrator
 from extras.think_parser import ThinkingAnimationHandler
-from extras.thinking_log_manager import ThinkingLogManager
-from program import ProgramConfig, ProgramSetting
-from services.session_manager import SessionManager
-from extras.handler_manager import HandlerManager
 
+def _sanitize_token(token: str) -> str:
+    """Cleans and normalizes tokens for clean file output."""
+    sanitized = unicodedata.normalize('NFKC', token)
+    sanitized = re.sub(r'[^\x20-\x7E\n\t]', '', sanitized)
+    return sanitized
 
 def ask(
     llm: BaseModel,
-    input_message: Union[str, list[str]],
-    write_to_file=False,
-    output_filename=None,
+    input_message: Union[str, List[Dict[str, str]]],
+    write_to_file: bool = False,
+    output_filename: Optional[str] = None,
     thinking_mode: str = "spinner",
     print_mode: str = "line",
     tokens_per_print: int = 5,
-    hide_think_anim = False,
-    print_output = True
+    hide_think_anim: bool = False,
+    print_output: bool = True,
+    stream: bool = True
 ) -> None:
     """
-    Asks the language model a question and streams its response.
-
-    Args:
-        llm The language model bot instance.
-        input_message (Union[str, list[str]]): The user's input message.
-                                               Can be a string or a list of message dictionaries.
-        write_to_file (bool): If True, the LLM's output will be written to a file.
-        output_filename (str, optional): The filename for output.
-        thinking_mode (str): Specifies the visual style of the thinking indicator.
-                             Valid options: 'dots', 'spinner', 'progressbar'.
-        print_mode (str): Specifies how the LLM's output is printed.
-                          Valid options: 'token' (print each token),
-                          'line' (print full lines), or
-                          'every_x_tokens' (print accumulated tokens after X tokens).
-        tokens_per_print (int): The number of tokens to accumulate before printing,
-                                used with 'every_x_tokens' print_mode. Must be > 0.
+    Executes a single LLM request (Direct Task).
+    Updated to use existing function constants.
     """
     start_time = time()
     first_token_time = None
-    end_time = None
 
-    thinking_log_manager = ThinkingLogManager(
-        log_file_name="active_thinking_process.log"
-    )
-
-    _config = ProgramConfig.current
-    # get user settings
-    _think_mode = _config.get(ProgramSetting.THINKING_MODE, thinking_mode)
-    _print_mode = _config.get(ProgramSetting.PRINT_MODE, print_mode)
-    _tokens_per_print = _config.get(ProgramSetting.TOKENS_PER_PRINT, tokens_per_print)
-    _show_think_animation = hide_think_anim != True
-
-    enable_thinking_display = True
+    # 1. UI Initialization
+    config = ProgramConfig.current or ProgramConfig.load()
+    ui = UIOrchestrator(config)
+    
     ThinkingAnimationHandler.THINKING_PREFIX = "Processing request"
+    ui.initialize(log_filepath="active_thinking_process.log")
+    
+    ui_tools = ui.get_components()
+    printer = ui_tools["printer"]
+    handler = ui_tools["handler"]
 
-    handler_manager = HandlerManager(
-        log_manager=thinking_log_manager,
-        thinking_mode=_think_mode,
-        enable_thinking_display=enable_thinking_display,
-        show_thinking_animation=_show_think_animation
-    )
+    if hide_think_anim:
+        handler.show_thinking_animation = False
 
-    output_printer = OutputPrinter(
-        print_mode=_print_mode, tokens_per_print=_tokens_per_print
-    )
-
+    # 2. Input Prep
     if isinstance(input_message, str):
-        message = [BaseModel.create_message(ChatRoles.USER, input_message)]
-    elif isinstance(input_message, list):
-        message = input_message
+        messages = [BaseModel.create_message(ChatRoles.USER, input_message)]
+    else:
+        messages = input_message
 
+    func.log(f"Direct: Querying {llm.model_name}...")
 
-    func.log("Loading " + llm.model_name, end=Color.RESET + "\n")
-
+    # 3. File Prep (FIX: Removed non-existent FILE_MODE_WRITE)
     if write_to_file and output_filename:
+        file_dir = os.path.dirname(os.path.abspath(output_filename))
+        if file_dir:
+            os.makedirs(file_dir, exist_ok=True)
+        # We call it without a mode to trigger the default 'write/truncate' behavior
         func.write_to_file(output_filename, "")
 
-    for raw_token_string in llm.chat(message, stream=True):
-        if first_token_time is None:
-            first_token_time = time()
+    # 4. Stream Loop
+    try:
+        for raw_token in llm.chat(messages, stream=stream):
+            if first_token_time is None:
+                first_token_time = time()
 
-        display_to_user, content_to_display, file_content_saved = (
-            handler_manager.process_token_chain(raw_token_string)
-        )
+            token = _sanitize_token(raw_token)
+            if not token:
+                continue
 
-        if display_to_user and print_output:
-            output_printer.process_and_print(content_to_display)
+            display_to_user, content, _ = handler.process_token_chain(token)
 
-        if write_to_file and output_filename and content_to_display:
-            func.write_to_file(
-                output_filename, content_to_display, func.FILE_MODE_APPEND
-            )
+            if display_to_user:
+                if print_output:
+                    printer.process_and_print(content)
 
-    output_printer.flush_buffers()
+                if write_to_file and output_filename and content:
+                    # Use the constant we know exists
+                    func.write_to_file(
+                        output_filename, content, func.FILE_MODE_APPEND
+                    )
 
-    end_time = time()
-    func.out("\n")
+        printer.flush_buffers()
 
-    func.log(f"First token :{func.format_execution_time(start_time, first_token_time)}")
-    func.log(f"Time taken  :{func.format_execution_time(start_time, end_time)}")
+    except KeyboardInterrupt:
+        func.log("\n[!] Task aborted.")
+    
+    finally:
+        end_time = time()
+        func.out("")
+
+        if first_token_time:
+            latency = func.format_execution_time(start_time, first_token_time)
+            func.log(f"First token latency : {latency}")
+        
+        total = func.format_execution_time(start_time, end_time)
+        func.log(f"Total execution time : {total}")

@@ -7,7 +7,7 @@ from typing import Optional
 
 import functions as func 
 
-from entities.model_enums import ModelType
+from entities.model_enums import ModelType, EngineType
 
 from core.llms.base_llm import ModelParams, BaseModel
 
@@ -37,7 +37,8 @@ class ModelManager:
             ModelType.CAUSAL_LM: "transformers",
             ModelType.SEQ2SEQ_LM: "transformers",
             ModelType.OPEN_AI: "openai",
-            ModelType.GEMINI: "gemini_api"
+            ModelType.GEMINI: "gemini_api",
+            EngineType.VOICE_ENGINE:"voice_engine"
         }
 
         engine_id = mapping.get(model_type)
@@ -121,8 +122,7 @@ class ModelManager:
     @staticmethod
     def load_model_instance(
         model_config: dict,
-        system_prompt: str,
-        ollama_host: Optional[str] = None
+        system_prompt: str
     ) -> Optional[BaseModel]:
         """
         Loads and instantiates an LLM model based on the provided model configuration dictionary.
@@ -157,8 +157,7 @@ class ModelManager:
 
         other_llm_kwargs = {k: v for k, v in model_properties.items()
                             if k not in ["quantization_bits", "n_ctx", "n_gpu_layers", "verbose",
-                                         "gguf_filename", "model_repo_id", "do_sample", 
-                                         "max_new_tokens", "temperature", "top_p", "top_k"]
+                                         "gguf_filename", "model_repo_id", "do_sample"]
                            }
 
         llm_instance: Optional[BaseModel] = None
@@ -185,13 +184,10 @@ class ModelManager:
                 func.log(f"Model '{model_name}' loaded as a Seq2Seq Language Model (T5-type).") 
             elif model_type == ModelType.OLLAMA:
                 from core.llms.ollama_model import OllamaModel
-                if not ollama_host:
-                    func.log("Ollama host not provided. Using default 'http://localhost:11434'.", level="WARNING") 
 
                 llm_instance = OllamaModel(
                     model_name=model_name,
                     system_prompt=system_prompt,
-                    host=ollama_host,
                     model_params=model_params,
                     **other_llm_kwargs
                 )

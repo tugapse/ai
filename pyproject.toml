@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ai"
-version = "2.2.0"
+version = "3.0.0"
 authors = [
   { name="Fabio Almeida", email="tugapse@gmail.com" },
 ]
@@ -35,3 +35,7 @@ ai = "ai.main:run"
 [project.urls]
 "Homepage" = "https://github.com/tugapse/ai.git"
 "Bug Tracker" = "https://github.com/tugapse/ai.git/issues"
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "src/ai"]
+testpaths = ["tests"]

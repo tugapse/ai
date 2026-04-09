@@ -4,14 +4,25 @@
   "entry_point": "MASTER",
   "max_iterations": 300,
   "agents": {
-
     "MASTER": {
       "role": "management",
-      "prompt_file": "agents/jarvis.md",
-      "tools": ["read_dir" ,"smart_search", "read_file","read_files", 
-      "patch_file","write_file", "web_search", "web_read","execute_command"],
-      "allowed_targets": ["MASTER", "USER", "STOP"]
+      "prompt_file": "agents/single_agent.md",
+      "tools": [
+        "read_dir",
+        "smart_search",
+        "read_file",
+        "read_files",
+        "patch_file",
+        "write_file",
+        "web_search",
+        "web_read",
+        "execute_command"
+      ],
+      "allowed_targets": [
+        "MASTER",
+        "USER",
+        "STOP"
+      ]
     }
-
   }
 }
