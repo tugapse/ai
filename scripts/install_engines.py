@@ -46,8 +46,11 @@ def load_config():
         except: return {}
     return {}
 
-Error: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}
+def save_config(config):
+    with open(CONFIG_FILE, "w") as f:
+        json.dump(config, f, indent=4)
 
+        
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
 
