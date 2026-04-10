@@ -118,23 +118,46 @@ def execute_command(**kwargs) -> Dict[str, Any]:
 
 def read_dir(**kwargs) -> Dict[str, Any]:
     """
-    Explores a directory and returns lists of its child files and folders.
-    Use this for project reconnaissance and mapping the file structure.
+    Explores a directory and returns its contents. 
+    Can peek into subdirectories to provide deeper architectural context in one call.
     Parameters:
       - path: The directory path to explore (e.g., '@ROOT/src'). Defaults to @ROOT.
+      - depth: (Optional) How many levels to peek into subfolders. Default is 0 (just current dir).
+               Max recommended depth is 1 or 2 to avoid token overflow.
     """
     try:
         target = _resolve_path(kwargs)
-        items = os.listdir(target)
+        depth = int(kwargs.get("depth", 0))
+        
+        def get_structure(current_path, current_depth):
+            items = os.listdir(current_path)
+            res = {
+                "files": [f for f in items if os.path.isfile(os.path.join(current_path, f))],
+                "folders": {}
+            }
+            
+            # If we still have depth, crawl the folders
+            found_folders = [d for d in items if os.path.isdir(os.path.join(current_path, d))]
+            
+            for d in found_folders:
+                full_d_path = os.path.join(current_path, d)
+                if current_depth > 0:
+                    # Recursive peek
+                    res["folders"][d] = get_structure(full_d_path, current_depth - 1)
+                else:
+                    # Just list the folder name
+                    res["folders"][d] = "[Sub-entries hidden. Increase depth to see.]"
+            return res
+
+        structure = get_structure(target, depth)
+        
         return {
             "status": "SUCCESS",
-            "current_dir": _sanitize_output_path(target),
-            "files": [f for f in items if os.path.isfile(os.path.join(target, f))],
-            "folders": [f for f in items if os.path.isdir(os.path.join(target, f))],
+            "path": _sanitize_output_path(target),
+            "structure": structure,
         }
     except Exception as e:
         return {"status": "FAILED", "error": str(e)}
-
 
 def read_file(**kwargs) -> Dict[str, Any]:
     """
