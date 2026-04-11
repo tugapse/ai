@@ -1,42 +1,35 @@
-## 1. Architectural Role
-Manages the creation of session-specific paths and timestamps, ensuring the proper setup for chat logs, thinking logs, and workspace directories.
 
-## 2. Interface & API Surface
-| Entity | Type | Functional Responsibility |
-| :--- | :--- | :--- |
-| `SessionManager` | Class | Manages the creation of session-specific paths and timestamps. |
-| `initialize_session_paths` | Static Method | Generates and ensures existence of session-specific directories and file paths. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: The `SessionManager` class is loaded, and the `initialize_session_paths` method is called with a `ProgramConfig` object.
-- **Data Path**:
-  1. The current timestamp is generated and logged.
-  2. Session paths are initialized with default values.
-  3. Chat log setup:
-     - The chat log folder is retrieved from the configuration.
-     - If configured, the folder is ensured to exist.
-     - The chat history file path is generated and logged.
-  4. Thinking log setup:
-     - The base logs directory is retrieved from the configuration.
-     - If configured, the directory is ensured to exist.
-     - The thinking logs file path is generated and logged.
-  5. Workspace setup:
-     - The base workspace path is retrieved from the configuration.
-     - If not configured, a fallback path is used.
-     - The session workspace path is generated and ensured to exist.
-  6. Log file setup:
-     - Active log file is created and cleared.
-     - Session log file is created in append mode.
-- **Conditional Branching**:
-  - Chat log folder configuration check.
-  - Thinking logs base directory configuration check.
-  - Generated files base path configuration check.
+## 1. Architectural Role  
+Manages session initialization, directory creation, and persistence of session IDs across sequential calls by resuming 'warm' sessions or generating new ones.  
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `os`, `datetime`, `typing`
-- **Internal Modules**: `functions`, `config`
-- **External Packages**: None
+## 2. Interface & API Surface  
+| Entity | Type | Functional Responsibility |  
+| :--- | :--- | :--- |  
+| `SessionManager` | Class | Container for session management logic |  
+| `initialize_session_paths` | Static Method | Generates session-specific paths, persists session IDs, and configures log/workspace directories |  
 
-## 5. Configuration & Environment
-- **Hardcoded Constants**: `FILE_MODE_APPEND`
-- **Environment Lookups**: `ProgramSetting.PATHS_CHAT_LOG`, `ProgramSetting.PATHS_LOGS`, `ProgramSetting.PATHS_WORKSPACES`
+## 3. Execution Logic & Flow  
+- **Initialization**: Class loaded; no instance-specific state initialized.  
+- **Data Path**:  
+  Input: `ProgramConfig` object  Processing:  
+  1. Check for existing session ID file (`last_session.id`) and its modification time.  
+  2. If valid (5 minutes), reuse session timestamp; else, generate new timestamp.  
+  3. Construct paths for chat logs, thinking logs, and workspace using timestamp.  
+  4. Write session timestamp to `last_session.id` and configure log filenames.  
+  Output: Dictionary containing session_timestamp and derived file paths.  
+- **Conditional Branching**:  
+  - If `last_session.id` exists and is 'warm' (5 minutes), reuse session.  
+  - If no valid session, generate new timestamp and write to file.  
+
+## 4. Resource Dependencies  
+- **Standard Libraries**: `os`, `time`, `datetime`  
+- **Internal Modules**: `functions`, `config`  
+- **External Packages**: N/A  
+
+## 5. Configuration & Environment  
+- **Hardcoded Constants**:  
+  - `"last_session.id"` (file name for session persistence)  
+  - `300` (5-minute threshold in seconds)  
+- **Environment Lookups**:  
+  - `ProgramSetting.PATHS_LOGS`, `ProgramSetting.PATHS_CHAT_LOG`, `ProgramSetting.PATHS_WORKSPACES` (config keys accessed via `config.get()`)

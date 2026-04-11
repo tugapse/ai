@@ -1,29 +1,30 @@
-## 1. Architectural Role
-Manages events in an AI system, providing methods to register, unregister, trigger, and add/remove listeners for events.
 
-## 2. Interface & API Surface
-| Entity | Type | Functional Responsibility |
-| :--- | :--- | :--- |
-| `Events` | Class | Manages event registration, triggering, and listener management. |
-| `_register_event` | Method | Registers an event with the system. |
-| `_unregister_event` | Method | Unregisters an event with the system. |
-| `trigger` | Method | Triggers an event with the system. |
-| `add_event` | Method | Adds a listener to an event. |
-| `remove_event` | Method | Removes a listener from an event. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: Sets `terminate` to `False`, `running_command` to `False`, and initializes an empty `events` dictionary.
-- **Data Path**: Input → Processing → Output
-  - **Input**: Event name and optional data.
-  - **Processing**: Registers event if not already registered, triggers event by calling all registered listeners with the provided data.
-  - **Output**: None.
-- **Conditional Branching**: Checks if event exists in `events` dictionary before processing.
+## 1. Architectural Role  
+Event management system for registering, triggering, and handling event listeners within an AI application.  
 
-## 4. Resource Dependencies
-- **Standard Libraries**: None
-- **Internal Modules**: None
-- **External Packages**: None
+## 2. Interface & API Surface  
+| Entity | Type | Functional Responsibility |  
+| :--- | :--- | :--- |  
+| `Events` | Class | Central event manager for tracking, triggering, and managing event listeners. |  
+| `_register_event` | Method | Ensures event name exists in the events dictionary. |  
+| `_unregister_event` | Method | Removes an event from the events dictionary. |  
+| `trigger` | Method | Invokes all registered listeners for a given event with optional data. |  
+| `add_event` | Method | Attaches a listener to an event, creating the event if it doesnt exist. |  
+| `remove_event` | Method | Detaches a listener from an event if it exists. |  
 
-## 5. Configuration & Environment
-- **Hardcoded Constants**: None
-- **Environment Lookups**: None
+## 3. Execution Logic & Flow  
+- **Initialization**: Sets `terminate` to `False`, `running_command` to `False`, and initializes `events` as an empty dictionary.  
+- **Data Path**: Input (event name and listener)  `add_event` appends listener to `events[event_name]`; `trigger` iterates through listeners and executes them with `data`.  
+- **Conditional Branching**:  
+  - `if event_name in self.events` in `trigger` to validate event existence.  
+  - `if event_name in self.events and listener in self.events.get(event_name, [])` in `remove_event` to validate listener presence.  
+
+## 4. Resource Dependencies  
+- **Standard Libraries**: None.  
+- **Internal Modules**: None.  
+- **External Packages**: None.  
+
+## 5. Configuration & Environment  
+- **Hardcoded Constants**: None.  
+- **Environment Lookups**: None.

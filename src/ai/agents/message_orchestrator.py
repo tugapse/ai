@@ -46,6 +46,10 @@ class MessageOrchestrator:
 
         self.memory = MemoryManager(list(self.agents.keys()))
         self.vector_memory = vector_memory
+        if self.vector_memory:
+            func.log("VectorMemory is enabled for this session.")
+        else:
+            func.log("VectorMemory is disabled (instance not provided).")
 
     def run_loop(self, user_prompt: str):
         """
@@ -125,6 +129,7 @@ class MessageOrchestrator:
             next_agent = self._process_agent_response(response, current_agent, agent_config)
             
             if next_agent is None or next_agent == "STOP": 
+                # TODO in the future use this as a loop stop and not an app stop
                 TerminalUI.log_step("Pipeline reached STOP state.", "SUCCESS")
                 break
                 
@@ -284,12 +289,12 @@ class MessageOrchestrator:
             return False
 
         result = self.registry.execute_tool(tool_name, params)
-        if self.vector_memory:
-            self.vector_memory.add_memory(
-                content=f"Tool '{tool_name}' was called and returned: {json.dumps(result)}",
-                source="TOOL",
-                memory_type="observation"
-            )
+        # if self.vector_memory:
+        #     self.vector_memory.add_memory(
+        #         content=f"Tool '{tool_name}' was called and returned: {json.dumps(result)}",
+        #         source="TOOL",
+        #         memory_type="observation"
+        #     )
         self.memory.record_tool_result(current_agent, tool_name, params, result)
         return True
 

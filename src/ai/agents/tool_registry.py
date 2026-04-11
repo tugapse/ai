@@ -2,8 +2,19 @@ from typing import Dict, Any, Callable
 import functions as func
 
 class ToolRegistry:
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            # Initialize attributes on the instance the first time it's created.
+            cls._instance._tools: Dict[str, Callable] = {}
+        return cls._instance
+
     def __init__(self):
-        self._tools: Dict[str, Callable] = {}
+        # This method is called on every "instantiation", but since we return
+        # a singleton, we don't re-initialize here.
+        pass
 
     def register_tool(self, name: str, func_ref: Callable):
         self._tools[name] = func_ref
@@ -23,7 +34,6 @@ class ToolRegistry:
         try:
             p = params if isinstance(params, dict) else {}
             func.log(f"Calling tool [{name}] with: {p}")
-            result = self._tools[name](**p)
-            return {"status": "SUCCESS", "output": result}
+            return self._tools[name](**p)
         except Exception as e:
             return {"status": "FAILED", "error": str(e)}

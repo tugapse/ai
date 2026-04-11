@@ -49,6 +49,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     parser.add_argument("--auto-task", "-at", type=str, help="JSON auto-task config")
     parser.add_argument("--agent", action="store_true", help='Use agent mode')
     parser.add_argument("--pipeline", "-ppl", type=str, help="Pipeline filename.json")
+    parser.add_argument("--session-id", type=str, help="Set a session ID for agent memory to persist state.")
     
     # Display & Debug Args
     parser.add_argument("--print-chat", "-p", type=str, help="Print chat log")

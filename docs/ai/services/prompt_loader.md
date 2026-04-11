@@ -1,31 +1,27 @@
-## 1. Architectural Role
-Manages loading and processing of system prompt files.
 
-## 2. Interface & API Surface
-| Entity | Type | Functional Responsibility |
-| :--- | :--- | :--- |
-| `PromptLoader` | Class | Loads and processes system prompt files based on configuration and file settings. |
-| `load_system_prompt` | Static Method | Reads and processes the content of a system prompt file. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: No explicit initialization is performed.
-- **Data Path**: 
-  1. The method `load_system_prompt` is called with a `ProgramConfig` object and a `system_file_setting` string.
-  2. It first checks if `system_file_setting` is provided and if it exists.
-  3. If not, it checks if a system templates directory is specified in the configuration and if the file exists in that directory.
-  4. If a valid file path is found, it reads the content of the file.
-  5. If no valid file is found, it logs a warning.
-  6. It then processes the content using `TemplateInjection` to replace system templates.
-- **Conditional Branching**: 
-  - Checks if `system_file_setting` is provided.
-  - Checks if the file exists at the explicit path or in the templates directory.
-  - Logs warnings if the file is not found.
+## 1. Architectural Role  
+Loads and processes system prompt files, resolving paths from configuration or explicit input, then applies template injections to generate final prompt content.  
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `os`, `pathlib`, `typing`
-- **Internal Modules**: `functions`, `config`, `core.template_injection`
-- **External Packages**: None
+## 2. Interface & API Surface  
+| Entity | Type | Functional Responsibility |  
+| :--- | :--- | :--- |  
+| `PromptLoader.load_system_prompt` | Function | Reads system prompt content from specified file path or templates directory, applies template replacements, and returns processed text. |  
 
-## 5. Configuration & Environment
-- **Hardcoded Constants**: None
-- **Environment Lookups**: None
+## 3. Execution Logic & Flow  
+- **Initialization**: No instance initialization; class is loaded with static method `load_system_prompt`.  
+- **Data Path**: Input (`system_file_setting`)  Check explicit path existence  Fallback to templates directory (appending `.md` if missing)  Read file content  Apply `TemplateInjection.replace_system_template()`  Output processed prompt.  
+- **Conditional Branching**:  
+  1. Check if `system_file_setting` exists as explicit path.  
+  2. If not, check if templates directory exists and construct path with `.md` suffix.  
+  3. Log warning if file not found at any location.  
+  4. Log warning if final content is empty.  
+
+## 4. Resource Dependencies  
+- **Standard Libraries**: `os`, `pathlib`, `typing`  
+- **Internal Modules**: `functions`, `config`, `core.template_injection`  
+- **External Packages**: None  
+
+## 5. Configuration & Environment  
+- **Hardcoded Constants**: `ProgramSetting.PATHS_SYSTEM_TEMPLATES`  
+- **Environment Lookups**: `config.get(ProgramSetting.PATHS_SYSTEM_TEMPLATES)` via `ProgramConfig`

@@ -60,13 +60,13 @@ class LLMProvider(LanguageModelProvider):
     def rate_importance(self, text: str) -> int:
         func.debug(f"Rating importance for: '{text[:50]}...'")
         prompt = (
-            "On a scale from 1 to 10, where 1 is trivial and 10 is critically important, "
+            " On a scale from 1 to 10, where 1 is trivial and 10 is critically important, "
             "rate the importance of the following piece of information for an AI agent to remember.\n"
             "Respond with only a single integer.\n\n"
             f"Information: \"{text}\"\n\n"
             "Importance (1-10):"
         )
-        system_prompt = "You are a helpful assistant that provides only a single integer in response."
+        system_prompt = "/no_think You are a helpful assistant that provides only a single integer in response."
         
         response = self.connector.send_raw_request(
             {"task_context": prompt, "instruction": "Provide only a single integer."},
@@ -96,7 +96,7 @@ class LLMProvider(LanguageModelProvider):
             "Respond with a bulleted list of your key insights. Each insight should be a new memory."
         )
         system_prompt = (
-            "You are a reflection engine for an AI agent. Your task is to synthesize "
+            "/no_think You are a reflection engine for an AI agent. Your task is to synthesize "
             "raw memories into higher-level insights. Output only the insights as a bulleted list."
         )
         
@@ -111,7 +111,7 @@ class LLMProvider(LanguageModelProvider):
 
 class ChromaDBProvider(VectorDBProvider):
     """Vector database provider using ChromaDB."""
-    def __init__(self, path: str = "./memory_db", session_id: str = "default"):
+    def __init__(self, path: str, session_id: str = "default"):
         """
         Initializes the ChromaDBProvider for a specific session.
 
@@ -159,9 +159,9 @@ class VectorMemory:
 
     def __init__(
         self,
-        db_provider: VectorDBProvider,
-        embedding_provider: EmbeddingProvider,
-        llm_provider: LanguageModelProvider,
+        session_id: str,
+        connector: Any | None = None,
+        db_path: str = "./agent_ltm_db",
         recency_weight: float = 1.0,
         importance_weight: float = 1.0,
         relevance_weight: float = 1.0,
@@ -170,19 +170,23 @@ class VectorMemory:
         Initializes the VectorMemory.
 
         Args:
-            db_provider: Client for the vector database (e.g., Chroma, Pinecone).
-            embedding_provider: Client for generating text embeddings.
-            llm_provider: Client for language model operations like rating and reflection.
+            session_id (str): A unique identifier for the memory session.
+            connector (Any | None): An optional LLM connector for importance rating and reflection.
+            db_path (str): Path to the persistent database directory.
             recency_weight: Weight for the recency score in retrieval.
             importance_weight: Weight for the importance score in retrieval.
             relevance_weight: Weight for the relevance (similarity) score in retrieval.
         """
-        self.db = db_provider
-        self.embedder = embedding_provider
-        self.llm = llm_provider
+        self.db = ChromaDBProvider(path=db_path, session_id=session_id)
+        self.embedder = SentenceTransformerEmbeddingProvider()
+        self.llm = LLMProvider(connector) if connector else None
         self.recency_weight = recency_weight
         self.importance_weight = importance_weight
         self.relevance_weight = relevance_weight
+        if self.llm:
+            func.log("VectorMemory LLM provider is enabled (for importance rating and reflection).")
+        else:
+            func.log("VectorMemory LLM provider is disabled. Using default importance.")
 
     def add_memory(self, content: str, source: str, memory_type: str = "observation"):
         """
@@ -195,8 +199,12 @@ class VectorMemory:
         """
         if not content:
             return
-            
-        importance = self.llm.rate_importance(content)
+        
+        if self.llm:
+            importance = self.llm.rate_importance(content)
+        else:
+            importance = 5 # Default importance when no LLM is available
+
         vector = self.embedder.embed(content)
         
         metadata = {
@@ -256,6 +264,10 @@ class VectorMemory:
         Periodically runs a reflection process to synthesize new, high-level memories.
         """
         # This would involve fetching recent or important memories and prompting an LLM
+        if not self.llm:
+            func.debug("Cannot trigger reflection; no LLM provider configured for VectorMemory.")
+            return
+
         func.log("Triggering reflection...")
         recent_memories = self.retrieve_memories("What are the most important recent events?", top_k=50)
         
