@@ -24,6 +24,8 @@ class BaseModel:
         self.stop_generation_event = threading.Event()
         self._generation_thread = None # Placeholder for potential background thread
         self.inference_device = InferenceBackend.CPU # Default to CPU, lazy-load torch for GPU check
+        self.tokens_count = { "prompt":0, "completion":0 ,"max_context_window":0,"max_output_tokens":0}
+
 
     def init_pytorch_cuda(self):
         try:
@@ -170,6 +172,10 @@ class BaseModel:
             except ImportError:
                 functions.log("PyTorch not available, cannot clear CUDA cache.")
         gc.collect()
+    
+    def getTokenCount(self,**kargs):
+        functions.debug("Implement getPromptTokens method in subclass")
+        return self.tokens_count
         
 class ModelParams:
     """
