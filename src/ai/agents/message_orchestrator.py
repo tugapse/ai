@@ -118,7 +118,7 @@ class MessageOrchestrator:
             
             if response.get("status") == "FAILED":
                 self.format_error_count += 1
-                if self.format_error_count >= 3:
+                if self.format_error_count >= 10:
                     TerminalUI.clear_line()
                     func.out(f"\n{Color.RED}⛔ Agent {current_agent} is stuck in a format loop. Halting pipeline.{Color.RESET}")
                     break

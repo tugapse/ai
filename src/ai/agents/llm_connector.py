@@ -185,20 +185,20 @@ class LLMConnector:
             except Exception as e:
                 func.error(f"XML Parsing Error: {e}")
                 
-                print("\n" + "="*60)
-                print("FATAL XML PARSE ERROR - DEBUG DUMP ")
-                print("="*60)
-                print("RAW STRING FROM LLM:")
-                print("-" * 60)
-                print(raw_string)
-                print("\n" + "="*60)
+                # print("\n" + "="*60)
+                # print("FATAL XML PARSE ERROR - DEBUG DUMP ")
+                # print("="*60)
+                # print("RAW STRING FROM LLM:")
+                # print("-" * 60)
+                # print(raw_string)
+                # print("\n" + "="*60)
                 
-                if 'xml_content' in locals():
-                    print("ATTEMPTED REPAIRED XML (Failed to parse):")
-                    print("-" * 60)
-                    print(xml_content)
-                    print("="*60 + "\n")
+                # if 'xml_content' in locals():
+                #     print("ATTEMPTED REPAIRED XML (Failed to parse):")
+                #     print("-" * 60)
+                #     print(xml_content)
+                #     print("="*60 + "\n")
                 
-                input("Press ENTER to acknowledge and continue, or Ctrl+C to abort...")
+                # input("Press ENTER to acknowledge and continue, or Ctrl+C to abort...")
                 
                 return {"status": "FAILED", "error": f"XML Decode Error: {str(e)}"}
