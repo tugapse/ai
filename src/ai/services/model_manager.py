@@ -3,7 +3,7 @@
 import json
 import os
 import sys
-from typing import Optional 
+from typing import Optional, Union 
 
 import functions as func 
 
@@ -18,7 +18,7 @@ class ModelManager:
     """
 
     @staticmethod
-    def is_engine_installed(model_type: ModelType, model_name: str = "") -> bool:
+    def is_engine_installed(module_type: Union[ModelType,EngineType], module_name: str = "") -> bool:
         """
         Checks the installed_engines.json config manually by stepping up
         from src/ai/services/ to the project root.
@@ -38,13 +38,15 @@ class ModelManager:
             ModelType.SEQ2SEQ_LM: "transformers",
             ModelType.OPEN_AI: "openai",
             ModelType.GEMINI: "gemini_api",
-            EngineType.VOICE_ENGINE:"voice_engine"
+            EngineType.VOICE_ENGINE:"voice_engine",
+            EngineType.VECTOR_MEMORY:"vector_memory"
+
         }
 
-        engine_id = mapping.get(model_type)
+        engine_id = mapping.get(module_type)
         
         # Gemini logic: Split API vs Vertex
-        if model_type == ModelType.GEMINI and "vertex" in model_name.lower():
+        if module_type == ModelType.GEMINI and "vertex" in module_name.lower():
             engine_id = "gemini_vertex"
 
         if not engine_id:

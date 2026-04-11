@@ -8,7 +8,6 @@ from color import Color
 from terminal_ui import TerminalUI  # Importing your new shared UI class
 from .specialist_manager import SpecialistManager
 from .memory_manager import MemoryManager
-from .vector_memory import VectorMemory
 
 MAX_ITERATIONS = 100
 MANAGER_AGENT_ROLE = "management"
@@ -19,7 +18,7 @@ class MessageOrchestrator:
     of a multi-agent system based on a defined pipeline configuration.
     """
 
-    def __init__(self, connector: Any, registry: Any, pipeline_config: Dict[str, Any], vector_memory: Optional[Any] = None):
+    def __init__(self, connector: Any, registry: Any, pipeline_config: Dict[str, Any], module_registry: Any):
         """
         Initializes the MessageOrchestrator.
 
@@ -27,7 +26,7 @@ class MessageOrchestrator:
             connector (Any): The LLM connector used to send requests to the models.
             registry (Any): The registry containing available tools for the agents.
             pipeline_config (Dict[str, Any]): The configuration defining the agents and pipeline.
-            vector_memory (Optional[Any]): An optional vector memory instance for long-term recall.
+            module_registry (Any): The application's module registry.
         """
         self.connector = connector
         self.registry = registry
@@ -45,20 +44,29 @@ class MessageOrchestrator:
         self.specialist_manager = SpecialistManager(self.connector, specialist_config)
 
         self.memory = MemoryManager(list(self.agents.keys()))
-        self.vector_memory = vector_memory
-        if self.vector_memory:
-            func.log("VectorMemory is enabled for this session.")
-        else:
-            func.log("VectorMemory is disabled (instance not provided).")
+        self.module_registry = module_registry
+        self.vector_memory = None
 
-    def run_loop(self, user_prompt: str):
+    def run_loop(self, user_prompt: str, session_id: str):
         """
         Executes the main orchestration loop, routing tasks between agents 
         and tools until a stopping condition or max iterations are reached.
 
         Args:
             user_prompt (str): The initial objective or prompt from the user.
+            session_id (str): The unique ID for the current agent session.
         """
+        # Initialize vector memory if the module is enabled
+        vector_memory_module = self.module_registry["vector_memory"]
+        if vector_memory_module:
+            vector_memory_module.initialize(session_id=session_id, connector=self.connector)
+            self.vector_memory = vector_memory_module.get_instance()
+
+        if self.vector_memory:
+            func.log("VectorMemory is enabled for this session.")
+        else:
+            func.log("VectorMemory is disabled (module not loaded).")
+
         TerminalUI.header("Pipeline Execution Start", "Agent Orchestrator")
         
         current_agent = self.pipeline_config.get("entry_point", "MASTER")
@@ -70,8 +78,8 @@ class MessageOrchestrator:
             "task": user_prompt
         })
         
-        if self.vector_memory:
-            self.vector_memory.add_memory(content=user_prompt, source="USER", memory_type="objective")
+        # if self.vector_memory:
+        #     self.vector_memory.add_memory(content=user_prompt, source="USER", memory_type="objective")
         
         for i in range(max_iterations):
             # initialization
@@ -168,7 +176,7 @@ class MessageOrchestrator:
             "context": {"files_in_project": list(set(filter(None, known_files)))}
         }
         
-        if self.vector_memory:
+        if self.vector_memory and len(memory.messages_received) % 4 == 0: 
             relevant_memories = self.vector_memory.retrieve_memories(query=latest_task, top_k=7)
             # Join memories into a string for the prompt context
             payload["long_term_memory"] = "\n- ".join(relevant_memories)

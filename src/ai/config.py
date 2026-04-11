@@ -19,6 +19,7 @@ class ProgramSetting:
     PATHS_WORKSPACES = "PATHS_WORKSPACES"
     PATHS_INJECT_TEMPLATES = "PATHS_INJECT_TEMPLATES"
     PATHS_MODEL_CONFIGS = "PATHS_MODEL_CONFIGS"
+    VECTOR_DB_PATH="VECTOR_DB_PATH"
     ROOT_DIRECTORY = "ROOT_DIRECTORY"
     OLLAMA_HOST = "OLLAMA_HOST"
     PRINT_LOG = "PRINT_LOG"
@@ -30,6 +31,7 @@ class ProgramSetting:
     ENABLE_THINKING_DISPLAY = "ENABLE_THINKING_DISPLAY"
     MODEL_CONFIG_NAME = "MODEL_CONFIG_NAME"
     VOICE_ENABLED = "VOICE_ENABLED"
+
 
 class ProgramConfig(Generic[T]):
     current: Optional["ProgramConfig"] = None
@@ -67,6 +69,7 @@ class ProgramConfig(Generic[T]):
         self._ensure_path(ProgramSetting.PATHS_MODEL_CONFIGS, "models")
         self._ensure_path(ProgramSetting.PATHS_LOGS, "logs")
         self._ensure_path(ProgramSetting.PATHS_WORKSPACES, "workspaces")
+        self._ensure_path(ProgramSetting.VECTOR_DB_PATH, "databases")
         
         if self.config.get(ProgramSetting.MODEL_CONFIG_NAME) is None:
             self.set(ProgramSetting.MODEL_CONFIG_NAME, "default.json")

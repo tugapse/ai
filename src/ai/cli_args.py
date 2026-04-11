@@ -8,8 +8,6 @@ import os
 import sys
 import json
 import uuid
-
-from agents.vector_memory import VectorMemory
 from model_config_manager import ModelConfigManager
 from config import ProgramConfig, ProgramSetting # Now using ProgramSetting as a class of string constants
 from core.chat import ChatRoles
@@ -173,17 +171,16 @@ class CliArgs:
        
         session_id = args.session_id or str(uuid.uuid4())
         func.log(f"Using agent session: {session_id}")
-        vector_memory = VectorMemory(session_id=session_id, connector=connector)
 
         orchestrator = MessageOrchestrator(
             connector=connector, 
             registry=registry, 
             pipeline_config=pipeline_config,
-            vector_memory=vector_memory
+            module_registry=prog.modules
         )
         
         try:
-            orchestrator.run_loop(user_input)
+            orchestrator.run_loop(user_prompt=user_input, session_id=session_id)
         except Exception as e:
             func.error(f"Orchestrator encountered an error: {e}")
             import traceback

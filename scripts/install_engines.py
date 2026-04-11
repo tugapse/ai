@@ -27,6 +27,7 @@ ENGINES = [
     {"id": "gemini_api", "name": "Gemini (API Key)", "deps": ["google-generativeai"]},
     {"id": "gemini_vertex", "name": "Gemini (Vertex AI)", "deps": ["google-cloud-aiplatform"]},
     {"id": "voice_engine", "name": "Voice Module (Realtime TTS)", "deps": ["vibevoice","torch", "transformers", "soundfile", "librosa", "einops", "pyaudio"]},
+    {"id": "vector_memory", "name": "Long Term Memory (CromaDB)", "deps": ["sentence-transformers", "chromadb"]},
 ]
 
 def setup_venv():
