@@ -89,18 +89,13 @@ def print_chat_header(prog: Program) -> None:
 
 def run():
     hack_warnings()
-    prog: Optional[Program] = None 
-    args: Optional[argparse.Namespace] = None 
+    prog: Program = Program()
+    parser, args = load_args()
     
     try:
-        # 1. Parse Args
-        parser, args = load_args()
         
-        # 2. Instantiate and load settings
-        prog = Program()
         prog.load_config(args=args) 
         
-        # 3. Apply Environment Logic
         if args.debug_console: 
             func.log("DEBUG MODE Enabled")
             func.ALLOW_CLEAR_CONSOLE = False
@@ -112,26 +107,20 @@ def run():
         
 
         
-        # 5. Initialize Hardware and Logic Services
         prog.init_program(args)         
         
-        # 4. Process CLI Instructions
         cli_args_processor = CliArgs()
         cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
         
-   
-
-        # 6. Final UI Prep
         if func.ALLOW_CLEAR_CONSOLE: 
             func.clear_console()
 
         print_chat_header(prog=prog)
         
-        # 7. Start the main loop
         prog.run()
         
     except KeyboardInterrupt:
-        os._exit(0)
+        print("closing app")
     except Exception as e:
         # If in debug mode, show full traceback, otherwise show clean error
         is_debug = getattr(args, 'debug_console', False) if args else False
@@ -141,6 +130,10 @@ def run():
         else:
             func.out(f"{Color.RED}[ ! ] Error: {e}{Color.RESET}") 
         sys.exit(1)
+    finally:
+        prog.shutdown()
+        exit(0)
+        
 
 if __name__ == "__main__":
     # Ensure local module directory is in the sys path

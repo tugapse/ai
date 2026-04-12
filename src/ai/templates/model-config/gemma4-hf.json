@@ -1,0 +1,14 @@
+{
+  "model_name": "google/gemma-4-E4B-it",
+  "model_type": "causal_lm",
+  "model_properties": {
+    "max_new_tokens": 8192,
+    "do_sample": true,
+    "temperature": 0.1,
+    "top_p": 0.95,
+    "top_k": 10,
+    "presence_penalty": 1.5,
+    "frequency_penalty": 1.2,
+    "quantization_bits": 8
+  }
+}

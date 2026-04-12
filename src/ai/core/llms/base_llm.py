@@ -176,6 +176,11 @@ class BaseModel:
     def getTokenCount(self,**kargs):
         functions.debug("Implement getPromptTokens method in subclass")
         return self.tokens_count
+    
+    def request_shutdown(self):
+        self.stop_generation_event.set()
+        self.join_generation_thread()
+        self.clean_cache()
         
 class ModelParams:
     """
@@ -211,6 +216,5 @@ class ModelParams:
             "frequency_penalty":self.frequency_penalty,
             "use_system_prompt":self.use_system_prompt
         }
-
-
+    
 

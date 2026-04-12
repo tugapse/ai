@@ -16,8 +16,8 @@
     "ENGINEER": {
       "role": "labor",
       "prompt_file": "agents/small/engineer.md",
-      "tools": ["read_file", "read_files", "write_file", "patch_file"],
-      "allowed_targets": ["ENGINEER","MASTER", "SECRETARY", "USER"]
+      "tools": ["read_file", "read_files", "write_file", "patch_file","web_search", "web_read"],
+      "allowed_targets": ["ENGINEER","MASTER"]
     },
 
     "SECRETARY": {

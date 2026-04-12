@@ -4,7 +4,7 @@
   "model_properties": {
     "gguf_filename": "Gemma-Noon-2-9B-it.i1-Q4_K_M.gguf",
     "model_repo_id": "mradermacher/Gemma-Noon-2-9B-it-i1-GGUF",
-    "n_gpu_layers": 10,
+    "n_gpu_layers": 20,
     "n_ctx": 18000,
     "verbose": false,
     "max_new_tokens": 4096,

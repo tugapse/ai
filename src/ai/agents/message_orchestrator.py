@@ -92,7 +92,7 @@ class MessageOrchestrator:
                     break
             
             # Use the manifest's priority or fallback
-            display_task = memory.manifest.get("current_priority", "Analyzing objectives...")
+            display_task = memory.manifest.get("current_priority", "Analyzing objectives..." if i == 0 else memory.current_task)
             
          
 
@@ -118,10 +118,11 @@ class MessageOrchestrator:
             
             if response.get("status") == "FAILED":
                 self.format_error_count += 1
-                if self.format_error_count >= 10:
-                    TerminalUI.clear_line()
-                    func.out(f"\n{Color.RED}⛔ Agent {current_agent} is stuck in a format loop. Halting pipeline.{Color.RESET}")
-                    break
+                if self.format_error_count >= 3:
+                    # TerminalUI.clear_line()
+                    TerminalUI.auth_request("{Color.RED}⛔ Agent {current_agent} is stuck in a format loop.","")
+                    if input(f"Quit the pipeline? (y/n/all): ").lower().strip() in ['y', 'yes']:
+                        break
 
                 TerminalUI.clear_line()
                 func.out(f"\n{Color.RED}⚠ Format Error in {current_agent} (Strike {self.format_error_count}){Color.RESET}")
