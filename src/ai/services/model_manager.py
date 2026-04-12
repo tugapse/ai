@@ -155,11 +155,14 @@ class ModelManager:
 
         func.log(f"Selected model: {model_name} (Type: {model_type.value})") 
         quantization_bits = model_properties.get("quantization_bits", 0)
+        override_system_by_user_template = model_properties.get("override_system_by_user_template", False)
+     
         model_params = ModelParams(**model_properties ).to_dict()
 
         other_llm_kwargs = {k: v for k, v in model_properties.items()
                             if k not in ["quantization_bits", "n_ctx", "n_gpu_layers", "verbose",
-                                         "gguf_filename", "model_repo_id", "do_sample"]
+                                         "gguf_filename", "model_repo_id", "do_sample",
+                                         "override_system_by_user_template"]
                            }
 
         llm_instance: Optional[BaseModel] = None
@@ -171,6 +174,7 @@ class ModelManager:
                     system_prompt=system_prompt,
                     quantization_bits=quantization_bits,
                     model_params=model_params,
+                    override_system_by_user_template=override_system_by_user_template,
                     **other_llm_kwargs
                 )
                 func.log(f"Model '{model_name}' loaded as a Causal Language Model (HuggingFace).") 
@@ -181,6 +185,7 @@ class ModelManager:
                     system_prompt=system_prompt,
                     quantization_bits=quantization_bits,
                     model_params=model_params,
+                    override_system_by_user_template=override_system_by_user_template,
                     **other_llm_kwargs
                 )
                 func.log(f"Model '{model_name}' loaded as a Seq2Seq Language Model (T5-type).") 
@@ -191,6 +196,7 @@ class ModelManager:
                     model_name=model_name,
                     system_prompt=system_prompt,
                     model_params=model_params,
+                    override_system_by_user_template=override_system_by_user_template,
                     **other_llm_kwargs
                 )
                 func.log(f"Model '{model_name}' loaded as an Ollama Model.") 
@@ -223,6 +229,8 @@ class ModelManager:
                     n_ctx=n_ctx,
                     verbose=verbose,
                     model_params=model_params,
+                    override_system_by_user_template=override_system_by_user_template,
+
                     **other_llm_kwargs
                 )
                 func.log(f"Model '{model_name}' loaded as a GGUF Image LLM.") 
@@ -233,6 +241,7 @@ class ModelManager:
                     system_prompt=system_prompt,
                     use_vertex=model_params.get("vertex_ai", False),
                     model_params=model_params,
+                    override_system_by_user_template=override_system_by_user_template,
                     **other_llm_kwargs
                 )
                 func.log(f"Model '{model_name}' loaded as a Gemini Model.")
@@ -242,6 +251,8 @@ class ModelManager:
                     model_name=model_name,
                     system_prompt=system_prompt,
                     model_params=model_params,
+                    override_system_by_user_template=override_system_by_user_template,
+
                     **other_llm_kwargs
                 )
                 func.log(f"Model '{model_name}' loaded as an OpenAI Model.")

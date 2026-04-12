@@ -13,6 +13,7 @@
     "top_k": 50,
     "presence_penalty": 1,
     "frequency_penalty": 1,
-    "chat_format":"gemma"
+    "chat_format":"gemma",
+    "override_system_by_user_template":true
   }
 }

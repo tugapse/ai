@@ -14,12 +14,14 @@ class BaseModel:
 
     STREAMING_FINISHED_EVENT = "streaming_finished"
 
-    def __init__(self, model_name, system_prompt=None,**kargs):
+    def __init__(self, model_name, system_prompt=None, override_system_by_user_template=False, **kargs):
         self.model_name = model_name
         self.system_prompt = system_prompt
         self.listeners = {} # For event handling
         self.options = {} # Default options
         self.tokenizer = None
+        self.override_system_by_user_template = override_system_by_user_template
+        
         # Common attributes for graceful interruption
         self.stop_generation_event = threading.Event()
         self._generation_thread = None # Placeholder for potential background thread
@@ -116,9 +118,19 @@ class BaseModel:
         """
         Ensures the system prompt is at the beginning of the messages list.
         """
-        if self.system_prompt and not any(msg['role'] == 'system' for msg in messages):
-            # Use create_message for consistency
-            return [BaseModel.create_message("system", self.system_prompt)] + messages
+        prompt_exists = any(
+            msg['content'] == self.system_prompt and msg['role'] in ["system", "user"] 
+            for msg in messages
+        )
+
+        if self.system_prompt and not prompt_exists:
+            messages = [BaseModel.create_message("system", self.system_prompt)] + messages
+
+        if self.override_system_by_user_template:
+            for msg in messages:
+                if msg['role'] == "system":
+                    msg['role'] = "user"
+
         return messages
 
     def load_images(self, images: list):

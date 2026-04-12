@@ -103,7 +103,9 @@ class ModelConfigManager:
                 "top_p": 0.95,
                 "top_k":50,
                 "presence_penalty": 1.1,
-                "frequency_penalty":1.2
+                "frequency_penalty":1.2,
+                "chat_format":None,
+                "override_system_by_user_template":False
             }
         }
         
@@ -120,7 +122,9 @@ class ModelConfigManager:
                 "top_k": 10,
                 "presence_penalty":1.5,
                 "frequency_penalty":1.2,
-                "quantization_bits": 8
+                "quantization_bits": 8,
+                "chat_format":None,
+                "override_system_by_user_template":False
             }
         }
         
@@ -136,7 +140,9 @@ class ModelConfigManager:
                 "top_p": 0.95,
                 "top_k": 10,
                 "presence_penalty":1.5,
-                "frequency_penalty":1.2
+                "frequency_penalty":1.2,
+                "chat_format":None,
+                "override_system_by_user_template":False
                 
             }
         }

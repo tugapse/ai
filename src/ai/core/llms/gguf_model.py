@@ -33,7 +33,7 @@ class GGUFImageLLM(BaseModel):
         model_params: dict = None,
         **kwargs,
     ):
-        super().__init__(model_name, system_prompt=system_prompt)
+        super().__init__(model_name, system_prompt=system_prompt,**kwargs)
         functions.log(f"Initializing Hardened GGUF: {model_name}")
         
         self.model_repo_id = model_repo_id
@@ -50,7 +50,7 @@ class GGUFImageLLM(BaseModel):
 
         # Debug: Check what was actually loaded for max_new_tokens
         functions.debug(f"[GGUF Engine] Config loaded. Base max_new_tokens: {self.options.get('max_new_tokens')}, Context window (n_ctx): {self._n_ctx}")
-
+    
         self._load_llm_params(**kwargs)
 
     def _load_llm_params(self, **kwargs):
