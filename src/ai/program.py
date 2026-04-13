@@ -106,13 +106,14 @@ class Program:
         if not self.llm: # Accessing self.llm here triggers the lazy load
             return
 
+        stream_result = None # Initialize to None
+
         try:
             if user_input and user_input.strip():
                 self.history.add_message(ChatRoles.USER, user_input)
 
             ui_tools = self.ui.get_components()
 
-            # Use dictionary access. Wrap in a try/except if 'voice' might not exist in the registry
             voice_mod = None
             try:
                 voice_mod = self.modules['voice']
@@ -134,17 +135,22 @@ class Program:
                 options=self.model_params # Accessing self.model_params here triggers the lazy load
             )
 
-            result = orchestrator.run(stream)
+            stream_result = orchestrator.run(stream) # Capture the result here
 
-            # if result.tool_call_detected:
-            #     self._handle_tool_call(result.tool_buffer)
-            # else:
-            if result.accumulated_text:
-                self.history.add_message(ChatRoles.ASSISTANT, result.accumulated_text)
+            # Check if the stream was interrupted by KeyboardInterrupt
+            if stream_result.interrupted:
+                func.log("\nProgram: LLM stream interrupted by user (Ctrl+C). Signaling LLM to stop.", level="INFO")
+                self.llm.request_shutdown() 
+                self.chat.current_message = "[Generation interrupted by user]"
+            elif stream_result.accumulated_text:
+                self.history.add_message(ChatRoles.ASSISTANT, stream_result.accumulated_text)
+                self.chat.current_message = stream_result.accumulated_text # Ensure current_message is set for history
 
         except Exception as e:
             func.log(f"Program: Chat Error: {e}", level="CRITICAL")
             func.log(traceback.format_exc(), level="ERROR")
+            if self.llm:
+                self.llm.request_shutdown()
 
         finally:
             self.ui.reset_turn()
@@ -173,12 +179,19 @@ class Program:
             llm=self.llm, # Accessing self.llm here triggers the lazy load
             start_chat_callback=self.start_chat,
             output_requested_callback=lambda: self.active_executor.output_requested() if self.active_executor else None,
-            llm_stream_finished_callback=lambda _: None
+            llm_stream_finished_callback=lambda _: None # This callback is not strictly needed for shutdown, as start_chat handles it.
         )
 
         try:
             self.chat.loop()
         except KeyboardInterrupt:
-            func.log("\\nProgram: Shutdown initiated.")
+            func.log("\nProgram: Shutdown initiated (KeyboardInterrupt caught in chat.loop).")
         finally:
-            self.modules.shutdown()
+            if self.modules: self.modules.shutdown()
+            self.shutdown()
+
+    def shutdown(self) -> None:
+        if self.llm:
+            func.log("Program: Ensuring LLM is shut down.", level="DEBUG")
+            self.llm.request_shutdown()
+            func.log("Program: LLM shutdown complete.", level="DEBUG")

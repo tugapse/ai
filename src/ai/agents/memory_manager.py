@@ -88,3 +88,11 @@ class MemoryManager:
         else:
             self.context.repeat_count = 0
             return False
+    
+    def clear(self, agent):
+        self.agents[agent].messages_received = []
+        self.agents[agent].history = []
+        self.agents[agent].notes = "System initialized."
+        self.agents[agent].manifest = {}
+        self.agents[agent].current_task = "Waiting for tasks..."
+        self.context.tool_results = []  

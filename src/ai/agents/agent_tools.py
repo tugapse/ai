@@ -116,19 +116,38 @@ def execute_command(**kwargs) -> Dict[str, Any]:
 # --- FILESYSTEM & RESEARCH TOOLS ---
 
 
+import os
+import json
+from typing import Dict, Any, List
+
+def _ensure_list(input_val: Any) -> List[str]:
+    """Helper to ensure input is a list, even if LLM sends stringified JSON."""
+    if isinstance(input_val, list):
+        return input_val
+    if isinstance(input_val, str):
+        cleaned = input_val.strip()
+        if cleaned.startswith("[") and cleaned.endswith("]"):
+            try:
+                return json.loads(cleaned)
+            except:
+                return [cleaned]
+        return [cleaned]
+    return []
+
 def read_dir(**kwargs) -> Dict[str, Any]:
     """
-    Explores a directory and returns its contents. 
-    Can peek into subdirectories to provide deeper architectural context in one call.
+    Explores one or more directories and returns their contents. 
+    Can peek into subdirectories to provide deeper architectural context.
     Parameters:
-      - path: The directory path to explore (e.g., '@ROOT/src'). Defaults to @ROOT.
-      - depth: (Optional) How many levels to peek into subfolders. Default is 0 (just current dir).
-               Max recommended depth is 1 or 2 to avoid token overflow.
+      - paths: List of directory paths (e.g., ['@ROOT/src', '@ROOT/tests']).
+      - depth: (Optional) How many levels to peek into subfolders. Default is 0.
     """
     try:
-        target = _resolve_path(kwargs)
+        path_input = kwargs.get("paths", kwargs.get("path", "@ROOT"))
+        paths = _ensure_list(path_input)
         depth = int(kwargs.get("depth", 0))
-        
+        results = {}
+
         def get_structure(current_path, current_depth):
             items = os.listdir(current_path)
             res = {
@@ -136,47 +155,73 @@ def read_dir(**kwargs) -> Dict[str, Any]:
                 "folders": {}
             }
             
-            # If we still have depth, crawl the folders
             found_folders = [d for d in items if os.path.isdir(os.path.join(current_path, d))]
-            
             for d in found_folders:
                 full_d_path = os.path.join(current_path, d)
                 if current_depth > 0:
-                    # Recursive peek
                     res["folders"][d] = get_structure(full_d_path, current_depth - 1)
                 else:
-                    # Just list the folder name
                     res["folders"][d] = "[Sub-entries hidden. Increase depth to see.]"
             return res
 
-        structure = get_structure(target, depth)
-        
+        for p in paths:
+            try:
+                # Use a dict for the resolver to maintain internal logic compatibility
+                target = _resolve_path({"path": p})
+                results[_sanitize_output_path(target)] = get_structure(target, depth)
+            except Exception as e:
+                results[p] = f"ERROR: {str(e)}"
+
         return {
             "status": "SUCCESS",
-            "path": _sanitize_output_path(target),
-            "structure": structure,
+            "results": results,
         }
     except Exception as e:
         return {"status": "FAILED", "error": str(e)}
 
+
 def read_file(**kwargs) -> Dict[str, Any]:
     """
-    Retrieves the full UTF-8 text content of a specific file.
+    Retrieves the full UTF-8 text content of one or more specific files.
     Parameters:
-      - path: The relative or @ROOT path to the file.
+      - paths: List of relative or @ROOT paths to the files (e.g., ['main.py', 'config.json']).
+               If only one file is needed, use a list with one element [path].
     """
     try:
-        full_path = _resolve_path(kwargs)
-        with open(full_path, "r", encoding="utf-8") as f:
-            return {
-                "status": "SUCCESS",
-                "content": f.read(),
-                "path": _sanitize_output_path(full_path),
-            }
+        # Extract path(s) and force into a standard list format
+        path_input = kwargs.get("paths", kwargs.get("path", []))
+        paths = _ensure_list(path_input)
+        
+        results = {}
+
+        for p in paths:
+            try:
+                # Wrap path in a dict for the existing _resolve_path logic
+                full_path = _resolve_path({"path": p})
+                
+                with open(full_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                    sanitized_path = _sanitize_output_path(full_path)
+                    results[sanitized_path] = content
+                    
+            except Exception as e:
+                # Log specific file errors but keep the loop running
+                func.error(f"Error reading path '{p}': {e}")
+                results[p] = f"FAILED: {str(e)}"
+
+        final_result = {
+            "status": "SUCCESS",
+            "files": results,
+        }
+        
+        func.debug(f"Tool result: {final_result}")
+        return final_result
+
     except Exception as e:
+        func.error(f"read_file execution failed: {e}")
         return {"status": "FAILED", "error": str(e)}
-
-
+    
+    
 def write_file(**kwargs) -> Dict[str, Any]:
     """
     Creates or overwrites a file with the provided content.
