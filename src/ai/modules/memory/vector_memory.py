@@ -1,24 +1,24 @@
 import time
 import re
 import hashlib
-from typing import Any
+from typing import Any, List, Optional, Dict
 from abc import ABC, abstractmethod
 import functions as func
+from .memory_tools import MemoryTools
 
-
-# pip install sentence-transformers chromadb
+# External dependencies
 try:
     from sentence_transformers import SentenceTransformer
     import chromadb
 except ImportError:
-    print("Please install sentence-transformers and chromadb: pip install sentence-transformers chromadb")
+    func.error("Missing dependencies: pip install sentence-transformers chromadb")
     SentenceTransformer = None
     chromadb = None
 
 class EmbeddingProvider(ABC):
     """Abstract base class for embedding providers."""
     @abstractmethod
-    def embed(self, text: str) -> list[float]:
+    def embed(self, text: str) -> List[float]:
         pass
 
 class LanguageModelProvider(ABC):
@@ -28,17 +28,17 @@ class LanguageModelProvider(ABC):
         pass
 
     @abstractmethod
-    def summarize_and_reflect(self, memories: list[str]) -> list[str]:
+    def summarize_and_reflect(self, memories: List[str]) -> List[str]:
         pass
 
 class VectorDBProvider(ABC):
     """Abstract base class for vector database providers."""
     @abstractmethod
-    def upsert(self, memory_id: str, vector: list[float], metadata: dict[str, Any]):
+    def upsert(self, memory_id: str, vector: List[float], metadata: Dict[str, Any]):
         pass
 
     @abstractmethod
-    def query(self, vector: list[float], top_k: int) -> list[dict[str, Any]]:
+    def query(self, vector: List[float], top_k: int) -> List[Dict[str, Any]]:
         pass
 
 class SentenceTransformerEmbeddingProvider(EmbeddingProvider):
@@ -49,7 +49,7 @@ class SentenceTransformerEmbeddingProvider(EmbeddingProvider):
         func.log(f"Loading embedding model: {model_name}")
         self.model = SentenceTransformer(model_name)
 
-    def embed(self, text: str) -> list[float]:
+    def embed(self, text: str) -> List[float]:
         return self.model.encode(text).tolist()
 
 class LLMProvider(LanguageModelProvider):
@@ -58,103 +58,55 @@ class LLMProvider(LanguageModelProvider):
         self.connector = connector
 
     def rate_importance(self, text: str) -> int:
-        func.debug(f"Rating importance for: '{text[:50]}...'")
-        prompt = (
-            " On a scale from 1 to 10, where 1 is trivial and 10 is critically important, "
-            "rate the importance of the following piece of information for an AI agent to remember.\n"
-            "Respond with only a single integer.\n\n"
-            f"Information: \"{text}\"\n\n"
-            "Importance (1-10):"
-        )
-        system_prompt = "/no_think You are a helpful assistant that provides only a single integer in response."
-        
-        response = self.connector.send_raw_request(
-            {"task_context": prompt, "instruction": "Provide only a single integer."},
-            system_prompt=system_prompt
-        )
-        
+        """Rates the importance of information on a scale of 1-10."""
+        prompt = {
+            "instruction": "Rate the importance of this information for an AI to remember (1-10). Respond with only an integer.",
+            "task_context": text
+        }
+        response = self.connector.send_raw_request(prompt, system_prompt="/no_think Response must be a single integer.")
         try:
             match = re.search(r'\d+', response)
-            if match:
-                importance = int(match.group(0))
-                func.debug(f"Rated importance as: {importance}")
-                return importance
-        except (ValueError, TypeError):
-            pass
-        func.debug("Failed to rate importance, falling back to 5.")
-        return 5  # Fallback
+            return int(match.group(0)) if match else 5
+        except:
+            return 5
 
-    def summarize_and_reflect(self, memories: list[str]) -> list[str]:
-        func.log("Synthesizing memories into new insights...")
+    def summarize_and_reflect(self, memories: List[str]) -> List[str]:
+        """Synthesizes raw memories into high-level insights."""
         memories_str = "\n".join(f"- {m}" for m in memories)
-        prompt = (
-            "Read the following recent memories of an AI agent. "
-            "Synthesize them into a few high-level insights or conclusions. "
-            "What are the key takeaways? What patterns are emerging? What should be the focus now?\n\n"
-            "Recent Memories:\n"
-            f"{memories_str}\n\n"
-            "Respond with a bulleted list of your key insights. Each insight should be a new memory."
-        )
-        system_prompt = (
-            "/no_think You are a reflection engine for an AI agent. Your task is to synthesize "
-            "raw memories into higher-level insights. Output only the insights as a bulleted list."
-        )
-        
-        response = self.connector.send_raw_request(
-            {"task_context": prompt, "instruction": "Provide a bulleted list of insights."},
-            system_prompt=system_prompt
-        )
-        
-        insights = [line.strip('- ').strip() for line in response.split('\n') if line.strip().startswith('-')]
-        func.log(f"Generated {len(insights)} new insights from reflection.")
-        return [i for i in insights if i]
+        prompt = {
+            "instruction": "Synthesize these memories into high-level insights. Output a bulleted list where each line is one insight.",
+            "task_context": memories_str
+        }
+        response = self.connector.send_raw_request(prompt, system_prompt="You are a reflection engine. Output only the list.")
+        return [line.strip('- ').strip() for line in response.split('\n') if line.strip().startswith('-')]
 
 class ChromaDBProvider(VectorDBProvider):
     """Vector database provider using ChromaDB."""
     def __init__(self, path: str, session_id: str = "default"):
-        """
-        Initializes the ChromaDBProvider for a specific session.
-
-        Args:
-            path (str): The path to the persistent database directory.
-            session_id (str): A unique identifier for the session. Memories will be
-                              isolated to a collection based on this ID.
-        """
         if chromadb is None:
             raise ImportError("chromadb is not installed.")
         self.client = chromadb.PersistentClient(path=path)
-        # Use a hash of the session_id to guarantee a valid collection name.
         session_hash = hashlib.md5(session_id.encode()).hexdigest()
         collection_name = f"s_{session_hash}"
-        func.log(f"Initializing ChromaDB collection '{collection_name}' at path '{path}'")
+        func.log(f"Initializing ChromaDB: {collection_name}")
         self.collection = self.client.get_or_create_collection(name=collection_name)
 
-    def upsert(self, memory_id: str, vector: list[float], metadata: dict[str, Any]):
-        func.debug(f"Upserting memory ID '{memory_id}' into ChromaDB.")
+    def upsert(self, memory_id: str, vector: List[float], metadata: Dict[str, Any]):
         self.collection.upsert(ids=[memory_id], embeddings=[vector], metadatas=[metadata])
 
-    def query(self, vector: list[float], top_k: int) -> list[dict[str, Any]]:
-        func.debug(f"Querying ChromaDB for {top_k} nearest neighbors.")
+    def query(self, vector: List[float], top_k: int) -> List[Dict[str, Any]]:
         results = self.collection.query(query_embeddings=[vector], n_results=top_k)
-        if not results or not results.get('ids') or not results['ids'][0]:
-            func.debug("ChromaDB query returned no results.")
-            return []
+        if not results or not results['ids'][0]: return []
         
         output = []
         for i in range(len(results['ids'][0])):
             similarity = 1.0 - results['distances'][0][i] if results['distances'] else 0.0
             output.append({'id': results['ids'][0][i], 'score': similarity, 'metadata': results['metadatas'][0][i]})
-        func.debug(f"ChromaDB query found {len(output)} results.")
         return output
-
-# --- The Main VectorMemory Class ---
 
 class VectorMemory:
     """
-    Manages an agent's long-term memory using a vector database.
-
-    This class handles the ingestion, retrieval, and synthesis of memories,
-    allowing an agent to recall relevant information from its past.
+    Manages an agent's long-term memory via vector search and LLM-guided reflection.
     """
 
     def __init__(
@@ -166,46 +118,26 @@ class VectorMemory:
         importance_weight: float = 1.0,
         relevance_weight: float = 1.0,
     ):
-        """
-        Initializes the VectorMemory.
-
-        Args:
-            session_id (str): A unique identifier for the memory session.
-            connector (Any | None): An optional LLM connector for importance rating and reflection.
-            db_path (str): Path to the persistent database directory.
-            recency_weight: Weight for the recency score in retrieval.
-            importance_weight: Weight for the importance score in retrieval.
-            relevance_weight: Weight for the relevance (similarity) score in retrieval.
-        """
         self.db = ChromaDBProvider(path=db_path, session_id=session_id)
         self.embedder = SentenceTransformerEmbeddingProvider()
         self.llm = LLMProvider(connector) if connector else None
+        
         self.recency_weight = recency_weight
         self.importance_weight = importance_weight
         self.relevance_weight = relevance_weight
-        if self.llm:
-            func.log("VectorMemory LLM provider is enabled (for importance rating and reflection).")
-        else:
-            func.log("VectorMemory LLM provider is disabled. Using default importance.")
+        
+        # Link tools for Orchestrator integration
+        self.tools = MemoryTools(self)
 
     def add_memory(self, content: str, source: str, memory_type: str = "observation"):
-        """
-        Adds a new memory to the database, enriched with metadata.
-
-        Args:
-            content (str): The text content of the memory.
-            source (str): The origin of the memory (e.g., 'USER', 'AGENT_X', 'TOOL_Y').
-            memory_type (str): The type of memory (e.g., 'observation', 'reflection').
-        """
-        if not content:
-            return
+        """Enriches and archives a new memory with a persistent SHA-256 ID."""
+        if not content: return
         
-        if self.llm:
-            importance = self.llm.rate_importance(content)
-        else:
-            importance = 5 # Default importance when no LLM is available
-
+        importance = self.llm.rate_importance(content) if self.llm else 5
         vector = self.embedder.embed(content)
+        
+        # Persistent ID across restarts
+        memory_id = hashlib.sha256(content.encode()).hexdigest()
         
         metadata = {
             "content": content,
@@ -216,72 +148,45 @@ class VectorMemory:
             "importance": importance,
         }
         
-        # Using a hash of the content for a unique ID
-        memory_id = str(hash(content))
         self.db.upsert(memory_id=memory_id, vector=vector, metadata=metadata)
-        func.log(f"Added memory: '{content[:50]}...' (Importance: {importance})")
+        func.log(f"Memory Archived: {content[:40]}... (ID: {memory_id[:8]})")
 
-    def retrieve_memories(self, query: str, top_k: int = 5) -> list[str]:
-        """
-        Retrieves the most relevant memories based on a combination of
-        recency, importance, and relevance to the query.
-        """
-        if not query:
-            return []
+    def retrieve_memories(self, query: str, top_k: int = 5) -> List[str]:
+        """Retrieves memories using a composite score of relevance, recency, and importance."""
+        if not query: return []
         
-        func.log(f"Retrieving {top_k} memories for query: '{query[:50]}...'")
         query_vector = self.embedder.embed(query)
+        results = self.db.query(vector=query_vector, top_k=top_k * 3)
         
-        # Fetch more results than needed to allow for re-ranking
-        results = self.db.query(vector=query_vector, top_k=top_k * 5)
-        
-        # Update last_accessed_at for retrieved memories (optional, but good for recency)
-        # for res in results: self.db.update_metadata(res['id'], {'last_accessed_at': time.time()})
-
-        # Re-rank based on the three key factors
         ranked_results = []
         for res in results:
-            recency_score = self._calculate_recency_score(res['metadata']['last_accessed_at'])
-            importance_score = res['metadata']['importance'] / 10.0  # Normalize
-            relevance_score = res['score']  # Cosine similarity from DB
+            recency = self._calculate_recency_score(res['metadata']['last_accessed_at'])
+            importance = res['metadata']['importance'] / 10.0
+            relevance = res['score']
 
             final_score = (
-                self.recency_weight * recency_score +
-                self.importance_weight * importance_score +
-                self.relevance_weight * relevance_score
+                self.recency_weight * recency +
+                self.importance_weight * importance +
+                self.relevance_weight * relevance
             )
             ranked_results.append((final_score, res['metadata']['content']))
             
-        # Sort by the final composite score in descending order
         ranked_results.sort(key=lambda x: x[0], reverse=True)
-        
-        retrieved = [content for score, content in ranked_results[:top_k]]
-        func.log(f"Retrieved {len(retrieved)} relevant memories.")
-        return retrieved
+        return [content for score, content in ranked_results[:top_k]]
 
     def trigger_reflection(self):
-        """
-        Periodically runs a reflection process to synthesize new, high-level memories.
-        """
-        # This would involve fetching recent or important memories and prompting an LLM
-        if not self.llm:
-            func.debug("Cannot trigger reflection; no LLM provider configured for VectorMemory.")
-            return
+        """Synthesizes recent high-importance memories into distilled insights."""
+        if not self.llm: return
 
-        func.log("Triggering reflection...")
-        recent_memories = self.retrieve_memories("What are the most important recent events?", top_k=50)
-        
-        if not recent_memories:
-            func.log("Not enough memories to reflect on.")
-            return
+        recent = self.retrieve_memories("Identify key technical events and patterns.", top_k=25)
+        if not recent: return
 
-        new_insights = self.llm.summarize_and_reflect(recent_memories)
-        
-        for insight in new_insights:
+        insights = self.llm.summarize_and_reflect(recent)
+        for insight in insights:
             self.add_memory(insight, source="SELF_REFLECTION", memory_type="reflection")
 
     @staticmethod
     def _calculate_recency_score(last_accessed_at: float, decay_factor: float = 0.99) -> float:
-        """Calculates a score based on how recently a memory was accessed."""
-        hours_since_access = (time.time() - last_accessed_at) / 3600
-        return decay_factor ** hours_since_access
+        """Calculates temporal decay score based on hours since access."""
+        hours = (time.time() - last_accessed_at) / 3600
+        return decay_factor ** hours

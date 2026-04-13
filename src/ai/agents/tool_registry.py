@@ -36,4 +36,9 @@ class ToolRegistry:
             func.log(f"Calling tool [{name}] with: {p}")
             return self._tools[name](**p)
         except Exception as e:
+            func.debug(f"Tool execution failed: {e}")
             return {"status": "FAILED", "error": str(e)}
+    
+    def get_all_tools(self) -> dict:
+        """Returns the full dictionary of registered tool functions."""
+        return self._tools  # or self._tools, whichever dict holds your functions

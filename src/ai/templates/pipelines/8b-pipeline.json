@@ -24,7 +24,7 @@
       "role": "labor",
       "prompt_file": "agents/small/secretary.md",
       "tools": ["read_dir", "read_files", "read_file", "smart_search", "web_search", "web_read"],
-      "allowed_targets": ["SECRETARY","MASTER"]
+      "allowed_targets": ["SECRETARY","MASTER","DONE"]
     },
     "SYSTEM_OPERATOR": {
       "role": "labor",

@@ -3,7 +3,22 @@ import threading
 import functions
 from entities.model_enums import InferenceBackend
 
-
+class TokenCountInfo:
+    def __init__(self) -> None:
+        self.prompt_count = 0
+        self.max_context_window = 0
+        self.max_output_tokens = 0
+        self.total_prompt_count = 0 
+        self.printed_tokens_count = 0
+    
+    def get_log_string(self) -> str:
+        """Returns a condensed 'fuel gauge' of the current token state."""
+        # Calculate usage percentage for the log
+        usage = (self.prompt_count / self.max_context_window * 100) if self.max_context_window > 0 else 0
+        return (
+            f"Tokens: [P: {self.prompt_count} | T: {self.total_prompt_count} | Out: {self.printed_tokens_count}] "
+            f"Window: {self.max_context_window} ({usage:.1f}%)"
+        )
 class BaseModel:
     CONTEXT_WINDOW_SMALL = 2048
     CONTEXT_WINDOW_MEDIUM = 4096
@@ -26,7 +41,7 @@ class BaseModel:
         self.stop_generation_event = threading.Event()
         self._generation_thread = None # Placeholder for potential background thread
         self.inference_device = InferenceBackend.CPU # Default to CPU, lazy-load torch for GPU check
-        self.tokens_count = { "prompt":0, "completion":0 ,"max_context_window":0,"max_output_tokens":0}
+        self.token_info_count = TokenCountInfo()
 
 
     def init_pytorch_cuda(self):
@@ -187,7 +202,7 @@ class BaseModel:
     
     def getTokenCount(self,**kargs):
         functions.debug("Implement getPromptTokens method in subclass")
-        return self.tokens_count
+        return self.token_info_count
     
     def request_shutdown(self):
         self.stop_generation_event.set()

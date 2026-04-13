@@ -59,7 +59,7 @@ class LLMConnector:
         """Uses a unique, timestamped file to capture output reliably."""
         
         unique_id = uuid.uuid4().hex
-        output_filename = f"llm_output_{unique_id}.tmp"
+        output_filename = f"llm_output_active.tmp"
         
         try:
             ask(
@@ -76,7 +76,7 @@ class LLMConnector:
             if os.path.exists(output_filename):
                 with open(output_filename, "r", encoding="utf-8") as f:
                     content = f.read()
-                os.remove(output_filename)
+                # os.remove(output_filename)
                 return content
             else:
                 func.error("LLM execution finished but output file was not created.")

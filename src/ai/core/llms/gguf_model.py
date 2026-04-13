@@ -41,6 +41,7 @@ class GGUFImageLLM(BaseModel):
         self._n_ctx = n_ctx
         self.llama_model = None
         self.error_queue = queue.Queue()
+        self.token_info_count.max_context_window = self._n_ctx
         
         # Load config options
         self.options = ModelParams(**model_params).to_dict() if model_params else {
@@ -97,6 +98,7 @@ class GGUFImageLLM(BaseModel):
         output_token_count = 0
         
         try:
+            self.token_info_count.max_output_tokens = gen_options.get("max_new_tokens", 1024)
             stream_iter = self.llama_model.create_chat_completion(
                 messages=messages,
                 stream=True,
@@ -116,9 +118,10 @@ class GGUFImageLLM(BaseModel):
                     full_response += delta
                     output_token_count += 1
                     output_queue.put(delta)
-
+                self.token_info_count.printed_tokens_count = output_token_count
             output_queue.put(None)
             self.trigger(BaseModel.STREAMING_FINISHED_EVENT, full_response)
+            functions.log(self.token_info_count.get_log_string(), level="INFO")
             functions.debug(f"[GGUF Engine] Stream finished normally. Total chunks/tokens generated: {output_token_count}")
             
         except Exception as e:
