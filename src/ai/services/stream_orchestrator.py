@@ -33,7 +33,9 @@ class StreamOrchestrator:
         self.started_response = False
 
     def _sanitize(self, token: str) -> str:
+        print("here", token)
         sanitized = unicodedata.normalize('NFKC', token)
+        print("after", sanitized)
         sanitized = re.sub(r'[^\x20-\x7E\n\t]', '', sanitized)
         return sanitized
 

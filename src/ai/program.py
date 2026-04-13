@@ -42,11 +42,23 @@ class Program:
         self.active_executor = None
         self.llm_initialized = False # NEW: Flag to track LLM initialization
 
+   
     @property
-    def llm(self) -> Optional[BaseModel]:
-        # Ensure LLM is loaded only when accessed
+    def llm(self):
+        """Standard lazy-loader for the local LLM."""
         self._ensure_llm_loaded()
         return self.models.llm
+
+    @llm.setter
+    def llm(self, value):
+        """
+        NEW: Allows us to inject a Remote Link or a specific LLM instance.
+        This is what the Client Mode uses to 'become' the remote brain.
+        """
+        if self.models:
+            self.models.llm = value
+            self.llm_initialized = True
+            # func.log("Program: LLM instance injected via setter.", level="DEBUG")
 
     @property
     def model_params(self) -> dict:
@@ -191,7 +203,21 @@ class Program:
             self.shutdown()
 
     def shutdown(self) -> None:
-        if self.llm:
-            func.log("Program: Ensuring LLM is shut down.", level="DEBUG")
-            self.llm.request_shutdown()
-            func.log("Program: LLM shutdown complete.", level="DEBUG")
+        """
+        Safety-first shutdown. Prevents crashes if exiting during boot.
+        """
+        # If config was never loaded, we can't do anything else.
+        if not hasattr(self, 'config') or self.config is None:
+            return
+
+        # Only try to kill the LLM if it was actually initialized
+        if self.llm_initialized and self.models:
+            try:
+                # Direct access to avoid triggering the lazy-load @property
+                llm_instance = self.models.llm
+                if llm_instance:
+                    llm_instance.request_shutdown()
+            except:
+                pass
+        
+        func.log("JARVIS Shutdown complete.", level="DEBUG")

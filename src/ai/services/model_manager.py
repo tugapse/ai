@@ -11,7 +11,7 @@ from entities.model_enums import ModelType, EngineType
 
 from core.llms.base_llm import ModelParams, BaseModel
 
-class ModelManager:
+class EngineManager:
     """
     Manages the creation, loading, and saving of model configuration files,
     and handles the instantiation of model objects with environment checks.
@@ -144,7 +144,7 @@ class ModelManager:
             return None
 
         # If this returns False, we stop here and avoid the 'Lazy Import' crash.
-        if not ModelManager.is_engine_installed(model_type, model_name):
+        if not EngineManager.is_engine_installed(model_type, model_name):
             from color import Color
             func.error(
                 f"The engine for {Color.YELLOW}{model_type.value}{Color.RED} is not installed.\n"
