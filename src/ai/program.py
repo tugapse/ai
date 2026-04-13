@@ -191,7 +191,21 @@ class Program:
             self.shutdown()
 
     def shutdown(self) -> None:
-        if self.llm:
-            func.log("Program: Ensuring LLM is shut down.", level="DEBUG")
-            self.llm.request_shutdown()
-            func.log("Program: LLM shutdown complete.", level="DEBUG")
+        """
+        Safety-first shutdown. Prevents crashes if exiting during boot.
+        """
+        # If config was never loaded, we can't do anything else.
+        if not hasattr(self, 'config') or self.config is None:
+            return
+
+        # Only try to kill the LLM if it was actually initialized
+        if self.llm_initialized and self.models:
+            try:
+                # Direct access to avoid triggering the lazy-load @property
+                llm_instance = self.models.llm
+                if llm_instance:
+                    llm_instance.request_shutdown()
+            except:
+                pass
+        
+        func.log("JARVIS Shutdown complete.", level="DEBUG")
