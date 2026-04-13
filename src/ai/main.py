@@ -1,5 +1,73 @@
+from importlib import util
 import os
 import sys
+
+__version__ = "2.3.2"
+
+import os
+import sys
+import importlib.util
+
+def check_dependencies():
+    """Diagnostic boot check for JARVIS dependencies."""
+    # Format: (Package Name for UI, Import Name for check)
+    core_deps = [
+        ("colorama", "colorama"),
+        ("python-dotenv", "dotenv"),
+        ("huggingface-hub", "huggingface_hub"),
+        ("prompt_toolkit", "prompt_toolkit"),
+        ("requests", "requests"),
+    ]
+    
+    # Platform-specific logic
+    if sys.platform == "win32":
+        core_deps.append(("pyreadline3", "pyreadline3"))
+        core_deps.append(("triton-windows", "triton"))
+    else:
+        core_deps.append(("triton", "triton"))
+
+    missing = [pkg for pkg, imp in core_deps if importlib.util.find_spec(imp) is None]
+
+    if missing:
+        # 1. Gather System Info
+        py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        # Venv Detection
+        is_venv = sys.prefix != sys.base_prefix
+        venv_path = sys.prefix if is_venv else "None"
+        
+        # 2. UI Colors (Ubuntu Optimized)
+        RED_B = "\033[91;1m"   # Bright Red Bold
+        YLW_B = "\033[93;1m"   # Bright Yellow Bold
+        WHITE = "\033[0m"      # Standard Terminal White
+        BOLD  = "\033[1m"      # Bold White
+        
+        # 3. Stylized Diagnostic Output
+        print(f"\n{RED_B}[!] SYSTEM REJECT: MISSING DEPENDENCIES{WHITE}")
+        print(f"-----------------------------------------------------------")
+        print(f"Python Version  : {WHITE}{py_ver}")
+        print(f"Source Location : {WHITE}{script_dir}")
+        print(f"Virtual Env     : {WHITE}{'Active' if is_venv else 'INACTIVE'}")
+        if is_venv:
+            print(f"Env Path        : {WHITE}{venv_path}")
+        print(f"Missing Modules : {RED_B}{', '.join(missing)}{WHITE}")
+        print(f"-----------------------------------------------------------")
+        
+        # 4. Context-Aware Instructions
+        print(f"\n{YLW_B}[*] RESOLUTION:{WHITE}")
+        if is_venv:
+            print(f"    Your virtual environment is available. Please run:")
+        else:
+            print(f"    You are outside a virtual environment. Please run:")
+        
+        print(f"    {BOLD}source .venv/bin/activate && python dependency_installer.py{WHITE}")
+        print(f"\n{WHITE}Exiting...")
+        sys.exit(1)
+
+# --- BOOT SEQUENCE START ---
+check_dependencies()
+
 import argparse
 import warnings
 import logging
@@ -13,7 +81,6 @@ import functions as func
 from color import Color 
 from cli_args import CliArgs 
 
-__version__ = "2.3.2"
 
 def hack_warnings():
     """Suppresses library-specific noise."""
@@ -87,6 +154,41 @@ def print_chat_header(prog: Program) -> None:
     func.out(f"# Using {Color.YELLOW}{system_name}{Color.GREEN} logic system")
     func.out(f"{Color.RESET}--------------------------")
 
+def check_dependencies():
+    """Verifies required packages are installed before booting the system."""
+    # Format: (Package Name for UI, Import Name for check)
+    core_deps = [
+        ("colorama", "colorama"),
+        ("python-dotenv", "dotenv"),
+        ("huggingface-hub", "huggingface_hub"),
+        ("prompt_toolkit", "prompt_toolkit"),
+        ("requests", "requests"),
+    ]
+    
+    # Platform-specific checks
+    if sys.platform == "win32":
+        core_deps.append(("pyreadline3", "pyreadline3"))
+        core_deps.append(("triton-windows", "triton"))
+    else:
+        core_deps.append(("triton", "triton"))
+
+    missing = []
+    for pkg_name, import_name in core_deps:
+        if importlib.util.find_spec(import_name) is None:
+            missing.append(pkg_name)
+
+    if missing:
+        # Standard ANSI colors used here as colorama might be missing
+        RED = "\033[31m"
+        YELLOW = "\033[33m"
+        RESET = "\033[0m"
+        
+        print(f"{RED}[ ! ] Critical dependencies missing: {', '.join(missing)}{RESET}")
+        print(f"{YELLOW}[ * ] Please run the installer script to fix this:{RESET}")
+        print(f"\n      python dependency_installer.py\n")
+        sys.exit(1)
+
+     
 def run():
     hack_warnings()
     prog: Optional[Program] = None 
@@ -142,6 +244,7 @@ def run():
             func.out(f"{Color.RED}[ ! ] Error: {e}{Color.RESET}") 
         sys.exit(1)
 
+   
 if __name__ == "__main__":
     # Ensure local module directory is in the sys path
     sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))

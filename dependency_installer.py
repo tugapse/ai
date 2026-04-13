@@ -3,115 +3,121 @@ import os
 import sys
 import argparse
 from pathlib import Path
+import importlib.util
 
 class Colors:
-    HEADER = '\033[95m'
-    BLUE = '\033[94m'
-    CYAN = '\033[96m'
-    GREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
+    HEADER = '\033[95;1m'
+    BLUE   = '\033[94m'
+    CYAN   = '\033[96m'
+    GREEN  = '\033[92m'
+    YLW    = '\033[93m'
+    RED    = '\033[91m'
+    END    = '\033[0m'
+    BOLD   = '\033[1m'
+
+def is_installed(module_name):
+    """Checks if a module exists without importing it (prevents side effects)."""
+    return importlib.util.find_spec(module_name) is not None
 
 def get_confirmation(prompt, auto_accept):
-    """Handles user input or auto-accept logic."""
-    if auto_accept:
-        return True
-    while True:
-        res = input(f"{Colors.BLUE}{prompt} (y/n): {Colors.ENDC}").strip().lower()
-        if res in ['y', 'yes']: return True
-        if res in ['n', 'no']: return False
-        print(f"{Colors.WARNING}Please enter 'y' or 'n'.{Colors.ENDC}")
+    if auto_accept: return True
+    res = input(f"{Colors.BLUE}{prompt} (y/n): {Colors.END}").strip().lower()
+    return res in ['y', 'yes', '']
 
 def ensure_venv(auto_accept):
-    """
-    Ensures a virtual environment exists. 
-    If not in one, it creates/activates it and restarts the script.
-    """
     venv_dir = Path(".venv")
-    
-    # Check if we are already in the venv
+    # Check if currently running from the venv
     if sys.prefix == str(venv_dir.absolute()):
         return
 
-    print(f"\n{Colors.HEADER}--- Step 0: Environment Provisioning ---{Colors.ENDC}")
+    print(f"\n{Colors.HEADER}[ 0 ] ENVIRONMENT PROVISIONING{Colors.END}")
     
     if not venv_dir.exists():
         if get_confirmation("Virtual environment (.venv) not found. Create it?", auto_accept):
-            print(f"{Colors.CYAN}Creating virtual environment...{Colors.ENDC}")
-            subprocess.run([sys.executable, "-m", "venv", ".venv"], check=True)
+            print(f"{Colors.CYAN}Creating virtual environment...{Colors.END}")
+            subprocess.run([sys.executable, "-m", "venv", str(venv_dir)], check=True)
         else:
-            print(f"{Colors.WARNING}Continuing with current environment: {sys.prefix}{Colors.ENDC}")
+            print(f"{Colors.YLW}Warning: Proceeding without virtual environment.{Colors.END}")
             return
 
-    # Path to the venv's python
-    python_exe = venv_dir / ("Scripts" if os.name == 'nt' else "bin") / ("python.exe" if os.name == 'nt' else "python")
+    # Determine executable path
+    bin_name = "Scripts" if os.name == 'nt' else "bin"
+    exe_name = "python.exe" if os.name == 'nt' else "python"
+    python_exe = venv_dir / bin_name / exe_name
 
-    print(f"{Colors.GREEN}Switching context to venv: {python_exe}{Colors.ENDC}")
-    # This replaces the current process with the one inside the venv
+    print(f"{Colors.GREEN}Context Shift: Re-launching within .venv...{Colors.END}")
     os.execv(str(python_exe), [str(python_exe)] + sys.argv)
 
 def install_standard_reqs(auto_accept):
-    """Installs requirements.txt using the active environment's pip."""
     req_path = Path("requirements.txt")
-    if not req_path.exists():
-        return
+    if not req_path.exists(): return
 
-    print(f"\n{Colors.HEADER}--- Step 1: Standard Dependencies ---{Colors.ENDC}")
-    if get_confirmation("Install requirements.txt?", auto_accept):
+    print(f"\n{Colors.HEADER}[ 1 ] CORE DEPENDENCIES{Colors.END}")
+    
+    # Always upgrade pip first for build stability
+    subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "pip"], 
+                   stdout=subprocess.DEVNULL)
+
+    if get_confirmation("Sync requirements.txt?", auto_accept):
         subprocess.run([sys.executable, "-m", "pip", "install", "-r", str(req_path)], check=True)
 
 def install_llama_cpp(auto_accept):
-    """Builds llama-cpp-python with CUDA support if a GPU is found."""
-    print(f"\n{Colors.HEADER}--- Step 2: Llama-CPP Build ---{Colors.ENDC}")
+    print(f"\n{Colors.HEADER}[ 2 ] ACCELERATED COMPUTING (LLAMA-CPP){Colors.END}")
     
-    # Simple check for nvidia-smi
-    has_gpu = subprocess.run(['nvidia-smi'], capture_output=True).returncode == 0
-    
-    if has_gpu and get_confirmation("NVIDIA GPU found. Build llama-cpp with CUDA?", auto_accept):
-        env_vars = os.environ.copy()
-        env_vars.update({
-            "CMAKE_ARGS": "-DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES=native",
-            "FORCE_CMAKE": "1"
-        })
-        subprocess.run([
-            sys.executable, "-m", "pip", "install", "llama-cpp-python", 
-            "--no-cache-dir", "--force-reinstall"
-        ], env=env_vars, check=True)
-
-def fire_engine_installer():
-    """Triggers the engine script using the EXACT same environment."""
-    engine_script = Path("scripts/install_engines.py")
-    
-    print(f"\n{Colors.HEADER}--- Step 3: Engine Logic Injection ---{Colors.ENDC}")
-    
-    if not engine_script.exists():
-        print(f"{Colors.FAIL}Error: {engine_script} not found.{Colors.ENDC}")
+    if is_installed("llama_cpp"):
+        print(f"{Colors.GREEN}Llama-CPP is already installed and mapped.{Colors.END}")
         return
 
-    print(f"{Colors.CYAN}Executing {engine_script} within current env...{Colors.ENDC}")
-    # Using sys.executable ensures the engine script uses the venv we just set up
+    # Silent GPU Check
+    has_gpu = False
+    try:
+        # We capture output to keep the terminal clean
+        subprocess.run(['nvidia-smi'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        has_gpu = True
+    except:
+        has_gpu = False
+    
+    if has_gpu:
+        print(f"{Colors.CYAN}NVIDIA GPU detected via hardware bus.{Colors.END}")
+        if get_confirmation("Build llama-cpp with CUDA support?", auto_accept):
+            env_vars = os.environ.copy()
+            env_vars.update({
+                "CMAKE_ARGS": "-DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES=native",
+                "FORCE_CMAKE": "1"
+            })
+            print(f"{Colors.YLW}Compiling... this may take several minutes.{Colors.END}")
+            subprocess.run([
+                sys.executable, "-m", "pip", "install", "llama-cpp-python", "--no-cache-dir"
+            ], env=env_vars, check=True)
+    else:
+        print(f"{Colors.YLW}No GPU detected or CUDA drivers missing. Installing CPU version.{Colors.END}")
+        subprocess.run([sys.executable, "-m", "pip", "install", "llama-cpp-python"], check=True)
+
+def fire_engine_installer():
+    engine_script = Path("scripts/install_engines.py")
+    print(f"\n{Colors.HEADER}[ 3 ] ENGINE LOGIC INJECTION{Colors.END}")
+    
+    if not engine_script.exists():
+        print(f"{Colors.RED}Skipping: {engine_script} not found.{Colors.END}")
+        return
+
+    print(f"{Colors.CYAN}Executing {engine_script.name}...{Colors.END}")
     subprocess.run([sys.executable, str(engine_script)], check=True)
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="JARVIS Dependency Provisioner")
     parser.add_argument("--auto-accept", "-y", action="store_true")
     args = parser.parse_args()
 
-    # 1. Provision/Activate Env
-    ensure_venv(args.auto_accept)
-    
-    # 2. Setup Base Deps
-    install_standard_reqs(args.auto_accept)
-    
-    # 3. Setup Heavy AI Deps (Llama)
-    install_llama_cpp(args.auto_accept)
-    
-    # 4. Fire the secondary AI engine script
-    fire_engine_installer()
-
-    print(f"\n{Colors.GREEN}{Colors.BOLD}All systems provisioned.{Colors.ENDC}")
+    try:
+        ensure_venv(args.auto_accept)
+        install_standard_reqs(args.auto_accept)
+        # install_llama_cpp(args.auto_accept)
+        fire_engine_installer()
+        print(f"\n{Colors.GREEN}{Colors.BOLD}>>> SYSTEM READY: ALL ENGINES PROVISIONED <<<{Colors.END}\n")
+    except Exception as e:
+        print(f"\n{Colors.RED}[!] Provisioning Failed: {e}{Colors.END}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
