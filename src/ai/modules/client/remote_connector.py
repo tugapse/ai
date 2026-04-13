@@ -1,7 +1,8 @@
 import json
 import requests
+from typing import Any  # <--- Added this to fix the 'Any' is not defined error
 import functions as func
-from core.llms.base_llm import BaseModel, ModelParams
+from core.llms.base_llm import BaseModel
 from entities.model_enums import InferenceBackend
 
 class RemoteBrainConnector(BaseModel):
@@ -13,55 +14,59 @@ class RemoteBrainConnector(BaseModel):
         super().__init__(model_name=model_id, **kwargs)
         self.url = url.rstrip('/')
         self.model_id = model_id
-        self.inference_device = InferenceBackend.GPU_CUDA # We assume the Remote Brain is GPU-powered
+        # The Remote Brain (Main PC) is the one with the heavy lifting
+        self.inference_device = InferenceBackend.GPU_CUDA 
         
-    def chat(self, messages: list, images: list = None, stream: bool = True, options: dict = {}):
+    def check_system_prompt(self, messages: Any) -> Any:
         """
-        Sends the context to the Main PC and yields tokens as they arrive.
+        FIX: Overrides the base class normalization to allow lists to pass
+        through to the server without crashing the client.
         """
-        endpoint = f"{self.url}/v1/chat"
+        return messages
+
+    def chat(self, messages: list, images: list = None, stream: bool = False, options: dict = {}):
+        """
+        Sends context to the Main PC and yields a guaranteed STRING.
+        """
+        # 1. Skip base class normalization to prevent crashes here
+        messages = self.check_system_prompt(messages)
         
+        endpoint = f"{self.url}/v1/chat/completions"
         payload = {
-            "model_id": self.model_id,
+            "model": self.model_id, # This is our 'parameter'
             "messages": messages,
-            "system_prompt": self.system_prompt,
             "stream": stream,
-            "options": options
+            "temperature": options.get("temperature", 0.7),
+            "system_prompt":self.system_prompt,
+            "model_params":self.options
         }
 
         try:
-            # We use stream=True in requests to handle the token chunks
-            response = requests.post(endpoint, json=payload, stream=True, timeout=120)
+            response = requests.post(endpoint, json=payload, stream=False, timeout=120)
             response.raise_for_status()
-
-            for line in response.iter_lines():
-                if not line:
-                    continue
+            data = response.json()
+            
+            if "choices" in data and len(data["choices"]) > 0:
+                content = data["choices"][0]["message"]["content"]
                 
-                # Parse the NDJSON (Newline Delimited JSON) from the server
-                chunk = json.loads(line.decode('utf-8'))
+                # --- TYPE ENFORCEMENT START ---
+                # If the brain sent a list [] or any non-string, we force it to a string.
+                if not isinstance(content, str):
+                    if isinstance(content, list) and len(content) == 0:
+                        content = "... (Brain sent an empty response) ..."
+                    else:
+                        content = str(content)
                 
-                # 1. Update the local Fuel Gauge with stats from the Brain
-                if "stats" in chunk:
-                    s = chunk["stats"]
-                    self.token_info_count.prompt_count = s.get("prompt_count", 0)
-                    self.token_info_count.total_prompt_count = s.get("total_tokens", 0)
-                    self.token_info_count.printed_tokens_count = s.get("output_tokens", 0)
-                    self.token_info_count.max_context_window = s.get("window", 0)
+                # We yield the final string so your UI's normalize() sees a string
+                yield content
+                # --- TYPE ENFORCEMENT END ---
+                
+            else:
+                yield "[ ! ] Brain Error: Empty choices list."
 
-                # 2. Yield the text token to the UI
-                if "token" in chunk:
-                    yield chunk["token"]
-
-                # 3. Check for local interruption (Ctrl+C)
-                if self.stop_generation_event.is_set():
-                    func.log("Remote: Interruption detected. Signaling server...")
-                    self.request_shutdown()
-                    break
-
-        except requests.exceptions.RequestException as e:
-            func.error(f"Neural Link Lost: {e}")
-            yield f"\n[ERROR: Could not connect to Brain at {self.url}]"
+        except Exception as e:
+            # Catching the crash here and yielding a string error message
+            yield f"\n[LINK ERROR: {str(e)}]"
 
     def request_shutdown(self):
         """
@@ -69,8 +74,8 @@ class RemoteBrainConnector(BaseModel):
         """
         self.stop_generation_event.set()
         try:
+            # Matches the new /v1/shutdown route in app.py
             requests.post(f"{self.url}/v1/shutdown", timeout=5)
-            func.log("Remote Brain: Generation halted.")
         except:
             pass
         finally:
@@ -79,7 +84,7 @@ class RemoteBrainConnector(BaseModel):
     def list(self):
         """Asks the server what other brains are available."""
         try:
-            r = requests.get(f"{self.url}/models")
-            return r.json().get("models", [])
+            r = requests.get(f"{self.url}/health")
+            return [r.json().get("model", "Default Brain")]
         except:
             return []

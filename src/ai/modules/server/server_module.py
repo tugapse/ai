@@ -42,12 +42,14 @@ class JarvisServerModule(BaseModule):
 
         func.log(f"Initializing Brain Server on {self.host}:{self.port}...")
 
-        # 1. Initialize the BrainHub using the system's Orchestrator
+        # 1. Initialize the BrainHub wrapper
         self._brain_hub = BrainHub(config)
-        self._brain_hub.orchestrator = orchestrator # Tie into the existing model manager
+        self._brain_hub.orchestrator = orchestrator 
 
-        # 2. Create the FastAPI app instance
-        self._fastapi_app = create_app(self._brain_hub)
+        # 2. CREATE THE APP: Pass the actual orchestrator here!
+        # Instead of passing the hub wrapper, pass the engine directly.
+        self._fastapi_app = create_app(orchestrator)
+
 
         # 3. Setup Uvicorn config
         uvicorn_config = uvicorn.Config(
@@ -70,6 +72,7 @@ class JarvisServerModule(BaseModule):
         func.log(f"Starting Neural Link on http://{self.host}:{self.port}")
         self._server_thread = threading.Thread(target=self._uvicorn_server.run, daemon=True)
         self._server_thread.start()
+        self._server_thread.join()
 
     def get_instance(self) -> Optional[BrainHub]:
         """Returns the active BrainHub instance."""

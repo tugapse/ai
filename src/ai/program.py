@@ -42,11 +42,23 @@ class Program:
         self.active_executor = None
         self.llm_initialized = False # NEW: Flag to track LLM initialization
 
+   
     @property
-    def llm(self) -> Optional[BaseModel]:
-        # Ensure LLM is loaded only when accessed
+    def llm(self):
+        """Standard lazy-loader for the local LLM."""
         self._ensure_llm_loaded()
         return self.models.llm
+
+    @llm.setter
+    def llm(self, value):
+        """
+        NEW: Allows us to inject a Remote Link or a specific LLM instance.
+        This is what the Client Mode uses to 'become' the remote brain.
+        """
+        if self.models:
+            self.models.llm = value
+            self.llm_initialized = True
+            # func.log("Program: LLM instance injected via setter.", level="DEBUG")
 
     @property
     def model_params(self) -> dict:

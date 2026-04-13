@@ -1,60 +1,79 @@
+from color import Color
+from fastapi import FastAPI, Request, HTTPException
+from pydantic import BaseModel
+from typing import List, Optional
 import json
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import StreamingResponse
-from config import ProgramConfig
-from .brain_hub import BrainHub
-from .schemas import ChatRequest
 
-app = FastAPI(title="JARVIS Neural Server")
-config = ProgramConfig.load()
-hub = BrainHub(config)
+class ChatMessage(BaseModel):
+    role: str
+    content: str
 
-@app.get("/status")
-async def get_status():
-    return {
-        "status": "online",
-        "active_model": hub.current_model_id,
-        "token_stats": hub.get_stats()
-    }
+class ChatCompletionRequest(BaseModel):
+    messages: List[ChatMessage]
+    model: Optional[str] = None
+    system_prompt: Optional[str] = None
+    stream: Optional[bool] = False
+    temperature: Optional[float] = 0.7
 
-@app.get("/models")
-async def list_models():
-    """Lists available model configs on the Main PC."""
-    return {"models": hub.list_available_models()}
+def create_app(orchestrator):
+    app = FastAPI(title="JARVIS Neural Hub")
 
-@app.post("/v1/chat")
-async def chat_endpoint(request: ChatRequest):
-    try:
-        # Get the requested brain (swaps weights if model_id changed)
-        llm = hub.get_brain(request.model_id, request.system_prompt)
+    @app.get("/health")
+    async def health():
+        return {"status": "online", "model": getattr(orchestrator, 'model_chat_name', 'JARVIS')}
+
+    @app.post("/v1/shutdown")
+    async def shutdown():
+        return {"status": "shutdown acknowledged"}
+
+    @app.post("/v1/chat/completions")
+    @app.post("/v1/chat")
+    async def chat_completions(request: ChatCompletionRequest):
+        if not orchestrator:
+            raise HTTPException(status_code=503, detail="Orchestrator not initialized.")
+
+        # 1. NORMALIZE INPUT
+        # Strip spaces and lowercase to ensure "Default" and "default" are seen as the same
+        requested_model = (request.model or "default").strip().lower()
+        system_prompt = request.system_prompt or ""
+
+        # Use a specific attribute for tracking the LOADED config name, not the display name
+        current_model_id = getattr(orchestrator, 'active_model_id', None)
+
+        # 2. THE SMART SWAP LOGIC
+        # Only reload if:
+        # A) No LLM is currently in VRAM
+        # B) The requested model ID is different from the active one
+        if not getattr(orchestrator, 'llm', None) or current_model_id != requested_model:
+            print(f"{Color.CYAN}[!] Neural Swap Initiated: '{current_model_id}' -> '{requested_model}'{Color.RESET}")
+            try:
+                # Trigger the load
+                orchestrator.load(requested_model, system_prompt)
+                
+                # CRITICAL: Update the tracking ID so the next request knows it's already loaded
+                orchestrator.active_model_id = requested_model
+                
+            except Exception as e:
+                print(f"{Color.RED}Error loading model {requested_model}: {e}{Color.RESET}")
+                raise HTTPException(status_code=500, detail=f"Failed to load model {requested_model}")
+        else:
+            # The Brain is already warm!
+            print(f"{Color.GREEN}[ * ] Neural Link Persistent: '{requested_model}' is already active.{Color.RESET}")
+
+        # 3. PROCEED TO INFERENCE
+        formatted_messages = [{"role": m.role, "content": m.content} for m in request.messages]
         
-        async def token_generator():
-            # llm.chat returns a generator
-            for token in llm.chat(
-                messages=request.messages,
-                stream=True,
-                options=request.options or hub.orchestrator.get_params()
-            ):
-                # Send token + live stats
-                yield json.dumps({
-                    "token": token,
-                    "stats": hub.get_stats()
-                }) + "\n"
+        try:
+            # Inference logic (assuming .chat returns an iterator/list)
+            raw_output = orchestrator.llm.chat(formatted_messages, stream=True)
+            response_text = "".join([str(chunk) for chunk in raw_output if chunk])
 
-        return StreamingResponse(token_generator(), media_type="application/x-ndjson")
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/v1/unload")
-async def unload_model():
-    """Manually free up the GPU."""
-    hub.unload_brain()
-    return {"message": "GPU memory cleared."}
-
-@app.post("/v1/shutdown")
-async def emergency_stop():
-    """Stops current generation immediately."""
-    if hub.orchestrator.llm:
-        hub.orchestrator.llm.request_shutdown()
-    return {"message": "Generation stopped."}
+            return {
+                "choices": [{
+                    "message": {"role": "assistant", "content": response_text}
+                }]
+            }
+        except Exception as e:
+            print(f"{Color.RED}Inference Error: {e}{Color.RESET}")
+            raise HTTPException(status_code=500, detail=str(e))
+    return app

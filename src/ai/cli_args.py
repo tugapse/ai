@@ -66,40 +66,40 @@ class CliArgs:
 
     # --- Mode Handlers ---
 
+    # Inside cli_args.py
     def _handle_server_mode(self, prog, args):
-        """
-        Initializes the Brain Server module on the Main PC.
-        """
-        func.log(format_text("=== JARVIS NEURAL SERVER MODE ===", Color.BOLD_CYAN))
-        
-        host = getattr(args, 'host', '0.0.0.0')
-        port = getattr(args, 'port', 8000)
+        if args.server:
+            # 1. Access the orchestrator
+            orchestrator = prog.models 
+            
+            # 2. Lazy Loading Logic:
+            # If the user didn't provide --model, we DON'T call load().
+            # We let the server start with orchestrator.llm = None.
+            if args.model:
+                try:
+                    orchestrator.load(args.model)
+                except Exception as e:
+                    func.log(f"{Color.RED}[ ! ] Neural Load Failed: {e}. Starting in STANDBY.{Color.RESET}")
+            else:
+                func.log(f"{Color.CYAN}[ * ] Neural Hub: Standby Mode. Awaiting Neural Link...{Color.RESET}")
 
-        try:
-            # We load the module only when needed to keep the footprint small
-            from server.server_module import JarvisServerModule
-            
-            server_mod = JarvisServerModule(host=host, port=port)
-            server_mod.initialize(prog.config, prog.models)
-            server_mod.start()
-            
-            # Keep the main thread alive while the server runs in the background
-            import time
-            while True:
-                time.sleep(1)
-        except Exception as e:
-            func.error(f"Failed to launch Brain Server: {e}")
-            func.error(traceback.format_exc())
+            # 3. Start the server
+            from modules.server.server_module import JarvisServerModule
+            server = JarvisServerModule( 
+                host=prog.config.get("SERVER_HOST", "0.0.0.0"),
+                port=prog.config.get("SERVER_PORT", 8000))
+            server.initialize(prog.config, orchestrator)
+            server.start()
 
     def _handle_client_mode(self, prog, args):
         """
         Swaps the local LLM for a Remote Connector to use the Main PC's GPU.
         """
-        func.log(format_text("=== REMOTE BRAIN LINK ACTIVE ===", Color.BOLD_YELLOW))
+        func.log(format_text("=== REMOTE BRAIN LINK ACTIVE ===", Color.YELLOW))
         
         remote_url = args.remote
         # Replace the local LLM with the Remote Link
-        from core.llms.remote_connector import RemoteBrainConnector
+        from modules.client.remote_connector import RemoteBrainConnector
         
         # We manually inject the remote connector into the program
         prog.llm = RemoteBrainConnector(url=remote_url, model_id=args.model)

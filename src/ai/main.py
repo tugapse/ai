@@ -5,6 +5,7 @@ import argparse
 import warnings
 import logging
 import traceback
+import time
 from typing import Optional
 
 # Core imports
@@ -53,31 +54,24 @@ def hack_warnings():
     warnings.filterwarnings("ignore", category=FutureWarning)
 
 def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
-    """Defines and parses EVERY flag expected by the CliArgs processor."""
+    """Defines and parses flags for the JARVIS ecosystem."""
     parser = argparse.ArgumentParser(description=f"JARVIS AI Assistant v{__version__}")
     
-    # Architecture & Networking
     net_group = parser.add_argument_group('Distributed Architecture')
     net_group.add_argument("--server", action="store_true", help="Start Brain Server")
     net_group.add_argument("--remote", "-r", type=str, help="Connect to Remote Brain URL")
     
-    # Core Chat Args
     parser.add_argument("--msg", "-m", type=str, help="Direct question")
     parser.add_argument("--model", "-md", type=str, help="Model config")
-    
-    # --- ADDED THIS LINE ---
-    parser.add_argument("--system", "-s", type=str, help="System prompt name (template)") 
-    
-    parser.add_argument("--system-file", "-sf", type=str, help="System prompt file (direct path)")
+    parser.add_argument("--system", "-s", type=str, help="System prompt name") 
+    parser.add_argument("--system-file", "-sf", type=str, help="System prompt file")
     parser.add_argument("--list-models", "-l", action="store_true")
     
-    # File Context
     parser.add_argument("--file", "-f", type=str)
     parser.add_argument("--image", "-i", type=str)
     parser.add_argument("--load-folder", "-D", type=str)
     parser.add_argument("--ext", "-e", type=str)
     
-    # Agent & Tasks
     parser.add_argument("--task", "-t", type=str)
     parser.add_argument("--task-file", "-tf", type=str)
     parser.add_argument("--output-file", "-o", type=str)
@@ -85,7 +79,6 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     parser.add_argument("--pipeline", "-ppl", type=str)
     parser.add_argument("--session-id", type=str)
     
-    # UI & Debug
     parser.add_argument("--print-chat", "-p", type=str)
     parser.add_argument("--print-log", "-pl", action="store_true")
     parser.add_argument("--print-debug", "-pdb", action="store_true")
@@ -94,7 +87,6 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     parser.add_argument("--debug-console", "-dc", action="store_true")
     parser.add_argument("--modules", nargs="+", default=[])
     
-    # System
     parser.add_argument("--install", action="store_true")
     config_group = parser.add_argument_group('Model Config Generation')
     config_group.add_argument('--generate-config', metavar='FILENAME', type=str)
@@ -114,11 +106,12 @@ def run():
     prog = Program()
     parser, args = load_args()
     
+    # Track if we are in server mode to prevent premature exit
+    is_server = getattr(args, 'server', False)
+    
     try:
-        # 1. Load basic config
         prog.load_config(args=args) 
         
-        # 2. Debug Setup
         if getattr(args, 'debug_console', False): 
             func.ALLOW_CLEAR_CONSOLE = False
             prog.config.set(ProgramSetting.PRINT_LOG, True)
@@ -128,14 +121,20 @@ def run():
         
         cli_args_processor = CliArgs()
 
-        # 3. THE MAINTENANCE GATE (Safe Check)
-        # Using getattr prevents the 'Namespace' attribute error if a flag is missing
+        # 3. THE MAINTENANCE GATE
         maintenance_keys = ['install', 'generate_config', 'server', 'print_chat', 'list_models']
         if any(getattr(args, key, None) for key in maintenance_keys):
             cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
+            
+            # If we started the server, we enter a "Hold" pattern
+            if is_server:
+                while True:
+                    time.sleep(1) # Keep the main thread alive
+            
+            # For other maintenance tasks (install, list), we exit normally
             sys.exit(0) 
 
-        # 4. Full Initialization
+        # 4. Full Local Initialization
         prog.init_program(args)         
         
         # 5. Execution Dispatch
@@ -148,18 +147,20 @@ def run():
         prog.run()
         
     except (SystemExit, KeyboardInterrupt):
-        # Graceful exit for maintenance or Ctrl+C
-        pass
+        # Graceful handling for Ctrl+C
+        if is_server:
+            print(f"\n{Color.YELLOW}[ * ] Neural Hub shutting down...{Color.RESET}")
     except Exception as e:
         if getattr(args, 'debug_console', False):
-            import traceback
             traceback.print_exc()
         else:
             func.out(f"{Color.RED}[ ! ] Error: {e}{Color.RESET}") 
         sys.exit(1)
     finally:
         prog.shutdown()
-        os._exit(0)
+        # Only hard-exit if we aren't trying to keep the server alive
+        if not is_server:
+            os._exit(0)
 
 if __name__ == "__main__":
     sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))

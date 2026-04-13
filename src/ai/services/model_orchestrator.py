@@ -13,6 +13,7 @@ class ModelOrchestrator:
         self.llm: Optional[BaseModel] = None
         self.model_params: Dict[str, Any] = {}
         self.model_chat_name: str = "__no_chat_name__"
+        self.active_model_name:str=""
 
     def load(self, model_config_name: str, system_prompt: str) -> BaseModel:
         if not model_config_name:
@@ -20,8 +21,10 @@ class ModelOrchestrator:
             
         if not str(model_config_name).endswith(".json"):
             model_config_name = f"{model_config_name}.json"
+        
+        if model_config_name != self.active_model_name:
+            if self.llm: self.llm.request_shutdown()
             
-        # --- FIX: Fallback for NoneType folder ---
         folder = self.config.get(ProgramSetting.PATHS_MODEL_CONFIGS)
         if folder is None:
             # Fallback to local project folder if config is missing the path
