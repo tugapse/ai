@@ -1,34 +1,35 @@
-## 1. Architectural Role
-The `MessageOrchestrator` class is responsible for managing the execution flow and coordination of agents within a pipeline, handling user input, and orchestrating the interaction between agents and tools.
 
-## 2. Interface & API Surface
-| Entity | Type | Functional Responsibility |
-| :--- | :--- | :--- |
-| `MessageOrchestrator` | Class | Orchestrates the execution of agents in a pipeline, handling user input and coordinating interactions between agents and tools. |
-| `run_loop` | Method | Main execution loop that processes user prompts and orchestrates agent interactions. |
-| `_prepare_payload` | Method | Prepares the payload for sending to an agent, including user input, agent memory, and context. |
-| `_process_agent_response` | Method | Processes the response from an agent, handles tool execution, and manages agent transitions. |
-| `_handle_tool_execution` | Method | Executes a specific tool, handles authorization, and updates the context with the tool's result. |
-| `_call_specialist_worker` | Method | Calls a specialist worker to handle high-complexity tasks. |
-| `_gatekeeper` | Method | Authorizes tool execution based on user input and configuration. |
-| `_handle_agent_outputs` | Method | Handles outputs from agents, including messages to the user and updates to agent memory. |
-| `_update_stagnation_tracking` | Method | Tracks the repetition of actions to detect potential stagnation. |
-| `_validate_target` | Method | Validates the target agent for inter-agent communication. |
-| `_handle_inter_agent_messaging` | Method | Handles messaging between agents. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: The `MessageOrchestrator` class is initialized with a `connector`, `registry`, and `pipeline_config`. It sets up the initial state, including the agents, history, and context.
-- **Data Path**: User input is processed through the `run_loop`, which calls `_prepare_payload` to create a payload for the current agent. The agent's response is then processed by `_process_agent_response`, which handles tool execution and agent transitions.
-- **Conditional Branching**: Key decision points include:
-  - Determining the next agent to interact with based on the current agent's response.
-  - Handling tool execution, including authorization and calling the specialist worker for high-complexity tasks.
-  - Validating the target agent for inter-agent communication.
+## 1. Architectural Role  
+Orchestrate multi-agent pipeline execution, routing messages between agents, managing state, and executing tools via a defined configuration.  
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `os`, `copy`, `json`, `re`
-- **Internal Modules**: `functions`, `color`, `terminal_ui`, `agents.agent_tools`
-- **External Packages**: None
+## 2. Interface & API Surface  
+| Entity | Type | Functional Responsibility |  
+| :--- | :--- | :--- |  
+| `MessageOrchestrator` | Class | Central coordinator for agent message routing, state management, and tool execution. |  
+| `run_loop` | Method | Main orchestration loop for agent task execution and pipeline progression. |  
+| `_prepare_payload` | Method | Construct input payload for agents, integrating history, context, and objectives. |  
+| `_process_agent_response` | Method | Parse agent responses, handle tool execution, and determine next agent transitions. |  
+| `_handle_tool_execution` | Method | Execute tools with authorization checks and specialist interception for complex tasks. |  
+| `_gatekeeper` | Method | Prompt user for authorization on sensitive tools like `execute_command`. |  
+| `SpecialistManager` | Dependency | Manages specialist workers for high-complexity tools like file patching. |  
+| `MemoryManager` | Dependency | Tracks agent-specific messages, history, and notes. |  
+| `VectorMemory` | Dependency | Optional long-term memory store for contextual recall. |  
+| `TerminalUI` | Dependency | Provides UI feedback for status, errors, and user prompts. |  
 
-## 5. Configuration & Environment
-- **Hardcoded Constants**: `MAX_ITERATIONS`, `MANAGER_AGENT_ROLE`
-- **Environment Lookups**: None
+## 3. Execution Logic & Flow  
+- **Initialization**: Loads connector, registry, pipeline config, and initializes memory/vector memory systems.  
+- **Data Path**: User prompt  injected into entry-point agent  payload prepared with context/history  agent response parsed  response routed to next agent or user.  
+- **Conditional Branching**:  
+  - Format error detection (3 strikes  pipeline halts).  
+  - Tool authorization checks (manual prompts for `execute_command`).  
+  - Target validation (ensures transitions to allowed agents or stops).  
+
+## 4. Resource Dependencies  
+- **Standard Libraries**: `os`, `copy`, `json`  
+- **Internal Modules**: `specialist_manager`, `memory_manager`, `vector_memory`, `terminal_ui`, `functions`, `color`  
+- **External Packages**: None explicitly referenced.  
+
+## 5. Configuration & Environment  
+- **Hardcoded Constants**: `MAX_ITERATIONS=100`, `MANAGER_AGENT_ROLE="management"`  
+- **Environment Lookups**: None explicitly used in provided code.

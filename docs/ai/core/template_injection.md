@@ -1,24 +1,26 @@
-## 1. Architectural Role
-Handles the injection of templates into the system prompt based on configuration settings.
 
-## 2. Interface & API Surface
-| Entity | Type | Functional Responsibility |
-| :--- | :--- | :--- |
-| `TemplateInjection` | Class | Manages the injection of templates into the system prompt. |
-| `__init__` | Method | Initializes the `TemplateInjection` instance with system and task templates. |
-| `replace_system_template` | Method | Replaces placeholders in the system template with injected content. |
-| `_load_injection_template` | Method | Loads an injection template from a file. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: The `__init__` method sets the `system_template` and `task_template` attributes. If no `system_template` is provided, it defaults to an empty string.
-- **Data Path**: The `replace_system_template` method processes the `system_template` by replacing placeholders with content from injected templates. The `task_template` is not used in this method.
-- **Conditional Branching**: The method iterates over a list of injection templates specified in the configuration. For each template, it checks if the template file exists and replaces the corresponding placeholder in the `system_template`.
+## 1. Architectural Role  
+Injects templated content into system prompts by replacing placeholders with pre-configured template files.  
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `os`
-- **Internal Modules**: `functions`
-- **External Packages**: None
+## 2. Interface & API Surface  
+| Entity | Type | Functional Responsibility |  
+| :--- | :--- | :--- |  
+| `TemplateInjection` | Class | Manages template injection via system/task templates |  
+| `replace_system_template` | Method | Replaces placeholders in system template with injected content |  
+| `_load_injection_template` | Method | Loads template content from filesystem based on configuration |  
+| `__init__` | Method | Initializes system and task templates |  
 
-## 5. Configuration & Environment
-- **Hardcoded Constants**: None
-- **Environment Lookups**: `ProgramConfig.current.config.get("INJECT_TEMPLATES",[])` and `ProgramConfig.current.get(ProgramSetting.PATHS_INJECT_TEMPLATES)`
+## 3. Execution Logic & Flow  
+- **Initialization**: Sets `system_template` and `task_template` from constructor arguments.  
+- **Data Path**: Input (`system_template`)  Processing (placeholder replacement via `INJECT_TEMPLATES` config)  Output (modified system template).  
+- **Conditional Branching**: Checks if template file exists via `os.path.exists` before loading.  
+
+## 4. Resource Dependencies  
+- **Standard Libraries**: `os`, `functions`  
+- **Internal Modules**: `config.ProgramConfig`, `config.ProgramSetting`  
+- **External Packages**: None  
+
+## 5. Configuration & Environment  
+- **Hardcoded Constants**: `INJECT_TEMPLATES` (key in `ProgramConfig.current.config`).  
+- **Environment Lookups**: `ProgramSetting.PATHS_INJECT_TEMPLATES` (directory path for templates).

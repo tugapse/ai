@@ -7,7 +7,7 @@ import argparse
 import os
 import sys
 import json
-
+import uuid
 from model_config_manager import ModelConfigManager
 from config import ProgramConfig, ProgramSetting # Now using ProgramSetting as a class of string constants
 from core.chat import ChatRoles
@@ -37,6 +37,12 @@ class CliArgs:
         """
         # Centralized handling of config generation. This will exit if called.
         self._handle_config_generation(prog, args, args_parser) 
+
+        # If agent mode is specified, it's the primary action and will not fall through.
+        if args.agent:
+            self._handle_agent_mode(prog, args)
+            os._exit(0) # Hard exit after agent is done.
+
         self._is_install(args)
         
         # Non-exiting actions
@@ -136,6 +142,50 @@ class CliArgs:
 
             reader = ConsoleChatReader(json_filename)
             reader.load()
+            sys.exit(0)
+
+    def _handle_agent_mode(self, prog, args):
+        """Handles the execution of the agent pipeline."""
+        user_input = args.task or args.msg
+        if not sys.stdin.isatty():
+            piped_input = sys.stdin.read().strip()
+            if piped_input:
+                user_input = piped_input
+
+        if not user_input:
+            func.error("Agent mode requires a prompt. Use --msg, --task, or pipe input.")
+            sys.exit(1)
+
+        pipeline_path = args.pipeline or "pipelines/pipeline.json"
+        pipeline_config = load_pipeline_config(prog, pipeline_path)
+
+        if not pipeline_config:
+            func.error("Failed to load pipeline config. Aborting.")
+            sys.exit(1)
+
+        connector = LLMConnector(prog.llm)
+        
+        registry = ToolRegistry()
+        for name, tool_ref in agent_tools.AVAILABLE_TOOLS.items():
+            registry.register_tool(name, tool_ref)
+       
+        session_id = args.session_id or str(uuid.uuid4())
+        func.log(f"Using agent session: {session_id}")
+
+        orchestrator = MessageOrchestrator(
+            connector=connector, 
+            registry=registry, 
+            pipeline_config=pipeline_config,
+            module_registry=prog.modules
+        )
+        
+        try:
+            orchestrator.run_loop(user_prompt=user_input, session_id=session_id)
+        except Exception as e:
+            func.error(f"Orchestrator encountered an error: {e}")
+            import traceback
+            func.error(traceback.format_exc())
+        finally:
             sys.exit(0)
     
     def _is_install(self, args):
@@ -237,7 +287,6 @@ class CliArgs:
             
     def _has_message(self, prog, args):
         piped = False
-        has_agent = args.agent
         user_input = args.task or args.msg
 
 
@@ -263,50 +312,14 @@ class CliArgs:
         if piped or (user_input is not None and user_input.strip() != "" ):
             
             func.log("INFO: Detected message/task input. Starting direct ask.")
-            if has_agent:
-                
-                pipeline_path = args.pipeline or "pipelines/pipeline.json"
-                pipeline_config = load_pipeline_config(prog, pipeline_path)
-
-                if not pipeline_config:
-                    func.error("Failed to load pipeline config. Aborting.")
-                    sys.exit(1)
-
-                connector = LLMConnector(prog.llm)
-                
-                # Initialize the Registry and register your tools
-                registry = ToolRegistry()
-                for name, tool_ref in agent_tools.AVAILABLE_TOOLS.items():
-                    registry.register_tool(name, tool_ref)
-
-                orchestrator = MessageOrchestrator(
-                    connector=connector, 
-                    registry=registry, 
-                    pipeline_config=pipeline_config
-                )
-                
-                if not user_input:
-                    func.error("Agent task requires a prompt. Use --msg THE_MESSAGE --agents (--pipeline PATH_TO_PIPELINE) defaults to 'pipelines/pipeline.json'")
-                    sys.exit(1)
-
-                try:
-                    orchestrator.run_loop(user_input)
-                except Exception as e:
-                    func.error(f"Orchestrator encountered an error: {e}")
-                    import traceback
-                    func.error(traceback.format_exc())
-                
-                # Exit after completion to prevent falling into the standard chat loop
-                sys.exit(0)
-            else:
-                ask(
-                    prog.llm,
-                    prog.chat.messages, 
-                    write_to_file=prog.write_to_file,
-                    output_filename=prog.output_filename,
-                    hide_think_anim=args.no_think_anim,
-                    print_output=args.no_out != True
-                )
+            ask(
+                prog.llm,
+                prog.chat.messages, 
+                write_to_file=prog.write_to_file,
+                output_filename=prog.output_filename,
+                hide_think_anim=args.no_think_anim,
+                print_output=args.no_out != True
+            )
             # [CRITICAL] Use os._exit(0) for a hard exit to prevent C-level segfaults
             # from llama_cpp during the standard Python cleanup process.
             os._exit(0)

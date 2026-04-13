@@ -118,6 +118,17 @@ class HuggingFaceModel(BaseModel):
         load_kwargs = {"trust_remote_code": True}
         tokenizer_kwargs = {"trust_remote_code": True}
 
+        # Workaround for older transformers versions with Gemma tokenizers.
+        # The Gemma tokenizer can default `additional_special_tokens` to a list,
+        # but the base class in some library versions expects a dict, causing an
+        # AttributeError. Passing an empty list avoids this problematic default.
+        # The main special tokens (pad, eos, bos) are handled separately.
+        # The proper long-term fix is to upgrade the `transformers` library.
+        if "gemma" in self.model_name.lower():
+            tokenizer_kwargs["additional_special_tokens"] = []
+            functions.debug("Applied workaround for Gemma tokenizer compatibility.")
+
+
         quantization_config = None
         if self.quantization_bits in [4, 8]:
             try:

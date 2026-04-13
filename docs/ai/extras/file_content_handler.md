@@ -1,36 +1,31 @@
-## 1. Architectural Role
-Handles the detection and extraction of file content enclosed within `<file>...</file>` tags from an LLM's token stream, and saves the extracted file content to disk.
 
-## 2. Interface & API Surface
-| Entity | Type | Functional Responsibility |
-| :--- | :--- | :--- |
-| `FileContentHandler` | Class | Manages the detection and extraction of file content from an LLM's token stream, and saves the extracted file content to disk. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: 
-  - Initializes the `FileContentHandler` with optional `ThinkingLogManager` and `output_base_dir`.
-  - Sets up regular expressions for detecting file start and end tags, and control characters.
-  - Maps MIME types to file extensions.
-  - Creates the `output_base_dir` if specified.
-- **Data Path**:
-  - Accumulates token strings in `_token_accumulation_buffer`.
-  - Cleans the buffer of control characters.
-  - Searches for file start and end tags.
-  - If a file start tag is found, sets `_is_active` to `True` and starts accumulating content.
-  - If a file end tag is found, processes the accumulated content, determines the file name and extension, saves the file, and resets the state.
-  - If no tags are found, returns the token content for display.
-- **Conditional Branching**:
-  - Checks if the current state is inside a file content block (`_is_active`).
-  - Determines if a file start or end tag is present in the buffer.
-  - Handles the extraction and saving of file content.
+## 1. Architectural Role  
+Handles extraction and saving of file content from LLM token streams within <file> tags to a specified output directory.  
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `os`, `re`
-- **Internal Modules**: `functions` (aliased as `func`)
-- **External Packages**: None
+## 2. Interface & API Surface  
+| Entity | Type | Functional Responsibility |  
+| :--- | :--- | :--- |  
+| `FileContentHandler` | Class | Processes LLM tokens to extract and save file content enclosed in <file> tags. |  
+| `process_token` | Method | Parses raw tokens, accumulates file content, and suppresses output during file processing. |  
+| `save_file` | Method | Writes extracted file content to disk using configured output directory. |  
 
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-  - `end_file_string`: "[FILE_END]"
-  - `MIME_TYPE_TO_EXT`: Dictionary mapping MIME types to file extensions.
-- **Environment Lookups**: None
+## 3. Execution Logic & Flow  
+- **Initialization**: Sets `_is_active` to False, initializes buffer and metadata, creates output directory if provided.  
+- **Data Path**: Raw tokens  cleaned buffer  tag detection  content accumulation  file save on closing tag.  
+- **Conditional Branching**:  
+  - Checks for `</file>` tag to finalize file saving.  
+  - Detects `<file>` tag to start content accumulation.  
+  - Determines file extension via MIME type mapping or attribute defaults.  
+  - Handles fragmented tags across tokens via `_token_accumulation_buffer`.  
+
+## 4. Resource Dependencies  
+- **Standard Libraries**: `re`, `os`, `functions`.  
+- **Internal Modules**: `extras.thinking_log_manager.ThinkingLogManager`.  
+- **External Packages**: None.  
+
+## 5. Configuration & Environment  
+- **Hardcoded Constants**:  
+  - `MIME_TYPE_TO_EXT` mapping for MIME type  extension.  
+  - Regex patterns for tag detection and control character cleaning.  
+- **Environment Lookups**: None.

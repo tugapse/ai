@@ -1,33 +1,41 @@
-## 1. Architectural Role
-Manages the creation, loading, and saving of model configuration files, and handles the instantiation of model objects with environment checks.
 
-## 2. Interface & API Surface
-| Entity | Type | Functional Responsibility |
-| :--- | :--- | :--- |
-| `ModelManager` | Class | Manages model configuration and instantiation. |
-| `is_engine_installed` | Static Method | Checks if a model engine is installed. |
-| `generate_default_config` | Static Method | Generates a default model configuration. |
-| `load_config` | Static Method | Loads a model configuration file. |
-| `save_config` | Static Method | Saves a model configuration to a file. |
-| `load_model_instance` | Static Method | Loads and instantiates an LLM model based on the provided configuration. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: No explicit initialization.
-- **Data Path**:
-  1. `is_engine_installed`: Checks if a model engine is installed by reading `installed_engines.json`.
-  2. `generate_default_config`: Generates a default model configuration dictionary.
-  3. `load_config`: Loads and parses a JSON model configuration file.
-  4. `save_config`: Saves a model configuration dictionary to a JSON file.
-  5. `load_model_instance`: Loads and instantiates an LLM model based on the provided model configuration dictionary.
-- **Conditional Branching**:
-  - `is_engine_installed`: Checks for the existence of `installed_engines.json` and maps `ModelType` to JSON IDs.
-  - `load_model_instance`: Determines the model type and instantiates the corresponding model class.
+## 1. Architectural Role  
+Manages model configuration lifecycle and engine installation verification to instantiate LLM models based on type and properties.  
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `os`, `json`, `sys`, `typing`
-- **Internal Modules**: `functions`, `entities.model_enums`, `core.llms.base_llm`
-- **External Packages**: `colorama`
+## 2. Interface & API Surface  
+| Entity | Type | Functional Responsibility |  
+| :--- | :--- | :--- |  
+| `ModelManager` | Class | Central hub for model configuration management and engine validation |  
+| `is_engine_installed` | Static Method | Checks if a model engine is installed by querying `installed_engines.json` |  
+| `generate_default_config` | Static Method | Creates default model configuration dictionaries for specified types |  
+| `load_config` | Static Method | Parses and validates JSON model configuration files |  
+| `save_config` | Static Method | Serializes model configuration dictionaries to JSON files |  
+| `load_model_instance` | Static Method | Instantiates LLM models based on configuration, type, and system prompts |  
 
-## 5. Configuration & Environment
-- **Hardcoded Constants**: `mapping` dictionary for `ModelType` to JSON IDs.
-- **Environment Lookups**: None
+## 3. Execution Logic & Flow  
+- **Initialization**: No explicit initialization; static methods are called directly.  
+- **Data Path**:  
+  1. `is_engine_installed` reads `installed_engines.json` to validate engine presence.  
+  2. `load_config` parses JSON files into dictionaries for model properties.  
+  3. `load_model_instance` maps model_type to LLM classes (HuggingFaceModel, T5Model, etc.), applies parameters, and instantiates objects.  
+- **Conditional Branching**:  
+  - Checks `model_type` to select appropriate LLM class.  
+  - Validates engine installation via `installed_engines.json` before instantiation.  
+  - Handles `quantization_bits`, `gguf_filename`, and vertex-specific logic for Gemini.  
+
+## 4. Resource Dependencies  
+- **Standard Libraries**: `os`, `json`, `sys`, `ctypes`  
+- **Internal Modules**:  
+  - `core.llms.base_llm` (BaseModel, ModelParams)  
+  - `entities.model_enums` (ModelType, EngineType)  
+  - `functions` (func.error, func.log)  
+- **External Packages**: `colorama` (via `color` module)  
+
+## 5. Configuration & Environment  
+- **Hardcoded Constants**:  
+  - `ModelType` to JSON ID mapping in `is_engine_installed`.  
+  - Default model properties in `generate_default_config`.  
+- **Environment Lookups**:  
+  - `installed_engines.json` file path derived from `__file__`.  
+  - `system_prompt` and `model_params` from input arguments.

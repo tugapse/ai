@@ -1,33 +1,42 @@
-## 1. Architectural Role
-This file provides the command-line interface (CLI) arguments parsing and processing for an AI system, allowing users to interact with the AI through various commands and options.
 
-## 2. Interface & API Surface
-| Entity | Type | Functional Responsibility |
-| :--- | :--- | :--- |
-| `CliArgs` | Class | Parses CLI arguments and executes corresponding actions. |
-| `parse_args` | Method | Parses CLI arguments and handles different actions based on the provided flags. |
-| `_handle_config_generation` | Method | Handles the generation of model configuration files. |
-| `_is_print_chat` | Method | Reads and prints chat logs from a JSON file. |
-| `_is_install` | Method | Installs AI engines using a script. |
-| `_is_list_models` | Method | Lists available models using an external command. |
-| `_has_output_files` | Method | Sets the output file for the AI's responses. |
-| `_has_folder` | Method | Loads files from a specified folder into the AI's chat. |
-| `_has_file` | Method | Loads a single file into the AI's chat. |
-| `_has_image` | Method | Loads image files into the AI's chat. |
-| `_has_task_file` | Method | Loads a task file into the AI's chat. |
-| `_has_task` | Method | Loads a task template into the AI's chat. |
-| `_has_message` | Method | Handles user input and processes it through the AI's pipeline. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: The `CliArgs` class is initialized with no specific state.
-- **Data Path**: The primary data path is the CLI arguments passed to the `parse_args` method. These arguments are then processed and actions are executed based on the flags provided.
-- **Conditional Branching**: Key decision points include checking for specific flags like `--generate-config`, `--print-chat`, `--install`, etc., and handling different types of input (files, images, messages, etc.).
+## 1. Architectural Role  
+CLI argument parsing and execution dispatch for AI system commands, including config generation, agent pipelines, and file/task processing.  
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `argparse`, `os`, `sys`, `json`
-- **Internal Modules**: `model_config_manager`, `config`, `core.chat`, `core.llms.base_llm`, `entities.model_enums`, `color`, `direct`
-- **External Packages**: None
+## 2. Interface & API Surface  
+| Entity | Type | Functional Responsibility |  
+| :--- | :--- | :--- |  
+| `CliArgs` | Class | Central CLI argument parser and executor |  
+| `parse_args` | Method | Main entry point for CLI argument parsing and action dispatch |  
+| `_handle_config_generation` | Method | Generates model config files on demand |  
+| `_is_print_chat` | Method | Loads and displays chat history from files |  
+| `_handle_agent_mode` | Method | Executes agent pipeline with user input |  
+| `_is_install` | Method | Invokes engine installation script |  
+| `_is_list_models` | Method | Lists available models via Ollama CLI |  
+| `_has_output_files` | Method | Sets output file configuration |  
+| `_has_folder` | Method | Loads files from a directory into chat context |  
+| `_has_file` | Method | Loads specified files into chat context |  
+| `_has_image` | Method | Adds images to chat context |  
+| `_has_task_file` | Method | Loads task templates into chat |  
+| `_has_task` | Method | Executes task templates from configured paths |  
+| `_has_message` | Method | Processes piped or direct user input |  
 
-## 5. Configuration & Environment
-- **Hardcoded Constants**: `ProgramSetting.PATHS_MODEL_CONFIGS`, `ProgramSetting.PATHS_TASKS_TEMPLATES`
-- **Environment Lookups**: None
+## 3. Execution Logic & Flow  
+- **Initialization**: Class loaded with no instance-specific state; methods are called via `parse_args`  
+- **Data Path**: CLI args  `parse_args`  conditional method dispatch (e.g., `args.agent`  `_handle_agent_mode`)  action execution (e.g., pipeline orchestration, file loading)  
+- **Conditional Branching**:  
+  - `args.generate_config`  config generation  
+  - `args.agent`  agent pipeline execution  
+  - `args.install`  engine installation script  
+  - `args.list_models`  Ollama CLI invocation  
+  - `args.file`, `args.folder`, `args.image`  file loading into chat context  
+  - `args.task`, `args.task_file`  task template processing  
+
+## 4. Resource Dependencies  
+- **Standard Libraries**: `argparse`, `os`, `sys`, `json`, `uuid`, `pathlib`, `subprocess`  
+- **Internal Modules**: `agents.vector_memory`, `model_config_manager`, `config`, `core.chat`, `core.llms.base_llm`, `entities.model_enums`, `direct`, `agents.agent_tools`, `functions`  
+- **External Packages**: None explicitly listed  
+
+## 5. Configuration & Environment  
+- **Hardcoded Constants**: `ProgramSetting` class constants (e.g., `PATHS_MODEL_CONFIGS`, `PATHS_TASKS_TEMPLATES`)  
+- **Environment Lookups**: None directly used in provided code

@@ -1,26 +1,26 @@
-## 1. Architectural Role
-Direct exports only; no internal logic flow.
 
-## 2. Interface & API Surface
-| Entity | Type | Functional Responsibility |
-| :--- | :--- | :--- |
-| `console` | Module | Provides functions for console interaction. |
-| `file_content_handler` | Module | Handles operations related to file content. |
-| `output_printer` | Module | Manages the printing of output. |
-| `think_parser` | Module | Parses thinking-related data. |
-| `thinking_log_manager` | Module | Manages logs related to thinking processes. |
-| `handler_manager` | Module | Manages various handlers for different functionalities. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: No internal initialization occurs.
-- **Data Path**: No data transformation occurs.
-- **Conditional Branching**: No conditional branching occurs.
+## 1. Architectural Role  
+Aggregates and exposes utility modules under the `extras` package for application-wide access to console operations, file handling, output rendering, parsing, logging, and handler management.  
 
-## 4. Resource Dependencies
-- **Standard Libraries**: None
-- **Internal Modules**: `ai.extras.console`, `ai.extras.file_content_handler`, `ai.extras.output_printer`, `ai.extras.think_parser`, `ai.extras.thinking_log_manager`, `ai.extras.handler_manager`
-- **External Packages**: None
+## 2. Interface & API Surface  
+| Entity | Type | Functional Responsibility |  
+| :--- | :--- | :--- |  
+| `console` | Module | Provides console-related utilities for input/output operations. |  
+| `file_content_handler` | Module | Handles file content parsing, reading, and manipulation. |  
+| `output_printer` | Module | Manages formatted output generation and rendering. |  
+| `think_parser` | Module | Parses and processes structured thinking or reasoning data. |  
+| `thinking_log_manager` | Module | Manages logging and tracking of thinking/decision-making processes. |  
+| `handler_manager` | Module | Coordinates and executes handler-based workflows for specific tasks. |  
 
-## 5. Configuration & Environment
-- **Hardcoded Constants**: None
+## 3. Execution Logic & Flow  
+Direct exports only; no internal logic flow.  
+
+## 4. Resource Dependencies  
+- **Standard Libraries**: None  
+- **Internal Modules**: `console`, `file_content_handler`, `output_printer`, `think_parser`, `thinking_log_manager`, `handler_manager`  
+- **External Packages**: None  
+
+## 5. Configuration & Environment  
+- **Hardcoded Constants**: None  
 - **Environment Lookups**: None

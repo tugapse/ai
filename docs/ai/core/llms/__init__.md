@@ -1,21 +1,23 @@
-## 1. Architectural Role
-Handles the lazy-loading of specific model classes within the AI core, avoiding CUDA context collisions.
 
-## 2. Interface & API Surface
-| Entity | Type | Functional Responsibility |
-| :--- | :--- | :--- |
-| `ModelManager` | Class | Manages the lazy-loading of specific model classes, ensuring that only the selected model is loaded and initialized. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: The `ModelManager` class is initialized with no internal state set.
-- **Data Path**: The primary transformation of data involves determining which model to load based on user selection.
-- **Conditional Branching**: The key decision point is whether to load a PyTorch-based model or a GGUF model.
+## 1. Architectural Role  
+Prevents CUDA context collisions by lazy-loading PyTorch-based models via ModelManager, ensuring GGUF models are not loaded when irrelevant.  
 
-## 4. Resource Dependencies
-- **Standard Libraries**: None
-- **Internal Modules**: None
-- **External Packages**: None
+## 2. Interface & API Surface  
+| Entity | Type | Functional Responsibility |  
+| :--- | :--- | :--- |  
+| `ModelManager` | Class | Manages lazy-loading of model classes to avoid CUDA initialization conflicts |  
 
-## 5. Configuration & Environment
-- **Hardcoded Constants**: None
+## 3. Execution Logic & Flow  
+- **Initialization**: File loaded as part of package initialization; no code execution occurs.  
+- **Data Path**: N/A  
+- **Conditional Branching**: N/A  
+
+## 4. Resource Dependencies  
+- **Standard Libraries**: None  
+- **Internal Modules**: `services/model_manager` (indirectly referenced)  
+- **External Packages**: None  
+
+## 5. Configuration & Environment  
+- **Hardcoded Constants**: None  
 - **Environment Lookups**: None

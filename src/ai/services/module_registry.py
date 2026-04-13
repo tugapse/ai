@@ -15,7 +15,8 @@ class ModuleRegistry:
         
         # Manifest of available module loaders
         self._manifest = {
-            "voice": self._load_voice_logic
+            "voice": self._load_voice_logic,
+            "vector_memory": self._load_vector_memory_logic
         }
 
     def __getitem__(self, key: str) -> Optional[Any]:
@@ -23,12 +24,8 @@ class ModuleRegistry:
         return self._active_modules.get(key)
 
     def load_all(self):
-        # The manifest tells the registry what modules are available to be loaded
-        manifest = {
-            "voice": self._load_voice_logic
-        }
-
-        for mod_name, loader_func in manifest.items():
+        """Loads all modules specified as enabled in the configuration."""
+        for mod_name, loader_func in self._manifest.items():
             config_key = f"{mod_name.upper()}_ENABLED"
             
             # Check the config object passed during __init__
@@ -39,8 +36,7 @@ class ModuleRegistry:
                     self._active_modules[mod_name] = instance
             else:
                 # This is what you were seeing before
-                func.log(f"ModuleRegistry: Skipping '{mod_name}' (Not requested).", level="DEBUG")
-
+                func.debug(f"ModuleRegistry: Skipping '{mod_name}' (Not requested).")
 
     def load_module(self, name: str) -> Optional[Any]:
         """Public API to dynamically turn on a module."""
@@ -88,6 +84,37 @@ class ModuleRegistry:
         voice = VibeVoiceModule() 
         voice.preload() 
         return voice
+
+    def _load_vector_memory_logic(self):
+        """
+        The specific steps to boot the VectorMemoryModule.
+        This loads a wrapper that must be initialized later with session-specific
+        context (session_id, llm_connector).
+        """
+        import os
+
+        if not ModelManager.is_engine_installed(EngineType.VECTOR_MEMORY):
+            func.log("Vector Memory module not found. Run --install.", level="ERROR")
+            return None
+
+        # Using string keys as ProgramSetting enum is not available in context.
+        db_path = self.config.get("VECTOR_DB_PATH") or func.get_root_directory() + "/databases"
+         
+        
+        kwargs = {
+            "recency_weight": self.config.get("VECTOR_RECENCY_WEIGHT", 1.0),
+            "importance_weight": self.config.get("VECTOR_IMPORTANCE_WEIGHT", 1.0),
+            "relevance_weight": self.config.get("VECTOR_RELEVANCE_WEIGHT", 1.0),
+        }
+
+        try:
+            from modules.memory.vector_memory_module import VectorMemoryModule
+            memory_module = VectorMemoryModule(db_path=db_path, **kwargs)
+            func.log("VectorMemoryModule loaded (pending initialization).")
+            return memory_module
+        except ImportError as e:
+            func.error(f"Failed to import VectorMemoryModule. Ensure it exists at 'modules/memory/vector_memory_module.py'. Error: {e}", level="ERROR")
+            return None
 
     def get_voice(self):
         """Legacy support for existing code."""

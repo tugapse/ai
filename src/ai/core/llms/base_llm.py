@@ -3,7 +3,22 @@ import threading
 import functions
 from entities.model_enums import InferenceBackend
 
-
+class TokenCountInfo:
+    def __init__(self) -> None:
+        self.prompt_count = 0
+        self.max_context_window = 0
+        self.max_output_tokens = 0
+        self.total_prompt_count = 0 
+        self.printed_tokens_count = 0
+    
+    def get_log_string(self) -> str:
+        """Returns a condensed 'fuel gauge' of the current token state."""
+        # Calculate usage percentage for the log
+        usage = (self.prompt_count / self.max_context_window * 100) if self.max_context_window > 0 else 0
+        return (
+            f"Tokens: [P: {self.prompt_count} | T: {self.total_prompt_count} | Out: {self.printed_tokens_count}] "
+            f"Window: {self.max_context_window} ({usage:.1f}%)"
+        )
 class BaseModel:
     CONTEXT_WINDOW_SMALL = 2048
     CONTEXT_WINDOW_MEDIUM = 4096
@@ -14,16 +29,20 @@ class BaseModel:
 
     STREAMING_FINISHED_EVENT = "streaming_finished"
 
-    def __init__(self, model_name, system_prompt=None,**kargs):
+    def __init__(self, model_name, system_prompt=None, override_system_by_user_template=False, **kargs):
         self.model_name = model_name
         self.system_prompt = system_prompt
         self.listeners = {} # For event handling
         self.options = {} # Default options
         self.tokenizer = None
+        self.override_system_by_user_template = override_system_by_user_template
+        
         # Common attributes for graceful interruption
         self.stop_generation_event = threading.Event()
         self._generation_thread = None # Placeholder for potential background thread
         self.inference_device = InferenceBackend.CPU # Default to CPU, lazy-load torch for GPU check
+        self.token_info_count = TokenCountInfo()
+
 
     def init_pytorch_cuda(self):
         try:
@@ -114,9 +133,19 @@ class BaseModel:
         """
         Ensures the system prompt is at the beginning of the messages list.
         """
-        if self.system_prompt and not any(msg['role'] == 'system' for msg in messages):
-            # Use create_message for consistency
-            return [BaseModel.create_message("system", self.system_prompt)] + messages
+        prompt_exists = any(
+            msg['content'] == self.system_prompt and msg['role'] in ["system", "user"] 
+            for msg in messages
+        )
+
+        if self.system_prompt and not prompt_exists:
+            messages = [BaseModel.create_message("system", self.system_prompt)] + messages
+
+        if self.override_system_by_user_template:
+            for msg in messages:
+                if msg['role'] == "system":
+                    msg['role'] = "user"
+
         return messages
 
     def load_images(self, images: list):
@@ -170,6 +199,15 @@ class BaseModel:
             except ImportError:
                 functions.log("PyTorch not available, cannot clear CUDA cache.")
         gc.collect()
+    
+    def getTokenCount(self,**kargs):
+        functions.debug("Implement getPromptTokens method in subclass")
+        return self.token_info_count
+    
+    def request_shutdown(self):
+        self.stop_generation_event.set()
+        self.join_generation_thread()
+        self.clean_cache()
         
 class ModelParams:
     """
@@ -205,6 +243,5 @@ class ModelParams:
             "frequency_penalty":self.frequency_penalty,
             "use_system_prompt":self.use_system_prompt
         }
-
-
+    
 
