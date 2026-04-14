@@ -163,12 +163,14 @@ class MessageOrchestrator:
         tool_name, params, target = action.get("tool_name"), action.get("tool_parameters", {}), str(action.get("agent_target", "")).strip().upper()
         
         # Sync reflections and communications to LTM
-        if self.vector_memory:
-            if msg := response.get("response_to_user"):
-                TerminalUI.message(agent, msg)
-                self.vector_memory.add_memory(msg, agent, "communication")
-            if thought := response.get("thought"):
-                self.vector_memory.add_memory(thought, agent, "thought")
+        msg = response.get("response_to_user", "")
+        if thought := response.get("thought"):
+            if self.vector_memory: self.vector_memory.add_memory(thought, agent, "thought")
+            if len(msg) == 0: msg = thought
+        
+        if msg:
+            if self.vector_memory: self.vector_memory.add_memory(msg, agent, "communication")
+            TerminalUI.message(agent, msg)
 
         self.memory.update_agent_history_and_notes(agent, response)
         self.memory.check_stagnation(tool_name, params)
@@ -224,7 +226,7 @@ class MessageOrchestrator:
             self.vector_memory = mod.get_instance()
         func.log(f"VectorMemory: {'CONNECTED' if self.vector_memory else 'DISABLED'}")
 
-    def _format_recent_outcomes(self, outcomes: list) -> list:
+    def _format_recent_outcomes(self, outcomes: list, length=3000) -> list:
         """
         Truncates large tool outputs to protect the LLM context window.
         Safe evaluation to avoid UnboundLocalError.
@@ -235,8 +237,8 @@ class MessageOrchestrator:
             raw_str = json.dumps(o["result"])
             
             # Then, perform the truncation logic
-            if len(raw_str) > 1500:
-                final_res = raw_str[:1500] + "... [TRUNCATED]"
+            if len(raw_str) > length:
+                final_res = raw_str[:length] + "... [TRUNCATED]"
             else:
                 final_res = raw_str
                 

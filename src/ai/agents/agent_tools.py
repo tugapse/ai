@@ -126,6 +126,9 @@ def _ensure_list(input_val: Any) -> List[str]:
         return input_val
     if isinstance(input_val, str):
         cleaned = input_val.strip()
+        if cleaned.startswith("'") and cleaned.endswith("'"): #dirty hack
+            cleaned = cleaned[1:-1]
+            func.debug("Hacked '_ensure_list' input, has 2 extra ' characters.", level="DEBUG")
         if cleaned.startswith("[") and cleaned.endswith("]"):
             try:
                 return json.loads(cleaned)
@@ -185,7 +188,7 @@ def read_file(**kwargs) -> Dict[str, Any]:
     Retrieves the full UTF-8 text content of one or more specific files.
     Parameters:
       - paths: List of relative or @ROOT paths to the files (e.g., ['main.py', 'config.json']).
-               If only one file is needed, use a list with one element [path].
+               If only one file is needed, use a list with one element [file.ext].
     """
     try:
         # Extract path(s) and force into a standard list format

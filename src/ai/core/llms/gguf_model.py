@@ -95,6 +95,7 @@ class GGUFImageLLM(BaseModel):
     def _generate_in_thread(self, messages: List[Dict[str, str]], gen_options: dict, output_queue: queue.Queue):
         """Threaded generation using internal Chat API."""
         functions.debug("[GGUF Engine] Stream thread started.")
+        
         output_token_count = 0
         
         try:
@@ -119,9 +120,13 @@ class GGUFImageLLM(BaseModel):
                     output_token_count += 1
                     output_queue.put(delta)
                 self.token_info_count.printed_tokens_count = output_token_count
+            
+            self._update_token_metrics(messages, gen_options)
+    
             output_queue.put(None)
             self.trigger(BaseModel.STREAMING_FINISHED_EVENT, full_response)
-            functions.log(self.token_info_count.get_log_string(), level="INFO")
+
+            functions.log(f"{Color.NORMAL_BLACK}{Color.BG_BRIGHT_WHITE}{self.token_info_count.get_log_string()}{Color.RESET}", level="INFO")
             functions.debug(f"[GGUF Engine] Stream finished normally. Total chunks/tokens generated: {output_token_count}")
             
         except Exception as e:
@@ -133,8 +138,36 @@ class GGUFImageLLM(BaseModel):
             output_queue.put(None)
 
         finally:
-            self.stop_generation_event.clear()
+            self.stop_generation_event.clear() 
 
+    def _update_token_metrics(self, messages: List[Dict[str, str]], gen_options: dict):
+        """
+        Populates the token_info_count object with current session and prompt data.
+        """
+        self.token_info_count.max_context_window = self._n_ctx
+        self.token_info_count.max_output_tokens = gen_options.get("max_new_tokens", 1024)
+        
+        current_prompt_count = self.get_message_tokens(messages)
+        
+        self.token_info_count.prompt_count = current_prompt_count
+        self.token_info_count.total_prompt_count = current_prompt_count + self.token_info_count.printed_tokens_count
+        
+        functions.debug(f"[GGUF Engine] Metrics Updated: {self.token_info_count.get_log_string()}")
+
+
+    def get_message_tokens(self, messages: List[Dict[str, str]]) -> int:
+        """Accurately counts tokens including chat template overhead."""
+        try:
+            full_content = ""
+            for msg in messages:
+                full_content += f"{msg['role']}\n{msg['content']}\n"
+            
+            tokens = self.llama_model.tokenize(full_content.encode('utf-8'))
+            return len(tokens)
+        except Exception as e:
+            functions.debug(f"[GGUF Engine] Tokenization failed: {e}")
+            return sum(len(m['content']) for m in messages) // 4
+    
     def chat(self, messages: list, images: list = None, stream: bool = True, options: dict = {}):
         if not self.llama_model:
             functions.error("[GGUF Engine] Attempted to chat but model is not loaded.")
@@ -152,6 +185,8 @@ class GGUFImageLLM(BaseModel):
                         break
 
         messages = self.check_system_prompt(messages)
+        self._update_token_metrics(messages, options)
+
         
         # Merge options
         current_options = self.options.copy()
