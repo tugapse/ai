@@ -43,7 +43,7 @@ class MessageOrchestrator:
             "generate_doc": "Technical Writer. Deep-dive documentation."
         }
         self.specialist_manager = SpecialistManager(self.connector, specialist_cfg)
-        self.context_sentinel = ContextSentinel(self.connector, threshold=0.6, max_tokens=20000)
+        self.context_sentinel = ContextSentinel(self.connector, threshold=0.6, max_tokens=600000)
 
         # Memory State
         self.memory = MemoryManager(list(self.agents.keys()))

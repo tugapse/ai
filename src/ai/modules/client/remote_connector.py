@@ -42,8 +42,9 @@ class RemoteBrainConnector(BaseModel):
                 # iter_lines() reads the response chunk by chunk as it arrives
                 for line in response.iter_lines():
                     if line:
+
                         decoded_line = line.decode('utf-8')
-                        
+                        func.log(decoded_line, level="WARN")
                         # Parse standard SSE format
                         if decoded_line.startswith("data: "):
                             data_str = decoded_line[6:] # Strip 'data: ' prefix
