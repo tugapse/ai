@@ -20,6 +20,9 @@ class ConfigApplier:
         """
         if not args:
             return
+        
+        if args.override_config:
+            config.set(ProgramSetting.OVERRIDE_CONFIG, args.override_config)
 
         if args.model:
             config.set(ProgramSetting.MODEL_CONFIG_NAME, args.model)

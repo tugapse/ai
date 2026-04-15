@@ -2,7 +2,11 @@ from color import Color, pformat_text
 import os
 from pathlib import Path
 import sys
-import glob  # Import glob for get_files
+import platform
+import sys
+import socket
+import getpass
+import datetime
 
 from core.context_file import ContextFile
 from core.template_injection import TemplateInjection
@@ -18,6 +22,26 @@ LOCK_DEBUG = True  # This variable needs to be accessible globally for logging c
 ACTIVE_LOG_FILENAME = None
 SESSION_LOG_FILENAME = None
 ALLOW_CLEAR_CONSOLE = False
+
+
+
+def get_system_info_prompt_concise() -> str:
+    """
+    Gathers and formats essential system information into a highly concise string
+    for LLM token efficiency.
+    """
+    current_time = datetime.datetime.now().isoformat(timespec='seconds') # YYYY-MM-DDTHH:MM:SS
+    hostname = socket.gethostname()
+    user = getpass.getuser()
+    os_info = f"{platform.system()} {platform.release()} ({platform.machine()})"
+
+    # Constructing a single, compact string
+    concise_prompt = {
+        'time':current_time,
+        'os':os_info
+    }
+
+    return concise_prompt
 
 
 def set_console_title(title):

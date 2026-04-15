@@ -166,11 +166,12 @@ class MessageOrchestrator:
         msg = response.get("response_to_user", "")
         if thought := response.get("thought"):
             if self.vector_memory: self.vector_memory.add_memory(thought, agent, "thought")
-            if len(msg) == 0: msg = thought
-        
+            TerminalUI.message(agent,thought, Color.DIM)
+
+
         if msg:
             if self.vector_memory: self.vector_memory.add_memory(msg, agent, "communication")
-            TerminalUI.message(agent, msg)
+            TerminalUI.message(agent, msg, Color.NORMAL_WHITE)
 
         self.memory.update_agent_history_and_notes(agent, response)
         self.memory.check_stagnation(tool_name, params)

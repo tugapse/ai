@@ -140,14 +140,14 @@ class GeminiAPIModel(BaseModel):
                 break
                 
         if dynamic_system_prompt:
-            func.log("System Prompt injetado dinamicamente no Gemini.", level="DEBUG")
+            dynamic_system_prompt = f"{self.get_system_info()}\n{dynamic_system_prompt}"
+            func.log("System Prompt updated with system info!", level="DEBUG")
 
         history = self._convert_messages_to_api(messages)
         self._append_images_to_history(history, images)
 
         current_options = self.config_kwargs.copy()
         
-        # --- FIX: Apply orchestrator runtime limits (e.g. max_tokens) to API request ---
         if options:
             if 'max_tokens' in options:
                 current_options['max_output_tokens'] = options['max_tokens']
@@ -213,7 +213,6 @@ class GeminiAPIModel(BaseModel):
                 config=self.genai_types.GenerateContentConfig(**current_options)
             )
             
-            # --- FIX: Safe extraction ---
             try:
                 resp_text = resp.text
             except ValueError:

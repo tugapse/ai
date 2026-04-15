@@ -88,6 +88,8 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     parser.add_argument("--modules", nargs="+", default=[])
     
     parser.add_argument("--install", action="store_true")
+    parser.add_argument("--override-config", action="store_true")
+
     config_group = parser.add_argument_group('Model Config Generation')
     config_group.add_argument('--generate-config', metavar='FILENAME', type=str)
     config_group.add_argument('--model-type', type=str, choices=[t.value for t in ModelType])
