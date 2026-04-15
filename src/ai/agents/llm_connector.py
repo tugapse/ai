@@ -19,6 +19,7 @@ class LLMConnector:
         try:
             with open(system_prompt_path, "r", encoding="utf-8") as f:
                 system_content = f.read()
+                self.llm.system_prompt = system_content
         except Exception as e:
             func.error(f"Failed to read prompt file: {e}")
             return {"status": "FAILED", "error": f"Prompt error: {e}"}
@@ -60,7 +61,8 @@ class LLMConnector:
         
         unique_id = uuid.uuid4().hex
         output_filename = f"llm_output_active.tmp"
-        
+
+       
         try:
             ask(
                 self.llm, 
