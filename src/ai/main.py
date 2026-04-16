@@ -88,7 +88,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     parser.add_argument("--modules", nargs="+", default=[])
     
     parser.add_argument("--install", action="store_true")
-    parser.add_argument("--override-config", action="store_true")
+    parser.add_argument("--overwrite-config", action="store_true")
 
     config_group = parser.add_argument_group('Model Config Generation')
     config_group.add_argument('--generate-config', metavar='FILENAME', type=str)
@@ -108,7 +108,6 @@ def run():
     prog = Program()
     parser, args = load_args()
     
-    # Track if we are in server mode to prevent premature exit
     is_server = getattr(args, 'server', False)
     
     try:
@@ -123,23 +122,18 @@ def run():
         
         cli_args_processor = CliArgs()
 
-        # 3. THE MAINTENANCE GATE
         maintenance_keys = ['install', 'generate_config', 'server', 'print_chat', 'list_models']
         if any(getattr(args, key, None) for key in maintenance_keys):
             cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
             
-            # If we started the server, we enter a "Hold" pattern
             if is_server:
                 while True:
-                    time.sleep(1) # Keep the main thread alive
+                    time.sleep(5)
             
-            # For other maintenance tasks (install, list), we exit normally
             sys.exit(0) 
 
-        # 4. Full Local Initialization
         prog.init_program(args)         
-        
-        # 5. Execution Dispatch
+        prog.llm # just to trigger lazy loading and catch any config/model issues before we start processing the question.
         cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
         
         if func.ALLOW_CLEAR_CONSOLE: 

@@ -254,7 +254,7 @@ class MessageOrchestrator:
         self.format_error_count += 1
         if self.format_error_count >= 3:
             TerminalUI.auth_request(f"{agent} stuck in format loop.", "")
-            if input("Quit? (y/n): ").lower().startswith('y'): return False
+            if input("Quit? (y/N): ").lower().startswith('y'): return False
         self.memory.add_message_to_agent(agent, {"from": "SYSTEM", "message": f"CRITICAL XML ERROR: {error}"})
         return True
 

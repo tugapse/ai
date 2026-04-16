@@ -67,7 +67,7 @@ class Program:
         return self.models.get_params()
 
     def load_config(self, args=None):
-        self.config = ProgramConfig.load()
+        self.config = ProgramConfig.load(args=args)
         self.models = ModelOrchestrator(self.config)
         self.history = HistoryManager(self.chat)
         self.modules = ModuleRegistry(self.config)
