@@ -1,3 +1,4 @@
+import os
 import gc
 import threading
 import functions
@@ -128,25 +129,45 @@ class BaseModel:
             dict: A dictionary representing the message.
         """
         return {'role': role, 'content': content}
+   
+    def get_system_info(self)-> str:
 
+        system_info = functions.get_system_info_prompt_concise()
+
+        current_time_str = system_info.get("time", "Unknown Time")
+        os_info = system_info.get("os", "Unknown OS")
+
+        return f"System Context: (Time: {current_time_str} | OS: {os_info}) | pwd: {os.getcwd()}"
+    
     def check_system_prompt(self, messages: list):
         """
-        Ensures the system prompt is at the beginning of the messages list.
+        Ensures the system prompt is at the beginning of the messages list,
+        updated with real-time system context information obtained as an object.
         """
-        prompt_exists = any(
-            msg['content'] == self.system_prompt and msg['role'] in ["system", "user"] 
-            for msg in messages
-        )
 
-        if self.system_prompt and not prompt_exists:
-            messages = [BaseModel.create_message("system", self.system_prompt)] + messages
+        enriched_system_info_prefix = self.get_system_info()
+
+        final_system_prompt_content = enriched_system_info_prefix
+        if self.system_prompt:
+            final_system_prompt_content += f"\n{self.system_prompt}"
+
+        filtered_messages = [
+            msg for msg in messages
+            if not (msg['role'] == "system" or msg.get('original_role') == "system")
+        ]
+
+
+        updated_messages = [BaseModel.create_message("system", final_system_prompt_content)] + filtered_messages
 
         if self.override_system_by_user_template:
-            for msg in messages:
+            for msg in updated_messages:
                 if msg['role'] == "system":
                     msg['role'] = "user"
+                    msg['original_role'] = "system" # Mark it as originally a system message
 
-        return messages
+
+        return updated_messages
+
 
     def load_images(self, images: list):
         """

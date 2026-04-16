@@ -1,5 +1,6 @@
 from color import Color
 from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import StreamingResponse # <--- ADDED
 from pydantic import BaseModel
 from typing import List, Optional
 import json
@@ -33,47 +34,61 @@ def create_app(orchestrator):
             raise HTTPException(status_code=503, detail="Orchestrator not initialized.")
 
         # 1. NORMALIZE INPUT
-        # Strip spaces and lowercase to ensure "Default" and "default" are seen as the same
         requested_model = (request.model or "default").strip().lower()
         system_prompt = request.system_prompt or ""
-
-        # Use a specific attribute for tracking the LOADED config name, not the display name
         current_model_id = getattr(orchestrator, 'active_model_id', None)
 
         # 2. THE SMART SWAP LOGIC
-        # Only reload if:
-        # A) No LLM is currently in VRAM
-        # B) The requested model ID is different from the active one
         if not getattr(orchestrator, 'llm', None) or current_model_id != requested_model:
             print(f"{Color.CYAN}[!] Neural Swap Initiated: '{current_model_id}' -> '{requested_model}'{Color.RESET}")
             try:
-                # Trigger the load
                 orchestrator.load(requested_model, system_prompt)
-                
-                # CRITICAL: Update the tracking ID so the next request knows it's already loaded
                 orchestrator.active_model_id = requested_model
-                
             except Exception as e:
                 print(f"{Color.RED}Error loading model {requested_model}: {e}{Color.RESET}")
                 raise HTTPException(status_code=500, detail=f"Failed to load model {requested_model}")
         else:
-            # The Brain is already warm!
             print(f"{Color.GREEN}[ * ] Neural Link Persistent: '{requested_model}' is already active.{Color.RESET}")
 
         # 3. PROCEED TO INFERENCE
         formatted_messages = [{"role": m.role, "content": m.content} for m in request.messages]
         
-        try:
-            # Inference logic (assuming .chat returns an iterator/list)
-            raw_output = orchestrator.llm.chat(formatted_messages, stream=True)
-            response_text = "".join([str(chunk) for chunk in raw_output if chunk])
+        # --- NEW STREAMING LOGIC ---
+        if request.stream:
+            async def event_generator():
+                try:
+                    # Assuming .chat returns an iterator when stream=True
+                    raw_output = orchestrator.llm.chat(formatted_messages, stream=True)
+                    for chunk in raw_output:
+                        if chunk:
+                            # Format as Server-Sent Event (SSE)
+                            payload = {"choices": [{"delta": {"content": str(chunk)}}]}
+                            yield f"data: {json.dumps(payload)}\n\n"
+                    # Tell the client we are done
+                    yield "data: [DONE]\n\n"
+                except Exception as e:
+                    print(f"{Color.RED}Streaming Error: {e}{Color.RESET}")
+                    yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            
+            return StreamingResponse(event_generator(), media_type="text/event-stream")
+        
+        # --- FALLBACK FOR NON-STREAMING (Standard JSON) ---
+        else:
+            try:
+                raw_output = orchestrator.llm.chat(formatted_messages, stream=False)
+                # If stream=False returns an iterator, join it. If it returns a string, just use it.
+                if isinstance(raw_output, str):
+                    response_text = raw_output
+                else:
+                    response_text = "".join([str(chunk) for chunk in raw_output if chunk])
 
-            return {
-                "choices": [{
-                    "message": {"role": "assistant", "content": response_text}
-                }]
-            }
-        except Exception as e:
-            print(f"{Color.RED}Inference Error: {e}{Color.RESET}")
-            raise HTTPException(status_code=500, detail=str(e))
+                return {
+                    "choices": [{
+                        "message": {"role": "assistant", "content": response_text}
+                    }]
+                }
+            except Exception as e:
+                print(f"{Color.RED}Inference Error: {e}{Color.RESET}")
+                raise HTTPException(status_code=500, detail=str(e))
+
     return app

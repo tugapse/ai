@@ -14,6 +14,16 @@ PROJECT_ROOT = os.getcwd()
 def send_notification(**kwargs) -> Dict[str, Any]:
     """
     Sends a desktop notification to the user via the system's notify-send utility.
+    
+    Args:
+        title (str, optional): The title of the notification. Defaults to 'Agent Notification'.
+        message (str): The main text body of the notification.
+        urgency (str, optional): The urgency level ('low', 'normal', 'critical'). Defaults to 'normal'.
+        icon (str, optional): The system icon to display. Defaults to 'dialog-information'.
+        timeout (int, optional): Duration in milliseconds to show the notification. Defaults to 5000.
+        
+    Returns:
+        Dict: A status dictionary indicating SUCCESS or FAILED.
     """
     title = kwargs.get("title", "Agent Notification")
     message = kwargs.get("message", "")
@@ -84,7 +94,19 @@ def _ensure_list(input_val: Any) -> List[str]:
 
 
 def execute_command(**kwargs) -> Dict[str, Any]:
-    """Executes a shell command with @ROOT interpolation."""
+    """
+    Executes a shell command within the project environment.
+    
+    Use the '@ROOT' token in commands to refer to the absolute path of the project base directory.
+    
+    Args:
+        command (str): The raw shell command to execute. Required.
+        path (str, optional): The directory path to run the command in. Defaults to '@ROOT'.
+        timeout (int, optional): Maximum execution time in seconds. Defaults to 60.
+        
+    Returns:
+        Dict: Contains 'status', 'stdout', 'stderr', 'returncode', and the formatted 'command'.
+    """
     command = kwargs.get("command")
     if not command:
         return {"status": "FAILED", "error": "No command provided."}
@@ -120,7 +142,16 @@ def execute_command(**kwargs) -> Dict[str, Any]:
 
 
 def read_dir(**kwargs) -> Dict[str, Any]:
-    """Explores one or more directories and returns their contents."""
+    """
+    Explores one or more directories and returns a mapped structure of their files and folders.
+    
+    Args:
+        paths (str | List[str], optional): A single path string or a list of paths to inspect. Defaults to '@ROOT'.
+        depth (int, optional): How many levels deep to recursively list folders. Defaults to 0 (current directory only).
+        
+    Returns:
+        Dict: Contains a 'results' map detailing 'files' and 'folders' for each requested path.
+    """
     try:
         path_input = kwargs.get("paths", kwargs.get("path", "@ROOT"))
         paths = _ensure_list(path_input)
@@ -166,6 +197,12 @@ def read_dir(**kwargs) -> Dict[str, Any]:
 def read_file(**kwargs) -> Dict[str, Any]:
     """
     Retrieves the full UTF-8 text content of one or more specific files.
+    
+    Args:
+        paths (str | List[str]): A single file path or a list of file paths to read. Required.
+        
+    Returns:
+        Dict: A mapping of each sanitized file path to its string content.
     """
     try:
         path_input = kwargs.get("paths", kwargs.get("path", []))
@@ -201,7 +238,17 @@ def read_file(**kwargs) -> Dict[str, Any]:
     
     
 def write_file(**kwargs) -> Dict[str, Any]:
-    """Creates or overwrites a file with the provided content."""
+    """
+    Creates a new file or overwrites an existing file with the provided text content.
+    Automatically creates necessary parent directories.
+    
+    Args:
+        path (str): The destination file path to write to. Required.
+        content (str): The raw text or code to write into the file. Required.
+        
+    Returns:
+        Dict: Status dictionary indicating success and the sanitized file path.
+    """
     try:
         full_path = _resolve_path(kwargs)
         content = kwargs.get("content") or ""
@@ -219,7 +266,19 @@ def write_file(**kwargs) -> Dict[str, Any]:
 
 
 def smart_search(**kwargs) -> Dict[str, Any]:
-    """Searches for a keyword or regex pattern in filenames and file contents."""
+    """
+    Searches for a keyword or regex pattern within filenames and file contents.
+    Automatically paginates large results to prevent context window overflow (50 items per page).
+    
+    Args:
+        path (str, optional): The base directory to search within. Defaults to '@ROOT'.
+        pattern (str): The search keyword or regex pattern to look for. Required.
+        exclude_dirs (List[str], optional): Additional directory names to ignore during the search.
+        page (int, optional): The page number for paginated results. Defaults to 1.
+        
+    Returns:
+        Dict: Contains pagination metadata, a list of matched filenames, and matched content lines.
+    """
     import re
     import math
     
@@ -331,7 +390,18 @@ def smart_search(**kwargs) -> Dict[str, Any]:
     
     
 def patch_file(**kwargs) -> Dict[str, Any]:
-    """Surgically replaces a block of text within a file."""
+    """
+    Surgically replaces a specific block of text within a file without overwriting the entire file.
+    The 'search' block must match the text currently residing in the file.
+    
+    Args:
+        path (str): The exact path to the file you want to modify. Required.
+        search (str): The string block currently in the file to find. Required.
+        replace (str): The new string block to insert in its place. Required.
+        
+    Returns:
+        Dict: Contains the unified diff summary of the patch applied to the file.
+    """
     try:
         full_path = _resolve_path(kwargs)
         search_block = kwargs.get("search")
@@ -340,16 +410,36 @@ def patch_file(**kwargs) -> Dict[str, Any]:
         if not search_block or replace_block is None:
             return {"status": "FAILED", "error": "Both 'search' and 'replace' are required."}
 
+        if not os.path.exists(full_path):
+            return {"status": "FAILED", "error": f"File not found at path: {full_path}"}
+
         with open(full_path, "r", encoding="utf-8") as f:
             content = f.read()
 
-        if search_block not in content:
-            return {"status": "FAILED", "error": "The 'search' block was not found exactly."}
+        # Normalize line endings
+        content_normalized = content.replace("\r\n", "\n")
+        search_normalized = search_block.replace("\r\n", "\n")
+        replace_normalized = replace_block.replace("\r\n", "\n")
 
-        new_content = content.replace(search_block, replace_block, 1)
+        if search_normalized not in content_normalized:
+            return {
+                "status": "FAILED", 
+                "error": "The 'search' block was not found. Ensure exact indentation and adequate context to find a unique match."
+            }
 
+        # GUARDRAIL: Prevent replacing the wrong block if the search is too generic
+        if content_normalized.count(search_normalized) > 1:
+            return {
+                "status": "FAILED",
+                "error": "The 'search' block matched multiple times. Please include more surrounding context lines to make it unique."
+            }
+
+        # Apply the patch
+        new_content = content_normalized.replace(search_normalized, replace_normalized, 1)
+
+        # Generate a useful diff
         diff = list(difflib.unified_diff(
-            content.splitlines(), new_content.splitlines(),
+            content_normalized.splitlines(), new_content.splitlines(),
             fromfile="original", tofile="patched", lineterm=""
         ))
 
@@ -359,13 +449,12 @@ def patch_file(**kwargs) -> Dict[str, Any]:
         sanitized = _sanitize_output_path(full_path)
         send_notification(title="File Patched", message=f"Applied changes to {sanitized}", urgency="low")
 
-        result = {
+        return {
             "status": "SUCCESS",
             "path": sanitized,
-            "diff_summary": "\n".join(diff[:5]) + ("\n..." if len(diff) > 5 else ""),
+            "diff_summary": "\n".join(diff[:15]) + ("\n..." if len(diff) > 15 else ""),
         }
-        func.debug(f"patch_file: status=SUCCESS, path={sanitized}, diff_lines={len(diff)}")
-        return result
+        
     except Exception as e:
         return {"status": "FAILED", "error": str(e)}
 

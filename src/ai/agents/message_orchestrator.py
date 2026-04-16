@@ -43,7 +43,7 @@ class MessageOrchestrator:
             "generate_doc": "Technical Writer. Deep-dive documentation."
         }
         self.specialist_manager = SpecialistManager(self.connector, specialist_cfg)
-        self.context_sentinel = ContextSentinel(self.connector, threshold=0.6, max_tokens=20000)
+        self.context_sentinel = ContextSentinel(self.connector, threshold=0.6, max_tokens=600000)
 
         # Memory State
         self.memory = MemoryManager(list(self.agents.keys()))
@@ -166,11 +166,12 @@ class MessageOrchestrator:
         msg = response.get("response_to_user", "")
         if thought := response.get("thought"):
             if self.vector_memory: self.vector_memory.add_memory(thought, agent, "thought")
-            if len(msg) == 0: msg = thought
-        
+            TerminalUI.message(agent,thought, Color.DIM)
+
+
         if msg:
             if self.vector_memory: self.vector_memory.add_memory(msg, agent, "communication")
-            TerminalUI.message(agent, msg)
+            TerminalUI.message(agent, msg, Color.NORMAL_WHITE)
 
         self.memory.update_agent_history_and_notes(agent, response)
         self.memory.check_stagnation(tool_name, params)
