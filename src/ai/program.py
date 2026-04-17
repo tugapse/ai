@@ -137,7 +137,6 @@ class Program:
                 output_printer=ui_tools["printer"],
                 handler_manager=ui_tools["handler"],
                 token_processor=ui_tools["formatter"],
-                assistant_prompt=self.chat.assistant_prompt,
                 debug_voice=False
             )
 

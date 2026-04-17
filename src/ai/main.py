@@ -53,9 +53,31 @@ def hack_warnings():
     logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
     warnings.filterwarnings("ignore", category=FutureWarning)
 
+class JarvisHelpFormatter(argparse.RawDescriptionHelpFormatter):
+        def __init__(self, prog):
+            super().__init__(prog, max_help_position=45, width=110)
+
+
 def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     """Defines and parses flags for the JARVIS ecosystem."""
-    parser = argparse.ArgumentParser(description=f"JARVIS AI Assistant v{__version__}")
+    
+    logo = f"""{Color.CYAN}
+      ██╗  █████╗  ██████╗  ██╗   ██╗ ██╗ ███████╗      █████╗  ██╗
+      ██║ ██╔══██╗ ██╔══██╗ ██║   ██║ ██║ ██╔════╝     ██╔══██╗ ██║
+      ██║ ███████║ ██████╔╝ ██║   ██║ ██║ ███████╗     ███████║ ██║
+ ██   ██║ ██╔══██║ ██╔══██╗ ╚██╗ ██╔╝ ██║ ╚════██║     ██╔══██║ ██║
+ ╚█████╔╝ ██║  ██║ ██║  ██║  ╚████╔╝  ██║ ███████║     ██║  ██║ ██║
+  ╚════╝  ╚═╝  ╚═╝ ╚═╝  ╚═╝   ╚═══╝   ╚═╝ ╚══════╝     ╚═╝  ╚═╝ ╚═╝
+
+  JUST A REASONING VIRTUAL INTELLIGENT SENTINEL AGENTIC INTERFACE
+  Version: {__version__}{Color.RESET}
+    """
+
+    # Use the new JarvisHelpFormatter here
+    parser = argparse.ArgumentParser(
+        description=logo,
+        formatter_class=JarvisHelpFormatter
+    )
     
     net_group = parser.add_argument_group('Distributed Architecture')
     net_group.add_argument("--server", action="store_true", help="Start Brain Server")
@@ -65,34 +87,34 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     parser.add_argument("--model", "-md", type=str, help="Model config")
     parser.add_argument("--system", "-s", type=str, help="System prompt name") 
     parser.add_argument("--system-file", "-sf", type=str, help="System prompt file")
-    parser.add_argument("--list-models", "-l", action="store_true")
+    parser.add_argument("--list-models", "-l", action="store_true", help="List available models")
     
-    parser.add_argument("--file", "-f", type=str)
-    parser.add_argument("--image", "-i", type=str)
-    parser.add_argument("--load-folder", "-D", type=str)
-    parser.add_argument("--ext", "-e", type=str)
+    parser.add_argument("--file", "-f", type=str, help="Process a specific file")
+    parser.add_argument("--image", "-i", type=str, help="Process an image path")
+    parser.add_argument("--load-folder", "-D", type=str, help="Load all files from directory")
+    parser.add_argument("--ext", "-e", type=str, help="Filter files by extension")
     
-    parser.add_argument("--task", "-t", type=str)
-    parser.add_argument("--task-file", "-tf", type=str)
-    parser.add_argument("--output-file", "-o", type=str)
-    parser.add_argument("--agent", action="store_true")
-    parser.add_argument("--pipeline", "-ppl", type=str)
-    parser.add_argument("--session-id", type=str)
+    parser.add_argument("--task", "-t", type=str, help="Agent task description")
+    parser.add_argument("--task-file", "-tf", type=str, help="Path to task file")
+    parser.add_argument("--output-file", "-o", type=str, help="Path for clean output (temp file mode)")
+    parser.add_argument("--agent", action="store_true", help="Enable agentic logic injection")
+    parser.add_argument("--pipeline", "-ppl", type=str, help="Sequence multiple instructions")
+    parser.add_argument("--session-id", type=str, help="LTM session persistence key")
     
-    parser.add_argument("--print-chat", "-p", type=str)
-    parser.add_argument("--print-log", "-pl", action="store_true")
-    parser.add_argument("--print-debug", "-pdb", action="store_true")
-    parser.add_argument("--no-out", "-q", action="store_true")
-    parser.add_argument("--no-think-anim", "-nta", action="store_true")
-    parser.add_argument("--debug-console", "-dc", action="store_true")
-    parser.add_argument("--modules", nargs="+", default=[])
+    parser.add_argument("--print-chat", "-p", type=str, help="Display specific chat logs")
+    parser.add_argument("--print-log", "-pl", action="store_true", help="Show system logs")
+    parser.add_argument("--print-debug", "-pdb", action="store_true", help="Show debug information")
+    parser.add_argument("--no-out", "-q", action="store_true", help="Silent mode / Quiet")
+    parser.add_argument("--no-think-anim", "-nta", action="store_true", help="Disable reasoning animations")
+    parser.add_argument("--debug-console", "-dc", action="store_true", help="Disable console clearing")
+    parser.add_argument("--modules", nargs="+", default=[], help="Load specific server modules")
     
-    parser.add_argument("--install", action="store_true")
-    parser.add_argument("--overwrite-config", action="store_true")
+    parser.add_argument("--install", action="store_true", help="Install missing dependencies")
+    parser.add_argument("--overwrite-config", action="store_true", help="Reset configuration")
 
     config_group = parser.add_argument_group('Model Config Generation')
-    config_group.add_argument('--generate-config', metavar='FILENAME', type=str)
-    config_group.add_argument('--model-type', type=str, choices=[t.value for t in ModelType])
+    config_group.add_argument('--generate-config', metavar='FILENAME', type=str, help="Create a new model JSON")
+    config_group.add_argument('--model-type', type=str, choices=[t.value for t in ModelType], help="Type of model for config")
 
     return parser, parser.parse_args()
 

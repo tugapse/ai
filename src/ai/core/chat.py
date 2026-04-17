@@ -100,8 +100,8 @@ class Chat(Events):
         self.messages = []
         self.images: list[str] = []
         self.current_message = ""
-        self.user_prompt = "User: "
-        self.assistant_prompt = ""
+        self.user_prompt = "\nUser: "
+        self.assistant_prompt = "Assistant: "
         self.max_chat_log = 50
         self.cache_messages = True
         self.current_prompt = ""
@@ -150,8 +150,9 @@ class Chat(Events):
         # but the top bar logic is now available via _get_top_bar_display().
         
         if self.multiline_mode:
-            return ANSI(format_text(f"User [Multiline]{file_status}: ", Color.BLUE))
-        return ANSI(format_text(f"{self.user_prompt}{file_status}", Color.BLUE))
+            return ANSI(format_text(f"User [Multiline]{file_status}: ", Color.BLUE) + format_text(self.current_message, Color.WHITE))
+        return ANSI(format_text(f"{self.user_prompt}{file_status}", Color.BLUE) + format_text(self.current_message, Color.WHITE))
+
 
     def _get_bottom_toolbar(self):
         if self.waiting_for_response:
