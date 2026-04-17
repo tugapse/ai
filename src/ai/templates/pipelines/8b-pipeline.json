@@ -1,0 +1,36 @@
+{
+  "name": "8B model Agentic pipeline",
+  "description": "A Optimized pipeline for small models!",
+  "entry_point": "MASTER",
+  "max_iterations": 300,
+  "agents": {
+    
+    "MASTER": {
+      "role": "management",
+      "prompt_file": "agents/small/master.md",
+      "tools": ["read_dir" , "read_files","read_file"],
+      "allowed_targets": [ "MASTER","ENGINEER", "SECRETARY", "SYSTEM_OPERATOR", "USER", "STOP"]
+    },
+    
+
+    "ENGINEER": {
+      "role": "labor",
+      "prompt_file": "agents/small/engineer.md",
+      "tools": ["read_file", "read_files", "write_file", "patch_file","web_search", "web_read"],
+      "allowed_targets": ["ENGINEER","MASTER"]
+    },
+
+    "SECRETARY": {
+      "role": "labor",
+      "prompt_file": "agents/small/secretary.md",
+      "tools": ["read_dir", "read_files", "read_file", "smart_search", "web_search", "web_read"],
+      "allowed_targets": ["SECRETARY","MASTER","DONE"]
+    },
+    "SYSTEM_OPERATOR": {
+      "role": "labor",
+      "prompt_file": "agents/small/system_operator.md",
+      "tools": ["read_dir", "read_files", "read_file","smart_search", "execute_command", "send_notification"  ],
+      "allowed_targets": ["MASTER"]
+    }
+  }
+}

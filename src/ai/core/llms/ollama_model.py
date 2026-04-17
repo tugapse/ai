@@ -14,7 +14,7 @@ class OllamaModel(BaseModel):
     """
 
     def __init__(self, model_name, system_prompt=None, host=None, keep_alive=False,model_params=None,**kargs):
-        super().__init__(model_name, system_prompt)
+        super().__init__(model_name, system_prompt,**kargs)
         self.server_ip = host or "127.0.0.1"
         self.model = ollama.Client(self.server_ip)
         self.pull(self.model_name)

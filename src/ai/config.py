@@ -19,6 +19,7 @@ class ProgramSetting:
     PATHS_WORKSPACES = "PATHS_WORKSPACES"
     PATHS_INJECT_TEMPLATES = "PATHS_INJECT_TEMPLATES"
     PATHS_MODEL_CONFIGS = "PATHS_MODEL_CONFIGS"
+    VECTOR_DB_PATH="VECTOR_DB_PATH"
     ROOT_DIRECTORY = "ROOT_DIRECTORY"
     OLLAMA_HOST = "OLLAMA_HOST"
     PRINT_LOG = "PRINT_LOG"
@@ -30,6 +31,10 @@ class ProgramSetting:
     ENABLE_THINKING_DISPLAY = "ENABLE_THINKING_DISPLAY"
     MODEL_CONFIG_NAME = "MODEL_CONFIG_NAME"
     VOICE_ENABLED = "VOICE_ENABLED"
+    REMOTE_MODE = "REMOTE_MODE"
+    REMOTE_URL="REMOTE_URL"
+
+
 
 class ProgramConfig(Generic[T]):
     current: Optional["ProgramConfig"] = None
@@ -38,7 +43,7 @@ class ProgramConfig(Generic[T]):
         self.config = config if config is not None else {}
         self.logger = logging.Logger(name="Config")
 
-    def load_predefined_config(self):
+    def load_predefined_config(self, args=None):
         root = os.path.dirname(__file__)
         config_filename = os.path.join(root, "config.json")
         default_config = self.__load_to_dict(config_filename) or {}
@@ -47,7 +52,8 @@ class ProgramConfig(Generic[T]):
         os.makedirs(user_directory, exist_ok=True)
         user_config_filename = os.path.join(user_directory, "config.json")
         
-        need_save = False
+        need_save = args.overwrite_config if hasattr(args, 'overwrite_config') else False
+
         if not exists(path=user_config_filename) or need_save:
             self.logger.info(
                 f"config.json not found in {user_directory}. Copying default config."
@@ -62,18 +68,30 @@ class ProgramConfig(Generic[T]):
 
         self.config = default_config
         self.set(ProgramSetting.ROOT_DIRECTORY, user_directory)
+        self.set(ProgramSetting.PRINT_MODE, "token")
 
         # Ensure Paths
         self._ensure_path(ProgramSetting.PATHS_MODEL_CONFIGS, "models")
         self._ensure_path(ProgramSetting.PATHS_LOGS, "logs")
         self._ensure_path(ProgramSetting.PATHS_WORKSPACES, "workspaces")
+        self._ensure_path(ProgramSetting.VECTOR_DB_PATH, "databases")
         
         if self.config.get(ProgramSetting.MODEL_CONFIG_NAME) is None:
             self.set(ProgramSetting.MODEL_CONFIG_NAME, "default.json")
         
         if self.config.get(ProgramSetting.VOICE_ENABLED) is None:
             self.set(ProgramSetting.VOICE_ENABLED, False)
-    
+        if need_save:
+            self.save(user_config_filename)
+
+    def save(self, filename):
+        try:
+            with open(filename, "w", encoding="utf-8") as f:
+                json.dump(self.config, f, indent=4)
+            self.logger.info(f"Configuration saved to {filename}")
+        except Exception as e:
+            self.logger.error(f"Error saving configuration: {e}")
+     
     
     def copy_templates_to_user_dir(self, user_dir: Optional[str] = None):
         """
@@ -136,8 +154,8 @@ class ProgramConfig(Generic[T]):
     def set(self, key, value): self.config[key] = value
 
     @classmethod
-    def load(cls):
+    def load(cls, args=None):
         config = cls()
-        config.load_predefined_config()
+        config.load_predefined_config(args)
         cls.current = config
         return config

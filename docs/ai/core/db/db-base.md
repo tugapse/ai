@@ -1,39 +1,39 @@
-## 1. Architectural Role
-This file defines a class `BaseDB` that provides a database interface for storing and querying records with embeddings generated from text using a specified model.
 
-## 2. Interface & API Surface
-| Entity | Type | Functional Responsibility |
-| :--- | :--- | :--- |
-| `BaseDB` | Class | Manages a database collection for storing records with embeddings and provides methods for adding records, searching, and retrieving records. |
-| `ModelNames` | Enum | Defines a set of predefined model names for embedding generation. |
-| `add_record` | Method | Adds a new record to the database with a unique ID, combined text, and optional metadata. |
-| `search_records` | Method | Searches the database for records similar to a given query. |
-| `get_record` | Method | Retrieves a record by its unique ID. |
-| `parse_search_results` | Method | Parses search results into a structured format. |
-| `get_all_records` | Method | Retrieves all records from the database. |
 
-## 3. Execution Logic & Flow
-- **Initialization**:
-  - The `BaseDB` class is initialized with parameters such as `collection_name`, `model`, and `path`.
-  - A `chromadb.PersistentClient` is created with the specified `path`.
-  - A collection is retrieved or created with the specified `collection_name`.
-  - The `model_name` is set, and the `tokenizer` and `model` are initialized lazily on first use.
+## 1. Architectural Role  
+Provides a persistent database interface for storing and querying records with embeddings, metadata, and UUID-based IDs using ChromaDB and Hugging Face models.  
 
-- **Data Path**:
-  - When `add_record` is called, the text is combined with the title and metadata.
-  - The embedding is generated using the `generate_embedding` method.
-  - The record is added to the collection with the generated embedding, unique ID, and metadata.
+## 2. Interface & API Surface  
+| Entity | Type | Functional Responsibility |  
+| :--- | :--- | :--- |  
+| `ModelNames` | Enum | Defines supported embedding model names for ChromaDB. |  
+| `BaseDB` | Class | Manages persistent database operations with ChromaDB, including record storage, retrieval, and search. |  
+| `__init__` | Method | Initializes ChromaDB client, collection, and model configuration. |  
+| `add_record` | Method | Inserts a record with title, content, metadata, and embedding into ChromaDB. |  
+| `search_records` | Method | Queries ChromaDB for records matching an input text embedding. |  
+| `get_record` | Method | Retrieves a specific record by UUID from ChromaDB. |  
+| `parse_search_results` | Method | Formats raw ChromaDB query results into structured output with metadata. |  
+| `get_all_records` | Method | Returns all records stored in the ChromaDB collection. |  
 
-- **Conditional Branching**:
-  - The `generate_embedding` method checks if the `tokenizer` and `model` are initialized and initializes them if not.
-  - The `add_record` method checks if metadata is provided and processes it if necessary.
-  - The `search_records` method generates an embedding for the query and searches the collection using this embedding.
+## 3. Execution Logic & Flow  
+- **Initialization**:  
+  - Loads ChromaDB persistent client and creates/caches a collection.  
+  - Initializes model name and lazy-loads tokenizer/model via `transformers` on first use.  
+- **Data Path**:  
+  - Input: Text (title/content) + metadata  Embedding generation  ChromaDB `add` operation.  
+  - Processing: Embedding computation via Hugging Face model, UUID generation, metadata normalization.  
+  - Output: Record ID (UUID) or query results with documents, metadata, and distances.  
+- **Conditional Branching**:  
+  - `if self.model is None`: Lazy-loads tokenizer/model on first `generate_embedding` call.  
+  - `if metadata`: Normalizes list-type metadata values to comma-separated strings.  
+  - `try-except`: Catches missing `transformers` library or model loading errors.  
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `uuid`, `enum`
-- **Internal Modules**: None
-- **External Packages**: `chromadb`, `transformers`
+## 4. Resource Dependencies  
+- **Standard Libraries**: `uuid`, `enum`.  
+- **Internal Modules**: N/A (no internal module imports).  
+- **External Packages**: `chromadb`, `transformers`, `uuid` (via `uuid.uuid4`).  
 
-## 5. Configuration & Environment
-- **Hardcoded Constants**: `collection_name`, `model`, `path`
-- **Environment Lookups**: None
+## 5. Configuration & Environment  
+- **Hardcoded Constants**:  
+  - `ModelNames` enum values (e.g., `SENTENCE_TRANSFORMERS_ALL_MINILM_L6_V2`).  
+- **Environment Lookups**: N/A (no `os.getenv` or config-file references).

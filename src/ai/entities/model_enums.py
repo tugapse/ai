@@ -8,6 +8,9 @@ class EngineType(Enum):
     OLLAMA = "ollama"
     GGUF = "gguf"    
     VOICE_ENGINE = "voice_engine" # Voice modeule
+    VECTOR_MEMORY = "vector_memory" # Long term memory module
+    SERVER = "server_hub" # Long term memory module
+    CLIENT = "client_link" # Long term memory module
     
 
 class ModelType(Enum):

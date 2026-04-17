@@ -1,37 +1,36 @@
-## 1. Architectural Role
-Handles the reading and formatting of chat messages from a JSON file for console output.
 
-## 2. Interface & API Surface
-| Entity | Type | Functional Responsibility |
-| :--- | :--- | :--- |
-| `ConsoleChatReader` | Class | Reads chat messages from a JSON file and formats them for console output. |
-| `load` | Method | Loads chat messages from the specified file and prints them. |
-| `_print_chat` | Method | Prints a single chat message, formatting it based on the message role. |
-| `color_text` | Method | Colors the text of a chat message based on the message role. |
-| `ConsoleTokenFormatter` | Class | Formats tokens within chat messages, particularly handling code blocks. |
-| `process_token` | Method | Processes a single token, coloring it if it's part of a code block. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: 
-  - The `ConsoleChatReader` class is initialized with a filename.
-  - The `path_file` attribute is set to the provided filename.
-  - The `content` attribute is initialized to `None`.
-  - The `token_processor` attribute is set to an instance of `ConsoleTokenFormatter`.
-- **Data Path**:
-  - The `load` method checks if the file exists. If not, it raises a `FileNotFoundError`.
-  - It reads the file content as JSON and iterates over each chat message.
-  - Each chat message is passed to the `_print_chat` method.
-- **Conditional Branching**:
-  - In `_print_chat`, the method checks if the chat message role is `SYSTEM` and returns early if true.
-  - It sets the text color based on the message role (`USER` or `ASSISTANT`).
-  - It formats the message content using the `color_text` method.
-  - In `color_text`, it processes each token using the `process_token` method of `ConsoleTokenFormatter`.
+## 1. Architectural Role  
+Reads and displays chat messages from a JSON file, applying role-based coloring and token-level formatting for code blocks.  
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `json`, `pathlib`
-- **Internal Modules**: `color`, `core`
-- **External Packages**: `None`
+## 2. Interface & API Surface  
+| Entity | Type | Functional Responsibility |  
+| :--- | :--- | :--- |  
+| `ConsoleChatReader` | Class | Loads and prints chat messages from a JSON file with role-based color formatting. |  
+| `ConsoleChatReader.__init__` | Method | Initializes file path, content, and token formatter. |  
+| `ConsoleChatReader.load` | Method | Loads JSON content and processes each chat message. |  
+| `ConsoleChatReader._print_chat` | Method | Renders chat message with role-specific text and colored content. |  
+| `ConsoleChatReader.color_text` | Method | Formats tokens in content with color codes for code blocks. |  
+| `ConsoleTokenFormatter` | Class | Manages token formatting state for code block highlighting. |  
+| `ConsoleTokenFormatter.process_token` | Method | Applies color formatting to tokens containing backticks. |  
+| `ConsoleTokenFormatter.clear_process_token` | Method | Resets the code block formatting state. |  
 
-## 5. Configuration & Environment
-- **Hardcoded Constants**: `None`
-- **Environment Lookups**: `None`
+## 3. Execution Logic & Flow  
+- **Initialization**: Sets `filename`, `path_file`, `content`, and initializes `token_processor` with `ConsoleTokenFormatter`.  
+- **Data Path**:  
+  1. `load()` reads JSON file  parses into `j_obj` list.  
+  2. Iterates over `j_obj`, calling `_print_chat()` for each message.  
+  3. `_print_chat()` filters out system messages, assigns color, and calls `color_text()`.  
+  4. `color_text()` splits content into tokens, applies `process_token()` to each.  
+- **Conditional Branching**:  
+  - Skips system messages via `if chat_message['role'] == ChatRoles.SYSTEM`.  
+  - Toggles code block formatting state on ```` tokens via `process_token()`.  
+
+## 4. Resource Dependencies  
+- **Standard Libraries**: `json`, `pathlib`.  
+- **Internal Modules**: `color`, `core.ChatRoles`, `functions`.  
+- **External Packages**: None.  
+
+## 5. Configuration & Environment  
+- **Hardcoded Constants**: `ChatRoles.SYSTEM`, `Color.RESET`, `Color.BLUE`, `Color.YELLOW`.  
+- **Environment Lookups**: None.

@@ -1,31 +1,33 @@
-## 1. Architectural Role
-Manages user input and outputs in a chat system, handling commands, messages, and responses.
 
-## 2. Interface & API Surface
-| Entity | Type | Functional Responsibility |
-| :--- | :--- | :--- |
-| `Chat` | Class | Manages the chat session, processes user input, and handles messages. |
-| `ChatRoles` | Class | Defines constants for user roles in the chat. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: 
-  - The `Chat` class is initialized, setting up default values for attributes like `messages`, `terminate`, and `user_prompt`.
-  - A `PromptSession` is created for user input.
-- **Data Path**:
-  - User input is received and processed.
-  - If the input is a command (starts with "/"), it is handled by the `run_command` method.
-  - If the input is a message, it is sent to the chat using the `send_chat` method.
-  - The `send_chat` method adds the message to the chat log and triggers the `EVENT_CHAT_SENT` event.
-- **Conditional Branching**:
-  - The `run_command` method checks for specific commands like `/clear` and `/agent`.
-  - The `send_chat` method checks if the input is multiline and handles it accordingly.
-  - The `process_loop_frame` method checks if the chat is running a command or waiting for a response before prompting for user input.
+## 1. Architectural Role  
+Manages the chat interface, handling user input, message processing, and event triggering for interaction with LLMs and command execution.  
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `os`, `json`, `datetime`
-- **Internal Modules**: `core.events`, `color`, `functions`, `core.llms.base_llm`, `prompt_toolkit`, `prompt_toolkit.history`, `prompt_toolkit.formatted_text`
-- **External Packages**: `prompt_toolkit`
+## 2. Interface & API Surface  
+| Entity | Type | Functional Responsibility |  
+| :--- | :--- | :--- |  
+| `ChatRoles` | Class | Defines constants for chat participant roles (user, assistant, system, etc.). |  
+| `Chat` | Class | Orchestrates chat loop, input handling, message storage, and event dispatching. |  
+| `loop` | Method | Main chat loop that processes user input and triggers responses. |  
+| `send_chat` | Method | Sends user message to LLM, updates chat history, and triggers `EVENT_CHAT_SENT`. |  
+| `run_command` | Method | Executes commands like `/clear` or `/agent`, dispatching to respective handlers. |  
+| `process_loop_frame` | Method | Processes user input, handles multiline input, and routes to command or message sending. |  
+| `terminate_chat` | Method | Gracefully terminates the chat session. |  
+| `chat_finished` | Method | Finalizes assistant response, updates history, and resets state. |  
 
-## 5. Configuration & Environment
-- **Hardcoded Constants**: `terminate_tokens`, `user_prompt`, `assistant_prompt`, `max_chat_log`
-- **Environment Lookups**: None
+## 3. Execution Logic & Flow  
+- **Initialization**: Loads `PromptSession` with history, initializes message storage, and sets default state (`terminate=False`).  
+- **Data Path**: User input  `process_loop_frame`  `check_and_handle_user_input_multiline`  `send_chat` (stores message, triggers `EVENT_CHAT_SENT`)  LLM processing  `chat_finished` (finalizes response, updates history).  
+- **Conditional Branching**:  
+  - If input starts with `/`, routes to `run_command` (handles `/clear`, `/agent`, etc.).  
+  - If input matches `terminate_tokens`, triggers `terminate_chat`.  
+  - If multiline input detected (`"""`), appends lines until closing delimiter.  
+
+## 4. Resource Dependencies  
+- **Standard Libraries**: `os`, `json`, `datetime`.  
+- **Internal Modules**: `core.events` (event dispatching), `color` (text formatting), `functions` (helper functions), `core.llms.base_llm` (LLM message creation).  
+- **External Packages**: `prompt_toolkit` (for interactive prompts).  
+
+## 5. Configuration & Environment  
+- **Hardcoded Constants**: `terminate_tokens` = ["quit", "q"], `max_chat_log` = 50.  
+- **Environment Lookups**: None.

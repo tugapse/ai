@@ -1,27 +1,39 @@
-## 1. Architectural Role
-Handles high-fidelity terminal formatting, icons, and layout for the Unified Architect system.
 
-## 2. Interface & API Surface
-| Entity | Type | Functional Responsibility |
-| :--- | :--- | :--- |
-| `TerminalUI` | Class | Manages terminal UI components such as headers, status updates, authorization requests, messages, and log steps. |
-| `header` | Static Method | Prints a major section header with a title and optional subtitle. |
-| `status` | Static Method | Displays an agent's current working status. |
-| `auth_request` | Static Method | Displays a boxed authorization request. |
-| `message` | Static Method | Prints a message from an agent to the user. |
-| `log_step` | Static Method | Logs a stage completion with a status icon. |
-| `clear_line` | Static Method | Clears the current terminal line. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: No initialization logic is present.
-- **Data Path**: Input data (e.g., agent name, task, tool name) is processed and output to the terminal.
-- **Conditional Branching**: The `status` method uses a conditional to determine whether to overwrite the line or not.
+## 1. Architectural Role  
+Provides terminal UI formatting with color themes, icons, and status indicators, loading configurations from environment variables or theme files.  
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `None`
-- **Internal Modules**: `functions as func`, `color as Color`
-- **External Packages**: `None`
+## 2. Interface & API Surface  
+| Entity | Type | Functional Responsibility |  
+| :--- | :--- | :--- |  
+| `TerminalUI` | Class | Central hub for terminal UI formatting, color themes, and status display |  
+| `_get_var` | Static Method | Retrieves environment variables or theme file values with fallback logic |  
+| `PRIMARY`, `SECONDARY`, `ACCENT`, `TEXT`, `OK`, `WARN`, `FAIL`, `RESET` | Class Variables | Predefined color codes for UI elements |  
+| `ICON_AGENT`, `ICON_ROCKET`, `ICON_SUCCESS`, `ICON_ERROR`, `H_LINE`, `DIVIDER` | Class Variables | Predefined icons and glyphs for UI components |  
+| `header` | Static Method | Renders a section header with title and subtitle |  
+| `status` | Static Method | Displays agent task status with progress updates |  
+| `auth_request` | Static Method | Renders a boxed authorization request prompt |  
+| `message` | Static Method | Outputs messages from agents to the user |  
+| `log_step` | Static Method | Logs step execution status with success/error indicators |  
+| `clear_line` | Static Method | Clears the terminal line for dynamic updates |  
 
-## 5. Configuration & Environment
-- **Hardcoded Constants**: `ICON_AGENT`, `ICON_SUCCESS`, `ICON_ERROR`, `ICON_WAIT`, `ICON_ROCKET`, `ICON_TOOL`, `ICON_LOCK`, `DIVIDER`
-- **Environment Lookups**: `None`
+## 3. Execution Logic & Flow  
+- **Initialization**: Loads `TerminalUI` class with precomputed color codes via `_get_var`, using environment variables or theme files.  
+- **Data Path**: Input (environment/config)  `_get_var` processes variable retrieval  color codes and icons are stored as class variables  methods like `header`/`status` use these values for output formatting.  
+- **Conditional Branching**:  
+  - `_get_var` checks `os.getenv(env_name)` first; if absent, parses `colors.bashrc` for theme file paths.  
+  - If theme file exists, searches for `env_name` in its content to extract values.  
+  - Falls back to hardcoded color codes if no match is found.  
+
+## 4. Resource Dependencies  
+- **Standard Libraries**: `os`, `re`  
+- **Internal Modules**: `functions`, `color`  
+- **External Packages**: None  
+
+## 5. Configuration & Environment  
+- **Hardcoded Constants**:  
+  - `\033[38;5;214m`, `\033[38;5;94m`, `\033[38;5;202m`, `\033[38;5;223m`, `\033[38;5;106m`, `\033[38;5;226m`, `\033[38;5;124m` (fallback color codes)  
+- **Environment Lookups**:  
+  - `THEME_PRIMARY`, `THEME_SECONDARY`, `THEME_ACCENT`, `THEME_TEXT`, `THEME_OK`, `THEME_WARN`, `THEME_FAIL`  
+  - `ICON_PROMPT`, `ICON_SECTION`, `ICON_SUCCESS`, `ICON_ERROR`, `GLYPH_H_LINE`  
+  - `~/.source/colors.bashrc`, `~/.source/themes` (theme file paths)

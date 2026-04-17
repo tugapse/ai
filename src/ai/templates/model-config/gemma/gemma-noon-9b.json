@@ -1,0 +1,19 @@
+{
+  "model_name": "gemma4",
+  "model_type": "gguf",
+  "model_properties": {
+    "gguf_filename": "Gemma-Noon-2-9B-it.i1-Q4_K_M.gguf",
+    "model_repo_id": "mradermacher/Gemma-Noon-2-9B-it-i1-GGUF",
+    "n_gpu_layers": 10,
+    "n_ctx": 18000,
+    "verbose": false,
+    "max_new_tokens": 4096,
+    "temperature": 1,
+    "top_p": 0.9,
+    "top_k": 30,
+    "presence_penalty": 1,
+    "frequency_penalty": 1,
+    "chat_format":"gemma",
+    "override_system_by_user_template":true
+  }
+}

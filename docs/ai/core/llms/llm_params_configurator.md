@@ -1,31 +1,30 @@
-## 1. Architectural Role
-Manages and prepares LLM generation parameters for different model types, mapping and filtering user-provided parameters to be compatible with specific model ecosystems like Hugging Face Transformers or GGUF loaders.
 
-## 2. Interface & API Surface
-| Entity | Type | Functional Responsibility |
-| :--- | :--- | :--- |
-| `LLMParamsConfigurator` | Class | Manages and prepares LLM generation parameters for different model types. |
-| `prepare_llm_params` | Method | Maps and filters user-provided LLM generation parameters for a specific model type. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: Sets up the `available_properties` dictionary with common LLM generation parameters and their typical default values. Defines the `model_param_compatibility` dictionary mapping internal common names to target library's parameter names for different model types.
-- **Data Path**: 
-  1. Checks if the provided `model_type` is supported.
-  2. Maps user-provided parameters to the target library's conventions.
-  3. Filters out unsupported parameters and prints warnings for unknown parameters.
-  4. Returns a dictionary of parameters valid and mapped for the specified model type.
-- **Conditional Branching**: 
-  - Checks if the `model_type` is supported.
-  - Checks if each user-provided parameter is in the `available_properties`.
-  - Checks if each user-provided parameter is in the `param_map`.
+## 1. Architectural Role  
+Manages translation of user-specified LLM generation parameters into model-agnostic configurations compatible with Hugging Face Transformers or GGUF-based model ecosystems.  
 
-## 4. Resource Dependencies
-- **Standard Libraries**: None
-- **Internal Modules**: None
-- **External Packages**: None
+## 2. Interface & API Surface  
+| Entity | Type | Functional Responsibility |  
+| :--- | :--- | :--- |  
+| `LLMParamsConfigurator` | Class | Central configurator for mapping user LLM parameters to model-specific parameter conventions. |  
+| `__init__` | Method | Initializes default parameter properties and compatibility mappings for different model types. |  
+| `prepare_llm_params` | Method | Transforms user-provided parameters into a model-type-specific parameter dictionary via name mapping and validation. |  
 
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-  - `available_properties`: Dictionary of common LLM generation parameters.
-  - `model_param_compatibility`: Dictionary mapping internal common names to target library's parameter names.
-- **Environment Lookups**: None
+## 3. Execution Logic & Flow  
+- **Initialization**: Loads `available_properties` (default parameter values) and `model_param_compatibility` (model-specific name mappings).  
+- **Data Path**: Input `user_params`  filtered against `available_properties`  mapped via `model_param_compatibility`  output `prepared_params` (model-type-specific).  
+- **Conditional Branching**:  
+  - Checks if `model_type` is supported in `model_param_compatibility`.  
+  - Filters `user_params` to only include keys present in `available_properties`.  
+  - Maps valid parameters to target model conventions using `param_map`.  
+
+## 4. Resource Dependencies  
+- **Standard Libraries**: None.  
+- **Internal Modules**: None.  
+- **External Packages**: None.  
+
+## 5. Configuration & Environment  
+- **Hardcoded Constants**:  
+  - Default parameter values in `available_properties` (e.g., `temperature=1.0`, `max_tokens=16`).  
+  - Model-specific name mappings in `model_param_compatibility` (e.g., `max_tokens`  `max_new_tokens` for Hugging Face).  
+- **Environment Lookups**: None.

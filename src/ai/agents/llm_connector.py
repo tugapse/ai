@@ -11,6 +11,9 @@ import os
 class LLMConnector:
     def __init__(self, llm_instance: BaseModel):
         self.llm = llm_instance
+        
+    def get_context_limit(self) -> int:
+        return self.llm.token_info_count.max_context_window
 
     def send_request(self, json_input: Dict[str, Any], system_prompt_path: str, agent_config: Dict[str, Any] = None) -> Dict[str, Any]:
         """Method for Structured Agentic XML communication."""
@@ -19,6 +22,7 @@ class LLMConnector:
         try:
             with open(system_prompt_path, "r", encoding="utf-8") as f:
                 system_content = f.read()
+                self.llm.system_prompt = system_content
         except Exception as e:
             func.error(f"Failed to read prompt file: {e}")
             return {"status": "FAILED", "error": f"Prompt error: {e}"}
@@ -59,8 +63,9 @@ class LLMConnector:
         """Uses a unique, timestamped file to capture output reliably."""
         
         unique_id = uuid.uuid4().hex
-        output_filename = f"llm_output_{unique_id}.tmp"
-        
+        output_filename = f"llm_output_active.tmp"
+
+       
         try:
             ask(
                 self.llm, 
@@ -76,7 +81,7 @@ class LLMConnector:
             if os.path.exists(output_filename):
                 with open(output_filename, "r", encoding="utf-8") as f:
                     content = f.read()
-                os.remove(output_filename)
+                # os.remove(output_filename)
                 return content
             else:
                 func.error("LLM execution finished but output file was not created.")
@@ -185,20 +190,20 @@ class LLMConnector:
             except Exception as e:
                 func.error(f"XML Parsing Error: {e}")
                 
-                print("\n" + "="*60)
-                print("FATAL XML PARSE ERROR - DEBUG DUMP ")
-                print("="*60)
-                print("RAW STRING FROM LLM:")
-                print("-" * 60)
-                print(raw_string)
-                print("\n" + "="*60)
+                # print("\n" + "="*60)
+                # print("FATAL XML PARSE ERROR - DEBUG DUMP ")
+                # print("="*60)
+                # print("RAW STRING FROM LLM:")
+                # print("-" * 60)
+                # print(raw_string)
+                # print("\n" + "="*60)
                 
-                if 'xml_content' in locals():
-                    print("ATTEMPTED REPAIRED XML (Failed to parse):")
-                    print("-" * 60)
-                    print(xml_content)
-                    print("="*60 + "\n")
+                # if 'xml_content' in locals():
+                #     print("ATTEMPTED REPAIRED XML (Failed to parse):")
+                #     print("-" * 60)
+                #     print(xml_content)
+                #     print("="*60 + "\n")
                 
-                input("Press ENTER to acknowledge and continue, or Ctrl+C to abort...")
+                # input("Press ENTER to acknowledge and continue, or Ctrl+C to abort...")
                 
                 return {"status": "FAILED", "error": f"XML Decode Error: {str(e)}"}

@@ -1,6 +1,6 @@
 from typing import Dict, Any, Optional
 from entities.model_enums import EngineType
-from services.model_manager import ModelManager
+from services.model_manager import EngineManager
 from config import ProgramConfig, ProgramSetting
 import functions as func
 
@@ -15,7 +15,10 @@ class ModuleRegistry:
         
         # Manifest of available module loaders
         self._manifest = {
-            "voice": self._load_voice_logic
+            "voice": self._load_voice_logic,
+            "vector_memory": self._load_vector_memory_logic,
+            "server_hub": self._load_server_logic,   # NEW: Neural Hub Logic
+            "client_link": self._load_client_logic,   # NEW: Neural Link Logic
         }
 
     def __getitem__(self, key: str) -> Optional[Any]:
@@ -23,64 +26,54 @@ class ModuleRegistry:
         return self._active_modules.get(key)
 
     def load_all(self):
-        # The manifest tells the registry what modules are available to be loaded
-        manifest = {
-            "voice": self._load_voice_logic
-        }
-
-        for mod_name, loader_func in manifest.items():
+        """Loads all modules specified as enabled in the configuration."""
+        for mod_name, loader_func in self._manifest.items():
             config_key = f"{mod_name.upper()}_ENABLED"
             
-            # Check the config object passed during __init__
             if self.config.get(config_key, False):
                 func.log(f"ModuleRegistry: Booting '{mod_name}'...")
                 instance = loader_func()
                 if instance:
                     self._active_modules[mod_name] = instance
             else:
-                # This is what you were seeing before
-                func.log(f"ModuleRegistry: Skipping '{mod_name}' (Not requested).", level="DEBUG")
+                func.debug(f"ModuleRegistry: Skipping '{mod_name}' (Not requested).")
 
 
-    def load_module(self, name: str) -> Optional[Any]:
-        """Public API to dynamically turn on a module."""
-        if name in self._active_modules:
-            return self._active_modules[name]
+    def _load_server_logic(self):
+        """Initializes the Brain Server module for the Main PC."""
+        host = self.config.get("SERVER_HOST", "0.0.0.0")
+        port = self.config.get("SERVER_PORT", 8000)
 
-        if name not in self._manifest:
-            func.log(f"ModuleRegistry: Unknown module '{name}'", level="ERROR")
+        try:
+            from modules.server.server_module import JarvisServerModule
+            server_module = JarvisServerModule(host=host, port=port)
+            func.log(f"ServerModule loaded. Target: {host}:{port}")
+            return server_module
+        except ImportError as e:
+            func.error(f"Failed to import ServerModule. Error: {e}")
+            return None
+
+    def _load_client_logic(self):
+        """Initializes the Remote Connector module for the Tiny PC."""
+        remote_url = self.config.get("REMOTE_BRAIN_URL")
+        preferred_model = self.config.get("MODEL_CONFIG_NAME", "default")
+
+        if not remote_url:
+            func.error("Client module enabled but REMOTE_BRAIN_URL is missing in config.", level="ERROR")
             return None
 
         try:
-            instance = self._manifest[name]()
-            if instance:
-                self._active_modules[name] = instance
-                self.config.set(f"{name.upper()}_ENABLED", True)
-                func.log(f"ModuleRegistry: Module '{name}' is now ONLINE.")
-                return instance
-        except Exception as e:
-            func.log(f"ModuleRegistry: Error loading '{name}': {e}", level="ERROR")
-        return None
-
-    def unload_module(self, name: str):
-        """Public API to turn off a module and free resources."""
-        if name not in self._active_modules:
-            return
-
-        instance = self._active_modules[name]
-        if hasattr(instance, 'shutdown'):
-            try:
-                instance.shutdown()
-            except:
-                pass
-
-        del self._active_modules[name]
-        self.config.set(f"{name.upper()}_ENABLED", False)
-        func.log(f"ModuleRegistry: Module '{name}' is now OFFLINE.")
+            from modules.client.remote_module import RemoteConnectorModule
+            client_module = RemoteConnectorModule(url=remote_url, model_id=preferred_model)
+            func.log(f"ClientModule loaded. Linked to: {remote_url}")
+            return client_module
+        except ImportError as e:
+            func.error(f"Failed to import RemoteConnectorModule. Error: {e}")
+            return None
 
     def _load_voice_logic(self):
         """The specific steps to boot VibeVoice."""
-        if not ModelManager.is_engine_installed(EngineType.VOICE_ENGINE):
+        if not EngineManager.is_engine_installed(EngineType.VOICE_ENGINE):
             func.log("Voice Engine not found. Run --install.", level="ERROR")
             return None
             
@@ -89,9 +82,28 @@ class ModuleRegistry:
         voice.preload() 
         return voice
 
-    def get_voice(self):
-        """Legacy support for existing code."""
-        return self._active_modules.get('voice')
+    def _load_vector_memory_logic(self):
+        """Boots the VectorMemoryModule wrapper."""
+        if not EngineManager.is_engine_installed(EngineType.VECTOR_MEMORY):
+            func.log("Vector Memory module not found. Run --install.", level="ERROR")
+            return None
+
+        db_path = self.config.get("VECTOR_DB_PATH") or func.get_root_directory() + "/databases"
+        
+        kwargs = {
+            "recency_weight": self.config.get("VECTOR_RECENCY_WEIGHT", 1.0),
+            "importance_weight": self.config.get("VECTOR_IMPORTANCE_WEIGHT", 1.0),
+            "relevance_weight": self.config.get("VECTOR_RELEVANCE_WEIGHT", 1.0),
+        }
+
+        try:
+            from modules.memory.vector_memory_module import VectorMemoryModule
+            memory_module = VectorMemoryModule(db_path=db_path, **kwargs)
+            func.log("VectorMemoryModule loaded (pending initialization).")
+            return memory_module
+        except ImportError as e:
+            func.error(f"Failed to import VectorMemoryModule. Error: {e}", level="ERROR")
+            return None
 
     def shutdown(self):
         """Cleanly closes everything on exit."""

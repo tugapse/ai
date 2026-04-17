@@ -1,28 +1,32 @@
-## 1. Architectural Role
-Manages how Large Language Model (LLM) output tokens are printed to the console based on the print mode, handling buffering for 'line' and 'every_x_tokens' modes.
 
-## 2. Interface & API Surface
-| Entity | Type | Functional Responsibility |
-| :--- | :--- | :--- |
-| `OutputPrinter` | Class | Manages LLM output token printing based on print mode. |
-| `process_and_print` | Method | Processes a single formatted token and prints it based on the configured mode. |
-| `flush_buffers` | Method | Prints any remaining content in buffers at the end of the stream. |
-| `process_token` | Method | Processes a single formatted token and returns the string to be printed, or None if nothing is ready to be printed yet (due to buffering). |
 
-## 3. Execution Logic & Flow
-- **Initialization**: The `OutputPrinter` class is initialized with a `print_mode` and `tokens_per_print`. It sets up buffers and initializes counters.
-- **Data Path**: Tokens are processed through the `process_token` method, which determines how they are buffered and printed based on the `print_mode`. The `process_and_print` method then outputs the processed token.
-- **Conditional Branching**: The key decision points are based on the `print_mode`:
-  - For `token` mode, the token is returned directly.
-  - For `line` mode, tokens are buffered until a newline is encountered, at which point the buffered line is returned.
-  - For `every_x_tokens` mode, tokens are buffered until the specified number of tokens is reached, at which point the buffered tokens are returned.
-  - For `line_or_x_tokens` mode, tokens are buffered until either a newline is encountered or the specified number of tokens is reached, at which point the buffered tokens are returned.
+## 1. Architectural Role  
+Manages LLM output token printing modes with buffering logic for line-based and token-thresholded streaming, ensuring consistent console output formatting.  
 
-## 4. Resource Dependencies
-- **Standard Libraries**: None
-- **Internal Modules**: `functions` (aliased as `func`)
-- **External Packages**: None
+## 2. Interface & API Surface  
+| Entity | Type | Functional Responsibility |  
+| :--- | :--- | :--- |  
+| `OutputPrinter` | Class | Orchestrates token printing based on configured mode (token, line, every_x_tokens, line_or_x_tokens). |  
+| `__init__` | Method | Initializes print mode and token-per-print threshold, resets buffers. |  
+| `process_and_print` | Method | Processes and prints a single token, handling buffering and mode-specific logic. |  
+| `flush_buffers` | Method | Clears remaining buffered content for non-line modes at stream end. |  
+| `process_token` | Method | Core logic for token processing, determining when to output buffered content. |  
+| `flush` | Method | Returns any remaining buffered content for post-stream capture. |  
 
-## 5. Configuration & Environment
-- **Hardcoded Constants**: `tokens_per_print` defaults to 5.
-- **Environment Lookups**: None
+## 3. Execution Logic & Flow  
+- **Initialization**: Sets `print_mode`, `tokens_per_print`, and initializes buffers (`line_buffer`, `token_buffer`, `buffered_token_count`).  
+- **Data Path**: Input token  `process_token` (buffers or outputs based on mode)  `process_and_print` (sends to `func.out`)  `flush` (captures residual buffer).  
+- **Conditional Branching**:  
+  - `print_mode` == "token": Direct output.  
+  - `print_mode` == "line": Buffers until newline, splits and outputs line-by-line.  
+  - `print_mode` == "every_x_tokens": Buffers until token threshold, then outputs.  
+  - `print_mode` == "line_or_x_tokens": Prioritizes newline over token threshold.  
+
+## 4. Resource Dependencies  
+- **Internal Modules**: `functions` (via `func`).  
+- **Standard Libraries**: None.  
+- **External Packages**: None.  
+
+## 5. Configuration & Environment  
+- **Hardcoded Constants**: `"token"`, `"line"`, `"every_x_tokens"`, `"line_or_x_tokens"`, `tokens_per_print` (default 5).  
+- **Environment Lookups**: None.

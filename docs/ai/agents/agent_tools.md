@@ -1,46 +1,35 @@
-## 1. Architectural Role
-Handles file and directory operations, command execution, and smart search functionalities for an AI agent.
 
-## 2. Interface & API Surface
-| Entity | Type | Functional Responsibility |
-| :--- | :--- | :--- |
-| `send_notification` | Function | Sends a desktop notification to the user. |
-| `_resolve_path` | Function | Resolves a path to an absolute system path, ensuring it's within the project boundaries. |
-| `_sanitize_output_path` | Function | Converts an absolute system path back into the @ROOT format for the LLM. |
-| `execute_command` | Function | Executes a shell command with @ROOT interpolation. |
-| `read_dir` | Function | Explores a directory and returns lists of its child files and folders. |
-| `read_file` | Function | Retrieves the full UTF-8 text content of a specific file. |
-| `write_file` | Function | Creates or overwrites a file with the provided content. |
-| `smart_search` | Function | Finds files using keyword or regex search. Inspects both names and content. |
-| `patch_file` | Function | Surgically replaces a block of text within a file. |
-| `AVAILABLE_TOOLS` | Dictionary | Registry of available tools. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: No initialization required.
-- **Data Path**:
-  - **Input**: Command, path, search pattern, etc.
-  - **Processing**: 
-    - `send_notification`: Constructs and sends a notification.
-    - `_resolve_path`: Cleans and resolves the path.
-    - `_sanitize_output_path`: Converts the path back to @ROOT format.
-    - `execute_command`: Interpolates @ROOT, executes the command, captures output.
-    - `read_dir`: Lists directory contents.
-    - `read_file`: Reads file content.
-    - `write_file`: Writes content to a file.
-    - `smart_search`: Searches for files and content.
-    - `patch_file`: Searches for and replaces text in a file.
-  - **Output**: Returns results or notifications.
-- **Conditional Branching**:
-  - `send_notification`: Checks for `notify-send` availability.
-  - `_resolve_path`: Checks if the path is within project boundaries.
-  - `execute_command`: Handles command execution errors.
-  - `smart_search`: Fallback to simple substring match if regex is malformed.
+## 1. Architectural Role  
+Provides atomic tools for file system operations, command execution, and notifications, enabling agents to interact with the environment and manage state.  
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `os`, `shutil`, `subprocess`, `requests`, `json`, `difflib`, `typing`
-- **Internal Modules**: `functions as func`
-- **External Packages**: None
+## 2. Interface & API Surface  
+| Entity | Type | Functional Responsibility |  
+| :--- | :--- | :--- |  
+| `send_notification` | Function | Sends desktop notifications via `notify-send` for task completion or errors. |  
+| `_resolve_path` | Function | Resolves relative paths to absolute paths within the project root, enforcing security boundaries. |  
+| `_sanitize_output_path` | Function | Converts absolute paths back to `@ROOT`-based paths for LLM output. |  
+| `execute_command` | Function | Executes shell commands with `@ROOT` interpolation, handling timeouts and output capture. |  
+| `read_dir` | Function | Recursively explores directories, returning structured file/folder listings with depth control. |  
+| `read_file` | Function | Reads UTF-8 content of a file, returning its full text. |  
+| `write_file` | Function | Writes content to a file, ensuring atomic writes and path sanitization. |  
+| `patch_file` | Function | Replaces exact text blocks in a file, with diff summary for audit. |  
+| `smart_search` | Function | Searches files for patterns, supporting regex, pagination, and exclusion filters. |  
 
-## 5. Configuration & Environment
-- **Hardcoded Constants**: `PROJECT_ROOT`
-- **Environment Lookups**: None
+## 3. Execution Logic & Flow  
+- **Initialization**: Loads `PROJECT_ROOT` via `os.getcwd()` and defines path resolution/security logic.  
+- **Data Path**: Input paths are normalized, resolved to absolute paths, sanitized for output, and validated against security boundaries.  
+- **Conditional Branching**:  
+  - `send_notification`: Checks for `notify-send` availability.  
+  - `execute_command`: Validates command strings and handles timeout exceptions.  
+  - `smart_search`: Filters excluded directories and applies regex/literal pattern matching.  
+  - `_resolve_path`: Validates resolved paths against `PROJECT_ROOT` to prevent directory traversal.  
+
+## 4. Resource Dependencies  
+- **Standard Libraries**: `os`, `shutil`, `subprocess`, `requests`, `json`, `difflib`, `typing`.  
+- **Internal Modules**: `functions` (for logging/error handling).  
+- **External Packages**: None directly referenced in the file.  
+
+## 5. Configuration & Environment  
+- **Hardcoded Constants**: `PROJECT_ROOT` (set via `os.getcwd()`).  
+- **Environment Lookups**: None directly used in the provided code.

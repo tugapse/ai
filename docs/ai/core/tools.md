@@ -1,37 +1,42 @@
-## 1. Architectural Role
-`tools.py` is responsible for defining and managing various tools that can be used within the system, including selecting tools based on user requests and implementing specific tool functionalities.
 
-## 2. Interface & API Surface
-| Entity | Type | Functional Responsibility |
-| :--- | :--- | :--- |
-| `ToolSelector` | Class | Selects the appropriate tool based on the user's request. |
-| `BaseTool` | Class | Base class for all tools, providing a structure for tool implementation. |
-| `FileLister` | Class | Tool for listing files in a directory. |
-| `OpenWeatherAPI` | Class | Tool for interacting with the OpenWeatherMap API. |
 
-## 3. Execution Logic & Flow
-- **Initialization**:
-  - `ToolSelector`: Initializes with a model, configuration, and optional system prompt. Reads the system prompt from a file.
-  - `BaseTool`: Initializes with a tool identifier, name, description, and optional examples.
-  - `FileLister`: Inherits from `BaseTool` and initializes with default values.
-  - `OpenWeatherAPI`: Inherits from `BaseTool` and initializes with an optional API key, defaulting to an environment variable if not provided.
+## 1. Architectural Role  
+Provides a framework for tool selection and execution within a system, enabling dynamic interaction with external services and file systems.  
 
-- **Data Path**:
-  - `ToolSelector`: Checks if the input text contains a tool request, processes it, and returns the result.
-  - `BaseTool`: Provides a template for tool implementation with a `run` method that must be overridden.
-  - `FileLister`: Lists files in a specified directory, optionally filtering by extension.
-  - `OpenWeatherAPI`: Fetches current weather and forecast data for a specified city using the OpenWeatherMap API.
+## 2. Interface & API Surface  
+| Entity | Type | Functional Responsibility |  
+| :--- | :--- | :--- |  
+| `ToolSelector` | Class | Detects and selects tools from user input using an LLM-based system prompt. |  
+| `BaseTool` | Class | Abstract base class defining the interface for all tools, including a `run` method and metadata. |  
+| `FileLister` | Class | Lists files in a directory, optionally filtered by file extension. |  
+| `OpenWeatherAPI` | Class | Fetches weather data via the OpenWeatherMap API for current conditions and forecasts. |  
+| `check_tool_request` | Method | Analyzes text to determine if a tool request is present, leveraging an LLM. |  
+| `run` | Method | Abstract method for executing tool-specific logic. |  
+| `list_files` | Method | Implements directory traversal and file filtering logic. |  
+| `get_current_weather` | Method | Retrieves current weather data for a specified city. |  
+| `get_forecast` | Method | Generates a 3-hourly weather forecast for a specified city. |  
 
-- **Conditional Branching**:
-  - `ToolSelector`: Checks if the input text contains a tool request using the `check_tool_request` method.
-  - `FileLister`: Filters files based on the provided extension.
-  - `OpenWeatherAPI`: Fetches weather data based on the provided city and optionally returns a forecast.
+## 3. Execution Logic & Flow  
+- **Initialization**:  
+  - `ToolSelector` loads a system prompt from a file during initialization.  
+  - `FileLister` and `OpenWeatherAPI` initialize with configuration parameters (e.g., API keys).  
+- **Data Path**:  
+  - `ToolSelector`: Input text  `check_tool_request` (LLM analysis)  returns tool existence.  
+  - `FileLister`: Input directory  `list_files` (filters by extension)  returns filenames.  
+  - `OpenWeatherAPI`: Input city  `get_current_weather`/`get_forecast` (HTTP requests)  returns weather data.  
+- **Conditional Branching**:  
+  - `check_tool_request`: Checks for `"tool":` in text.  
+  - `list_files`: Filters files by extension if provided.  
+  - `get_forecast`: Samples forecast data every 8 entries (3-hour intervals).  
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `os`, `json`, `requests`
-- **Internal Modules**: `ollama`, `chat`, `core.llms.ollama_model`, `color`
-- **External Packages**: `requests`
+## 4. Resource Dependencies  
+- **Standard Libraries**: `os`, `json`, `requests`, `json`.  
+- **Internal Modules**: `core.llms.ollama_model`, `chat`, `color`, `core.tools`.  
+- **External Packages**: `requests` (for HTTP API calls).  
 
-## 5. Configuration & Environment
-- **Hardcoded Constants**: `system_prompt_folder` (path to prompt templates)
-- **Environment Lookups**: `OPENWEATHER_API_KEY` (environment variable for OpenWeatherMap API key)
+## 5. Configuration & Environment  
+- **Hardcoded Constants**:  
+  - `SYSTEM_PROMPT_FOLDER` (from config).  
+  - File extension filtering logic in `list_files`.  
+- **Environment Lookups**:  
+  - `OPENWEATHER_API_KEY` (from `os.environ`).

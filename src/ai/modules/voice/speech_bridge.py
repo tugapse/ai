@@ -34,10 +34,24 @@ class SpeechBridge:
             if not self.in_code_block:
                 self._process_text_chunk(text)
 
+    def _replace_path_for_voice(self, match):
+        """
+        Transforms /path/to/file into ', path to file' for better voice synthesis.
+        """
+        path_content = match.group('path_content')
+        # Replace internal slashes with spaces for natural pronunciation
+        processed_path = path_content.replace('/', ' ')
+        return f", {processed_path}"
+
     def _process_text_chunk(self, text: str):
-        text = re.sub(r'#+\s+', '', text)
-        text = re.sub(r'\*\*|\*', '', text)
-        text = re.sub(r'^\s*(\d+\.|[\-\*])\s+', '', text, flags=re.MULTILINE)
+        text = re.sub(r'#+\s+', '', text) # Remove headers
+        text = re.sub(r'\*\*|\*', '', text) # Remove bold/italic markers
+        text = re.sub(r'^\s*(\d+\.|[\-\*])\s+', '', text, flags=re.MULTILINE) # Remove list markers
+        
+        # Transform file paths and commands for voice synthesis
+        # Matches a leading slash followed by one or more word characters, dots, slashes, or hyphens.
+        text = re.sub(r'/(?P<path_content>[\w./-]+)', self._replace_path_for_voice, text)
+        
         self.buffer += text
         matches = list(self.sentence_regex.finditer(self.buffer))
         if matches:
