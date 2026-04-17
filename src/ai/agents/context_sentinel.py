@@ -31,7 +31,7 @@ class ContextSentinel:
         if pressure < self.threshold:
             return payload, False
 
-        func.out(f"\n{Color.YELLOW}◈ Sentinel: Pressure {pressure:.1%}. Archiving facts to LTM...{Color.RESET}")
+        func.out(f"{Color.YELLOW}◈ Sentinel: Pressure {pressure:.1%}. Archiving facts to LTM...{Color.RESET}")
 
         agent_memory = memory_manager.get_agent_memory(agent_name)
 

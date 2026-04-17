@@ -16,7 +16,7 @@ import functions as func
 from color import Color 
 from cli_args import CliArgs 
 
-__version__ = "2.3.2"
+__version__ = "3.0.1"
 
 def check_dependencies():
     """Diagnostic boot check for JARVIS dependencies."""
@@ -54,13 +54,14 @@ def hack_warnings():
     warnings.filterwarnings("ignore", category=FutureWarning)
 
 class JarvisHelpFormatter(argparse.RawDescriptionHelpFormatter):
-        def __init__(self, prog):
-            super().__init__(prog, max_help_position=45, width=110)
-
+    def __init__(self, prog):
+        # Increased max_help_position to 50 to keep descriptions aligned
+        super().__init__(prog, max_help_position=50, width=110)
 
 def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     """Defines and parses flags for the JARVIS ecosystem."""
     
+    # logo uses cyan for the brand, and we'll keep the description clean
     logo = f"""{Color.CYAN}
       ██╗  █████╗  ██████╗  ██╗   ██╗ ██╗ ███████╗      █████╗  ██╗
       ██║ ██╔══██╗ ██╔══██╗ ██║   ██║ ██║ ██╔════╝     ██╔══██╗ ██║
@@ -71,57 +72,78 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
 
   JUST A REASONING VIRTUAL INTELLIGENT SENTINEL AGENTIC INTERFACE
   Version: {__version__}{Color.RESET}
+  
+  An integrated reasoning core powering autonomous agentic logic and long-term memory synthesis.
+  
+  {Color.CYAN}[ SYSTEM READY ] --------------------------------------------------------------------------{Color.RESET}
     """
 
-    # Use the new JarvisHelpFormatter here
     parser = argparse.ArgumentParser(
         description=logo,
-        formatter_class=JarvisHelpFormatter
+        formatter_class=JarvisHelpFormatter,
+        usage=f"{Color.CYAN}ai{Color.RESET} [OPTIONS]",
+        add_help=False,
+        epilog=f"{Color.DIM}Sentinel monitoring active. Awaiting directive.{Color.RESET}"   
     )
-    
-    net_group = parser.add_argument_group('Distributed Architecture')
-    net_group.add_argument("--server", action="store_true", help="Start Brain Server")
-    net_group.add_argument("--remote", "-r", type=str, help="Connect to Remote Brain URL")
-    
-    parser.add_argument("--msg", "-m", type=str, help="Direct question")
-    parser.add_argument("--model", "-md", type=str, help="Model config")
-    parser.add_argument("--system", "-s", type=str, help="System prompt name") 
-    parser.add_argument("--system-file", "-sf", type=str, help="System prompt file")
-    parser.add_argument("--list-models", "-l", action="store_true", help="List available models")
-    
-    parser.add_argument("--file", "-f", type=str, help="Process a specific file")
-    parser.add_argument("--image", "-i", type=str, help="Process an image path")
-    parser.add_argument("--load-folder", "-D", type=str, help="Load all files from directory")
-    parser.add_argument("--ext", "-e", type=str, help="Filter files by extension")
-    
-    parser.add_argument("--task", "-t", type=str, help="Agent task description")
-    parser.add_argument("--task-file", "-tf", type=str, help="Path to task file")
-    parser.add_argument("--output-file", "-o", type=str, help="Path for clean output (temp file mode)")
-    parser.add_argument("--agent", action="store_true", help="Enable agentic logic injection")
-    parser.add_argument("--pipeline", "-ppl", type=str, help="Sequence multiple instructions")
-    parser.add_argument("--session-id", type=str, help="LTM session persistence key")
-    
-    parser.add_argument("--print-chat", "-p", type=str, help="Display specific chat logs")
-    parser.add_argument("--print-log", "-pl", action="store_true", help="Show system logs")
-    parser.add_argument("--print-debug", "-pdb", action="store_true", help="Show debug information")
-    parser.add_argument("--no-out", "-q", action="store_true", help="Silent mode / Quiet")
-    parser.add_argument("--no-think-anim", "-nta", action="store_true", help="Disable reasoning animations")
-    parser.add_argument("--debug-console", "-dc", action="store_true", help="Disable console clearing")
-    parser.add_argument("--modules", nargs="+", default=[], help="Load specific server modules")
-    
-    parser.add_argument("--install", action="store_true", help="Install missing dependencies")
-    parser.add_argument("--overwrite-config", action="store_true", help="Reset configuration")
 
-    config_group = parser.add_argument_group('Model Config Generation')
-    config_group.add_argument('--generate-config', metavar='FILENAME', type=str, help="Create a new model JSON")
-    config_group.add_argument('--model-type', type=str, choices=[t.value for t in ModelType], help="Type of model for config")
+    # 1. Cognitive Protocols (The Core Chat/Model flags)
+    cog_group = parser.add_argument_group(f'{Color.CYAN}COGNITIVE PROTOCOLS{Color.RESET}')
+    cog_group.add_argument("-h", "--help", action="help", help="Show this diagnostic help message")
+    cog_group.add_argument("--msg", "-m", type=str, help="Direct inquiry to the sentinel")
+    cog_group.add_argument("--model", "-md", type=str, help="Specify neural model configuration")
+    cog_group.add_argument("--system", "-s", type=str, help="Load named system persona") 
+    cog_group.add_argument("--system-file", "-sf", type=str, help="Inject system prompt from disk")
+    cog_group.add_argument("--list-models", "-l", action="store_true", help="Audit available neural models")
+
+    # 2. Asset & Context Management
+    asset_group = parser.add_argument_group(f'{Color.CYAN}ASSET & CONTEXT MANAGEMENT{Color.RESET}')
+    asset_group.add_argument("--file", "-f", type=str, help="Analyze target file")
+    asset_group.add_argument("--image", "-i", type=str, help="Process visual input from path")
+    asset_group.add_argument("--load-folder", "-D", type=str, help="Ingest directory into vector memory")
+    asset_group.add_argument("--ext", "-e", type=str, help="Filter context ingestion by extension")
+
+    # 3. Autonomous Operations (Agentic Logic)
+    agent_group = parser.add_argument_group(f'{Color.CYAN}AUTONOMOUS OPERATIONS{Color.RESET}')
+    agent_group.add_argument("--agent", action="store_true", help="Enable stage-2 agentic logic injection")
+    agent_group.add_argument("--task", "-t", type=str, help="Define autonomous directive")
+    agent_group.add_argument("--task-file", "-tf", type=str, help="Load directive from file")
+    agent_group.add_argument("--pipeline", "-ppl", type=str, help="Execute multi-stage instruction pipeline")
+    agent_group.add_argument("--session-id", type=str, help="LTM (Long Term Memory) session key")
+    agent_group.add_argument("--output-file", "-o", type=str, help="Designate clean output stream (temp-file mode)")
+
+    # 4. Distributed Architecture
+    net_group = parser.add_argument_group(f'{Color.CYAN}DISTRIBUTED ARCHITECTURE{Color.RESET}')
+    net_group.add_argument("--server", action="store_true", help="Initialize Brain Server module")
+    net_group.add_argument("--remote", "-r", type=str, help="Connect to remote neural hub URL")
+    net_group.add_argument("--modules", nargs="+", default=[], help="Load specific server sub-modules")
+
+    # 5. System Debug & Maintenance
+    sys_group = parser.add_argument_group(f'{Color.CYAN}SYSTEM DEBUG & MAINTENANCE{Color.RESET}')
+    sys_group.add_argument("--print-chat", "-p", type=str, help="Output session history")
+    sys_group.add_argument("--print-log", "-pl", action="store_true", help="Enable system telemetry logs")
+    sys_group.add_argument("--print-debug", "-pdb", action="store_true", help="Enable verbose debug stream")
+    sys_group.add_argument("--no-out", "-q", action="store_true", help="Quiet mode (suppress terminal output)")
+    sys_group.add_argument("--no-think-anim", "-nta", action="store_true", help="Disable reasoning animations")
+    sys_group.add_argument("--debug-console", "-dc", action="store_true", help="Lock console (disable clear-screen)")
+    sys_group.add_argument("--install", action="store_true", help="Execute dependency sync protocol")
+    sys_group.add_argument("--overwrite-config", action="store_true", help="Force configuration override")
+
+    # 6. Model Generation (Your existing group)
+    config_group = parser.add_argument_group(f'{Color.CYAN}MODEL CONFIG GENERATION{Color.RESET}')
+    config_group.add_argument('--generate-config', metavar='FILENAME', type=str, help="Generate new model manifest")
+    config_group.add_argument('--model-type', type=str, choices=[t.value for t in ModelType], help="Target architecture for manifest")
 
     return parser, parser.parse_args()
 
 def print_chat_header(prog: Program) -> None:
-    chat_name = prog.models.get_chat_name()
-    func.out(f"{Color.GREEN}# Starting {Color.YELLOW}{chat_name}{Color.GREEN} assistant")
-    func.out(f"{Color.RESET}--------------------------")
+    chat_name = prog.models.get_chat_name() 
+    
+    if func.ALLOW_CLEAR_CONSOLE:
+        func.clear_console()
+        
+    func.out(f"{Color.CYAN}# {Color.RESET}Established neural link to: {Color.CYAN}{chat_name}{Color.RESET}")
+    func.out(f"{Color.DIM}# Sentinel status: ACTIVE | Stage 2 Logic: INJECTED{Color.RESET}")
+    func.out(f"{Color.CYAN}# {Color.RESET}-----------------------------------------------------------")
 
 def run():
     check_dependencies()

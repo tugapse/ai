@@ -11,6 +11,9 @@ import os
 class LLMConnector:
     def __init__(self, llm_instance: BaseModel):
         self.llm = llm_instance
+        
+    def get_context_limit(self) -> int:
+        return self.llm.token_info_count.max_context_window
 
     def send_request(self, json_input: Dict[str, Any], system_prompt_path: str, agent_config: Dict[str, Any] = None) -> Dict[str, Any]:
         """Method for Structured Agentic XML communication."""
