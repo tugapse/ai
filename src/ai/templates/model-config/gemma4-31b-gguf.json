@@ -1,10 +1,10 @@
 {
-  "model_name": "gemma4-26b",
+  "model_name": "gemma4-31b",
   "model_type": "gguf",
   "model_properties": {
-    "gguf_filename": "gemma-4-26B-A4B-it-UD-Q4_K_XL.gguf",
-    "model_repo_id": "unsloth/gemma-4-26B-A4B-it-GGUF",
-    "n_gpu_layers": 10,
+    "gguf_filename": "gemma-4-31B-it-Q4_K_M.gguf",
+    "model_repo_id": "unsloth/gemma-4-31B-it-GGUF",
+    "n_gpu_layers": 9,
     "n_ctx": 18000,
     "verbose": false,
     "max_new_tokens": 4096,

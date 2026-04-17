@@ -124,7 +124,6 @@ class Chat(Events):
         self.prompt_session = PromptSession(history=InMemoryHistory())
         self.kb = KeyBindings()
         self._setup_key_bindings()
-        self.update_top_bar(["Initializing System"])
 
 
     def update_suggestions(self, commands: list[str] = None, agents: list[str] = None):
@@ -136,29 +135,12 @@ class Chat(Events):
         if agents is not None:
             self.agents = agents
 
-    def update_top_bar(self, content_array: list[str]):
-        """
-        Updates the persistent top bar content.
-        The content is right-aligned within the bar's display area.
-        """
-        self.top_bar_content = content_array
 
     def _setup_key_bindings(self):
         @self.kb.add('escape', 'enter')
         def _(event):
             self.multiline_mode = not self.multiline_mode
 
-    def _get_top_bar_display(self):
-        """
-        Generates the formatted string for the top bar, right-aligned.
-        """
-        if not self.top_bar_content:
-            return ""
-        
-        # Join content with a separator, then right-align it based on a standard width
-        content_str = " | ".join(self.top_bar_content)
-        # Assuming a reasonable maximum width for display purposes
-        return ANSI(format_text(content_str, Color.WHITE))
 
     def _get_prompt_text(self):
         file_status = f" ({len(self.pending_files)} files pending)" if self.pending_files else ""

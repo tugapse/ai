@@ -68,6 +68,7 @@ class ProgramConfig(Generic[T]):
 
         self.config = default_config
         self.set(ProgramSetting.ROOT_DIRECTORY, user_directory)
+        self.set(ProgramSetting.PRINT_MODE, "token")
 
         # Ensure Paths
         self._ensure_path(ProgramSetting.PATHS_MODEL_CONFIGS, "models")
