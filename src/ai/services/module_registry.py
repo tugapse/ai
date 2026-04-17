@@ -105,8 +105,41 @@ class ModuleRegistry:
             func.error(f"Failed to import VectorMemoryModule. Error: {e}", level="ERROR")
             return None
 
-    def shutdown(self):
-        """Cleanly closes everything on exit."""
+
+    def unload_module(self, name: str):
+        """Safely unloads a single module and frees its resources."""
+        if name not in self._active_modules:
+            return
+
+        instance = self._active_modules[name]
+        func.log(f"ModuleRegistry: Unloading '{name}'...")
+        
+        try:
+            if hasattr(instance, 'unload'):
+                instance.unload()
+            elif hasattr(instance, 'shutdown'):
+                instance.shutdown()
+            
+            if hasattr(instance, 'thread') and instance.thread and instance.thread.is_alive():
+                instance.thread.join(timeout=2.0)
+                
+            del self._active_modules[name]
+            
+        except Exception as e:
+            func.error(f"ModuleRegistry: Error unloading '{name}': {e}", level="ERROR")
+
+
+    def unload_all(self):
+        """Cleanly unloads all active modules."""
+        func.log("ModuleRegistry: Initiating global shutdown sequence...")
+        
         active_names = list(self._active_modules.keys())
+        
         for name in active_names:
             self.unload_module(name)
+            
+        func.log("ModuleRegistry: All modules safely unloaded.")
+
+    def shutdown(self):
+        """Alias for unload_all to maintain compatibility with existing shutdown calls."""
+        self.unload_all()
