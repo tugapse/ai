@@ -106,7 +106,7 @@ ENGINES = [
     {"id": "server_hub", "name": "Neural Hub (Main PC Server)", "deps": ["fastapi", "uvicorn", "pydantic", "python-multipart"]},
     {"id": "client_link", "name": "Neural Link (Tiny PC Client)", "deps": ["requests", "pydantic"]},
     {"id": "vector_memory", "name": "Long Term Memory (ChromaDB)", "deps": ["sentence-transformers", "chromadb"]},
-    {"id": "voice_engine", "name": "Voice Module (Realtime TTS)", "deps": ["huggingface-hub>=0.34.0,<1.0","vibevoice","torch", "transformers", "soundfile", "librosa", "einops", "pyaudio"]},
+   {"id": "voice_engine", "name": "Voice Module (Realtime TTS)", "deps": ["huggingface-hub>=0.34.0,<1.0", "vibevoice[streamingtts] @ git+https://github.com/microsoft/VibeVoice.git", "torch", "transformers", "soundfile", "librosa", "einops", "pyaudio"]},
 ]
 
 def setup_venv():
