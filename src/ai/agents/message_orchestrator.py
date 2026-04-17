@@ -43,7 +43,7 @@ class MessageOrchestrator:
             "generate_doc": "Technical Writer. Deep-dive documentation."
         }
         self.specialist_manager = SpecialistManager(self.connector, specialist_cfg)
-        self.context_sentinel = ContextSentinel(self.connector, threshold=0.6, max_tokens=600000)
+        self.context_sentinel = ContextSentinel(self.connector, threshold=0.8, max_tokens=self.connector.get_context_limit())
 
         # Memory State
         self.memory = MemoryManager(list(self.agents.keys()))
@@ -236,12 +236,14 @@ class MessageOrchestrator:
         for o in outcomes:
             # First, convert the whole result to a string
             raw_str = json.dumps(o["result"])
+            # TODO - Consider smarter truncation that preserves JSON structure or key info instead of naive cutting
             
             # Then, perform the truncation logic
-            if len(raw_str) > length:
-                final_res = raw_str[:length] + "... [TRUNCATED]"
-            else:
-                final_res = raw_str
+            # if len(raw_str) > length:
+            #     final_res = raw_str[:length] + "... [TRUNCATED]"
+            # else:
+            #     final_res = raw_str
+            final_res = raw_str
                 
             formatted.append({
                 "tool": o["tool"],

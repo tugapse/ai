@@ -97,16 +97,16 @@ class SystemDiagnostics:
 
 # --- Engine Registry ---
 ENGINES = [
-    {"id": "gguf", "name": "GGUF (Local Inference)", "deps": ["llama-cpp-python", "huggingface-hub", "numpy"]},
-    {"id": "ollama", "name": "Ollama (Local API)", "deps": ["ollama", "requests"]},
+    {"id": "gguf", "name": "Llama-CPP GGUF", "deps": ["llama-cpp-python ", "huggingface-hub", "numpy"]},
     {"id": "transformers", "name": "Transformers (HF)", "deps": ["torch", "transformers", "accelerate", "huggingface-hub"]},
+    {"id": "ollama", "name": "Ollama (Local API)", "deps": ["ollama", "requests"]},
     {"id": "openai", "name": "OpenAI (Cloud API)", "deps": ["openai"]},
     {"id": "gemini_api", "name": "Gemini (API Key)", "deps": ["google-generativeai"]},
     {"id": "gemini_vertex", "name": "Gemini (Vertex AI)", "deps": ["google-cloud-aiplatform"]},
-    {"id": "voice_engine", "name": "Voice Module (Realtime TTS)", "deps": ["vibevoice","torch", "transformers", "soundfile", "librosa", "einops", "pyaudio"]},
-    {"id": "vector_memory", "name": "Long Term Memory (ChromaDB)", "deps": ["sentence-transformers", "chromadb"]},
     {"id": "server_hub", "name": "Neural Hub (Main PC Server)", "deps": ["fastapi", "uvicorn", "pydantic", "python-multipart"]},
     {"id": "client_link", "name": "Neural Link (Tiny PC Client)", "deps": ["requests", "pydantic"]},
+    {"id": "vector_memory", "name": "Long Term Memory (ChromaDB)", "deps": ["sentence-transformers", "chromadb"]},
+    {"id": "voice_engine", "name": "Voice Module (Realtime TTS)", "deps": ["vibevoice","torch", "transformers", "soundfile", "librosa", "einops", "pyaudio"]},
 ]
 
 def setup_venv():
@@ -141,7 +141,7 @@ def main_menu():
         config = load_config()
         clear_screen()
         print(f"{C_CYAN}{C_BOLD}==============================================")
-        print("      JARVIS ENGINE MANAGER & INSTALLER       ")
+        print("      JARVIS AI ENGINE MANAGER & INSTALLER       ")
         print(f"=============================================={C_END}\n")
         
         for i, eng in enumerate(ENGINES, 1):
@@ -193,6 +193,9 @@ def run_pip(engine, config, venv_python, action):
     env = os.environ.copy()
     deps = engine['deps']
     
+    # Initialize the base command
+    cmd = [venv_python, "-m", "pip", action]
+    
     if action == "install":
         # Step 1: Check system-level requirements
         if not SystemDiagnostics.check_engine_deps(engine['id']):
@@ -204,9 +207,18 @@ def run_pip(engine, config, venv_python, action):
         if engine['id'] == "gguf":
             gpu = input(f"{C_CYAN}Enable CUDA (GPU) support for GGUF? (y/n): {C_END}").lower() == 'y'
             if gpu:
-                env["CMAKE_ARGS"] = "-DGGML_CUDA=on"
+                env["CMAKE_ARGS"] = "-DGGML_CUDA=on -DGGML_CUDA_FORCE_CUBLAS=on -DLLAVA_BUILD=off -DCMAKE_CUDA_ARCHITECTURES=native"
                 env["FORCE_CMAKE"] = "1"
-        
+                
+                cmd += ["--no-cache-dir", "--force-reinstall", "--upgrade"]
+            else:
+                cmd += ["--upgrade"]
+        else:
+            cmd += ["--upgrade"]
+            
+        # Append dependencies
+        cmd += deps
+
         if engine['id'] == "server_hub":
             print(f"{C_YELLOW}>>> Installing Brain Server (FastAPI). Ensure GGUF/Ollama is also installed.{C_END}")
         
@@ -216,9 +228,7 @@ def run_pip(engine, config, venv_python, action):
         if engine['id'] == "voice_engine":
             print(f"{C_YELLOW}>>> Note: VibeVoice-Realtime requires CUDA for optimal performance.{C_END}")
 
-        cmd = [venv_python, "-m", "pip", "install", "--upgrade"] + deps
     else:
-        # Step 3: Check for shared deps to avoid breaking other engines
         current_config = load_config()
         other_deps = set()
         for e in ENGINES:
@@ -235,6 +245,7 @@ def run_pip(engine, config, venv_python, action):
 
     try:
         print(f"\n{C_BLUE}>>> Executing {action} for {engine['name']}...{C_END}")
+        # subprocess.run will use the updated 'env' containing the CMAKE_ARGS
         subprocess.run(cmd, env=env, check=True)
         config[engine['id']] = {"installed": (action == "install")}
         save_config(config)
