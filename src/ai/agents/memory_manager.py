@@ -1,5 +1,5 @@
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from typing import Dict, Any, Optional, List
 
 @dataclass
@@ -22,19 +22,45 @@ class OrchestratorContext:
     repeat_count: int = 0
 
 class MemoryManager:
-    """Manages the state of the orchestrator and all agents."""
+    """Manages the state of the orchestrator and all agents with persistence support."""
 
     def __init__(self, agent_names: List[str]):
         """
         Initializes the MemoryManager.
-
-        Args:
-            agent_names (List[str]): A list of names for all agents in the pipeline.
         """
         self.context = OrchestratorContext()
         self.agents: Dict[str, AgentMemory] = {
             name: AgentMemory() for name in agent_names
         }
+
+    def serialize(self) -> Dict[str, Any]:
+        """
+        Collapses the live memory state into a serializable dictionary.
+        """
+        return {
+            "context": asdict(self.context),
+            "agents": {name: asdict(mem) for name, mem in self.agents.items()}
+        }
+
+    def hydrate(self, data: Dict[str, Any]):
+        """
+        Restores the memory state from a dictionary. 
+        Safely maps keys to maintain compatibility if the agent pool changes.
+        """
+        if not data:
+            return
+
+        ctx_data = data.get("context", {})
+        for key, value in ctx_data.items():
+            if hasattr(self.context, key):
+                setattr(self.context, key, value)
+
+        agents_data = data.get("agents", {})
+        for agent_name, agent_data in agents_data.items():
+            if agent_name in self.agents:
+                for key, value in agent_data.items():
+                    if hasattr(self.agents[agent_name], key):
+                        setattr(self.agents[agent_name], key, value)
 
     def get_agent_memory(self, agent_name: str) -> AgentMemory:
         """Retrieves the memory for a specific agent."""
@@ -47,7 +73,13 @@ class MemoryManager:
 
     def record_tool_result(self, agent_name: str, tool_name: str, params: Dict[str, Any], result: Dict[str, Any]):
         """Records the result of a tool execution in the global context and for the agent."""
-        self.context.tool_results.append({"agent": agent_name, "tool": tool_name, "parameters": params, "result": result})
+        self.context.tool_results.append({
+            "agent": agent_name, 
+            "tool": tool_name, 
+            "parameters": params, 
+            "result": result
+        })
+        
         if result.get("status") == "SUCCESS":
             self.context.current_step_index += 1
         
@@ -55,8 +87,8 @@ class MemoryManager:
 
     def update_agent_history_and_notes(self, agent_name: str, response: Dict[str, Any]):
         """
-        Updates an agent's internal memory with new notes and interaction history.
-        This moves messages from 'received' to 'history' and clears 'received'.
+        Updates an agent's internal memory.
+        Moves received messages to history and injects new thoughts/notes.
         """
         memory = self.get_agent_memory(agent_name)
         memory.notes = response.get("notes", memory.notes)
@@ -66,18 +98,21 @@ class MemoryManager:
         
         for m in memory.messages_received:
             memory.history.append(m)
-        memory.history.append({"from": "SELF", "thought": response.get("thought"), "response": msg_to_user})
+        
+        memory.history.append({
+            "from": "SELF", 
+            "thought": response.get("thought"), 
+            "response": msg_to_user
+        })
         memory.messages_received = []
 
     def check_stagnation(self, tool_name: Optional[str], params: Dict[str, Any]) -> bool:
         """
-        Tracks consecutive identical tool calls to detect loops.
-
-        Returns:
-            bool: True if stagnation is detected (3 or more identical calls).
+        Tracks identical tool calls to detect architectural loops.
         """
         current_fp = f"{tool_name}-{json.dumps(params, sort_keys=True)}"
         self.context.action_history_fp.append(current_fp)
+        
         if len(self.context.action_history_fp) > 5:
             self.context.action_history_fp.pop(0)
         
@@ -85,14 +120,17 @@ class MemoryManager:
         if occurrences >= 3:
             self.context.repeat_count = occurrences
             return True
-        else:
-            self.context.repeat_count = 0
-            return False
+        
+        self.context.repeat_count = 0
+        return False
     
-    def clear(self, agent):
-        self.agents[agent].messages_received = []
-        self.agents[agent].history = []
-        self.agents[agent].notes = "System initialized."
-        self.agents[agent].manifest = {}
-        self.agents[agent].current_task = "Waiting for tasks..."
-        self.context.tool_results = []  
+    def clear(self, agent: str):
+        """Resets the state of a specific agent and clears the outcome context."""
+        if agent in self.agents:
+            mem = self.agents[agent]
+            mem.messages_received = []
+            mem.history = []
+            mem.notes = "System initialized."
+            mem.manifest = {}
+            mem.current_task = "Waiting for tasks..."
+            self.context.tool_results = []

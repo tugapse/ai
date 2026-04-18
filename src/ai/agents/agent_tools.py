@@ -199,7 +199,7 @@ def read_file(**kwargs) -> Dict[str, Any]:
     Retrieves the full UTF-8 text content of one or more specific files.
     
     Args:
-        paths (str | List[str]): A single file path or a list of file paths to read. Required.
+        paths (str | List[str] REQUIRED): A single file path or a list of file paths to read. Required.
         
     Returns:
         Dict: A mapping of each sanitized file path to its string content.

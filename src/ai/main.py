@@ -90,7 +90,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     cog_group = parser.add_argument_group(f'{Color.CYAN}COGNITIVE PROTOCOLS{Color.RESET}')
     cog_group.add_argument("-h", "--help", action="help", help="Show this diagnostic help message")
     cog_group.add_argument("--msg", "-m", type=str, help="Direct inquiry to the sentinel")
-    cog_group.add_argument("--model", "-md", type=str, help="Specify neural model configuration")
+    cog_group.add_argument("--model", "-md", type=str, help="Specify neural model configuration",default="azure")
     cog_group.add_argument("--system", "-s", type=str, help="Load named system persona") 
     cog_group.add_argument("--system-file", "-sf", type=str, help="Inject system prompt from disk")
     cog_group.add_argument("--list-models", "-l", action="store_true", help="Audit available neural models")
