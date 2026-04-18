@@ -15,7 +15,7 @@ class SessionVault:
 
     def __init__(self, session_id: str):
         self.session_id = session_id
-        self.storage_dir = os.path.join(func.get_root_directory(), "agents")
+        self.storage_dir = os.path.join(func.get_root_directory(), "logs","agents")
         self.session_path = os.path.join(self.storage_dir, f"{self.session_id}.json")
         self._ensure_storage()
 
