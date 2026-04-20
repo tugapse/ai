@@ -7,6 +7,11 @@ class ChatRequest(PydanticBase):
     system_prompt: Optional[str] = None
     stream: bool = True
     options: Optional[Dict[str, Any]] = None
+    session_id: Optional[str] = None
+    session_folder: Optional[str] = None
+    session_title: Optional[str] = None
+
+
 
 class ServerStatus(PydanticBase):
     status: str

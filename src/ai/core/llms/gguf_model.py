@@ -149,7 +149,7 @@ class GGUFImageLLM(BaseModel):
         self.token_info_count.max_output_tokens = gen_options.get("max_new_tokens", 1024)
         current_prompt_count = self.get_message_tokens(messages)
         self.token_info_count.prompt_count = current_prompt_count
-        self.token_info_count.total_prompt_count = current_prompt_count + self.token_info_count.printed_tokens_count
+        self.token_info_count.total_prompt_count = int(current_prompt_count) + int(self.token_info_count.printed_tokens_count)
         functions.debug(f"[GGUF Engine] Metrics Updated: {self.token_info_count.get_log_string()}")
 
     def get_message_tokens(self, messages: List[Dict[str, str]]) -> int:
@@ -242,41 +242,35 @@ class GGUFImageLLM(BaseModel):
 
     def unload(self):
         """
-        Safe unload: Forces immediate C++ memory release to prevent 
-        OOM Segfaults during model swaps.
+        Safely unloads the model by removing the reference, allowing Python's
+        garbage collector to handle resource deallocation of the underlying C++ object.
         """
         if self.llama_model is None:
+            functions.debug("[GGUF Engine] Unload called but model is already None.")
             return
 
         with GGUFImageLLM._shared_mem_lock:
-            functions.log(f"BrainHub: Purging {self.model_name} from VRAM...")
+            functions.log(f"BrainHub: Unloading {self.model_name}...")
             
-            # 1. Stop threads
+            # 1. Signal any running generation threads to stop.
             self.stop_generation_event.set()
             if hasattr(self, '_generation_thread') and self._generation_thread.is_alive():
-                self._generation_thread.join(timeout=2.0)
+                functions.debug(f"[GGUF Engine] Waiting for generation thread to finish...")
+                self._generation_thread.join(timeout=5.0) # Wait for thread to finish
+                if self._generation_thread.is_alive():
+                    functions.error("[GGUF Engine] Generation thread did not terminate in time.")
 
-            try:
-                # 2. CRITICAL FIX: Force C++ to free memory immediately
-                if hasattr(self.llama_model, 'free'):
-                    self.llama_model.free() 
-                
-                # 3. Break the Python references
-                del self.llama_model
-                self.llama_model = None
-                
-            except Exception as e:
-                functions.error(f"Cleanup error: {e}")
-
-            # 4. Force Python to clean up any remaining object wrappers
+            # 2. Remove the model reference. Python's garbage collector will call the
+            #    Llama object's __del__ method, which handles releasing the underlying
+            #    C++ resources. This is the idiomatic and safe way to free memory.
+            self.llama_model = None
+            
+            # 3. Explicitly trigger garbage collection. While often not necessary,
+            #    for C++-backed objects, it can help ensure prompt cleanup.
             gc.collect()
-            
-            # 5. Brief 'Settling' time for the hardware driver to catch up
-            import time
-            time.sleep(0.5) 
-            
+
             self.stop_generation_event.clear()
-            functions.log("BrainHub: VRAM completely cleared.")
+            functions.log(f"BrainHub: VRAM cleared for {self.model_name}.")
 
     def __del__(self):
         """

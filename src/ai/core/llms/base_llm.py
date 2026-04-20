@@ -235,7 +235,7 @@ class BaseModel:
         self.clean_cache()
     
     def unload(self):
-        raise NotImplementedError("Subclasses should implement the unload method to clear model resources.")
+        functions.error("Subclasses should implement the unload method to clear model resources.")
 
 class ModelParams:
     """

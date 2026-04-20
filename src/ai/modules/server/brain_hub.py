@@ -1,14 +1,22 @@
 import os
+from typing import Optional
 import functions as func
-from services.model_orchestrator import ModelOrchestrator
 from config import ProgramConfig, ProgramSetting
+from services.history_manager import HistoryManager
+from services.model_orchestrator import ModelOrchestrator
 
 class BrainHub:
-    def __init__(self, config: ProgramConfig):
+    def __init__(self, config: ProgramConfig, history_manager: HistoryManager):
         self.config = config
         self.orchestrator = ModelOrchestrator(config)
         self.current_model_id: Optional[str] = None
-
+        self.history = history_manager
+    
+    def route_memory(self, session_filepath: str):
+        """Instructs the History Manager to hot-swap the active JSON file."""
+        if self.history:
+            self.history.switch_active_session(session_filepath)
+    
     def get_brain(self, model_id: str, system_prompt: str):
         """
         Ensures the requested model is loaded. 
@@ -29,15 +37,18 @@ class BrainHub:
         return self.orchestrator.llm
 
     def unload_brain(self):
-        """Clears the GPU memory and joins threads."""
-        import time
+        """Clears the GPU memory by calling the model's specific unload method."""
         if self.orchestrator.llm:
             func.log(f"BrainHub: Unloading {self.current_model_id}...")
-            self.orchestrator.llm.request_shutdown() # Set event, join thread, clean cache
+            
+            # Directly call the model's specific unload method.
+            # This is a blocking call that ensures all C++ resources and threads
+            # are properly cleaned up before proceeding, preventing race conditions.
+            self.orchestrator.llm.unload()
+            
+            # Now that unload is complete, we can safely clear the references.
             self.orchestrator.llm = None
             self.current_model_id = None
-            time.sleep(10)
-            func.log("BrainHub: VRAM cleared.")
 
     def list_available_models(self) -> list:
         """Scans the model-config folder for available JSON brains."""

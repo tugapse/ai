@@ -220,3 +220,11 @@ class Program:
                 pass
         
         func.log("JARVIS Shutdown complete.", level="DEBUG")
+
+    def route_session(self, filepath: str) -> None:
+        """
+        Allows external modules (like the API Server) to instruct JARVIS
+        to look at a specific memory file before processing a request.
+        """
+        if self.history:
+            self.history.switch_active_session(filepath)
