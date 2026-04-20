@@ -87,7 +87,7 @@ class CliArgs:
                     server = JarvisServerModule( 
                         host=prog.config.get("SERVER_HOST", "0.0.0.0"),
                         port=prog.config.get("SERVER_PORT", 8000),
-                        brain_hub=BrainHub(prog.config, history_manager=prog.history) 
+                        brain_hub=BrainHub(prog.config) 
                     )
                     
                     server.initialize(prog.config, orchestrator, prog.history)

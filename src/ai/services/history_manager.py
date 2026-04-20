@@ -27,9 +27,6 @@ class HistoryManager:
         
         self.load_history()
 
-    # ==========================================
-    # NEW: DYNAMIC SESSION ROUTING
-    # ==========================================
     def switch_active_session(self, new_chat_filepath: str):
         """
         Hot-swaps the active memory file for the server.
@@ -41,8 +38,6 @@ class HistoryManager:
         func.log(f"HistoryManager: Routing memory to {new_chat_filepath}", level="DEBUG")
         self.chat_filepath = new_chat_filepath
         
-        # CRITICAL: Clear the current message array so previous 
-        # API requests/conversations don't bleed into this one.
         self.chat.messages.clear() 
         self.load_history()
     # ==========================================

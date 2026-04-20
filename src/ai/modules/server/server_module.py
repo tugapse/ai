@@ -44,7 +44,7 @@ class JarvisServerModule(BaseModule):
         func.log(f"Initializing Brain Server on {self.host}:{self.port}...")
 
         # 1. Initialize the BrainHub wrapper
-        self._brain_hub = BrainHub(config, history_manager=history_manager)
+        self._brain_hub = BrainHub(config)
         self._brain_hub.orchestrator = orchestrator 
 
         # 2. CREATE THE APP: Pass the config object so the endpoints can access state
