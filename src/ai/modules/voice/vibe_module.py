@@ -10,7 +10,7 @@ class VibeVoiceModule(BaseVoiceModule):
     VibeVoice-Realtime-0.5B implementation.
     Auto-detects hardware (CUDA/CPU) and uses the official Microsoft package.
     """
-    def __init__(self, model_id="microsoft/VibeVoice-Realtime-0.5B", voice_file="en-Davis_man.pt", **kwargs):
+    def __init__(self, model_id="microsoft/VibeVoice-Realtime-0.5B", voice_file="pt-Spk1_man", **kwargs):
         # Initialize the base class (starts audio queues and playback threads)
         super().__init__(sample_rate=24000, **kwargs)
         

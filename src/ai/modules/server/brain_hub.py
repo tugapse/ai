@@ -30,11 +30,13 @@ class BrainHub:
 
     def unload_brain(self):
         """Clears the GPU memory and joins threads."""
+        import time
         if self.orchestrator.llm:
             func.log(f"BrainHub: Unloading {self.current_model_id}...")
             self.orchestrator.llm.request_shutdown() # Set event, join thread, clean cache
             self.orchestrator.llm = None
             self.current_model_id = None
+            time.sleep(10)
             func.log("BrainHub: VRAM cleared.")
 
     def list_available_models(self) -> list:

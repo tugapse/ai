@@ -14,6 +14,9 @@ class LLMConnector:
         
     def get_context_limit(self) -> int:
         return self.llm.token_info_count.max_context_window
+    
+    def get_max_tokens(self) -> int:
+        return self.llm.token_info_count.max_output_tokens
 
     def send_request(self, json_input: Dict[str, Any], system_prompt_path: str, agent_config: Dict[str, Any] = None) -> Dict[str, Any]:
         """Method for Structured Agentic XML communication."""
@@ -62,10 +65,8 @@ class LLMConnector:
     def _execute_llm_call(self, messages: List[Dict[str, str]]) -> str:
         """Uses a unique, timestamped file to capture output reliably."""
         
-        unique_id = uuid.uuid4().hex
-        output_filename = f"llm_output_active.tmp"
+        output_filename = f"{func.get_root_directory()}/logs/llm_output_active.md"
 
-       
         try:
             ask(
                 self.llm, 

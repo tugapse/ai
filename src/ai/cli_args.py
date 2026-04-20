@@ -12,6 +12,7 @@ import traceback
 from typing import Optional
 
 # Configuration and Enums
+from modules.server.brain_hub import BrainHub
 from model_config_manager import ModelConfigManager
 from config import ProgramConfig, ProgramSetting 
 from entities.model_enums import ModelType
@@ -64,17 +65,11 @@ class CliArgs:
         # Default to Local/Direct Task Mode
         self._handle_local_direct_mode(prog, args)
 
-    # --- Mode Handlers ---
 
-    # Inside cli_args.py
     def _handle_server_mode(self, prog, args):
         if args.server:
-            # 1. Access the orchestrator
             orchestrator = prog.models 
             
-            # 2. Lazy Loading Logic:
-            # If the user didn't provide --model, we DON'T call load().
-            # We let the server start with orchestrator.llm = None.
             if args.model:
                 try:
                     orchestrator.load(args.model)
@@ -83,11 +78,12 @@ class CliArgs:
             else:
                 func.log(f"{Color.CYAN}[ * ] Neural Hub: Standby Mode. Awaiting Neural Link...{Color.RESET}")
 
-            # 3. Start the server
             from modules.server.server_module import JarvisServerModule
             server = JarvisServerModule( 
                 host=prog.config.get("SERVER_HOST", "0.0.0.0"),
-                port=prog.config.get("SERVER_PORT", 8000))
+                port=prog.config.get("SERVER_PORT", 8000),
+                brain_hub= BrainHub(prog.config) 
+            )
             server.initialize(prog.config, orchestrator)
             server.start()
 

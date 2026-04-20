@@ -15,10 +15,10 @@ class TokenCountInfo:
     def get_log_string(self) -> str:
         """Returns a condensed 'fuel gauge' of the current token state."""
         # Calculate usage percentage for the log
-        usage = (self.prompt_count / self.max_context_window * 100) if self.max_context_window > 0 else 0
+        usage = (self.total_prompt_count / (self.max_context_window-self.max_output_tokens) * 100) if self.max_context_window > 0 else 0
         return (
             f"Tokens: [P: {self.prompt_count} | T: {self.total_prompt_count} | Out: {self.printed_tokens_count}] "
-            f"Window: {self.max_context_window} ({usage:.1f}%)"
+            f"Window: {self.max_context_window-self.max_output_tokens} ({usage:.1f}%)"
         )
 class BaseModel:
     CONTEXT_WINDOW_SMALL = 2048
@@ -231,9 +231,12 @@ class BaseModel:
     
     def request_shutdown(self):
         self.stop_generation_event.set()
-        self.join_generation_thread()
+        self.join_generation_thread(2)
         self.clean_cache()
-        
+    
+    def unload(self):
+        raise NotImplementedError("Subclasses should implement the unload method to clear model resources.")
+
 class ModelParams:
     """
     A simple class to hold model parameters.

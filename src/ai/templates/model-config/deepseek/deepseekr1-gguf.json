@@ -11,8 +11,8 @@
     "temperature": 0.3,
     "top_p": 0.98,
     "top_k": 45,
-    "presence_penalty": 2.1,
-    "frequency_penalty": 1.5
+    "presence_penalty": 1.1,
+    "frequency_penalty": 1.1
   }
 }
 

@@ -48,7 +48,7 @@ class JarvisServerModule(BaseModule):
 
         # 2. CREATE THE APP: Pass the actual orchestrator here!
         # Instead of passing the hub wrapper, pass the engine directly.
-        self._fastapi_app = create_app(orchestrator)
+        self._fastapi_app = create_app(self._brain_hub)
 
 
         # 3. Setup Uvicorn config

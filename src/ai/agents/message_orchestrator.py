@@ -35,8 +35,9 @@ class MessageOrchestrator:
         )
         self.context_sentinel = ContextSentinel(
             self.connector, 
-            threshold=0.8, 
-            max_tokens=self.connector.get_context_limit()
+            threshold=0.9, 
+            max_tokens=self.connector.get_context_limit(),
+            buffer=self.connector.get_max_tokens()
         )
 
         # Memory State
@@ -186,12 +187,12 @@ class MessageOrchestrator:
         target = str(action.get("agent_target", "")).strip().upper()
 
         if thought := response.get("thought"):
-            if self.vector_memory: self.vector_memory.add_memory(thought, agent, "thought")
+            # if self.vector_memory: self.vector_memory.add_memory(thought, agent, "thought")
             TerminalUI.message(agent, thought, Color.DIM)
 
         msg = response.get("response_to_user", "")
         if msg:
-            if self.vector_memory: self.vector_memory.add_memory(msg, agent, "communication")
+            # if self.vector_memory: self.vector_memory.add_memory(msg, agent, "communication")
             TerminalUI.message(agent, msg, Color.NORMAL_WHITE)
 
         self.memory.update_agent_history_and_notes(agent, response)
