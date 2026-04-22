@@ -11,7 +11,6 @@ from core.llms.base_llm import BaseModel, ModelParams
 import functions
 from color import Color
 
-# --- GLOBAL STABILITY MUZZLE ---
 def _null_log_callback(level, message, user_data):
     pass
 _log_callback_type = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_char_p, ctypes.c_void_p)
@@ -43,7 +42,6 @@ class GGUFImageLLM(BaseModel):
         self.error_queue = queue.Queue()
         self.token_info_count.max_context_window = self._n_ctx
         
-        # Load config options
         self.options = ModelParams(**model_params).to_dict() if model_params else {
             "max_new_tokens":2048,
             "temperature": 0.7
@@ -78,7 +76,6 @@ class GGUFImageLLM(BaseModel):
 
             functions.debug(f"[GGUF Engine] Loading model into memory...")
             
-            # Use lock during model initialization
             with GGUFImageLLM._shared_mem_lock:
                 self.llama_model = Llama(
                     model_path=model_path,
@@ -99,7 +96,6 @@ class GGUFImageLLM(BaseModel):
         try:
             self.token_info_count.max_output_tokens = gen_options.get("max_new_tokens", 1024)
             
-            # The lock must wrap the creation AND iteration of the stream
             with GGUFImageLLM._shared_mem_lock:
                 stream_iter = self.llama_model.create_chat_completion(
                     messages=messages,
@@ -166,7 +162,6 @@ class GGUFImageLLM(BaseModel):
             return sum(len(m['content']) for m in messages) // 4
     
     def chat(self, messages: list, images: list = None, stream: bool = True, options: dict = {}):
-        # Initial check using lock
         with GGUFImageLLM._shared_mem_lock:
             if not self.llama_model:
                 functions.error("[GGUF Engine] Attempted to chat but model is not loaded.")
@@ -240,37 +235,60 @@ class GGUFImageLLM(BaseModel):
             return [{"name": self.model_name, "type": "GGUF_STABLE"}]
         return []
 
+    def request_shutdown(self):
+        """Overrides the base method to ensure full resource cleanup."""
+        functions.debug("[GGUF Engine] Full shutdown requested. Unloading model.")
+        super().request_shutdown()
+        self.unload()
+
     def unload(self):
         """
-        Safely unloads the model by removing the reference, allowing Python's
-        garbage collector to handle resource deallocation of the underlying C++ object.
+        Safely unloads the model, releasing all CPU and GPU memory resources.
+        This is a more aggressive approach to ensure C++ resources are freed.
         """
         if self.llama_model is None:
             functions.debug("[GGUF Engine] Unload called but model is already None.")
             return
 
+        functions.log(f"BrainHub: Unloading {self.model_name}...")
+        model_to_unload = None
+
         with GGUFImageLLM._shared_mem_lock:
-            functions.log(f"BrainHub: Unloading {self.model_name}...")
+            if self.llama_model is None:
+                functions.debug("[GGUF Engine] Model was unloaded by another thread.")
+                return
             
-            # 1. Signal any running generation threads to stop.
             self.stop_generation_event.set()
             if hasattr(self, '_generation_thread') and self._generation_thread.is_alive():
                 functions.debug(f"[GGUF Engine] Waiting for generation thread to finish...")
-                self._generation_thread.join(timeout=5.0) # Wait for thread to finish
+                self._generation_thread.join(timeout=5.0)
                 if self._generation_thread.is_alive():
                     functions.error("[GGUF Engine] Generation thread did not terminate in time.")
-
-            # 2. Remove the model reference. Python's garbage collector will call the
-            #    Llama object's __del__ method, which handles releasing the underlying
-            #    C++ resources. This is the idiomatic and safe way to free memory.
-            self.llama_model = None
             
-            # 3. Explicitly trigger garbage collection. While often not necessary,
-            #    for C++-backed objects, it can help ensure prompt cleanup.
-            gc.collect()
+            model_to_unload = self.llama_model
+            self.llama_model = None
+            del self._generation_thread 
+            del self.llama_model
+        
+        if model_to_unload is not None:
+            functions.debug("[GGUF Engine] Deleting Llama model object reference...")
 
-            self.stop_generation_event.clear()
-            functions.log(f"BrainHub: VRAM cleared for {self.model_name}.")
+            del model_to_unload
+            functions.debug("[GGUF Engine] Triggering garbage collection...")
+            gc.collect()
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    functions.debug("[GGUF Engine] Clearing CUDA cache...")
+                    torch.cuda.empty_cache()
+                    functions.debug("[GGUF Engine] CUDA cache cleared.")
+            except ImportError:
+                functions.debug("[GGUF Engine] PyTorch not found, skipping CUDA cache clear.")
+            except Exception as e:
+                functions.error(f"[GGUF Engine] Error clearing CUDA cache: {e}")
+
+        self.stop_generation_event.clear()
+        functions.log(f"BrainHub: Resources cleared for {self.model_name}.")
 
     def __del__(self):
         """

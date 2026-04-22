@@ -6,6 +6,8 @@ import warnings
 import logging
 import traceback
 import time
+import signal
+import gc
 from typing import Optional
 
 # Core imports
@@ -151,9 +153,18 @@ def run():
     
     prog = Program()
     parser, args = load_args()
-    
     is_server = getattr(args, 'server', False)
-    
+
+    def shutdown_handler(signum, frame):
+        func.log(f"\n{Color.YELLOW}[ * ] Signal {signum} received. Initiating graceful shutdown...{Color.RESET}")
+        prog.shutdown()
+        gc.collect()
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, shutdown_handler)
+    signal.signal(signal.SIGTERM, shutdown_handler)
+    # ---
+
     try:
         prog.load_config(args=args) 
         
@@ -171,13 +182,14 @@ def run():
             cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
             
             if is_server:
+                func.log(f"{Color.GREEN}[  ] Neural Hub is online. Press Ctrl+C to shut down.{Color.RESET}")
                 while True:
-                    time.sleep(5)
+                    time.sleep(1) # Keep the main thread alive, signal handler will exit
             
             sys.exit(0) 
 
         prog.init_program(args)         
-        prog.llm # just to trigger lazy loading and catch any config/model issues before we start processing the question.
+        prog.llm 
         cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
         
         if func.ALLOW_CLEAR_CONSOLE: 
@@ -186,20 +198,16 @@ def run():
         print_chat_header(prog=prog)
         prog.run()
         
-    except (SystemExit, KeyboardInterrupt):
-        # Graceful handling for Ctrl+C
-        if is_server:
-            print(f"\n{Color.YELLOW}[ * ] Neural Hub shutting down...{Color.RESET}")
     except Exception as e:
-        if getattr(args, 'debug_console', False):
-            traceback.print_exc()
-        else:
-            func.out(f"{Color.RED}[ ! ] Error: {e}{Color.RESET}") 
-        sys.exit(1)
+        if not isinstance(e, (SystemExit, KeyboardInterrupt)):
+            if getattr(args, 'debug_console', False):
+                traceback.print_exc()
+            else:
+                func.out(f"{Color.RED}[ ! ] Error: {e}{Color.RESET}") 
+            sys.exit(1)
     finally:
-        prog.shutdown()
-        # Only hard-exit if we aren't trying to keep the server alive
         if not is_server:
+            prog.shutdown()
             os._exit(0)
 
 if __name__ == "__main__":
