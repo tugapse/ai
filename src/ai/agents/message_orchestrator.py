@@ -255,14 +255,24 @@ class MessageOrchestrator:
 
     def _handle_format_error(self, agent: str, error: str) -> bool:
         self.format_error_count += 1
+        
         if self.format_error_count >= 3:
-            TerminalUI.auth_request(f"{agent} stuck in format loop.", "")
+            TerminalUI.header("Sentinel loop error!",f"{agent} stuck in format loop.")
             if input("Quit? (y/N): ").lower().startswith('y'): return False
-        self.memory.add_message_to_agent(agent, {"from": "SYSTEM", "message": f"CRITICAL XML ERROR: {error}"})
+            
+            error_msg = (
+            f"CRITICAL PARSING FAILURE: {error}. "
+            "Your previous output contained invalid structure. "
+            "You must discard that attempt and completely rewrite your response. "
+            "REMINDER: You are strictly forbidden from using raw less-than or greater-than symbols in your thought or notes blocks. "
+            "If you must discuss code or HTML, spell it out in plain English (e.g., 'the div element'). "
+            "Generate a new, clean response now."
+            )
+            self.memory.add_message_to_agent(agent, {"from": "SYSTEM", "message": error_msg})
         return True
 
     def _gatekeeper(self, tool: str, params: Dict[str, Any]) -> bool:
-        if tool in self.auto_authorized_tools or tool not in ["execute_command", "patch_file", "write_file"]: return True
+        if tool in self.auto_authorized_tools or tool not in ["execute_command"]: return True
         TerminalUI.auth_request(tool, params.get('path') or params.get('command') or "System", params.get('command', ""))
         choice = input("Allow? (y/n/all): ").lower().strip()
         if choice == 'all': self.auto_authorized_tools.add(tool); return True

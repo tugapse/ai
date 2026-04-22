@@ -16,9 +16,7 @@ class ModuleRegistry:
         # Manifest of available module loaders
         self._manifest = {
             "voice": self._load_voice_logic,
-            "vector_memory": self._load_vector_memory_logic,
-            "server_hub": self._load_server_logic,   # NEW: Neural Hub Logic
-            "client_link": self._load_client_logic,   # NEW: Neural Link Logic
+            "vector_memory": self._load_vector_memory_logic
         }
 
     def __getitem__(self, key: str) -> Optional[Any]:
@@ -37,39 +35,6 @@ class ModuleRegistry:
                     self._active_modules[mod_name] = instance
             else:
                 func.debug(f"ModuleRegistry: Skipping '{mod_name}' (Not requested).")
-
-
-    def _load_server_logic(self):
-        """Initializes the Brain Server module for the Main PC."""
-        host = self.config.get("SERVER_HOST", "0.0.0.0")
-        port = self.config.get("SERVER_PORT", 8000)
-
-        try:
-            from modules.server.server_module import JarvisServerModule
-            server_module = JarvisServerModule(host=host, port=port)
-            func.log(f"ServerModule loaded. Target: {host}:{port}")
-            return server_module
-        except ImportError as e:
-            func.error(f"Failed to import ServerModule. Error: {e}")
-            return None
-
-    def _load_client_logic(self):
-        """Initializes the Remote Connector module for the Tiny PC."""
-        remote_url = self.config.get("REMOTE_BRAIN_URL")
-        preferred_model = self.config.get("MODEL_CONFIG_NAME", "default")
-
-        if not remote_url:
-            func.error("Client module enabled but REMOTE_BRAIN_URL is missing in config.", level="ERROR")
-            return None
-
-        try:
-            from modules.client.remote_module import RemoteConnectorModule
-            client_module = RemoteConnectorModule(url=remote_url, model_id=preferred_model)
-            func.log(f"ClientModule loaded. Linked to: {remote_url}")
-            return client_module
-        except ImportError as e:
-            func.error(f"Failed to import RemoteConnectorModule. Error: {e}")
-            return None
 
     def _load_voice_logic(self):
         """The specific steps to boot VibeVoice."""
