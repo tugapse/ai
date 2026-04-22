@@ -197,6 +197,13 @@ class BaseModel:
     def chat(self, messages: list, images: list = None, stream: bool = True, options: object = {}):
         raise NotImplementedError
 
+    def generate_structured(self, messages: list, schema: object, images: list = None, options: object = {}):
+        """
+        Generates a structured output based on a provided schema (e.g., Pydantic model).
+        Subclasses must implement this to support structured data generation.
+        """
+        raise NotImplementedError
+
     def list(self):
         raise NotImplementedError
 
@@ -255,9 +262,11 @@ class ModelParams:
         self.frequency_penalty = kargs.get('frequency_penalty', 1.0)
         self.use_system_prompt = kargs.get('use_system_prompt', True)
         self.inference_backend :InferenceBackend = InferenceBackend.CPU
+        self.format = kargs.get('format', None) # New: for structured output, e.g., 'json'
 
     def to_dict(self):
-        return {
+        """Converts the parameters to a dictionary, excluding None values for format."""
+        d = {
             "num_ctx": self.num_ctx,
             "max_new_tokens": self.max_new_tokens,
             "max_length": self.max_length,
@@ -265,11 +274,14 @@ class ModelParams:
             "top_k": self.top_k,
             "top_p": self.top_p,
             "temperature": self.temperature,
-            "quantization_bits": self.quantization_bits, # Include in dict
+            "quantization_bits": self.quantization_bits,
             "enable_thinking":self.enable_thinking,
             "presence_penalty":self.presence_penalty,
             "frequency_penalty":self.frequency_penalty,
             "use_system_prompt":self.use_system_prompt
         }
+        if self.format:
+            d['format'] = self.format
+        return d
     
 

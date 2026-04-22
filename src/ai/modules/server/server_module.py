@@ -9,6 +9,7 @@ import functions as func
 from .brain_hub import BrainHub
 from .app import create_app  # Assuming we move FastAPI setup to a factory function
 
+        
 class JarvisServerModule(BaseModule):
     """
     A module wrapper for the JARVIS Brain Server.
