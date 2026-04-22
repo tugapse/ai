@@ -115,14 +115,15 @@ class ModelConfigManager:
             "model_name": model_name,
             "model_type": 'causal_lm',
             "model_properties": {
+                "device_map": "auto",
                 "max_new_tokens": 8192,
                 "do_sample": True,
-                "temperature": 0.1,
+                "temperature": 0.8,
                 "top_p": 0.95,
-                "top_k": 10,
-                "presence_penalty":1.5,
-                "frequency_penalty":1.2,
-                "quantization_bits": 8,
+                "top_k": 30,
+                "presence_penalty":1.1,
+                "frequency_penalty":1.1,
+                "quantization_bits": 4,
                 "chat_format":None,
                 "override_system_by_user_template":False
             }
@@ -136,11 +137,11 @@ class ModelConfigManager:
             "model_properties": {
                 "max_new_tokens": 8192,
                 "do_sample": True,
-                "temperature": 0.1,
+                "temperature": 0.8,
                 "top_p": 0.95,
-                "top_k": 10,
-                "presence_penalty":1.5,
-                "frequency_penalty":1.2,
+                "top_k": 30,
+                "presence_penalty":1.1,
+                "frequency_penalty":1.1,
                 "chat_format":None,
                 "override_system_by_user_template":False
                 
