@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 import functions as func 
-from config import ProgramConfig, ProgramSetting
+from services.config_helper import ProgramConfig, ProgramSetting
 from core.template_injection import TemplateInjection
 
 class PromptLoader:

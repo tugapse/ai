@@ -88,5 +88,5 @@ class HistoryManager:
         except Exception as e:
             func.log(f"HistoryManager: Save Failure: {e}", level="ERROR")
 
-    def get_log_path(self) -> Optional[str]:
-        return self.thinking_log_filepath
+    def get_log_path(self) ->str:
+        return self.thinking_log_filepath or func.get_root_directory() + "/logs/active_thinking.log"

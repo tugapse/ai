@@ -4,7 +4,7 @@ import os
 from os.path import exists, dirname
 import shutil
 import pathlib
-from typing import TypeVar, Generic, Optional
+from typing import Any, TypeVar, Generic, Optional, overload
 
 T = TypeVar("T")
 
@@ -43,7 +43,7 @@ class ProgramConfig(Generic[T]):
         self.config = config if config is not None else {}
         self.logger = logging.Logger(name="Config")
 
-    def load_predefined_config(self, args=None):
+    def load_predefined_config(self, args):
         root = os.path.dirname(__file__)
         config_filename = os.path.join(root, "config.json")
         default_config = self.__load_to_dict(config_filename) or {}
@@ -149,10 +149,19 @@ class ProgramConfig(Generic[T]):
                 content = f.read().replace("<root_dir>", root_dir or dirname(__file__))
                 return json.loads(content)
         except: return None
+    
+    @overload
+    def get(self, key: str) -> Any: ...
 
-    def get(self, key, default=None): return self.config.get(key, default)
-    def set(self, key, value): self.config[key] = value
+    @overload
+    def get(self, key: str, default: T) -> T: ...
 
+    def get(self, key: str, default: Any = None) -> Any:
+        return self.config.get(key, default)
+    
+    def set(self, key: str, value: Any) -> None:
+        self.config[key] = value
+        
     @classmethod
     def load(cls, args=None):
         config = cls()

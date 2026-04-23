@@ -125,7 +125,7 @@ class EngineManager:
     def load_model_instance(
         model_config: dict,
         system_prompt: str
-    ) -> Optional[BaseModel]:
+    ) -> BaseModel:
         """
         Loads and instantiates an LLM model based on the provided model configuration dictionary.
         """
@@ -135,13 +135,13 @@ class EngineManager:
 
         if not model_name or not model_type_str:
             func.log("'model_name' or 'model_type' missing in model configuration. Cannot load model.", level="ERROR") 
-            return None
+            raise ValueError("Invalid model configuration: missing 'model_name' or 'model_type'.")
 
         try:
             model_type = ModelType(model_type_str)
         except ValueError:
             func.log(f"Unknown model_type '{model_type_str}' in model configuration.", level="ERROR")
-            return None
+            raise ValueError("Invalid model configuration: unknown 'model_type'.")
 
         # If this returns False, we stop here and avoid the 'Lazy Import' crash.
         if not EngineManager.is_engine_installed(model_type, model_name):
@@ -151,7 +151,7 @@ class EngineManager:
                 f"Run '{Color.CYAN} ai --install{Color.RED}' to configure it.",
                 level="ERROR"
             )
-            return None
+            raise ValueError("Invalid model configuration: engine not installed.")
 
         func.log(f"Selected model: {model_name} (Type: {model_type.value})") 
         quantization_bits = model_properties.get("quantization_bits", 0)
@@ -218,7 +218,7 @@ class EngineManager:
 
                 if not gguf_filename:
                     func.log("'gguf_filename' is required for 'gguf' model_type in model properties.", level="ERROR") 
-                    return None
+                    raise ValueError("Invalid model configuration: missing 'gguf_filename'.")
                 from core.llms.gguf_model import GGUFImageLLM
                 llm_instance = GGUFImageLLM(
                     model_name=model_name,
@@ -258,9 +258,9 @@ class EngineManager:
                 func.log(f"Model '{model_name}' loaded as an OpenAI Model.")
             else:
                 func.log(f"Unhandled model_type '{model_type.value}'.", level="ERROR")
-                return None
+                raise ValueError("Invalid model configuration: unknown 'model_type'.")
         except Exception as e:
             func.error(f"Failed to instantiate model '{model_name}': {e}", level="ERROR")
-            return None
+            raise e
 
         return llm_instance

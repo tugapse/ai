@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Dict, Any
 
 import functions as func
-from config import ProgramConfig, ProgramSetting
+from services.config_helper import ProgramConfig, ProgramSetting
 
 class SessionManager:
     """

@@ -1,7 +1,7 @@
 from typing import Dict, Any, Optional
 from entities.model_enums import EngineType
 from services.model_manager import EngineManager
-from config import ProgramConfig, ProgramSetting
+from services.config_helper import ProgramConfig, ProgramSetting
 import functions as func
 
 class ModuleRegistry:
