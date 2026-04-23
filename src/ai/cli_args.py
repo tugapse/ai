@@ -7,11 +7,13 @@ import argparse
 import os
 import sys
 import json
+import time
 import uuid
 import traceback
 from typing import Optional
 
 # Configuration and Enums
+from modules.server.brain_hub import BrainHub
 from model_config_manager import ModelConfigManager
 from config import ProgramConfig, ProgramSetting 
 from entities.model_enums import ModelType
@@ -64,32 +66,34 @@ class CliArgs:
         # Default to Local/Direct Task Mode
         self._handle_local_direct_mode(prog, args)
 
-    # --- Mode Handlers ---
 
-    # Inside cli_args.py
     def _handle_server_mode(self, prog, args):
         if args.server:
-            # 1. Access the orchestrator
-            orchestrator = prog.models 
-            
-            # 2. Lazy Loading Logic:
-            # If the user didn't provide --model, we DON'T call load().
-            # We let the server start with orchestrator.llm = None.
-            if args.model:
-                try:
-                    orchestrator.load(args.model)
-                except Exception as e:
-                    func.log(f"{Color.RED}[ ! ] Neural Load Failed: {e}. Starting in STANDBY.{Color.RESET}")
-            else:
-                func.log(f"{Color.CYAN}[ * ] Neural Hub: Standby Mode. Awaiting Neural Link...{Color.RESET}")
-
-            # 3. Start the server
-            from modules.server.server_module import JarvisServerModule
-            server = JarvisServerModule( 
-                host=prog.config.get("SERVER_HOST", "0.0.0.0"),
-                port=prog.config.get("SERVER_PORT", 8000))
-            server.initialize(prog.config, orchestrator)
-            server.start()
+            try:
+                orchestrator = prog.models 
+                
+                if args.model:
+                    try:
+                        orchestrator.load(args.model)
+                    except Exception as e:
+                        func.log(f"{Color.RED}[ ! ] Neural Load Failed: {e}. Starting in STANDBY.{Color.RESET}")
+                else:
+                    func.log(f"{Color.CYAN}[ * ] Neural Hub: Standby Mode. Awaiting Neural Link...{Color.RESET}")
+                
+                from modules.server.server_module import JarvisServerModule
+                server = JarvisServerModule( 
+                    host=prog.config.get("SERVER_HOST", "0.0.0.0"),
+                    port=prog.config.get("SERVER_PORT", 9999),
+                    brain_hub=BrainHub(prog.config) 
+                )
+                
+                server.initialize(prog.config, orchestrator, prog.history)
+                server.start()
+                
+            except KeyboardInterrupt:
+                func.log(f"\n{Color.YELLOW}[ * ] Manual override engaged. Terminating JARVIS server.{Color.RESET}")
+                sys.exit(0)
+                
 
     def _handle_client_mode(self, prog, args):
         """

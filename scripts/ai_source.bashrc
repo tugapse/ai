@@ -174,3 +174,7 @@ ai-persona-build() {
         cat "$tempPersona"
     fi
 }
+
+ai-server(){
+    "$HOME/.local/share/tools/ai/scripts/server/jarvis.sh" "$@"
+}

@@ -15,10 +15,10 @@ class TokenCountInfo:
     def get_log_string(self) -> str:
         """Returns a condensed 'fuel gauge' of the current token state."""
         # Calculate usage percentage for the log
-        usage = (self.prompt_count / self.max_context_window * 100) if self.max_context_window > 0 else 0
+        usage = (self.total_prompt_count / (self.max_context_window-self.max_output_tokens) * 100) if self.max_context_window > 0 else 0
         return (
             f"Tokens: [P: {self.prompt_count} | T: {self.total_prompt_count} | Out: {self.printed_tokens_count}] "
-            f"Window: {self.max_context_window} ({usage:.1f}%)"
+            f"Window: {self.max_context_window-self.max_output_tokens} ({usage:.1f}%)"
         )
 class BaseModel:
     CONTEXT_WINDOW_SMALL = 2048
@@ -27,6 +27,10 @@ class BaseModel:
     CONTEXT_WINDOW_XLARGE = 16384
     CONTEXT_WINDOW_HUGE = 32768
     CONTEXT_WINDOW_GIANT = 65536
+    CONTEXT_WINDOW_128K = 128748
+    CONTEXT_WINDOW_256K = 262144
+    CONTEXT_WINDOW_1M = 1048576
+    CONTEXT_WINDOW_2M = 2097152
 
     STREAMING_FINISHED_EVENT = "streaming_finished"
 
@@ -193,6 +197,13 @@ class BaseModel:
     def chat(self, messages: list, images: list = None, stream: bool = True, options: object = {}):
         raise NotImplementedError
 
+    def generate_structured(self, messages: list, schema: object, images: list = None, options: object = {}):
+        """
+        Generates a structured output based on a provided schema (e.g., Pydantic model).
+        Subclasses must implement this to support structured data generation.
+        """
+        raise NotImplementedError
+
     def list(self):
         raise NotImplementedError
 
@@ -227,9 +238,12 @@ class BaseModel:
     
     def request_shutdown(self):
         self.stop_generation_event.set()
-        self.join_generation_thread()
+        self.join_generation_thread(2)
         self.clean_cache()
-        
+    
+    def unload(self):
+        functions.error("Subclasses should implement the unload method to clear model resources.")
+
 class ModelParams:
     """
     A simple class to hold model parameters.
@@ -248,9 +262,11 @@ class ModelParams:
         self.frequency_penalty = kargs.get('frequency_penalty', 1.0)
         self.use_system_prompt = kargs.get('use_system_prompt', True)
         self.inference_backend :InferenceBackend = InferenceBackend.CPU
+        self.format = kargs.get('format', None) # New: for structured output, e.g., 'json'
 
     def to_dict(self):
-        return {
+        """Converts the parameters to a dictionary, excluding None values for format."""
+        d = {
             "num_ctx": self.num_ctx,
             "max_new_tokens": self.max_new_tokens,
             "max_length": self.max_length,
@@ -258,11 +274,14 @@ class ModelParams:
             "top_k": self.top_k,
             "top_p": self.top_p,
             "temperature": self.temperature,
-            "quantization_bits": self.quantization_bits, # Include in dict
+            "quantization_bits": self.quantization_bits,
             "enable_thinking":self.enable_thinking,
             "presence_penalty":self.presence_penalty,
             "frequency_penalty":self.frequency_penalty,
             "use_system_prompt":self.use_system_prompt
         }
+        if self.format:
+            d['format'] = self.format
+        return d
     
 

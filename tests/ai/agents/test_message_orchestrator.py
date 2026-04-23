@@ -40,6 +40,12 @@ class MockConnector:
     def send_raw_request(self, payload, system_prompt):
         yield "mocked_raw_text"
 
+    def get_context_limit(self):
+        return 8192
+
+    def get_max_tokens(self):
+        return 1024
+
 class MockRegistry:
     """Fakes the Tool Execution so we don't actually modify files."""
     def get_tool_info(self, tool_name):
@@ -47,6 +53,9 @@ class MockRegistry:
 
     def execute_tool(self, tool_name, params):
         return {"status": "SUCCESS", "mock_data": f"Did {tool_name}"}
+
+    def get_all_tools(self):
+        return {}
 
 # =================================================================
 #  THE TEST SUITE
@@ -75,6 +84,7 @@ class TestMessageOrchestrator(unittest.TestCase):
             }
         }
         self.registry = MockRegistry()
+        self.module_registry = MagicMock()
 
     def log_test(self, title):
         print(f"\n[TEST] {title}")
@@ -94,16 +104,16 @@ class TestMessageOrchestrator(unittest.TestCase):
             }
         ]
         connector = MockConnector(mock_responses)
-        orchestrator = MessageOrchestrator(connector, self.registry, self.pipeline_config)
+        orchestrator = MessageOrchestrator(connector, self.registry, self.pipeline_config, self.module_registry)
         
         # Patch input just in case, though it shouldn't be called here
         with patch('builtins.input', return_value='y'):
-            orchestrator.run_loop("Find the main file.")
+            orchestrator.run_loop("Find the main file.", session_id="test-session")
 
         # Verify it stopped without blowing through max_iterations
         self.assertEqual(len(connector.request_history), 2)
         # Verify it saved the tool result
-        self.assertEqual(len(orchestrator.context["tool_results"]), 1)
+        self.assertEqual(len(orchestrator.memory.context.tool_results), 1)
 
     def test_routing_clean_handoff(self):
         self.log_test("Clean Handoff (MANAGER -> CODER)")
@@ -114,12 +124,12 @@ class TestMessageOrchestrator(unittest.TestCase):
             {"action": {"agent_target": "STOP"}}
         ]
         connector = MockConnector(mock_responses)
-        orchestrator = MessageOrchestrator(connector, self.registry, self.pipeline_config)
+        orchestrator = MessageOrchestrator(connector, self.registry, self.pipeline_config, self.module_registry)
         
-        orchestrator.run_loop("Write a script.")
+        orchestrator.run_loop("Write a script.", session_id="test-session")
         
         # Verify CODER actually received the message from MANAGER in its history
-        coder_history = orchestrator.agent_memory["CODER"]["history"]
+        coder_history = orchestrator.memory.get_agent_memory("CODER").history
         self.assertTrue(any("Write the code" in msg.get("message", "") for msg in coder_history))
 
     def test_routing_hallucinated_target(self):
@@ -131,12 +141,12 @@ class TestMessageOrchestrator(unittest.TestCase):
             {"action": {"agent_target": "STOP"}}
         ]
         connector = MockConnector(mock_responses)
-        orchestrator = MessageOrchestrator(connector, self.registry, self.pipeline_config)
+        orchestrator = MessageOrchestrator(connector, self.registry, self.pipeline_config, self.module_registry)
         
-        orchestrator.run_loop("Call Batman.")
+        orchestrator.run_loop("Call Batman.", session_id="test-session")
         
         # Verify the system injected an error message in MANAGER's history
-        manager_history = orchestrator.agent_memory["MANAGER"]["history"]
+        manager_history = orchestrator.memory.get_agent_memory("MANAGER").history
         self.assertTrue(any("Invalid transition target" in msg.get("message", "") for msg in manager_history))
 
     # --- CATEGORY 5: DEATH LOOP BREAKER ---
@@ -151,9 +161,9 @@ class TestMessageOrchestrator(unittest.TestCase):
             {"action": {"agent_target": "STOP"}} # Should never reach this
         ]
         connector = MockConnector(mock_responses)
-        orchestrator = MessageOrchestrator(connector, self.registry, self.pipeline_config)
+        orchestrator = MessageOrchestrator(connector, self.registry, self.pipeline_config, self.module_registry)
         
-        orchestrator.run_loop("Break the parser.")
+        orchestrator.run_loop("Break the parser.", session_id="test-session")
         
         # Verify it halted exactly after 3 attempts
         self.assertEqual(len(connector.request_history), 3)
@@ -167,9 +177,9 @@ class TestMessageOrchestrator(unittest.TestCase):
             {"action": {"agent_target": "STOP"}} # 3rd try is valid JSON
         ]
         connector = MockConnector(mock_responses)
-        orchestrator = MessageOrchestrator(connector, self.registry, self.pipeline_config)
+        orchestrator = MessageOrchestrator(connector, self.registry, self.pipeline_config, self.module_registry)
         
-        orchestrator.run_loop("Recover from error.")
+        orchestrator.run_loop("Recover from error.", session_id="test-session")
         
         # Verify it processed all 3, and the strike counter reset to 0
         self.assertEqual(len(connector.request_history), 3)

@@ -23,7 +23,7 @@ class GeminiAPIModel(BaseModel):
         func.log(f"Initializing GeminiAPIModel for model: {model_name}")
         
         super().__init__(model_name, system_prompt, **kargs)
-        self.use_vertex = True
+        self.use_vertex = use_vertex
         
         if self.use_vertex:
             if not self._check_gcp_auth():
@@ -35,7 +35,7 @@ class GeminiAPIModel(BaseModel):
             try:
                 import vertexai
                 from vertexai.generative_models import GenerativeModel, Part, GenerationConfig, Tool
-                self.project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT") or "project-02da1a39-478c-49eb-a3e"
+                self.project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT") 
                 vertexai.init(project=self.project_id, location=location)
                 
                 self.config_class = GenerationConfig
@@ -63,6 +63,7 @@ class GeminiAPIModel(BaseModel):
 
         model_params = kargs.get('model_params', {}) or {}
         self.config_kwargs = {}
+        self.token_info_count.max_context_window = model_params.get('n_ctx', self.CONTEXT_WINDOW_1M)
         for param_name, api_name in [
             ('temperature', 'temperature'),
             ('max_new_tokens', 'max_output_tokens'),

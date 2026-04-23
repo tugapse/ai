@@ -1,6 +1,7 @@
 import os
 import sys
 import traceback
+import gc
 from typing import Optional
 
 # Core logic and message types
@@ -204,19 +205,40 @@ class Program:
     def shutdown(self) -> None:
         """
         Safety-first shutdown. Prevents crashes if exiting during boot.
+        This version is more aggressive about releasing resources.
         """
+        func.log("Program: Initiating aggressive shutdown...", level="DEBUG")
+
         # If config was never loaded, we can't do anything else.
         if not hasattr(self, 'config') or self.config is None:
+            func.log("Program: Shutdown aborted, config not loaded.", level="DEBUG")
             return
 
         # Only try to kill the LLM if it was actually initialized
-        if self.llm_initialized and self.models:
+        if self.llm_initialized and self.models and hasattr(self.models, 'llm'):
             try:
-                # Direct access to avoid triggering the lazy-load @property
                 llm_instance = self.models.llm
                 if llm_instance:
+                    func.log("Program: Requesting LLM shutdown.", level="DEBUG")
                     llm_instance.request_shutdown()
-            except:
-                pass
+                    del self.models.llm
+                    self.models.llm = None
+                    func.log("Program: LLM reference deleted.", level="DEBUG")
+            except Exception as e:
+                func.log(f"Program: Error during LLM shutdown: {e}", level="ERROR")
         
-        func.log("JARVIS Shutdown complete.", level="DEBUG")
+        if hasattr(self, 'models'):
+            del self.models
+            self.models = None
+            func.log("Program: Model orchestrator reference deleted.", level="DEBUG")
+
+        gc.collect()
+        func.log("JARVIS Shutdown complete. Garbage collection forced.", level="DEBUG")
+
+    def route_session(self, filepath: str) -> None:
+        """
+        Allows external modules (like the API Server) to instruct JARVIS
+        to look at a specific memory file before processing a request.
+        """
+        if self.history:
+            self.history.switch_active_session(filepath)

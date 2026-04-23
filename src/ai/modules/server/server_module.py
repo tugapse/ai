@@ -1,4 +1,5 @@
 import threading
+from services.history_manager import HistoryManager
 from modules.base_module import BaseModule
 import uvicorn
 from typing import Any, Optional
@@ -8,6 +9,7 @@ import functions as func
 from .brain_hub import BrainHub
 from .app import create_app  # Assuming we move FastAPI setup to a factory function
 
+        
 class JarvisServerModule(BaseModule):
     """
     A module wrapper for the JARVIS Brain Server.
@@ -28,7 +30,7 @@ class JarvisServerModule(BaseModule):
         self._server_thread: Optional[threading.Thread] = None
         self._uvicorn_server: Optional[uvicorn.Server] = None
 
-    def initialize(self, config: Any, orchestrator: Any):
+    def initialize(self, config: Any, orchestrator: Any, history_manager: HistoryManager):
         """
         Initializes the Server Brain and prepares the FastAPI application.
         
@@ -46,10 +48,8 @@ class JarvisServerModule(BaseModule):
         self._brain_hub = BrainHub(config)
         self._brain_hub.orchestrator = orchestrator 
 
-        # 2. CREATE THE APP: Pass the actual orchestrator here!
-        # Instead of passing the hub wrapper, pass the engine directly.
-        self._fastapi_app = create_app(orchestrator)
-
+        # 2. CREATE THE APP: Pass the config object so the endpoints can access state
+        self._fastapi_app = create_app(self._brain_hub, config)
 
         # 3. Setup Uvicorn config
         uvicorn_config = uvicorn.Config(

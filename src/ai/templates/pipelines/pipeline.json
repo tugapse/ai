@@ -14,7 +14,7 @@
       "role": "management",
       "prompt_file": "agents/master.md",
       "tools": ["send_notification","read_dir" , "read_files","read_file", "smart_search","web_search"],
-      "allowed_targets": ["PLANNER", "MASTER","ENGINEER", "SECRETARY", "USER", "STOP"]
+      "allowed_targets": ["MASTER","ENGINEER", "SECRETARY", "USER", "STOP"]
     },
     "ENGINEER": {
       "role": "labor",

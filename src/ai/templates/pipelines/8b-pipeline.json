@@ -8,7 +8,7 @@
     "MASTER": {
       "role": "management",
       "prompt_file": "agents/small/master.md",
-      "tools": ["read_dir" , "read_files","read_file"],
+      "tools": ["read_file", "read_files", "write_file", "patch_file","web_search", "web_read"],
       "allowed_targets": [ "MASTER","ENGINEER", "SECRETARY", "SYSTEM_OPERATOR", "USER", "STOP"]
     },
     
