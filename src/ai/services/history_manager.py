@@ -1,7 +1,7 @@
 import os
 import json
 from typing import Optional, Dict, List
-from core.chat import Chat, ChatRoles
+from chat.chat import Chat, ChatRoles
 from core.llms.base_llm import BaseModel
 import functions as func
 

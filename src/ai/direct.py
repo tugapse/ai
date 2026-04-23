@@ -8,7 +8,7 @@ from typing import Union, Optional, List, Dict
 import functions as func
 from color import Color
 from core.llms.base_llm import BaseModel
-from core.chat import ChatRoles
+from chat.chat import ChatRoles
 from config import ProgramConfig, ProgramSetting
 from services.ui_orchestrator import UIOrchestrator
 from extras.think_parser import ThinkingAnimationHandler

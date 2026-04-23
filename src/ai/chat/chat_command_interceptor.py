@@ -1,6 +1,6 @@
 import json
 import os
-from core.chat import Chat
+from chat.chat import Chat
 from color import Color
 from extras import ConsoleChatReader
 import functions as func

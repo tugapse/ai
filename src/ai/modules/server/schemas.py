@@ -17,3 +17,4 @@ class ChatCompletionRequest(BaseModel):
 
 class UpdateSessionRequest(BaseModel):
     session_title: str
+    session_content: Optional[List[ChatMessage]] = None

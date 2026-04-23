@@ -1,7 +1,8 @@
 import json
 from pathlib import Path
+from chat.chat import ChatRoles
 from color import Color
-from core import ChatRoles
+
 import functions as func
 
 class ConsoleChatReader:

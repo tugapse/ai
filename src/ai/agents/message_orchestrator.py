@@ -152,8 +152,10 @@ class MessageOrchestrator:
     def _assemble_agent_tools(self, agent_name: str) -> Dict[str, Callable]:
         allowed = self.agents.get(agent_name, {}).get("tools", [])
         tool_pool = copy.copy(self.registry.get_all_tools())
-        if self.vector_memory and hasattr(self.vector_memory, 'tools'):
-            tool_pool.update(self.vector_memory.tools.get_tools())
+
+        # Module tools are now registered centrally in the ToolRegistry during initialization.
+        # This keeps the tool assembly logic clean and simple.
+            
         return {n: f for n, f in tool_pool.items() if n in allowed}
 
     def _prepare_payload(self, user_prompt: str, agent: str) -> Dict[str, Any]:
@@ -238,11 +240,27 @@ class MessageOrchestrator:
         return True
 
     def _initialize_session_modules(self, session_id: str):
-        mod = self.module_registry["vector_memory"]
-        if mod:
-            mod.initialize(session_id=session_id, connector=self.connector)
-            self.vector_memory = mod.get_instance()
-        func.log(f"VectorMemory: {'CONNECTED' if self.vector_memory else 'DISABLED'}")
+        """
+        Initializes all registered modules, centralizing their tools in the ToolRegistry.
+        """
+        for module_name, mod in self.module_registry.items():
+            if not mod:
+                continue
+
+            # Modules are pre-initialized, so we just retrieve the instance.
+            instance = mod.get_instance()
+
+            # Special handling for vector_memory to maintain direct access
+            if module_name == "vector_memory":
+                self.vector_memory = instance
+                func.log(f"VectorMemory: {'CONNECTED' if self.vector_memory else 'DISABLED'}")
+
+            # Register tools from the module into the central registry
+            if instance and hasattr(instance, 'tools') and hasattr(instance.tools, 'get_tools'):
+                module_tools = instance.tools.get_tools()
+                for tool_name, tool_func in module_tools.items():
+                    self.registry.register_tool(tool_name, tool_func)
+                    func.log(f"Registered tool '{tool_name}' from module '{module_name}'.")
 
     def _format_recent_outcomes(self, outcomes: list, length=3000) -> list:
         formatted = []

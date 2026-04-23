@@ -5,7 +5,7 @@ import gc
 from typing import Optional
 
 # Core logic and message types
-from core.chat import Chat, ChatRoles
+from chat.chat import Chat, ChatRoles
 from core.llms.base_llm import BaseModel
 from config import ProgramConfig, ProgramSetting
 
@@ -30,7 +30,7 @@ class Program:
     """
 
     def __init__(self) -> None:
-        self.config: Optional[ProgramConfig] = None
+        self.config: Optional[ProgramConfig] = ProgramConfig()
         self.models: Optional[ModelOrchestrator] = None
         self.history: Optional[HistoryManager] = None
         self.modules: Optional[ModuleRegistry] = None
@@ -74,18 +74,22 @@ class Program:
         self.modules = ModuleRegistry(self.config)
         self.ui = UIOrchestrator(self.config)
 
-    def init_program(self, args) -> None:
+    def init_config(self, args):
         ConfigApplier.apply_cli_args_to_config(self.config, args)
 
         if hasattr(args, 'modules') and args.modules:
             for mod_name in args.modules:
                 self.config.set(f"{mod_name.upper()}_ENABLED", True)
+                func.log(f"Config: Enabled module '{mod_name}' via CLI argument.", level="DEBUG")
+        self.modules.load_all()
 
+    def init_program(self) -> None:
         session_paths = SessionManager.initialize_session_paths(self.config)
         self.history.initialize_session(session_paths)
         self.ui.initialize(self.history.get_log_path())
 
-        self.modules.load_all()
+       
+        func.log("Program initialized with configuration and modules.")
 
     def _ensure_llm_loaded(self) -> None:
         """

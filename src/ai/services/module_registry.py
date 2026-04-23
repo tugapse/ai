@@ -22,6 +22,9 @@ class ModuleRegistry:
     def __getitem__(self, key: str) -> Optional[Any]:
         """Allows the prog.modules['voice'] syntax."""
         return self._active_modules.get(key)
+    
+    def items(self):
+        return self._active_modules.items()
 
     def load_all(self):
         """Loads all modules specified as enabled in the configuration."""

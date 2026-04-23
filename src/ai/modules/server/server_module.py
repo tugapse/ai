@@ -1,13 +1,14 @@
 import threading
-from services.history_manager import HistoryManager
-from modules.base_module import BaseModule
-import uvicorn
 from typing import Any, Optional
+import uvicorn
 from fastapi import FastAPI
 
 import functions as func
+from services.history_manager import HistoryManager
+from modules.base_module import BaseModule
+
 from .brain_hub import BrainHub
-from .app import create_app  # Assuming we move FastAPI setup to a factory function
+from .app import create_app  
 
         
 class JarvisServerModule(BaseModule):
@@ -37,6 +38,8 @@ class JarvisServerModule(BaseModule):
         Args:
             config (ProgramConfig): The global configuration.
             orchestrator (ModelOrchestrator): The existing model manager for the Main PC.
+            history_manager (HistoryManager): Optional history manager (not directly used here
+                                              but kept for compatibility with existing lifecycle).
         """
         if self._brain_hub:
             func.log("JarvisServerModule is already initialized.", level="WARN")
@@ -46,7 +49,7 @@ class JarvisServerModule(BaseModule):
 
         # 1. Initialize the BrainHub wrapper
         self._brain_hub = BrainHub(config)
-        self._brain_hub.orchestrator = orchestrator 
+        self._brain_hub.orchestrator = orchestrator
 
         # 2. CREATE THE APP: Pass the config object so the endpoints can access state
         self._fastapi_app = create_app(self._brain_hub, config)

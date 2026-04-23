@@ -4,7 +4,7 @@ import xml.etree.ElementTree as ET
 from typing import Dict, Any, List
 import functions as func
 from core.llms.base_llm import BaseModel
-from core.chat import ChatRoles
+from chat.chat import ChatRoles
 from direct import ask
 import uuid
 import os

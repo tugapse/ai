@@ -24,7 +24,7 @@ class ToolRegistry:
             return f"- {name}: No description available."
         
         doc = self._tools[name].__doc__ or "No description provided."
-        indented_doc = "\n  ".join([line.strip() for line in doc.strip().split("\n")])
+        indented_doc = doc.strip().replace("\n", "\n  ")
         return f"- {name}:\n  {indented_doc}"
 
     def execute_tool(self, name: str, params: Dict[str, Any]) -> Dict[str, Any]:
