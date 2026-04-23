@@ -20,13 +20,11 @@ class StreamOrchestrator:
         output_printer: Any, 
         handler_manager: Any, 
         token_processor: Any,
-        assistant_prompt: str = "Assistant: ",
         debug_voice: bool = False
     ):
         self.printer = output_printer
         self.handler = handler_manager
         self.processor = token_processor
-        self.assistant_prompt = assistant_prompt
         self.speech_bridge = SpeechBridge(voice_module, debug=debug_voice)
 
         self.accumulated_text = ""
@@ -75,7 +73,6 @@ class StreamOrchestrator:
 
     def _display_and_relay(self, content: str):
         if not self.started_response:
-            func.out(format_text(self.assistant_prompt, Color.PURPLE) + Color.RESET, end="", flush=True)
             self.started_response = True
         
         formatted = self.processor.process_token(content)

@@ -1,0 +1,16 @@
+{
+    "model_name": "Qwen/Qwen2.5-7B-GGUF",
+    "model_type": "gguf",
+    "model_properties": {
+        "gguf_filename": "qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+        "model_repo_id": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
+        "n_gpu_layers": 15,
+        "n_ctx": 8192,
+        "max_new_tokens": 2048,
+        "temperature": 1,
+        "top_p": 0.95,
+        "top_k": 40,
+        "presence_penalty": 1,
+        "frequency_penalty": 1
+    }
+}

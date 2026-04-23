@@ -1,3 +1,4 @@
+import os
 import gc
 import threading
 import functions
@@ -14,10 +15,10 @@ class TokenCountInfo:
     def get_log_string(self) -> str:
         """Returns a condensed 'fuel gauge' of the current token state."""
         # Calculate usage percentage for the log
-        usage = (self.prompt_count / self.max_context_window * 100) if self.max_context_window > 0 else 0
+        usage = (self.total_prompt_count / (self.max_context_window-self.max_output_tokens) * 100) if self.max_context_window > 0 else 0
         return (
             f"Tokens: [P: {self.prompt_count} | T: {self.total_prompt_count} | Out: {self.printed_tokens_count}] "
-            f"Window: {self.max_context_window} ({usage:.1f}%)"
+            f"Window: {self.max_context_window-self.max_output_tokens} ({usage:.1f}%)"
         )
 class BaseModel:
     CONTEXT_WINDOW_SMALL = 2048
@@ -26,6 +27,10 @@ class BaseModel:
     CONTEXT_WINDOW_XLARGE = 16384
     CONTEXT_WINDOW_HUGE = 32768
     CONTEXT_WINDOW_GIANT = 65536
+    CONTEXT_WINDOW_128K = 128748
+    CONTEXT_WINDOW_256K = 262144
+    CONTEXT_WINDOW_1M = 1048576
+    CONTEXT_WINDOW_2M = 2097152
 
     STREAMING_FINISHED_EVENT = "streaming_finished"
 
@@ -128,25 +133,45 @@ class BaseModel:
             dict: A dictionary representing the message.
         """
         return {'role': role, 'content': content}
+   
+    def get_system_info(self)-> str:
 
+        system_info = functions.get_system_info_prompt_concise()
+
+        current_time_str = system_info.get("time", "Unknown Time")
+        os_info = system_info.get("os", "Unknown OS")
+
+        return f"System Context: (Time: {current_time_str} | OS: {os_info}) | pwd: {os.getcwd()}"
+    
     def check_system_prompt(self, messages: list):
         """
-        Ensures the system prompt is at the beginning of the messages list.
+        Ensures the system prompt is at the beginning of the messages list,
+        updated with real-time system context information obtained as an object.
         """
-        prompt_exists = any(
-            msg['content'] == self.system_prompt and msg['role'] in ["system", "user"] 
-            for msg in messages
-        )
 
-        if self.system_prompt and not prompt_exists:
-            messages = [BaseModel.create_message("system", self.system_prompt)] + messages
+        enriched_system_info_prefix = self.get_system_info()
+
+        final_system_prompt_content = enriched_system_info_prefix
+        if self.system_prompt:
+            final_system_prompt_content += f"\n{self.system_prompt}"
+
+        filtered_messages = [
+            msg for msg in messages
+            if not (msg['role'] == "system" or msg.get('original_role') == "system")
+        ]
+
+
+        updated_messages = [BaseModel.create_message("system", final_system_prompt_content)] + filtered_messages
 
         if self.override_system_by_user_template:
-            for msg in messages:
+            for msg in updated_messages:
                 if msg['role'] == "system":
                     msg['role'] = "user"
+                    msg['original_role'] = "system" # Mark it as originally a system message
 
-        return messages
+
+        return updated_messages
+
 
     def load_images(self, images: list):
         """
@@ -170,6 +195,13 @@ class BaseModel:
     
     # Abstract methods (to be implemented by subclasses)
     def chat(self, messages: list, images: list = None, stream: bool = True, options: object = {}):
+        raise NotImplementedError
+
+    def generate_structured(self, messages: list, schema: object, images: list = None, options: object = {}):
+        """
+        Generates a structured output based on a provided schema (e.g., Pydantic model).
+        Subclasses must implement this to support structured data generation.
+        """
         raise NotImplementedError
 
     def list(self):
@@ -206,9 +238,12 @@ class BaseModel:
     
     def request_shutdown(self):
         self.stop_generation_event.set()
-        self.join_generation_thread()
+        self.join_generation_thread(2)
         self.clean_cache()
-        
+    
+    def unload(self):
+        functions.error("Subclasses should implement the unload method to clear model resources.")
+
 class ModelParams:
     """
     A simple class to hold model parameters.
@@ -227,9 +262,11 @@ class ModelParams:
         self.frequency_penalty = kargs.get('frequency_penalty', 1.0)
         self.use_system_prompt = kargs.get('use_system_prompt', True)
         self.inference_backend :InferenceBackend = InferenceBackend.CPU
+        self.format = kargs.get('format', None) # New: for structured output, e.g., 'json'
 
     def to_dict(self):
-        return {
+        """Converts the parameters to a dictionary, excluding None values for format."""
+        d = {
             "num_ctx": self.num_ctx,
             "max_new_tokens": self.max_new_tokens,
             "max_length": self.max_length,
@@ -237,11 +274,14 @@ class ModelParams:
             "top_k": self.top_k,
             "top_p": self.top_p,
             "temperature": self.temperature,
-            "quantization_bits": self.quantization_bits, # Include in dict
+            "quantization_bits": self.quantization_bits,
             "enable_thinking":self.enable_thinking,
             "presence_penalty":self.presence_penalty,
             "frequency_penalty":self.frequency_penalty,
             "use_system_prompt":self.use_system_prompt
         }
+        if self.format:
+            d['format'] = self.format
+        return d
     
 

@@ -1,10 +1,11 @@
 import os
 import sys
 import traceback
+import gc
 from typing import Optional
 
 # Core logic and message types
-from core.chat import Chat, ChatRoles
+from chat.chat import Chat, ChatRoles
 from core.llms.base_llm import BaseModel
 from config import ProgramConfig, ProgramSetting
 
@@ -29,7 +30,7 @@ class Program:
     """
 
     def __init__(self) -> None:
-        self.config: Optional[ProgramConfig] = None
+        self.config: Optional[ProgramConfig] = ProgramConfig()
         self.models: Optional[ModelOrchestrator] = None
         self.history: Optional[HistoryManager] = None
         self.modules: Optional[ModuleRegistry] = None
@@ -42,11 +43,23 @@ class Program:
         self.active_executor = None
         self.llm_initialized = False # NEW: Flag to track LLM initialization
 
+   
     @property
-    def llm(self) -> Optional[BaseModel]:
-        # Ensure LLM is loaded only when accessed
+    def llm(self):
+        """Standard lazy-loader for the local LLM."""
         self._ensure_llm_loaded()
         return self.models.llm
+
+    @llm.setter
+    def llm(self, value):
+        """
+        NEW: Allows us to inject a Remote Link or a specific LLM instance.
+        This is what the Client Mode uses to 'become' the remote brain.
+        """
+        if self.models:
+            self.models.llm = value
+            self.llm_initialized = True
+            # func.log("Program: LLM instance injected via setter.", level="DEBUG")
 
     @property
     def model_params(self) -> dict:
@@ -55,24 +68,28 @@ class Program:
         return self.models.get_params()
 
     def load_config(self, args=None):
-        self.config = ProgramConfig.load()
+        self.config = ProgramConfig.load(args=args)
         self.models = ModelOrchestrator(self.config)
         self.history = HistoryManager(self.chat)
         self.modules = ModuleRegistry(self.config)
         self.ui = UIOrchestrator(self.config)
 
-    def init_program(self, args) -> None:
+    def init_config(self, args):
         ConfigApplier.apply_cli_args_to_config(self.config, args)
 
         if hasattr(args, 'modules') and args.modules:
             for mod_name in args.modules:
                 self.config.set(f"{mod_name.upper()}_ENABLED", True)
+                func.log(f"Config: Enabled module '{mod_name}' via CLI argument.", level="DEBUG")
+        self.modules.load_all()
 
+    def init_program(self) -> None:
         session_paths = SessionManager.initialize_session_paths(self.config)
         self.history.initialize_session(session_paths)
         self.ui.initialize(self.history.get_log_path())
 
-        self.modules.load_all()
+       
+        func.log("Program initialized with configuration and modules.")
 
     def _ensure_llm_loaded(self) -> None:
         """
@@ -125,7 +142,6 @@ class Program:
                 output_printer=ui_tools["printer"],
                 handler_manager=ui_tools["handler"],
                 token_processor=ui_tools["formatter"],
-                assistant_prompt=self.chat.assistant_prompt,
                 debug_voice=False
             )
 
@@ -191,7 +207,42 @@ class Program:
             self.shutdown()
 
     def shutdown(self) -> None:
-        if self.llm:
-            func.log("Program: Ensuring LLM is shut down.", level="DEBUG")
-            self.llm.request_shutdown()
-            func.log("Program: LLM shutdown complete.", level="DEBUG")
+        """
+        Safety-first shutdown. Prevents crashes if exiting during boot.
+        This version is more aggressive about releasing resources.
+        """
+        func.log("Program: Initiating aggressive shutdown...", level="DEBUG")
+
+        # If config was never loaded, we can't do anything else.
+        if not hasattr(self, 'config') or self.config is None:
+            func.log("Program: Shutdown aborted, config not loaded.", level="DEBUG")
+            return
+
+        # Only try to kill the LLM if it was actually initialized
+        if self.llm_initialized and self.models and hasattr(self.models, 'llm'):
+            try:
+                llm_instance = self.models.llm
+                if llm_instance:
+                    func.log("Program: Requesting LLM shutdown.", level="DEBUG")
+                    llm_instance.request_shutdown()
+                    del self.models.llm
+                    self.models.llm = None
+                    func.log("Program: LLM reference deleted.", level="DEBUG")
+            except Exception as e:
+                func.log(f"Program: Error during LLM shutdown: {e}", level="ERROR")
+        
+        if hasattr(self, 'models'):
+            del self.models
+            self.models = None
+            func.log("Program: Model orchestrator reference deleted.", level="DEBUG")
+
+        gc.collect()
+        func.log("JARVIS Shutdown complete. Garbage collection forced.", level="DEBUG")
+
+    def route_session(self, filepath: str) -> None:
+        """
+        Allows external modules (like the API Server) to instruct JARVIS
+        to look at a specific memory file before processing a request.
+        """
+        if self.history:
+            self.history.switch_active_session(filepath)

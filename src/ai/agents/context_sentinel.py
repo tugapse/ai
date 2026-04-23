@@ -9,16 +9,19 @@ class ContextSentinel:
     Archives technical facts to Long-Term Memory (LTM) before pruning state.
     """
 
-    def __init__(self, connector: Any, threshold: float = 0.8, max_tokens: int = 20000):
+    def __init__(self, connector: Any, threshold: float = 0.8, max_tokens: int = 20000, buffer: int = 1024):
         """
         Args:
             connector (Any): LLM connector for 'raw' distillation requests.
             threshold (float): Percentage of context used to trigger compression.
             max_tokens (int): Hardware context limit of the local GGUF engine.
+            buffer (int): Safety buffer to prevent hitting hard limits.
         """
         self.connector = connector
         self.threshold = threshold
         self.max_tokens = max_tokens
+        self.buffer = buffer  # Safety buffer to prevent hitting hard limits
+        
 
     def enforce_limits(self, agent_name: str, memory_manager: Any, payload: Dict[str, Any], vector_memory: Optional[Any] = None) -> Tuple[Dict[str, Any], bool]:
         """
@@ -26,12 +29,12 @@ class ContextSentinel:
         """
         # Heuristic: 4 characters per token
         est_tokens = len(json.dumps(payload)) / 3.2
-        pressure = est_tokens / self.max_tokens
+        pressure = est_tokens / (self.max_tokens - self.buffer)
 
         if pressure < self.threshold:
             return payload, False
 
-        func.out(f"\n{Color.YELLOW}◈ Sentinel: Pressure {pressure:.1%}. Archiving facts to LTM...{Color.RESET}")
+        func.out(f"{Color.YELLOW}◈ Sentinel: Pressure {pressure:.1%}. Archiving facts to LTM...{Color.RESET}")
 
         agent_memory = memory_manager.get_agent_memory(agent_name)
 

@@ -1,7 +1,7 @@
 import os
 import json
 from typing import Optional, Dict, List
-from core.chat import Chat, ChatRoles
+from chat.chat import Chat, ChatRoles
 from core.llms.base_llm import BaseModel
 import functions as func
 
@@ -19,14 +19,28 @@ class HistoryManager:
 
     def initialize_session(self, session_paths: Dict[str, str]):
         """
-        Sets session context and triggers history loading.
+        Sets session context and triggers history loading on boot.
         """
         self.chat_filepath = session_paths.get("session_chat_filepath")
         self.thinking_log_filepath = session_paths.get("session_thinking_log_filepath")
         self.workspace_path = session_paths.get("session_workspace_path")
         
-        # Load messages from disk to memory
         self.load_history()
+
+    def switch_active_session(self, new_chat_filepath: str):
+        """
+        Hot-swaps the active memory file for the server.
+        Clears the current RAM context and loads the specified JSON.
+        """
+        if self.chat_filepath == new_chat_filepath:
+            return # Already looking at the right file
+
+        func.log(f"HistoryManager: Routing memory to {new_chat_filepath}", level="DEBUG")
+        self.chat_filepath = new_chat_filepath
+        
+        self.chat.messages.clear() 
+        self.load_history()
+    # ==========================================
 
     def load_history(self):
         """Loads conversation from disk without creating duplicates."""
@@ -40,14 +54,11 @@ class HistoryManager:
             if not saved_messages:
                 return
 
-            # Map existing content to avoid duplicates
             existing_contents = {m.get("content") for m in self.chat.messages}
             
             for msg in saved_messages:
-                # If we already have this exact message, skip it
                 if msg.get("content") in existing_contents:
                     continue
-                
                 self.chat.messages.append(msg)
             
             func.log(f"HistoryManager: Resumed history. Current message count: {len(self.chat.messages)}")
@@ -61,7 +72,6 @@ class HistoryManager:
             
         message = BaseModel.create_message(role, content.strip())
         
-        # Safety: Don't add if it's a double-tap (same as last message)
         if self.chat.messages and self.chat.messages[-1].get("content") == message.get("content"):
             return
 

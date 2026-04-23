@@ -1,5 +1,19 @@
 # Changelog
 
+## v3.1.0
+
+### [Added]
+- feat(server): Improve shutdown flow and add frontend assets.
+- feat(core,server,kg): Implement knowledge graph and structured LLM output.
+- feat(server): Implement comprehensive session management API.
+- feat(server): Introduce server watchdog and dynamic sessions.
+- feat(llm-server): Implement robust model unloading and server architecture.
+
+### [Changed]
+- feat(llm_connector): Use ResponseParser for LLM responses.
+- refactor(core): Enhance persistence and model configuration, including session state hydration and support for larger context windows.
+- Changed default application path.
+
 ## v3.0.0
 
 ### [Added]

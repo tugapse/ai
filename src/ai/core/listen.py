@@ -3,7 +3,7 @@ import threading
 import pyaudio
 import wave
 import time
-from core.command_executor import AsyncExecutor, ExecutorResult
+from chat.command_executor import AsyncExecutor, ExecutorResult
 from color import Color
 
 FORMAT = pyaudio.paInt16  # Audio format (16-bit integer)

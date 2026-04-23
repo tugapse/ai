@@ -1,21 +1,30 @@
 """
 This module provides command-line interface (CLI) arguments parsing and processing.
-It allows users to interact with the AI system through various commands and options.
+It coordinates the JARVIS behavior mode: Standalone, Server, or Client.
 """
 
 import argparse
 import os
 import sys
 import json
+import time
 import uuid
+import traceback
+from typing import Optional
+
+# Configuration and Enums
+from modules.server.brain_hub import BrainHub
 from model_config_manager import ModelConfigManager
-from config import ProgramConfig, ProgramSetting # Now using ProgramSetting as a class of string constants
-from core.chat import ChatRoles
-from core.llms.base_llm import BaseModel
+from config import ProgramConfig, ProgramSetting 
 from entities.model_enums import ModelType
+
+# Core logic
+from chat.chat import ChatRoles
+from core.llms.base_llm import BaseModel
 from color import Color, format_text
 from direct import ask
 
+# Agent logic
 from agents.agent import MessageOrchestrator, LLMConnector, ToolRegistry, load_pipeline_config
 import agents.agent_tools as agent_tools
 
@@ -23,136 +32,115 @@ import functions as func
 
 class CliArgs:
     """
-    This class represents the CLI arguments parser.
-    It takes care of parsing the user's input, validating it, and executing the corresponding actions.
+    Main orchestrator for CLI input. Handles mode dispatching 
+    and ensures proper initialization based on the user's intent.
     """
 
     def parse_args(self, prog, args, args_parser: argparse.ArgumentParser) -> None:
         """
-        Parses the given CLI arguments and executes the corresponding actions.
-
-        :param prog: The program object that will be used to execute the parsed commands.
-        :param args: The CLI arguments to be parsed.
-        :param args_parser: The main ArgumentParser instance for error reporting.
+        The main dispatcher. Analyzes arguments to decide if JARVIS 
+        acts as a Brain (Server), a Body (Client), or a Standalone agent.
         """
-        # Centralized handling of config generation. This will exit if called.
+        # 1. System/Global Actions
         self._handle_config_generation(prog, args, args_parser) 
-
-        # If agent mode is specified, it's the primary action and will not fall through.
-        if args.agent:
-            self._handle_agent_mode(prog, args)
-            os._exit(0) # Hard exit after agent is done.
-
         self._is_install(args)
-        
-        # Non-exiting actions
         self._is_print_chat(args)
         self._is_list_models(args)
+
+        # 2. Mode Dispatching
+        # Check for Server Mode (Main PC)
+        if hasattr(args, 'server') and args.server:
+            self._handle_server_mode(prog, args)
+            os._exit(0)
+
+        # Check for Client Mode (Tiny PC)
+        if hasattr(args, 'remote') and args.remote:
+            self._handle_client_mode(prog, args)
+            # Fall through to execute agent/direct logic via the remote connector
+
+        # Default to Local/Direct Task Mode
+        self._handle_local_direct_mode(prog, args)
+
+        # 3. Execution Dispatching
+        if args.agent:
+            self._handle_agent_mode(prog, args)
+            os._exit(0) 
+
+        self._has_message(prog, args) 
+
+
+    def _handle_server_mode(self, prog, args):
+        if args.server:
+            try:
+                orchestrator = prog.models 
+                
+                if args.model:
+                    try:
+                        orchestrator.load(args.model)
+                    except Exception as e:
+                        func.log(f"{Color.RED}[ ! ] Neural Load Failed: {e}. Starting in STANDBY.{Color.RESET}")
+                else:
+                    func.log(f"{Color.CYAN}[ * ] Neural Hub: Standby Mode. Awaiting Neural Link...{Color.RESET}")
+                
+                from modules.server.server_module import JarvisServerModule
+                server = JarvisServerModule( 
+                    host=prog.config.get("SERVER_HOST", "0.0.0.0"),
+                    port=prog.config.get("SERVER_PORT", 9999),
+                    brain_hub=BrainHub(prog.config) 
+                )
+                
+                server.initialize(prog.config, orchestrator, prog.history)
+                server.start()
+                
+            except KeyboardInterrupt:
+                func.log(f"\n{Color.YELLOW}[ * ] Manual override engaged. Terminating JARVIS server.{Color.RESET}")
+                sys.exit(0)
+                
+
+    def _handle_client_mode(self, prog, args):
+        """
+        Swaps the local LLM for a Remote Connector to use the Main PC's GPU.
+        """
+        func.log(format_text("=== REMOTE BRAIN LINK ACTIVE ===", Color.YELLOW))
+        
+        remote_url = args.remote
+        # Replace the local LLM with the Remote Link
+        from modules.client.remote_connector import RemoteBrainConnector
+        
+        # We manually inject the remote connector into the program
+        prog.llm = RemoteBrainConnector(url=remote_url, model_id=args.model)
+        prog.llm_initialized = True # Mark as initialized to prevent lazy-loading local weights
+
+    def _handle_local_direct_mode(self, prog, args):
+        """
+        The standard non-agent loop for one-shot tasks and context loading.
+        """
         self._has_output_files(prog, args)
         self._has_image(prog, args) 
         self._has_folder(prog, args)
         self._has_file(prog, args)
         self._has_task_file(prog, args)
         self._has_task(prog, args)
+        
 
-
-        # this will execute and exit if task, taskfile, pipe or message exists
-        self._has_message(prog, args) 
-
-
-    def _handle_config_generation(self, prog, args, parser: argparse.ArgumentParser):
-        """
-        Checks for and handles the model configuration generation task.
-        If the --generate-config flag is used, it creates the config file and exits.
-
-        :param prog: The program object to access configuration settings.
-        :param args: The CLI arguments.
-        :param parser: The main ArgumentParser instance for error reporting.
-        """
-        if args.generate_config:
-            if not args.model_type:
-                parser.error(
-                    "The --generate-config flag requires --model-type."
-                )
-
-            try:
-                model_type_enum = ModelType(args.model_type)
-
-                config_filename = args.generate_config
-                if not config_filename.lower().endswith(".json"):
-                    config_filename += ".json"
-                
-                # MODIFIED: Get the model configs directory from ProgramConfig.current
-                models_dir = prog.config.get(ProgramSetting.PATHS_MODEL_CONFIGS)
-                
-                if not models_dir: # Fallback in case config system didn't set it (shouldn't happen with updated config.py)
-                    models_dir = os.path.join(func.get_root_directory(), "models")
-                    func.log(f"WARNING: '{ProgramSetting.PATHS_MODEL_CONFIGS}' not found in config. Using fallback: {models_dir}", level="WARNING")
-
-                func.ensure_directory_exists(models_dir) # Ensure the directory exists
-
-                full_filepath = os.path.join(models_dir, config_filename)
-
-                func.log(
-                    format_text(
-                        f"--- Generating config for {config_filename} ---", Color.NORMAL_CYAN
-                    )
-                )
-
-                new_config = ModelConfigManager.generate_default_config(
-                    model_name=args.generate_config, model_type=model_type_enum
-                )
-
-                ModelConfigManager.save_config(new_config, full_filepath) 
-
-                success_message = format_text(
-                    f"\nSuccessfully generated and saved configuration to: ",
-                    Color.GREEN,
-                ) + format_text(f"{full_filepath}", Color.YELLOW) 
-                print(success_message)
-                print(json.dumps(new_config, indent=2))
-
-            except Exception as e:
-                error_msg = format_text(
-                    f"An unexpected error occurred during config generation: {e}",
-                    Color.RED,
-                )
-                func.error(f"ERROR: {error_msg}", level="ERROR")
-                print(error_msg, file=sys.stderr)
-
-            sys.exit(0)
-
-    def _is_print_chat(self, args):
-        if args.print_chat:
-            from pathlib import Path
-            from extras.console import ConsoleChatReader 
-
-            from_logs_file = ((Path(__file__).parent) / "logs" / "chat").joinpath(
-                args.print_chat
-            )
-            from_file = Path(args.print_chat)
-            json_filename: str = None
-
-            if from_logs_file.exists():
-                json_filename = from_logs_file.resolve()
-            elif from_file.exists():
-                json_filename = from_file.resolve()
-            else:
-                raise FileNotFoundError(f"{Color.RED}File not found: {args.print_chat}{Color.RESET}")
-
-            reader = ConsoleChatReader(json_filename)
-            reader.load()
-            sys.exit(0)
+    # --- Logic Implementations ---
 
     def _handle_agent_mode(self, prog, args):
         """Handles the execution of the agent pipeline."""
-        user_input = args.task or args.msg
+        # check and load for task file
+        taskfile=""
+        if args.task_file:
+             taskfile = func.read_file(args.task_file)
+             
+        user_input = taskfile or args.task 
         if not sys.stdin.isatty():
             piped_input = sys.stdin.read().strip()
             if piped_input:
-                user_input = piped_input
+                if user_input : user_input += "\n" + piped_input
+                else:  user_input = piped_input
+        user_input = user_input + args.msg if args.msg else user_input
 
-        if not user_input:
+        if not user_input :
             func.error("Agent mode requires a prompt. Use --msg, --task, or pipe input.")
             sys.exit(1)
 
@@ -170,7 +158,7 @@ class CliArgs:
             registry.register_tool(name, tool_ref)
        
         session_id = args.session_id or str(uuid.uuid4())
-        func.log(f"Using agent session: {session_id}")
+        func.log(f"Session: {session_id}")
 
         orchestrator = MessageOrchestrator(
             connector=connector, 
@@ -182,33 +170,63 @@ class CliArgs:
         try:
             orchestrator.run_loop(user_prompt=user_input, session_id=session_id)
         except Exception as e:
-            func.error(f"Orchestrator encountered an error: {e}")
-            import traceback
+            func.error(f"Orchestrator Error: {e}")
             func.error(traceback.format_exc())
         finally:
             sys.exit(0)
-    
+
+    def _handle_config_generation(self, prog, args, parser: argparse.ArgumentParser):
+        if not args.generate_config:
+            return
+
+        if not args.model_type:
+            parser.error("The --generate-config flag requires --model-type.")
+
+        try:
+            model_type_enum = ModelType(args.model_type)
+            config_filename = args.generate_config if args.generate_config.endswith(".json") else f"{args.generate_config}.json"
+            
+            models_dir = prog.config.get(ProgramSetting.PATHS_MODEL_CONFIGS) or os.path.join(func.get_root_directory(), "models")
+            func.ensure_directory_exists(models_dir)
+
+            full_filepath = os.path.join(models_dir, config_filename)
+            new_config = ModelConfigManager.generate_default_config(model_name=args.generate_config, model_type=model_type_enum)
+
+            ModelConfigManager.save_config(new_config, full_filepath) 
+            print(format_text(f"\nConfiguration saved to: {full_filepath}", Color.GREEN))
+        except Exception as e:
+            func.error(f"Config generation failed: {e}")
+        sys.exit(0)
+
+    def _is_print_chat(self, args):
+        if not args.print_chat:
+            return
+        from pathlib import Path
+        from extras.console import ConsoleChatReader 
+        
+        # Logic to find the file in logs or local path
+        log_path = (Path(__file__).parent / "logs" / "chat") / args.print_chat
+        local_path = Path(args.print_chat)
+        
+        target = log_path if log_path.exists() else local_path if local_path.exists() else None
+        
+        if not target:
+            func.error(f"Chat file not found: {args.print_chat}")
+            sys.exit(1)
+
+        reader = ConsoleChatReader(str(target.resolve()))
+        reader.load()
+        sys.exit(0)
+
     def _is_install(self, args):
         if args.install:
             import importlib.util
-
             root = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])),"..","..")
             installer_path = os.path.join(root, "scripts", "install_engines.py")
-
-            if not os.path.exists(installer_path):
-                print(f"\033[91mError: Installer script not found at {installer_path}\033[0m")
-                sys.exit(1)
-
             spec = importlib.util.spec_from_file_location("install_engines", installer_path)
             installer_module = importlib.util.module_from_spec(spec)
-            
-            try:
-                spec.loader.exec_module(installer_module)
-                installer_module.main_menu()
-            except Exception as e:
-                print(f"\033[91mFailed to launch installer: {e}\033[0m")
-            
-            # 4. Always exit after the installer closes
+            spec.loader.exec_module(installer_module)
+            installer_module.main_menu()
             sys.exit(0)
 
     def _is_list_models(self, args):
@@ -226,92 +244,56 @@ class CliArgs:
             files = func.get_files(directory, args.ext)
             for file_obj in files:
                 file_obj.load()
-                prog.chat._add_message(
-                    BaseModel.create_message(
-                        ChatRoles.USER,
-                        f"Filename: {file_obj.filename} \n File Content:\n```{file_obj.content}\n",
-                    )
-                )
+                prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, f"Filename: {file_obj.filename} \nContent:\n```{file_obj.content}\n"))
 
     def _has_file(self, prog, args):
         if args.file:
-            files = args.file.split(",")
-            for file_path in files:
-                stripped_path = file_path.strip()
-                text_content = func.read_file(stripped_path)
-                prog.chat._add_message(
-                    BaseModel.create_message(
-                        ChatRoles.USER,
-                        f"Filename: {stripped_path} \n  File Content:\n```{text_content}```",
-                    )
-                )
+            for file_path in args.file.split(","):
+                text_content = func.read_file(file_path.strip())
+                prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, f"Filename: {file_path.strip()} \nContent:\n```{text_content}```"))
 
     def _has_image(self, prog, args):
         if args.image:
-            files = args.image.split(",")
-            for file_path in files:
-                stripped_path = file_path.strip()
-                if os.path.exists(stripped_path):
-                    prog.chat.images.append(stripped_path)
+            for file_path in args.image.split(","):
+                path = file_path.strip()
+                if os.path.exists(path):
+                    prog.chat.images.append(path)
                 else:
-                    func.log(f"Image file not found: {stripped_path}", level="ERROR")
-                    raise FileNotFoundError(f"Image file not found: {stripped_path}")
+                    raise FileNotFoundError(f"Image not found: {path}")
 
     def _has_task_file(self, prog, args):
         if args.task_file:
-            task_content = func.read_file(args.task_file)
-            prog.chat._add_message(BaseModel.create_message(ChatRoles.SYSTEM, task_content))
+            prog.chat._add_message(BaseModel.create_message(ChatRoles.SYSTEM, func.read_file(args.task_file)))
 
     def _has_task(self, prog, args):
         if args.task:
-            task_name = args.task.replace(".md", "") + ".md"
-            filepaths_to_check = []
-            
-            # MODIFIED: Get paths from ProgramConfig.current
+            task_name = f"{args.task.replace('.md', '')}.md"
             user_tasks_dir = prog.config.get(ProgramSetting.PATHS_TASKS_TEMPLATES)
-            if user_tasks_dir:
-                filepaths_to_check.append(os.path.join(user_tasks_dir, task_name))
+            found_path = os.path.join(user_tasks_dir, task_name) if user_tasks_dir else None
             
-            found_path = None
-            for fp in filepaths_to_check:
-                if os.path.exists(fp):
-                    found_path = fp
-                    break
-            
-            if not found_path:
-                func.log(f"Task template '{args.task}' not found in configured paths.", level="ERROR")
-                raise FileNotFoundError(f"Task template '{args.task}' not found in configured paths.")
+            if not found_path or not os.path.exists(found_path):
+                raise FileNotFoundError(f"Task template '{args.task}' not found.")
 
-            task_content = func.read_file(found_path)
-            prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, task_content))
+            prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, func.read_file(found_path)))
             
     def _has_message(self, prog, args):
         piped = False
         user_input = args.task or args.msg
 
-
         if not sys.stdin.isatty():
             piped = True
-            user_input=sys.stdin.read().strip()
-            prog.chat._add_message( 
-                BaseModel.create_message(ChatRoles.USER,user_input )
-            )
+            user_input = sys.stdin.read().strip()
+            prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, user_input))
 
-        if prog.chat.images and len(prog.chat.images):
+        if prog.chat.images:
             message = prog.llm.load_images(prog.chat.images)
             prog.chat.messages.append(message)
 
         if args.msg:
-            prog.chat._add_message( 
-                BaseModel.create_message(ChatRoles.USER, args.msg)
-            )
-
-        if args.task_file:
-            user_input = func.read_file(args.task_file)
+            prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, args.msg))
         
-        if piped or (user_input is not None and user_input.strip() != "" ):
-            
-            func.log("INFO: Detected message/task input. Starting direct ask.")
+        if piped or (user_input and user_input.strip()):
+            func.log("Starting direct ask.")
             ask(
                 prog.llm,
                 prog.chat.messages, 
@@ -320,6 +302,4 @@ class CliArgs:
                 hide_think_anim=args.no_think_anim,
                 print_output=args.no_out != True
             )
-            # [CRITICAL] Use os._exit(0) for a hard exit to prevent C-level segfaults
-            # from llama_cpp during the standard Python cleanup process.
             os._exit(0)

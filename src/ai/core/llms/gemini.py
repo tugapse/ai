@@ -16,7 +16,7 @@ warnings.filterwarnings(
 
 from .base_llm import BaseModel, ModelParams 
 import functions as func
-from color import Color  # <-- IMPORT ADICIONADO PARA CORRESPONDER À GGUF
+from color import Color
 
 class GeminiAPIModel(BaseModel):
     def __init__(self, model_name="gemini-2.5-flash", system_prompt=None, api_key=None, use_vertex=True, project_id=None, location="us-central1", **kargs):
@@ -34,12 +34,13 @@ class GeminiAPIModel(BaseModel):
             
             try:
                 import vertexai
-                from vertexai.generative_models import GenerativeModel, Part, GenerationConfig
-                self.project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT") or "project-02da1a39-478c-49eb-a3e"
+                from vertexai.generative_models import GenerativeModel, Part, GenerationConfig, Tool
+                self.project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT") 
                 vertexai.init(project=self.project_id, location=location)
                 
                 self.config_class = GenerationConfig
                 self.part_class = Part
+                self.tool_class = Tool
                 func.log(f"Vertex AI Setup concluído para o modelo {self.model_name}", level="DEBUG")
             except ImportError:
                 func.error("Missing 'google-cloud-aiplatform'. Run: pip install google-cloud-aiplatform")
@@ -62,6 +63,7 @@ class GeminiAPIModel(BaseModel):
 
         model_params = kargs.get('model_params', {}) or {}
         self.config_kwargs = {}
+        self.token_info_count.max_context_window = model_params.get('n_ctx', self.CONTEXT_WINDOW_1M)
         for param_name, api_name in [
             ('temperature', 'temperature'),
             ('max_new_tokens', 'max_output_tokens'),
@@ -140,14 +142,15 @@ class GeminiAPIModel(BaseModel):
                 break
                 
         if dynamic_system_prompt:
-            func.log("System Prompt injetado dinamicamente no Gemini.", level="DEBUG")
+            dynamic_system_prompt = f"{self.get_system_info()}\n{dynamic_system_prompt}"
+            func.log("System Prompt updated with system info!", level="DEBUG")
 
         history = self._convert_messages_to_api(messages)
         self._append_images_to_history(history, images)
 
         current_options = self.config_kwargs.copy()
+        tools = None
         
-        # --- FIX: Apply orchestrator runtime limits (e.g. max_tokens) to API request ---
         if options:
             if 'max_tokens' in options:
                 current_options['max_output_tokens'] = options['max_tokens']
@@ -157,55 +160,79 @@ class GeminiAPIModel(BaseModel):
                 current_options['top_p'] = options['top_p']
             if 'top_k' in options:
                 current_options['top_k'] = options['top_k']
+            # Capture tools if passed in the chat options
+            if 'tools' in options:
+                tools = options['tools']
 
-        # Substitui a contagem estrita de tokens do GGUF por esta estimativa rápida de debug
-        func.debug(f"Gemini Processing {len(history)} messages | Stream: {stream}")
+        func.debug(f"Gemini Processing {len(history)} messages | Stream: {stream} | Tools attached: {bool(tools)}")
         
         if stream:
-            return self._stream_generator(history, dynamic_system_prompt, current_options)
+            return self._stream_generator(history, dynamic_system_prompt, current_options, tools)
         else:
-            return self._generate_response_sync(history, dynamic_system_prompt, current_options)
+            return self._generate_response_sync(history, dynamic_system_prompt, current_options, tools)
 
     def _log_usage_metadata(self, response_obj, is_stream=False):
-        """Helper para extrair e logar os tokens consumidos da API Gemini"""
         try:
-            # O Vertex AI e o AI Studio têm formas ligeiramente diferentes de aceder ao metadata
             usage = getattr(response_obj, 'usage_metadata', None)
             if usage:
                 in_tokens = getattr(usage, 'prompt_token_count', '?')
                 out_tokens = getattr(usage, 'candidates_token_count', '?')
                 mode = "Streaming" if is_stream else "Sync Generation"
-                # Log Verde igual à GGUF class
                 func.log(f"{Color.GREEN}{mode} Finished. Tokens -> Input: {in_tokens} | Output: {out_tokens}{Color.RESET}", level="DEBUG")
         except Exception:
-            pass # Se não conseguir ler os tokens, simplesmente ignora para não quebrar a app
+            pass
 
-    def _generate_response_sync(self, history, dynamic_system_prompt, current_options):
+    def _extract_response_content(self, resp_or_chunk):
+        """Safely extracts text or function_call from a response chunk/object."""
+        try:
+            return {"type": "text", "content": resp_or_chunk.text}
+        except ValueError:
+            # Se falhar o `.text`, verifica se é um function_call
+            if hasattr(resp_or_chunk, 'candidates') and resp_or_chunk.candidates and resp_or_chunk.candidates[0].content.parts:
+                part = resp_or_chunk.candidates[0].content.parts[0]
+                
+                # Check for Function Call payload
+                if hasattr(part, 'function_call') and part.function_call:
+                    func_call = part.function_call
+                    # Converter argumentos de forma segura para dicionário Python
+                    args_dict = {k: v for k, v in func_call.args.items()} if hasattr(func_call.args, 'items') else dict(func_call.args)
+                    return {"type": "function_call", "name": func_call.name, "args": args_dict}
+                
+                # Fallback para extração manual de texto
+                if hasattr(part, 'text'):
+                    return {"type": "text", "content": part.text}
+                    
+            return {"type": "text", "content": ""}
+
+    def _generate_response_sync(self, history, dynamic_system_prompt, current_options, tools):
         if self.use_vertex:
             from vertexai.generative_models import GenerativeModel
             local_model = GenerativeModel(
                 model_name=self.model_name,
                 system_instruction=[dynamic_system_prompt] if dynamic_system_prompt else None
             )
-            resp = local_model.generate_content(
-                history, 
-                generation_config=self.config_class(**current_options)
-            )
             
-            # --- FIX: Safe extraction ---
-            try:
-                resp_text = resp.text
-            except ValueError:
-                resp_text = resp.candidates[0].content.parts[0].text if resp.candidates else ""
+            kwargs = {"generation_config": self.config_class(**current_options)}
+            if tools:
+                kwargs["tools"] = tools
 
-            # Logs espelhados
-            func.debug(resp_text)
+            resp = local_model.generate_content(history, **kwargs)
+            
+            extracted = self._extract_response_content(resp)
             self._log_usage_metadata(resp, is_stream=False)
             
-            return resp_text
+            if extracted["type"] == "function_call":
+                func.debug(f"Tool Call Triggered: {extracted['name']}")
+                return extracted # Return dict so orchestrator handles execution
+                
+            func.debug(extracted["content"])
+            return extracted["content"]
+
         else:
             if dynamic_system_prompt:
                 current_options['system_instruction'] = dynamic_system_prompt
+            if tools:
+                current_options['tools'] = tools
             
             resp = self.client.models.generate_content(
                 model=self.model_name, 
@@ -213,20 +240,18 @@ class GeminiAPIModel(BaseModel):
                 config=self.genai_types.GenerateContentConfig(**current_options)
             )
             
-            # --- FIX: Safe extraction ---
-            try:
-                resp_text = resp.text
-            except ValueError:
-                resp_text = resp.candidates[0].content.parts[0].text if resp.candidates else ""
-
-            # Logs espelhados
-            func.debug(resp_text)
+            extracted = self._extract_response_content(resp)
             self._log_usage_metadata(resp, is_stream=False)
             
-            return resp_text
+            if extracted["type"] == "function_call":
+                func.debug(f"Tool Call Triggered: {extracted['name']}")
+                return extracted 
+                
+            func.debug(extracted["content"])
+            return extracted["content"]
 
-    def _stream_generator(self, history, dynamic_system_prompt, current_options):
-        full_response_content = "" # Variável acumuladora igual à GGUF class
+    def _stream_generator(self, history, dynamic_system_prompt, current_options, tools):
+        full_response_content = "" 
         last_chunk_with_usage = None
         
         try:
@@ -237,33 +262,39 @@ class GeminiAPIModel(BaseModel):
                     system_instruction=[dynamic_system_prompt] if dynamic_system_prompt else None
                 )
                 
-                responses = local_model.generate_content(
-                    history, 
-                    stream=True, 
-                    generation_config=self.config_class(**current_options)
-                )
+                kwargs = {
+                    "stream": True,
+                    "generation_config": self.config_class(**current_options)
+                }
+                if tools:
+                    kwargs["tools"] = tools
+
+                responses = local_model.generate_content(history, **kwargs)
+                
                 for r in responses:
                     if self.stop_generation_event.is_set(): break
                     
-                    # --- FIX: Safe extraction for streaming chunks ---
-                    chunk_text = ""
-                    try:
-                        chunk_text = r.text
-                    except ValueError:
-                        if hasattr(r, 'candidates') and r.candidates and r.candidates[0].content.parts:
-                            chunk_text = r.candidates[0].content.parts[0].text
-
+                    extracted = self._extract_response_content(r)
+                    
+                    if extracted["type"] == "function_call":
+                        # Em streaming, function calls vêm inteiras num único chunk normalmente
+                        yield extracted 
+                        return # Aborta o stream de texto porque a AI quer usar uma tool
+                        
+                    chunk_text = extracted["content"]
                     if chunk_text:
                         full_response_content += chunk_text
                         self.trigger("token", chunk_text)
                         yield chunk_text
                     
-                    # O Vertex AI envia os metadados no último chunk
                     if getattr(r, 'usage_metadata', None):
                         last_chunk_with_usage = r
+
             else:
                 if dynamic_system_prompt:
                     current_options['system_instruction'] = dynamic_system_prompt
+                if tools:
+                    current_options['tools'] = tools
                 
                 responses = self.client.models.generate_content_stream(
                     model=self.model_name, 
@@ -273,14 +304,13 @@ class GeminiAPIModel(BaseModel):
                 for chunk in responses:
                     if self.stop_generation_event.is_set(): break
                     
-                    # --- FIX: Safe extraction for streaming chunks ---
-                    chunk_text = ""
-                    try:
-                        chunk_text = chunk.text
-                    except ValueError:
-                        if hasattr(chunk, 'candidates') and chunk.candidates and chunk.candidates[0].content.parts:
-                            chunk_text = chunk.candidates[0].content.parts[0].text
-
+                    extracted = self._extract_response_content(chunk)
+                    
+                    if extracted["type"] == "function_call":
+                        yield extracted
+                        return
+                        
+                    chunk_text = extracted["content"]
                     if chunk_text: 
                         full_response_content += chunk_text
                         self.trigger("token", chunk_text)
@@ -289,8 +319,6 @@ class GeminiAPIModel(BaseModel):
                     if getattr(chunk, 'usage_metadata', None):
                         last_chunk_with_usage = chunk
                         
-            # --- FINAL DO STREAM: Logs Espelhados da GGUF ---
-            func.debug(full_response_content)
             if last_chunk_with_usage:
                 self._log_usage_metadata(last_chunk_with_usage, is_stream=True)
             else:

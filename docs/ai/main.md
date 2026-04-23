@@ -25,7 +25,7 @@ Central entry point for parsing CLI arguments, initializing the AI program, and 
 
 ## 5. Configuration & Environment  
 - **Hardcoded Constants**:  
-  - `__version__ = "2.3.2"`  
+  - `__version__ = "3.0.1"`  
   - Environment variables in `hack_warnings` (`TQDM_DISABLE`, `BITSANDBYTES_NOWELCOME`, `TRANSFORMERS_VERBOSITY`)  
 - **Environment Lookups**:  
   - `os.getenv` not explicitly used; config keys accessed via `prog.config.get(ProgramSetting.SYSTEM_PROMPT_FILE)`

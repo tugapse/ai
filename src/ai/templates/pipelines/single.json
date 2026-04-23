@@ -9,7 +9,7 @@
       "role": "management",
       "prompt_file": "agents/single_agent.md",
       "tools": ["read_dir" ,"smart_search", "read_file","read_files","write_file", 
-      "patch_file", "web_search", "web_read"],
+      "patch_file", "web_search", "web_read", "query_memory", "trigger_reflection"],
       "allowed_targets": ["MASTER", "USER", "STOP"]
     },
        "SYSTEM_OPERATOR": {

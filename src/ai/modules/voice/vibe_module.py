@@ -8,9 +8,9 @@ import functions as func
 class VibeVoiceModule(BaseVoiceModule):
     """
     VibeVoice-Realtime-0.5B implementation.
-    Auto-detects hardware (CUDA/CPU) and provides the 'preload' hook for the Registry.
+    Auto-detects hardware (CUDA/CPU) and uses the official Microsoft package.
     """
-    def __init__(self, model_id="microsoft/VibeVoice-Realtime-0.5B", voice_file="en-Davis_man.pt", **kwargs):
+    def __init__(self, model_id="microsoft/VibeVoice-Realtime-0.5B", voice_file="pt-Spk1_man", **kwargs):
         # Initialize the base class (starts audio queues and playback threads)
         super().__init__(sample_rate=24000, **kwargs)
         
@@ -26,7 +26,7 @@ class VibeVoiceModule(BaseVoiceModule):
 
     def preload(self):
         """
-        FIX: This is the method the ModuleRegistry calls.
+        This is the method the ModuleRegistry calls.
         It triggers the actual model loading sequence.
         """
         func.log("VibeVoice: Preloading model components...")
@@ -34,9 +34,9 @@ class VibeVoiceModule(BaseVoiceModule):
 
     def _initialize_model(self):
         """
-        Auto-detects hardware and loads the VibeVoice weights.
+        Auto-detects hardware and loads the VibeVoice weights using the local package.
         """
-        from vibevoice import VibeVoiceStreamingForConditionalGenerationInference, VibeVoiceStreamingProcessor
+        from vibevoice import VibeVoiceStreamingForConditionalGenerationInference, VibeVoiceStreamingProcessor # type: ignore
         
         # 1. Hardware Detection
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -64,17 +64,21 @@ class VibeVoiceModule(BaseVoiceModule):
                 if available:
                     voice_path = os.path.join(voices_dir, available[0])
 
-        # 3. Load Components
+        # 3. Load Voice Profile
         if voice_path and os.path.exists(voice_path):
             func.log(f"VibeVoice: Loading voice profile: {os.path.basename(voice_path)}")
             raw_embeddings = torch.load(voice_path, map_location=self.device, weights_only=False)
             self.voice_embeddings = self._recursive_cast(raw_embeddings)
         
+        # 4. Load Processor
         self.processor = VibeVoiceStreamingProcessor.from_pretrained(self.model_id)
         
         func.log("VibeVoice: Loading model weights (this may take a moment)...")
+        
+        # 5. Load Model (Using the fixed 'torch_dtype' argument)
         self.model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
-            self.model_id, dtype=self.model_dtype
+            self.model_id, 
+            torch_dtype=self.model_dtype
         ).to(self.device)
         
         if hasattr(self.model, "set_ddpm_inference_steps"):

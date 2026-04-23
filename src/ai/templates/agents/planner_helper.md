@@ -38,13 +38,12 @@ You are strictly FORBIDDEN from wrapping your response in Markdown code blocks. 
     <agent_target>USER | MASTER</agent_target>
     <task_for_target>Discovery Phase / Technical Roadmap</task_for_target>
     <message_to_target><![CDATA[
-\u001b[36m=== CRITICAL GAPS ===\u001b[0m
+=== CRITICAL GAPS ===
 
-\u001b[31m1. Question A?\u001b[0m
+Question A?
+Question B?
 
-\u001b[31m2. Question B?\u001b[0m
-
-\u001b[32mConfirmed: Item C\u001b[0m
+Confirmed: Item C
     ]]></message_to_target>
   </action>
   <response_to_user>Strategic Discovery: [Brief summary].</response_to_user>
