@@ -181,7 +181,6 @@ def run():
         if any(getattr(args, key, None) for key in maintenance_keys):
             if is_server:
                 cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
-                prog.init_config(args=args)
                 func.log(f"{Color.GREEN}[  ] Neural Hub is online. Press Ctrl+C to shut down.{Color.RESET}")
                 if prog.modules:prog.modules.load_all()
                 while True:

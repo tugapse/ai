@@ -23,7 +23,7 @@ class GeminiAPIModel(BaseModel):
         func.log(f"Initializing GeminiAPIModel for model: {model_name}")
         
         super().__init__(model_name, system_prompt, **kargs)
-        self.use_vertex = True
+        self.use_vertex = use_vertex
         
         if self.use_vertex:
             if not self._check_gcp_auth():
