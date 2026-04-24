@@ -18,7 +18,7 @@ import functions as func
 from color import Color 
 from cli_args import CliArgs 
 
-__version__ = "3.0.1"
+__version__ = "3.1.1"
 
 def check_dependencies():
     """Diagnostic boot check for JARVIS dependencies."""
