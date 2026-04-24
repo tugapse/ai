@@ -239,9 +239,9 @@ class EngineManager:
                 llm_instance = GeminiAPIModel(
                     model_name=model_name,
                     system_prompt=system_prompt,
-                    use_vertex=model_params.get("vertex_ai", False),
                     model_params=model_params,
                     override_system_by_user_template=override_system_by_user_template,
+                    use_vertex=other_llm_kwargs.get("vertex_ai", False),
                     **other_llm_kwargs
                 )
                 func.log(f"Model '{model_name}' loaded as a Gemini Model.")
