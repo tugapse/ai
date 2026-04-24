@@ -29,7 +29,6 @@ class Program:
     """
 
     config: ProgramConfig
-    
     history: HistoryManager
     ui: UIOrchestrator
 
@@ -39,6 +38,7 @@ class Program:
         self.write_to_file = False
         self.output_filename = None
         self.active_executor = None
+        self.models: Optional[ModelOrchestrator] = None
         self.llm_initialized = False
         self.modules: Optional[ModuleRegistry] = None
         self.models: Optional[ModelOrchestrator] = None
@@ -233,9 +233,9 @@ class Program:
             return
 
         # Only try to kill the LLM if it was actually initialized
-        if self.llm_initialized and self.models and hasattr(self.models, "llm"):
+        if self.llm_initialized:
             try:
-                llm_instance = self.models.llm
+                llm_instance = self.models.llm  
                 if llm_instance:
                     func.log("Program: Requesting LLM shutdown.", level="DEBUG")
                     llm_instance.request_shutdown()
