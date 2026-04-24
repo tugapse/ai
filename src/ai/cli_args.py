@@ -19,7 +19,7 @@ from config import ProgramConfig, ProgramSetting
 from entities.model_enums import ModelType
 
 # Core logic
-from core.chat import ChatRoles
+from chat.chat import ChatRoles
 from core.llms.base_llm import BaseModel
 from color import Color, format_text
 from direct import ask
@@ -58,13 +58,15 @@ class CliArgs:
             self._handle_client_mode(prog, args)
             # Fall through to execute agent/direct logic via the remote connector
 
+        # Default to Local/Direct Task Mode
+        self._handle_local_direct_mode(prog, args)
+
         # 3. Execution Dispatching
         if args.agent:
             self._handle_agent_mode(prog, args)
             os._exit(0) 
 
-        # Default to Local/Direct Task Mode
-        self._handle_local_direct_mode(prog, args)
+        self._has_message(prog, args) 
 
 
     def _handle_server_mode(self, prog, args):
@@ -119,19 +121,26 @@ class CliArgs:
         self._has_file(prog, args)
         self._has_task_file(prog, args)
         self._has_task(prog, args)
-        self._has_message(prog, args) 
+        
 
     # --- Logic Implementations ---
 
     def _handle_agent_mode(self, prog, args):
         """Handles the execution of the agent pipeline."""
-        user_input = args.task or args.msg
+        # check and load for task file
+        taskfile=""
+        if args.task_file:
+             taskfile = func.read_file(args.task_file)
+             
+        user_input = taskfile or args.task or ""
         if not sys.stdin.isatty():
             piped_input = sys.stdin.read().strip()
             if piped_input:
-                user_input = piped_input
+                if user_input : user_input += "\n" + piped_input
+                else:  user_input = piped_input
+        user_input = user_input + args.msg if args.msg else user_input
 
-        if not user_input:
+        if not user_input :
             func.error("Agent mode requires a prompt. Use --msg, --task, or pipe input.")
             sys.exit(1)
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## v3.1.1
+
+### [Fixed]
+- fix(engine): Update vertex AI parameter retrieval in Gemini model instantiation
+
+### [Changed]
+- Refactor(config): Remove config.json and update ProgramSetting for improved clarity and organization
+- Refactor(core/config): Centralize CLI config handling and lazy LLM init
+
+### [Added]
+- add fe
+
 ## v3.1.0
 
 ### [Added]

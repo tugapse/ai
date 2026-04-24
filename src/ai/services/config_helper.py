@@ -6,9 +6,9 @@ from typing import Optional
 
 import functions as func # Re-added import as func.debug/log is used
 
-from config import ProgramConfig, ProgramSetting
+from program import ProgramConfig, ProgramSetting
 
-class ConfigApplier:
+class CliConfig:
     """
     Applies command-line arguments to the ProgramConfig instance.
     """
@@ -26,10 +26,8 @@ class ConfigApplier:
             func.debug(f"CLI override: Model config set to '{args.model}'") 
 
         if args.system:
-            system_templates_dir = config.get(ProgramSetting.PATHS_SYSTEM_TEMPLATES, "")
-            filepath: str = os.path.join(
-                system_templates_dir, args.system.replace(".md", "") + ".md"
-            )
+            system_templates_dir = config.get(ProgramSetting.PATHS_SYSTEM_TEMPLATES) or os.path.join(func.get_root_directory(), "system")
+            filepath: str = os.path.join( system_templates_dir, args.system.replace(".md", "") + ".md")
             if os.path.exists(filepath):
                 config.set(ProgramSetting.SYSTEM_PROMPT_FILE, filepath)
                 func.debug(f"CLI override: System prompt file set to '{filepath}' (from --system)") 

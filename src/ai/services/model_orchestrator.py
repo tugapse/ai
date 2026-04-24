@@ -4,16 +4,19 @@ from typing import Optional, Dict, Any
 
 from services.model_manager import EngineManager
 from core.llms.base_llm import ModelParams, BaseModel
-from config import ProgramConfig, ProgramSetting
+from services.config_helper import ProgramConfig, ProgramSetting
 import functions as func
 
 class ModelOrchestrator:
+
+
     def __init__(self, config: ProgramConfig):
         self.config = config
-        self.llm: Optional[BaseModel] = None
         self.model_params: Dict[str, Any] = {}
         self.model_chat_name: str = "__no_chat_name__"
         self.active_model_name:str=""
+        self.llm:Optional[BaseModel] = None
+
 
     def load(self, model_config_name: str, system_prompt: str) -> BaseModel:
         if not model_config_name:

@@ -1,6 +1,6 @@
 from typing import Optional
 
-from config import ProgramConfig, ProgramSetting
+from services.config_helper import ProgramConfig, ProgramSetting
 from extras.thinking_log_manager import ThinkingLogManager
 from extras.output_printer import OutputPrinter
 from extras import HandlerManager, ConsoleTokenFormatter

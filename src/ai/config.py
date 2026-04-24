@@ -4,9 +4,10 @@ import os
 from os.path import exists, dirname
 import shutil
 import pathlib
-from typing import TypeVar, Generic, Optional
+from typing import Any, TypeVar, Generic, Optional, overload
 
 T = TypeVar("T")
+
 
 class ProgramSetting:
     MODEL_NAME = "MODEL_NAME"
@@ -19,7 +20,7 @@ class ProgramSetting:
     PATHS_WORKSPACES = "PATHS_WORKSPACES"
     PATHS_INJECT_TEMPLATES = "PATHS_INJECT_TEMPLATES"
     PATHS_MODEL_CONFIGS = "PATHS_MODEL_CONFIGS"
-    VECTOR_DB_PATH="VECTOR_DB_PATH"
+    VECTOR_DB_PATH = "VECTOR_DB_PATH"
     ROOT_DIRECTORY = "ROOT_DIRECTORY"
     OLLAMA_HOST = "OLLAMA_HOST"
     PRINT_LOG = "PRINT_LOG"
@@ -30,36 +31,40 @@ class ProgramSetting:
     TOKENS_PER_PRINT = "TOKENS_PER_PRINT"
     ENABLE_THINKING_DISPLAY = "ENABLE_THINKING_DISPLAY"
     MODEL_CONFIG_NAME = "MODEL_CONFIG_NAME"
-    VOICE_ENABLED = "VOICE_ENABLED"
     REMOTE_MODE = "REMOTE_MODE"
-    REMOTE_URL="REMOTE_URL"
+    REMOTE_URL = "REMOTE_URL"   
+    
+    # MODULES
+    VOICE_ENABLED = "VOICE_ENABLED"
+    VECTOR_MEMORY_ENABLED = "VECTOR_MEMORY_ENABLED"
 
 
 
 class ProgramConfig(Generic[T]):
+    """Manages loading, accessing, and saving of program configuration settings."""
     current: Optional["ProgramConfig"] = None
 
     def __init__(self, config: dict = {}) -> None:
         self.config = config if config is not None else {}
         self.logger = logging.Logger(name="Config")
 
-    def load_predefined_config(self, args=None):
-        root = os.path.dirname(__file__)
-        config_filename = os.path.join(root, "config.json")
-        default_config = self.__load_to_dict(config_filename) or {}
+    def load_predefined_config(self, args):
+        default_config = {}
 
-        user_directory = os.environ.get("AI_ASSISTANT_DIRECTORY", os.path.join(os.path.expanduser("~"), "Ai"))
+        user_directory = os.environ.get(
+            "AI_ASSISTANT_DIRECTORY", os.path.join(os.path.expanduser("~"), "Ai")
+        )
         os.makedirs(user_directory, exist_ok=True)
         user_config_filename = os.path.join(user_directory, "config.json")
-        
-        need_save = args.overwrite_config if hasattr(args, 'overwrite_config') else False
+
+        need_save = (
+            args.overwrite_config if hasattr(args, "overwrite_config") else False
+        )
 
         if not exists(path=user_config_filename) or need_save:
             self.logger.info(
                 f"config.json not found in {user_directory}. Copying default config."
             )
-            # Copy default config.json
-            shutil.copy(config_filename, user_config_filename)
             self.copy_templates_to_user_dir(user_directory)
 
         user_config = self.__load_to_dict(user_config_filename, user_directory)
@@ -75,12 +80,16 @@ class ProgramConfig(Generic[T]):
         self._ensure_path(ProgramSetting.PATHS_LOGS, "logs")
         self._ensure_path(ProgramSetting.PATHS_WORKSPACES, "workspaces")
         self._ensure_path(ProgramSetting.VECTOR_DB_PATH, "databases")
-        
+
         if self.config.get(ProgramSetting.MODEL_CONFIG_NAME) is None:
             self.set(ProgramSetting.MODEL_CONFIG_NAME, "default.json")
-        
+
         if self.config.get(ProgramSetting.VOICE_ENABLED) is None:
             self.set(ProgramSetting.VOICE_ENABLED, False)
+        
+        if self.config.get(ProgramSetting.VECTOR_MEMORY_ENABLED) is None:
+            self.set(ProgramSetting.VECTOR_MEMORY_ENABLED, False)
+
         if need_save:
             self.save(user_config_filename)
 
@@ -91,8 +100,7 @@ class ProgramConfig(Generic[T]):
             self.logger.info(f"Configuration saved to {filename}")
         except Exception as e:
             self.logger.error(f"Error saving configuration: {e}")
-     
-    
+
     def copy_templates_to_user_dir(self, user_dir: Optional[str] = None):
         """
         Copies the contents of the project's 'templates' directory to the user's AI assistant directory.
@@ -117,25 +125,21 @@ class ProgramConfig(Generic[T]):
         )
 
         try:
-            # Iterate over each item (file or subdirectory) within the source templates directory
             for item_name in os.listdir(project_root_templates_dir):
                 src_item_path = os.path.join(project_root_templates_dir, item_name)
                 dest_item_path = os.path.join(
                     user_dir, item_name
-                )  # Destination directly in user_dir
+                )  
 
                 if os.path.isdir(src_item_path):
-                    # If it's a directory, copy the entire tree
                     shutil.copytree(src_item_path, dest_item_path, dirs_exist_ok=True)
                 elif os.path.isfile(src_item_path):
-                    # If it's a file, copy it directly
                     shutil.copy2(
                         src_item_path, dest_item_path
-                    )  # copy2 preserves metadata
+                    )  
             self.logger.info("Templates copied successfully.")
         except Exception as e:
             self.logger.error(f"Error copying templates: {e}")
-
 
     def _ensure_path(self, setting, subfolder):
         if not self.config.get(setting):
@@ -143,15 +147,26 @@ class ProgramConfig(Generic[T]):
             self.set(setting, os.path.join(root, subfolder))
 
     def __load_to_dict(self, filename, root_dir=None):
-        if not exists(filename): return None
+        if not exists(filename):
+            return None
         try:
             with open(filename, "r", encoding="utf-8") as f:
                 content = f.read().replace("<root_dir>", root_dir or dirname(__file__))
                 return json.loads(content)
-        except: return None
+        except:
+            return None
 
-    def get(self, key, default=None): return self.config.get(key, default)
-    def set(self, key, value): self.config[key] = value
+    @overload
+    def get(self, key: str) -> Any: ...
+
+    @overload
+    def get(self, key: str, default: T) -> T: ...
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self.config.get(key, default)
+
+    def set(self, key: str, value: Any) -> None:
+        self.config[key] = value
 
     @classmethod
     def load(cls, args=None):
