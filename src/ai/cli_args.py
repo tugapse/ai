@@ -132,7 +132,7 @@ class CliArgs:
         if args.task_file:
              taskfile = func.read_file(args.task_file)
              
-        user_input = taskfile or args.task 
+        user_input = taskfile or args.task or ""
         if not sys.stdin.isatty():
             piped_input = sys.stdin.read().strip()
             if piped_input:
