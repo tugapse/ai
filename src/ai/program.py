@@ -29,9 +29,8 @@ class Program:
     """
 
     config: ProgramConfig
-    models: ModelOrchestrator
+    
     history: HistoryManager
-    modules: ModuleRegistry
     ui: UIOrchestrator
 
     def __init__(self) -> None:
@@ -41,12 +40,14 @@ class Program:
         self.output_filename = None
         self.active_executor = None
         self.llm_initialized = False
+        self.modules: Optional[ModuleRegistry] = None
+        self.models: Optional[ModelOrchestrator] = None
 
     @property
     def llm(self) -> Optional[BaseModel]:
         """Standard lazy-loader for the local LLM."""
         self._ensure_llm_loaded()
-        return self.models.llm 
+        return self.models.llm if self.models else None
 
     @llm.setter
     def llm(self, value):
@@ -63,7 +64,7 @@ class Program:
     def model_params(self) -> dict:
         # Ensure LLM is loaded only when model parameters are accessed
         self._ensure_llm_loaded()
-        return self.models.get_params()
+        return self.models.get_params() if self.models else {}
 
     def load_config(self, args=None):
         self.config = ProgramConfig.load(args=args)
@@ -82,7 +83,7 @@ class Program:
                     f"Config: Enabled module '{mod_name}' via CLI argument.",
                     level="DEBUG",
                 )
-        self.modules.load_all()
+        if self.modules: self.modules.load_all()
 
     def init_program(self) -> None:
         session_paths = SessionManager.initialize_session_paths(self.config)
@@ -131,7 +132,8 @@ class Program:
 
             voice_mod = None
             try:
-                voice_mod = self.modules["voice"]
+                if self.modules: 
+                    voice_mod = self.modules["voice"]
             except (KeyError, TypeError):
                 pass
 
@@ -178,9 +180,9 @@ class Program:
 
             # Final hardware-level cleanup for the voice module
             try:
-                voice = self.modules["voice"]
-                if voice:
-                    voice.collect_audio()
+                if self.modules: 
+                    voice = self.modules["voice"]
+                    if voice: voice.collect_audio()
             except:
                 pass
 

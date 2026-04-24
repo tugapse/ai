@@ -9,6 +9,8 @@ class EngineType(Enum):
     GGUF = "gguf"    
     VOICE_ENGINE = "voice_engine" # Voice modeule
     VECTOR_MEMORY = "vector_memory" # Long term memory module
+    GEMINI_API = "gemini_api" # Google Gemini API
+    GEMINI_VERTEX = "gemini_vertex" # Google Gemini Vertex AI
     SERVER = "server_hub" # Long term memory module
     CLIENT = "client_link" # Long term memory module
     
