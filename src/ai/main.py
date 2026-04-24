@@ -163,7 +163,7 @@ def run():
 
     signal.signal(signal.SIGINT, shutdown_handler)
     signal.signal(signal.SIGTERM, shutdown_handler)
-    # ---
+   
 
     try:
         prog.load_config(args=args) 
@@ -179,8 +179,8 @@ def run():
 
         maintenance_keys = ['install', 'generate_config', 'server', 'print_chat', 'list_models']
         if any(getattr(args, key, None) for key in maintenance_keys):
+            cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
             if is_server:
-                cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
                 func.log(f"{Color.GREEN}[  ] Neural Hub is online. Press Ctrl+C to shut down.{Color.RESET}")
                 if prog.modules:prog.modules.load_all()
                 while True:
