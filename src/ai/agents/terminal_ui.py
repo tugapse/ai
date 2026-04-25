@@ -78,7 +78,6 @@ class TerminalUI:
     @staticmethod
     def auth_request(tool_name: str, target: str, command: str = ""): 
         """Displays a boxed authorization request."""
-        # Ensure we drop down a line before printing the box
         func.out(f"\n{Color.BLUE}╭── {Color.BG_YELLOW}{Color.NORMAL_BLACK} AUTHORIZATION REQUIRED {Color.RESET}{Color.BLUE} ───")
         func.out(f"│ {Color.NORMAL_CYAN}TOOL:   {Color.RESET}{tool_name}")
         if command:

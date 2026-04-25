@@ -10,17 +10,21 @@ from .specialist_manager import SpecialistManager
 from .memory_manager import MemoryManager
 from .context_sentinel import ContextSentinel
 from .session_vault import SessionVault
+from core.events import Events
 
 MAX_ITERATIONS = 100
 MANAGER_AGENT_ROLE = "management"
 
-class MessageOrchestrator:
+class MessageOrchestrator(Events):
     """
     Orchestrates multi-agent execution, routing, and state management.
     Integrates short-term context protection and long-term session persistence.
     """
+    EVENT_BEFORE_LLM_REQUEST = "before_llm_request"
+    EVENT_AFTER_LLM_REQUEST = "after_llm_request"
 
     def __init__(self, connector: Any, registry: Any, pipeline_config: Dict[str, Any], module_registry: Any):
+        super().__init__()
         self.connector = connector
         self.registry = registry
         self.pipeline_config = pipeline_config
@@ -77,6 +81,8 @@ class MessageOrchestrator:
         max_iterations = self.pipeline_config.get("max_iterations", MAX_ITERATIONS)
 
         for i in range(start_iteration, max_iterations):
+            if current_agent == "STOP":
+                continue 
             agent_mem = self.memory.get_agent_memory(current_agent)
 
             # Context Update
@@ -104,8 +110,9 @@ class MessageOrchestrator:
             if was_compressed:
                 TerminalUI.log_step(f"Sentinel: Context distilled for {current_agent}", "INFO")
 
-            # LLM Transaction
+            self.trigger("before_llm_request", {"agent": current_agent, "payload_preview": {k: v for k, v in payload.items() if k not in ['messages_received', 'conversation_history']}})
             response = self.connector.send_request(payload, agent_config["prompt_file_path"], agent_config=agent_config)
+            self.trigger("after_llm_request", {"agent": current_agent, "response": response})
 
             if response.get("status") == "FAILED":
                 if not self._handle_format_error(current_agent, response.get("error")):
