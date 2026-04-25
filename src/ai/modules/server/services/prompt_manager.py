@@ -117,6 +117,20 @@ class PromptManager:
         except Exception as e:
             raise PromptAccessError(f"Failed to save prompt {prompt_path}: {e}")
 
+    def read_prompt(self, prompt_path: str) -> str:
+        """Backward-compatible alias for load_prompt."""
+        return self.load_prompt(prompt_path)
+
+    def create_prompt(self, prompt_path: str, content: str) -> Dict[str, str]:
+        """Backward-compatible alias for saving a new prompt file."""
+        self.save_prompt(prompt_path, content)
+        return {"message": f"Prompt '{prompt_path}' created successfully."}
+
+    def update_prompt(self, prompt_path: str, content: str) -> Dict[str, str]:
+        """Backward-compatible alias for updating an existing prompt file."""
+        self.save_prompt(prompt_path, content)
+        return {"message": f"Prompt '{prompt_path}' updated successfully."}
+
     def delete_prompt(self, prompt_path: str) -> None:
         """
         Delete a specific prompt file.
