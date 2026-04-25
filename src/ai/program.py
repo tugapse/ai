@@ -1,11 +1,14 @@
 import traceback
 import gc
-from typing import Optional
+from typing import Optional, Any
 
 # Core logic and message types
 from chat.chat import Chat, ChatRoles
 from core.llms.base_llm import BaseModel
 from config import ProgramConfig, ProgramSetting
+
+# Agent
+from agents.agent import Agent
 
 # Services Orchestration
 from services.session_manager import SessionManager
@@ -29,10 +32,11 @@ class Program:
     """
 
     config: ProgramConfig
-    models: ModelOrchestrator
-    history: HistoryManager
-    modules: ModuleRegistry
+    models: Optional[ModelOrchestrator]
+    history: Optional[HistoryManager]
+    modules: Optional[ModuleRegistry]
     ui: UIOrchestrator
+    agent: Optional[Agent]
 
     def __init__(self) -> None:
         self.chat = Chat()
@@ -40,6 +44,10 @@ class Program:
         self.write_to_file = False
         self.output_filename = None
         self.active_executor = None
+        self.agent = None
+        self.modules = None
+        self.history = None
+        self.models = None
         self.llm_initialized = False
 
     @property
@@ -116,6 +124,23 @@ class Program:
         self.history.save()
         self.start_chat(user_input=None)
 
+    def _handle_agent_run_requested(self, prompt: str) -> None:
+        """Handler for EVENT_AGENT_RUN_REQUESTED."""
+        func.log(f"Program: Agent run requested with prompt: '{prompt}'", level="DEBUG")
+        if not self.agent:
+            func.log("Program: Initializing Agent...", level="DEBUG")
+            self.agent = Agent(self)
+        
+        # Note: This is a blocking call. If the agent's work is long,
+        # it will freeze the main chat loop.
+        # A more robust solution might involve running the agent in a separate thread.
+        if self.agent:
+            try:
+                self.agent.run(user_prompt=prompt)
+            except Exception as e:
+                func.log(f"Agent execution failed: {e}", level="ERROR")
+                func.log(traceback.format_exc(), level="ERROR")
+
     def start_chat(self, user_input: Optional[str]):
         """Executes one interaction turn with the LLM and enabled modules."""
         if not self.llm:  
@@ -154,7 +179,7 @@ class Program:
            
             if stream_result.interrupted:
                 func.log(
-                    "\nProgram: LLM stream interrupted by user (Ctrl+C). Signaling LLM to stop.",
+                    "\\nProgram: LLM stream interrupted by user (Ctrl+C). Signaling LLM to stop.",
                     level="INFO",
                 )
                 self.llm.request_shutdown()
@@ -206,12 +231,15 @@ class Program:
             ),
             llm_stream_finished_callback=lambda _: None,  # This callback is not strictly needed for shutdown, as start_chat handles it.
         )
+        
+        self.chat.add_event(Chat.EVENT_AGENT_RUN_REQUESTED, self._handle_agent_run_requested)
+        func.log("Program: Agent run event handler bound.", level="DEBUG")
 
         try:
             self.chat.loop()
         except KeyboardInterrupt:
             func.log(
-                "\nProgram: Shutdown initiated (KeyboardInterrupt caught in chat.loop)."
+                "\\nProgram: Shutdown initiated (KeyboardInterrupt caught in chat.loop)."
             )
         finally:
             if self.modules:
@@ -231,7 +259,7 @@ class Program:
             return
 
         # Only try to kill the LLM if it was actually initialized
-        if self.llm_initialized and self.models and hasattr(self.models, "llm"):
+        if self.llm_initialized:
             try:
                 llm_instance = self.models.llm
                 if llm_instance:
