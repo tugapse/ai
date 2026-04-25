@@ -95,14 +95,20 @@ class BrainHub:
         Ensures the requested model is loaded.
         If a different model is active, it unloads it first to clear VRAM.
         """
-        # 1. Check if we need to swap
         if self.current_model_id and self.current_model_id != model_id:
             func.log(f"BrainHub: Swapping {self.current_model_id} -> {model_id}")
             self.unload_brain()
 
-        # 2. Load the model if it's not already 'Hot'
+        if self.orchestrator.llm and self.current_model_id == model_id:
+            if getattr(self.orchestrator.llm, "system_prompt", None) != system_prompt:
+                func.log(
+                    f"BrainHub: Updating system prompt for loaded model '{model_id}'.",
+                    level="DEBUG",
+                )
+                self.orchestrator.llm.system_prompt = system_prompt
+            return self.orchestrator.llm
+
         if not self.orchestrator.llm:
-            # Note: ModelOrchestrator.load handles the heavy lifting
             self.orchestrator.load(model_id, system_prompt)
             self.current_model_id = model_id
             func.log(f"BrainHub: {model_id} is now HOT.")
@@ -114,12 +120,8 @@ class BrainHub:
         if self.orchestrator.llm:
             func.log(f"BrainHub: Unloading {self.current_model_id}...")
 
-            # Directly call the model's specific unload method.
-            # This is a blocking call that ensures all C++ resources and threads
-            # are properly cleaned up before proceeding, preventing race conditions.
             self.orchestrator.llm.unload()
 
-            # Now that unload is complete, we can safely clear the references.
             self.orchestrator.llm = None
             self.current_model_id = None
 
