@@ -3,6 +3,7 @@ import copy
 import json
 from typing import Callable, Dict, Any, Optional, List
 
+from config import ProgramConfig, ProgramSetting
 import functions as func
 from color import Color
 from terminal_ui import TerminalUI
@@ -81,8 +82,6 @@ class MessageOrchestrator(Events):
         max_iterations = self.pipeline_config.get("max_iterations", MAX_ITERATIONS)
 
         for i in range(start_iteration, max_iterations):
-            if current_agent == "STOP":
-                continue 
             agent_mem = self.memory.get_agent_memory(current_agent)
 
             # Context Update
@@ -91,7 +90,7 @@ class MessageOrchestrator(Events):
                     agent_mem.current_task = msg.get("task") or msg.get("message")
                     break
 
-            TerminalUI.status(current_agent, agent_mem.manifest.get("current_priority", agent_mem.current_task))
+            TerminalUI.status(current_agent, agent_mem.current_task )
 
             # Assemble Tools and Prepare Payload
             agent_config = copy.deepcopy(self.agents.get(current_agent, {}))
@@ -159,9 +158,6 @@ class MessageOrchestrator(Events):
     def _assemble_agent_tools(self, agent_name: str) -> Dict[str, Callable]:
         allowed = self.agents.get(agent_name, {}).get("tools", [])
         tool_pool = copy.copy(self.registry.get_all_tools())
-
-        # Module tools are now registered centrally in the ToolRegistry during initialization.
-        # This keeps the tool assembly logic clean and simple.
             
         return {n: f for n, f in tool_pool.items() if n in allowed}
 
@@ -195,8 +191,7 @@ class MessageOrchestrator(Events):
         tool_name, params = action.get("tool_name"), action.get("tool_parameters", {})
         target = str(action.get("agent_target", "")).strip().upper()
 
-        if thought := response.get("thought"):
-            # if self.vector_memory: self.vector_memory.add_memory(thought, agent, "thought")
+        if thought := response.get("thought") and ProgramConfig.current.get(ProgramSetting.AGENT_THOUGHT, False):
             TerminalUI.message(agent, thought, Color.DIM)
 
         msg = response.get("response_to_user", "")

@@ -1,3 +1,4 @@
+from color import Color
 from response_parser import ResponseParser
 import re
 import xml.etree.ElementTree as ET
@@ -42,9 +43,14 @@ class LLMConnector:
                 "\n\n--- DYNAMIC CONSTRAINTS ---",
                 f"AVAILABLE TOOLS:\n{tool_descriptions}" if allowed_tools else "AVAILABLE TOOLS: None.",
                 f"ALLOWED AGENT TARGETS: {', '.join(allowed_targets)}",
-                "\nIMPORTANT: You must respond in XML format. Do not use Markdown code blocks."
+
             ]
-            system_content += "\n".join(injection)
+            system_content = system_content.replace(
+                "# MANDATORY XML FORMAT",
+            "\n".join(injection) + "\n\n# MANDATORY XML FORMAT"
+            )   
+            self.llm.system_prompt = system_content
+
 
         messages = [
             BaseModel.create_message(ChatRoles.SYSTEM, system_content),

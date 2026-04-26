@@ -80,7 +80,7 @@ def _sanitize_output_path(full_path: str) -> str:
         return "@ROOT/unknown"
 
 
-def _ensure_list(input_val: Any) -> List[str]:
+def ensure_list(input_val: Any) -> List[str]:
     """Helper to ensure input is a list."""
     if isinstance(input_val, list):
         return input_val
@@ -162,7 +162,7 @@ def read_dir(**kwargs) -> Dict[str, Any]:
     """
     try:
         path_input = kwargs.get("paths", kwargs.get("path", "@ROOT"))
-        paths = _ensure_list(path_input)
+        paths = ensure_list(path_input)
         depth = int(kwargs.get("depth", 0))
         results = {}
 
@@ -214,7 +214,7 @@ def read_file(**kwargs) -> Dict[str, Any]:
     """
     try:
         path_input = kwargs.get("paths", kwargs.get("path", []))
-        paths = _ensure_list(path_input)
+        paths = ensure_list(path_input)
         
         results = {}
         debug_info = []

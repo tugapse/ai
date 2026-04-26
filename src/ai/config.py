@@ -10,9 +10,14 @@ T = TypeVar("T")
 
 
 class ProgramSetting:
+    # GENERAL SETTINGS
     MODEL_NAME = "MODEL_NAME"
+    MODEL_CONFIG_NAME = "MODEL_CONFIG_NAME"
+    ROOT_DIRECTORY = "ROOT_DIRECTORY"
     SYSTEM_PROMPT_FILE = "SYSTEM_PROMPT_FILE"
     SYSTEM_PROMPT_FOLDER = "SYSTEM_PROMPT_FOLDER"
+    
+    # PATH SETTINGS
     PATHS_LOGS = "PATHS_LOGS"
     PATHS_CHAT_LOG = "PATHS_CHAT_LOG"
     PATHS_TASKS_TEMPLATES = "PATHS_TASKS_TEMPLATES"
@@ -20,23 +25,31 @@ class ProgramSetting:
     PATHS_WORKSPACES = "PATHS_WORKSPACES"
     PATHS_INJECT_TEMPLATES = "PATHS_INJECT_TEMPLATES"
     PATHS_MODEL_CONFIGS = "PATHS_MODEL_CONFIGS"
-    VECTOR_DB_PATH = "VECTOR_DB_PATH"
-    ROOT_DIRECTORY = "ROOT_DIRECTORY"
+
     OLLAMA_HOST = "OLLAMA_HOST"
+    # PRINTING/OUTPUT SETTINGS
     PRINT_LOG = "PRINT_LOG"
     PRINT_DEBUG = "PRINT_DEBUG"
     PRINT_OUTPUT = "PRINT_OUTPUT"
+
+    # THINKING/RESPONSE STREAMING SETTINGS
     THINKING_MODE = "THINKING_MODE"
     PRINT_MODE = "PRINT_MODE"
     TOKENS_PER_PRINT = "TOKENS_PER_PRINT"
     ENABLE_THINKING_DISPLAY = "ENABLE_THINKING_DISPLAY"
-    MODEL_CONFIG_NAME = "MODEL_CONFIG_NAME"
+    
+    
+    # REMOTE SETTINGS
     REMOTE_MODE = "REMOTE_MODE"
-    REMOTE_URL = "REMOTE_URL"   
+    REMOTE_URL = "REMOTE_URL"  
+
+    # AGENT SETTINGS
+    AGENT_THOUGHT = "AGENT_THOUGHT" 
     
     # MODULES
     VOICE_ENABLED = "VOICE_ENABLED"
     VECTOR_MEMORY_ENABLED = "VECTOR_MEMORY_ENABLED"
+    VECTOR_DB_PATH = "VECTOR_DB_PATH"
 
 
 
@@ -81,6 +94,13 @@ class ProgramConfig(Generic[T]):
         self._ensure_path(ProgramSetting.PATHS_WORKSPACES, "workspaces")
         self._ensure_path(ProgramSetting.VECTOR_DB_PATH, "databases")
 
+        self._ensure_user_settings()
+
+        if need_save:
+            self.save(user_config_filename)
+
+    def _ensure_user_settings(self):
+        
         if self.config.get(ProgramSetting.MODEL_CONFIG_NAME) is None:
             self.set(ProgramSetting.MODEL_CONFIG_NAME, "default.json")
 
@@ -89,9 +109,12 @@ class ProgramConfig(Generic[T]):
         
         if self.config.get(ProgramSetting.VECTOR_MEMORY_ENABLED) is None:
             self.set(ProgramSetting.VECTOR_MEMORY_ENABLED, False)
+        
+        if self.config.get(ProgramSetting.AGENT_THOUGHT) is None:
+            self.set(ProgramSetting.AGENT_THOUGHT, False)
+        
+      
 
-        if need_save:
-            self.save(user_config_filename)
 
     def save(self, filename):
         try:

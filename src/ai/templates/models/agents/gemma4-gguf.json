@@ -8,9 +8,9 @@
     "n_ctx": 40000,
     "verbose": false,
     "max_new_tokens": 4096,
-    "temperature": 0.5,
-    "top_p": 0.9,
-    "top_k": 60,
+    "temperature": 0.6,
+    "top_p": 0.8,
+    "top_k":40,
     "presence_penalty": 1.2,
     "frequency_penalty": 1.2
   }

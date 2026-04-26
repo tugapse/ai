@@ -141,7 +141,7 @@ class BaseModel:
         current_time_str = system_info.get("time", "Unknown Time")
         os_info = system_info.get("os", "Unknown OS")
 
-        return f"System Context: (Time: {current_time_str} | OS: {os_info}) | pwd: {os.getcwd()}"
+        return f"System Context: (Time: {current_time_str} | OS: {os_info})"
     
     def check_system_prompt(self, messages: list):
         """

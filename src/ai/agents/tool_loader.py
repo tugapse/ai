@@ -46,6 +46,7 @@ def load_and_register_user_tools(registry: "ToolRegistry", user_tools_dir: str):
 
             except Exception as e:
                 func.log(f"Failed to load user tool from {filename}: {e}", level="ERROR")
+                raise ImportError(f"Failed to load user tool from {filename}: {e}") from e
     
     if tool_count > 0:
         func.log(f"Successfully loaded {tool_count} user tool(s).", level="INFO")
