@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -154,6 +155,8 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any]) -> FastAPI:
 
     # --- Prompt Management Endpoints ---
 
+    MODEL_CONFIG_DIR = Path(func.get_root_directory()) / "models"
+
     @app.get("/api/v1/prompts")
     async def get_prompts(request: Request, prompt_folder: Optional[str] = None):
         """
@@ -186,6 +189,40 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any]) -> FastAPI:
             raise HTTPException(status_code=400, detail="Invalid prompt path")
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to load prompt: {e}")
+
+    @app.get("/api/v1/model-configs")
+    async def get_model_configs(request: Request):
+        """
+        Retrieve all model config JSON objects from the models directory.
+        """
+        if not MODEL_CONFIG_DIR.exists() or not MODEL_CONFIG_DIR.is_dir():
+            raise HTTPException(
+                status_code=500,
+                detail=f"Model config directory not found: {MODEL_CONFIG_DIR}",
+            )
+
+        model_configs = []
+        try:
+            for model_file in sorted(MODEL_CONFIG_DIR.rglob("*.json")):
+                with model_file.open("r", encoding="utf-8") as f:
+                    model = json.load(f)
+                    model_configs.append(
+                        {
+                            "model_name": model.get("name", model_file.stem),
+                            "model_file": str( model_file.relative_to(func.get_root_directory() +'/models/')),
+                        }
+                    )
+            return model_configs
+        except json.JSONDecodeError as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Invalid JSON in model config {model_file.name}: {e}",
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to load model configs: {e}",
+            )
 
     @app.post("/api/v1/prompts")
     async def create_prompt(request: Request, payload: PromptCreateRequest):
