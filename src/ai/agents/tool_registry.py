@@ -18,6 +18,8 @@ class ToolRegistry:
 
     def register_tool(self, name: str, func_ref: Callable):
         self._tools[name] = func_ref
+        func.debug(f"Tool registered: {name}")
+        func.debug(f"Current tools: {list(self._tools.keys())}")
         
     def get_tool_info(self, name: str) -> str:
         if name not in self._tools:

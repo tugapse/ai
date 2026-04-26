@@ -6,10 +6,10 @@ It coordinates the JARVIS behavior mode: Standalone, Server, or Client.
 import argparse
 import os
 import sys
-import json
-import time
+
 import uuid
 import traceback
+import re
 from typing import Optional
 
 # Configuration and Enums
@@ -26,6 +26,7 @@ from direct import ask
 
 # Agent logic
 from agents.agent import MessageOrchestrator, LLMConnector, ToolRegistry, load_pipeline_config
+from agents.tool_loader import load_and_register_user_tools
 import agents.agent_tools as agent_tools
 
 import functions as func
@@ -42,6 +43,7 @@ class CliArgs:
         acts as a Brain (Server), a Body (Client), or a Standalone agent.
         """
         # 1. System/Global Actions
+        self._handle_create_tool(args)
         self._handle_config_generation(prog, args, args_parser) 
         self._is_install(args)
         self._is_print_chat(args)
@@ -67,6 +69,67 @@ class CliArgs:
             os._exit(0) 
 
         self._has_message(prog, args) 
+    def _handle_create_tool(self, args):
+            if not args.create_tool:
+                return
+
+            tool_name = args.create_tool
+            
+            base_name = tool_name.strip().replace(' ', '_').replace('-', '_')
+            base_name = re.sub(r'[^a-zA-Z0-9_]', '', base_name)
+            if base_name and base_name[0].isdigit():
+                base_name = '_' + base_name
+
+            if not base_name:
+                func.error("Invalid tool name. Please use alphanumeric characters, spaces, or hyphens.")
+                sys.exit(1)
+
+            filename = f"{base_name}.py"
+            function_name = base_name
+
+            user_tools_dir = os.path.join(func.get_root_directory(), "tools")
+            func.ensure_directory_exists(user_tools_dir)
+
+            file_path = os.path.join(user_tools_dir, filename)
+
+            if os.path.exists(file_path):
+                func.error(f"Tool file already exists: {file_path}")
+                sys.exit(1)
+
+            # Using double braces {{ }} for literal braces in the generated code
+            skeleton_content = f"""
+from agents.agent_tools import tool
+
+@tool
+def {function_name}(argument: str) -> str:
+    \"\"\"A brief description of what this tool does.
+
+    Args:
+        argument (str): A description of the argument.
+
+    Returns:
+        str: A description of the return value.
+    \"\"\"
+    try:
+        # We use quadruple braces here because this will be an f-string inside the generated file
+        result = f"Executing {function_name} with: {{argument}}"
+
+        return {{"status": "SUCCESS", "result": result}}
+    except Exception as e:
+        return {{"status": "FAILED", "error": str(e)}}
+"""
+            try:
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write(skeleton_content.strip())
+                
+                # Fixed the escaping for the log message as well
+                func.log(f"{Color.GREEN}[+] Tool skeleton created successfully at: {file_path}{Color.RESET}")
+
+            except Exception as e:
+                func.error(f"Failed to create tool file: {e}")
+                sys.exit(1)
+            
+            sys.exit(0)
 
 
     def _handle_server_mode(self, prog, args):
@@ -78,9 +141,9 @@ class CliArgs:
                     try:
                         orchestrator.load(args.model)
                     except Exception as e:
-                        func.log(f"{Color.RED}[ ! ] Neural Load Failed: {e}. Starting in STANDBY.{Color.RESET}")
+                        func.log(f"{{Color.RED}}[ ! ] Neural Load Failed: {{e}}. Starting in STANDBY.{{Color.RESET}}")
                 else:
-                    func.log(f"{Color.CYAN}[ * ] Neural Hub: Standby Mode. Awaiting Neural Link...{Color.RESET}")
+                    func.log(f"{{Color.CYAN}}[*] Neural Hub: Standby Mode. Awaiting Neural Link...{{Color.RESET}}")
                 
                 from modules.server.server_module import JarvisServerModule
                 server = JarvisServerModule( 
@@ -93,7 +156,7 @@ class CliArgs:
                 server.start()
                 
             except KeyboardInterrupt:
-                func.log(f"\n{Color.YELLOW}[ * ] Manual override engaged. Terminating JARVIS server.{Color.RESET}")
+                func.log(f"\\n{{Color.YELLOW}}[ * ] Manual override engaged. Terminating JARVIS server.{{Color.RESET}}")
                 sys.exit(0)
                 
 
@@ -156,6 +219,10 @@ class CliArgs:
         registry = ToolRegistry()
         for name, tool_ref in agent_tools.AVAILABLE_TOOLS.items():
             registry.register_tool(name, tool_ref)
+
+        # Dynamically load and register tools from the user-defined 'tools' directory
+        user_tools_dir = os.path.join(func.get_root_directory(), "tools")
+        load_and_register_user_tools(registry, user_tools_dir)
        
         session_id = args.session_id or str(uuid.uuid4())
         func.log(f"Session: {session_id}")

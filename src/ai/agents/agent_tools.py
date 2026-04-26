@@ -9,6 +9,14 @@ import functions as func
 
 PROJECT_ROOT = os.getcwd()
 
+def tool(func):
+    """
+    Decorator to mark a function as an agent tool.
+    This allows the system to discover and register it automatically.
+    """
+    func._is_tool = True
+    return func
+
 # --- INTERNAL HELPERS & NOTIFICATIONS ---
 
 def send_notification(**kwargs) -> Dict[str, Any]:
@@ -468,4 +476,5 @@ AVAILABLE_TOOLS = {
     "execute_command": execute_command,
     "send_notification": send_notification,
     "smart_search": smart_search,
+    
 }
