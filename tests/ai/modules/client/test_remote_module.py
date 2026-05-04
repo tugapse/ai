@@ -1,8 +1,23 @@
 import pytest
 from unittest.mock import patch, MagicMock
+import sys
 
-# The pythonpath is configured in pyproject.toml, so we can use these imports
-from modules.client.remote_module import RemoteConnectorModule
+
+try:
+    from ai.modules.base_module import BaseModule
+    from ai.modules.client.remote_connector import RemoteBrainConnector
+except ImportError as e:
+    pytest.fail(f"Could not import the actual modules needed for patching: {e}")
+
+sys.modules['core'] = MagicMock()
+sys.modules['core.modules'] = MagicMock()
+sys.modules['core.llms'] = MagicMock()
+
+sys.modules['core.modules.base_module'] = sys.modules['ai.modules.base_module']
+sys.modules['core.llms.remote_connector'] = sys.modules['ai.modules.client.remote_connector']
+
+
+from ai.modules.client.remote_module import RemoteConnectorModule
 
 @patch('ai.modules.client.remote_module.func')
 @patch('ai.modules.client.remote_module.RemoteBrainConnector')

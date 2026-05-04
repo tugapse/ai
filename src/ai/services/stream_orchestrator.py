@@ -6,7 +6,8 @@ from color import Color, format_text
 import functions as func
 
 # We keep the SpeechBridge as it handles the "Sir, I've put the code on screen" logic
-from modules.voice.speech_bridge import SpeechBridge 
+from modules.voice.speech_bridge import SpeechBridge
+from src.ai.extras.output_printer import OutputPrinter 
 
 @dataclass
 class StreamResult:
@@ -17,7 +18,7 @@ class StreamOrchestrator:
     def __init__(
         self, 
         voice_module: Any, 
-        output_printer: Any, 
+        output_printer: OutputPrinter, 
         handler_manager: Any, 
         token_processor: Any,
         debug_voice: bool = False
