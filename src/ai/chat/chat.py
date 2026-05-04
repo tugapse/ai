@@ -31,9 +31,8 @@ class PrefixCompleter(Completer):
         text = document.text_before_cursor
         
         if text.startswith('/'):
-            query = text[1:]
             for cmd in self.commands:
-                if cmd.startswith(query):
+                if cmd.startswith(text):
                     yield Completion(cmd, start_position=-len(text))
         
         elif text.startswith('@'):
