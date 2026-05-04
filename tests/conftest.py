@@ -14,7 +14,7 @@ def global_mocks():
 
     # We need to patch 'get_root_directory' where it's *looked up*,
     # not where it's defined. The tests import it into their own namespace
-    # or use it through other modules. A common pattern is `from ai import functions`.
+    # or use it through other modules. A common pattern is `import functions`.
     # Let's patch the original source to be safe.
     patcher = patch('ai.functions.get_root_directory', return_value=project_root)
 

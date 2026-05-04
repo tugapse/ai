@@ -1,3 +1,5 @@
+wheel
+setuptools
 colorama
 dotenv
 huggingface-hub
@@ -7,3 +9,9 @@ triton; sys_platform != "win32"
 prompt_toolkit
 requests
 pytest
+pytest-mock
+numpy<2.0
+pydantic
+pyaudio
+uvicorn
+fastapi

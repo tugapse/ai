@@ -12,8 +12,10 @@ if [ ! -d "$VENV_DIR" ]; then
   exit 1
 fi
 
-# Activate the virtual environment and run pytest
+# Activate the virtual environment, install dependencies, and run pytest
 echo "Running tests..."
 source "$VENV_DIR/bin/activate"
-pytest
+
+echo "Executing pytest..."
+PYTHONPATH=src pytest
 echo "Tests finished."

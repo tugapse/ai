@@ -19,7 +19,7 @@ sys.modules["program"] = mock_program
 sys.modules["ai.program"] = mock_program
 
 # Now we import the class we want to test
-from ai.agents.message_orchestrator import MessageOrchestrator
+from agents.message_orchestrator import MessageOrchestrator
 
 
 # =================================================================

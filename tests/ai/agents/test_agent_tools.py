@@ -11,7 +11,7 @@ mock_func = MagicMock()
 sys.modules["functions"] = mock_func
 sys.modules["ai.functions"] = mock_func
 
-from ai.agents.agent_tools import (
+from agents.agent_tools import (
     write_file, read_file, read_dir, 
     patch_file, smart_search, execute_command, 
     _resolve_path, AVAILABLE_TOOLS
