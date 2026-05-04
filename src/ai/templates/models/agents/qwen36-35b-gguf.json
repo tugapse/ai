@@ -13,6 +13,7 @@
     "top_k": 50,
     "presence_penalty": 1,
     "frequency_penalty": 1,
+    
     "enable_thinking":false,
     "chat_template_kwargs": {"enable_thinking": false}
   }

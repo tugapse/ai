@@ -9,42 +9,15 @@ import functions as func
 
 PROJECT_ROOT = os.getcwd()
 
+def tool(func):
+    """
+    Decorator to mark a function as an agent tool.
+    This allows the system to discover and register it automatically.
+    """
+    func._is_tool = True
+    return func
+
 # --- INTERNAL HELPERS & NOTIFICATIONS ---
-
-def send_notification(**kwargs) -> Dict[str, Any]:
-    """
-    Sends a desktop notification to the user via the system's notify-send utility.
-    
-    Args:
-        title (str, optional): The title of the notification. Defaults to 'Agent Notification'.
-        message (str): The main text body of the notification.
-        urgency (str, optional): The urgency level ('low', 'normal', 'critical'). Defaults to 'normal'.
-        icon (str, optional): The system icon to display. Defaults to 'dialog-information'.
-        timeout (int, optional): Duration in milliseconds to show the notification. Defaults to 5000.
-        
-    Returns:
-        Dict: A status dictionary indicating SUCCESS or FAILED.
-    """
-    title = kwargs.get("title", "Agent Notification")
-    message = kwargs.get("message", "")
-    urgency = kwargs.get("urgency", "normal")
-    icon = kwargs.get("icon", "dialog-information")
-    timeout = kwargs.get("timeout", 5000)
-
-    command = ["notify-send", title, message, "-u", urgency, "-i", icon, "-t", str(timeout)]
-    try:
-        subprocess.run(command, check=True)
-        result = {"status": "SUCCESS", "message": "Notification sent successfully."}
-    except FileNotFoundError:
-        result = {
-            "status": "FAILED",
-            "error": "notify-send not found. Install 'libnotify'.",
-        }
-    except Exception as e:
-        result = {"status": "FAILED", "error": str(e)}
-    
-    func.debug(f"send_notification: status={result['status']}, title='{title}'")
-    return result
 
 
 def _resolve_path(params: Dict[str, Any]) -> str:
@@ -72,7 +45,7 @@ def _sanitize_output_path(full_path: str) -> str:
         return "@ROOT/unknown"
 
 
-def _ensure_list(input_val: Any) -> List[str]:
+def ensure_list(input_val: Any) -> List[str]:
     """Helper to ensure input is a list."""
     if isinstance(input_val, list):
         return input_val
@@ -144,7 +117,7 @@ def execute_command(**kwargs) -> Dict[str, Any]:
 def read_dir(**kwargs) -> Dict[str, Any]:
     """
     Explores one or more directories and returns a mapped structure of their files and folders.
-    
+    Use the '@ROOT' token in commands to refer to the absolute path of the project base directory.
     Args:
         paths (str | List[str], optional): A single path string or a list of paths to inspect. Defaults to '@ROOT'.
         depth (int, optional): How many levels deep to recursively list folders. Defaults to 0 (current directory only).
@@ -154,9 +127,10 @@ def read_dir(**kwargs) -> Dict[str, Any]:
     """
     try:
         path_input = kwargs.get("paths", kwargs.get("path", "@ROOT"))
-        paths = _ensure_list(path_input)
+        paths = ensure_list(path_input)
         depth = int(kwargs.get("depth", 0))
         results = {}
+        had_errors = False
 
         def get_structure(current_path, current_depth):
             items = os.listdir(current_path)
@@ -179,6 +153,9 @@ def read_dir(**kwargs) -> Dict[str, Any]:
         for p in paths:
             try:
                 target = _resolve_path({"path": p})
+                if not os.path.isdir(target):
+                    # This is a common error case that should be handled gracefully
+                    raise FileNotFoundError(f"No such directory: '{p}'")
                 structure = get_structure(target, depth)
                 results[_sanitize_output_path(target)] = structure
                 
@@ -186,6 +163,13 @@ def read_dir(**kwargs) -> Dict[str, Any]:
                 total_folders += len(structure["folders"])
             except Exception as e:
                 results[p] = f"ERROR: {str(e)}"
+                had_errors = True
+
+        if had_errors:
+            error_summary = "One or more paths could not be read."
+            if len(paths) == 1:
+                error_summary = next(iter(results.values()))
+            return {"status": "FAILED", "error": error_summary, "results": results}
 
         result = {"status": "SUCCESS", "results": results}
         func.debug(f"read_dir: status=SUCCESS, paths_mapped={list(results.keys())}, items_found=(files:{total_files}, folders:{total_folders})")
@@ -197,7 +181,7 @@ def read_dir(**kwargs) -> Dict[str, Any]:
 def read_file(**kwargs) -> Dict[str, Any]:
     """
     Retrieves the full UTF-8 text content of one or more specific files.
-    
+    Use the '@ROOT' token in commands to refer to the absolute path of the project base directory.
     Args:
         paths (str | List[str] REQUIRED): A single file path or a list of file paths to read. Required.
         
@@ -206,14 +190,18 @@ def read_file(**kwargs) -> Dict[str, Any]:
     """
     try:
         path_input = kwargs.get("paths", kwargs.get("path", []))
-        paths = _ensure_list(path_input)
+        paths = ensure_list(path_input)
         
         results = {}
         debug_info = []
+        had_errors = False
 
         for p in paths:
             try:
                 full_path = _resolve_path({"path": p})
+                if not os.path.isfile(full_path):
+                     # This covers both non-existent files and directories passed as files
+                    raise FileNotFoundError(f"No such file: '{p}'")
                 with open(full_path, "r", encoding="utf-8") as f:
                     content = f.read()
                     sanitized_path = _sanitize_output_path(full_path)
@@ -223,6 +211,13 @@ def read_file(**kwargs) -> Dict[str, Any]:
                 func.error(f"Error reading path '{p}': {e}")
                 results[p] = f"FAILED: {str(e)}"
                 debug_info.append(f"{p} (FAILED)")
+                had_errors = True
+        
+        if had_errors:
+            error_summary = "One or more files could not be read."
+            if len(paths) == 1:
+                error_summary = next(iter(results.values()))
+            return {"status": "FAILED", "error": error_summary, "files": results}
 
         result = {
             "status": "SUCCESS",
@@ -241,7 +236,7 @@ def write_file(**kwargs) -> Dict[str, Any]:
     """
     Creates a new file or overwrites an existing file with the provided text content.
     Automatically creates necessary parent directories.
-    
+    Use the '@ROOT' token in commands to refer to the absolute path of the project base directory.
     Args:
         path (str): The destination file path to write to. Required.
         content (str): The raw text or code to write into the file. Required.
@@ -256,7 +251,6 @@ def write_file(**kwargs) -> Dict[str, Any]:
         with open(full_path, "w", encoding="utf-8") as f:
             f.write(content)
         sanitized = _sanitize_output_path(full_path)
-        send_notification(title="File Written", message=f"Saved: {sanitized}")
         
         result = {"status": "SUCCESS", "path": sanitized}
         func.debug(f"write_file: status=SUCCESS, path={sanitized}, content_len={len(content)}")
@@ -269,7 +263,7 @@ def smart_search(**kwargs) -> Dict[str, Any]:
     """
     Searches for a keyword or regex pattern within filenames and file contents.
     Automatically paginates large results to prevent context window overflow (50 items per page).
-    
+    Use the '@ROOT' token in commands to refer to the absolute path of the project base directory.
     Args:
         path (str, optional): The base directory to search within. Defaults to '@ROOT'.
         pattern (str): The search keyword or regex pattern to look for. Required.
@@ -393,7 +387,7 @@ def patch_file(**kwargs) -> Dict[str, Any]:
     """
     Surgically replaces a specific block of text within a file without overwriting the entire file.
     The 'search' block must match the text currently residing in the file.
-    
+    Use the '@ROOT' token in commands to refer to the absolute path of the project base directory.
     Args:
         path (str): The exact path to the file you want to modify. Required.
         search (str): The string block currently in the file to find. Required.
@@ -447,7 +441,6 @@ def patch_file(**kwargs) -> Dict[str, Any]:
             f.write(new_content)
 
         sanitized = _sanitize_output_path(full_path)
-        send_notification(title="File Patched", message=f"Applied changes to {sanitized}", urgency="low")
 
         return {
             "status": "SUCCESS",
@@ -466,6 +459,6 @@ AVAILABLE_TOOLS = {
     "write_file": write_file,
     "patch_file": patch_file,
     "execute_command": execute_command,
-    "send_notification": send_notification,
     "smart_search": smart_search,
+    
 }

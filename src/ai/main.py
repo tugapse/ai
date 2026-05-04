@@ -129,6 +129,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     sys_group.add_argument("--debug-console", "-dc", action="store_true", help="Lock console (disable clear-screen)")
     sys_group.add_argument("--install", action="store_true", help="Execute dependency sync protocol")
     sys_group.add_argument("--overwrite-config", action="store_true", help="Force configuration override")
+    sys_group.add_argument("--create-tool", type=str, metavar='TOOL_NAME', help="Create a new user tool skeleton file")
 
     # 6. Model Generation (Your existing group)
     config_group = parser.add_argument_group(f'{Color.CYAN}MODEL CONFIG GENERATION{Color.RESET}')
@@ -177,7 +178,7 @@ def run():
         
         cli_args_processor = CliArgs()
 
-        maintenance_keys = ['install', 'generate_config', 'server', 'print_chat', 'list_models']
+        maintenance_keys = ['install', 'generate_config', 'server', 'print_chat', 'list_models', 'create_tool']
         if any(getattr(args, key, None) for key in maintenance_keys):
             cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
             if is_server:

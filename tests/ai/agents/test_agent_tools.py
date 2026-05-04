@@ -72,7 +72,8 @@ class TestAgentToolsExtensive(unittest.TestCase):
         self.assertEqual(res_w["status"], "SUCCESS")
         
         res_d = read_dir(path="deep/folder")
-        self.assertIn("structure", res_d["folders"])
+        self.assertEqual(res_d["status"], "SUCCESS")
+        self.assertIn("structure", res_d["results"]["@ROOT/deep/folder"]["folders"])
 
     def test_04_search_and_truncation(self):
         self.log_scenario("Search & Recon", "Test regex filename matching and content grep.")
