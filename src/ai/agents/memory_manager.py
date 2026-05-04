@@ -62,14 +62,17 @@ class MemoryManager:
                     if hasattr(self.agents[agent_name], key):
                         setattr(self.agents[agent_name], key, value)
 
-    def get_agent_memory(self, agent_name: str) -> AgentMemory:
+    def get_agent_memory(self, agent_name: str) -> Optional[AgentMemory]:
         """Retrieves the memory for a specific agent."""
-        return self.agents[agent_name]
+        return self.agents.get(agent_name)
 
     def add_message_to_agent(self, target_agent: str, message_payload: Dict[str, Any]):
-        """Adds a message payload to a target agent's received messages queue."""
-        if target_agent in self.agents:
-            self.agents[target_agent].messages_received.append(message_payload)
+        """
+        Adds a message payload to a target agent's received messages queue.
+        Creates the agent memory on-demand if it doesn't exist.
+        """
+        agent_memory = self.agents.setdefault(target_agent, AgentMemory())
+        agent_memory.messages_received.append(message_payload)
 
     def record_tool_result(self, agent_name: str, tool_name: str, params: Dict[str, Any], result: Dict[str, Any]):
         """Records the result of a tool execution in the global context and for the agent."""
@@ -91,6 +94,8 @@ class MemoryManager:
         Moves received messages to history and injects new thoughts/notes.
         """
         memory = self.get_agent_memory(agent_name)
+        if not memory:
+            return
         memory.notes = response.get("notes", memory.notes)
         memory.manifest = response.get("manifest", {})
         

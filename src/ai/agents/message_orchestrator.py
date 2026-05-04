@@ -67,8 +67,14 @@ class MessageOrchestrator(Events):
         if hydrated_state:
             TerminalUI.header(f"Resuming Session: {session_id}", "Sentinel Architect")
             self._apply_state(hydrated_state)
-            current_agent = hydrated_state.get("current_agent", "MASTER")
+            current_agent = hydrated_state.get("current_agent", self.pipeline_config.get("entry_point"))
             start_iteration = hydrated_state.get("iteration", 0)
+
+            # State integrity check: If the hydrated agent isn't in the current pipeline, reset to entry point.
+            if current_agent not in self.agents and current_agent not in ["STOP", "USER", "DONE"]:
+                func.log(f"Stale agent '{current_agent}' in session. Resetting to entry point.", level="WARN")
+                current_agent = self.pipeline_config.get("entry_point")
+
             func.log(f"Orchestrator: State re-inflated. Resuming as {current_agent} at iteration {start_iteration}")
         else:
             TerminalUI.header("Pipeline Execution Start", "Agent Orchestrator")
@@ -82,7 +88,16 @@ class MessageOrchestrator(Events):
         max_iterations = self.pipeline_config.get("max_iterations", MAX_ITERATIONS)
 
         for i in range(start_iteration, max_iterations):
+            # Agent state validation at the start of the loop
+            if current_agent in [None, "STOP"]:
+                TerminalUI.log_step("Pipeline execution finished.", "SUCCESS")
+                break
+
             agent_mem = self.memory.get_agent_memory(current_agent)
+            if not agent_mem:
+                # This can happen if an invalid agent is targeted.
+                func.error(f"Agent '{current_agent}' not found in memory or is invalid. Stopping.")
+                break
 
             # Context Update
             for msg in reversed(agent_mem.messages_received):
@@ -90,7 +105,7 @@ class MessageOrchestrator(Events):
                     agent_mem.current_task = msg.get("task") or msg.get("message")
                     break
 
-            TerminalUI.status(current_agent, agent_mem.current_task )
+            TerminalUI.status(current_agent, agent_mem.manifest.get("current_priority", agent_mem.current_task))
 
             # Assemble Tools and Prepare Payload
             agent_config = copy.deepcopy(self.agents.get(current_agent, {}))
@@ -130,10 +145,6 @@ class MessageOrchestrator(Events):
                 func.log(f"Cycle complete for {current_agent}. Clearing memory.", level="WARN")
                 self.memory.clear(current_agent)
                 next_agent = "MASTER"
-
-            if next_agent in [None, "STOP"]:
-                TerminalUI.log_step("Pipeline execution finished.", "SUCCESS")
-                break
 
             current_agent = next_agent
 
@@ -191,8 +202,9 @@ class MessageOrchestrator(Events):
         tool_name, params = action.get("tool_name"), action.get("tool_parameters", {})
         target = str(action.get("agent_target", "")).strip().upper()
 
-        if thought := response.get("thought") and ProgramConfig.current.get(ProgramSetting.AGENT_THOUGHT, False):
-            TerminalUI.message(agent, thought, Color.DIM)
+        if thought := response.get("thought"):
+            if ProgramConfig.current.get(ProgramSetting.AGENT_THOUGHT, False): 
+                TerminalUI.message(agent, thought, Color.DIM)
 
         msg = response.get("response_to_user", "")
         if msg:
@@ -277,18 +289,18 @@ class MessageOrchestrator(Events):
         self.format_error_count += 1
         
         if self.format_error_count >= 3:
-            TerminalUI.header("Sentinel loop error!",f"{agent} stuck in format loop.")
-            if input("Quit? (y/N): ").lower().startswith('y'): return False
-            
-            error_msg = (
-            f"CRITICAL PARSING FAILURE: {error}. "
+            TerminalUI.header("Sentinel loop error!", f"{agent} stuck in format loop.")
+            # In a non-interactive test environment, we can't ask for input.
+            # We will log the error and break the loop.
+            func.error(f"Agent {agent} failed to produce valid output 3 times. Halting loop.")
+            return False
+
+        error_msg = (
+            f"PARSING FAILURE: {error}. "
             "Your previous output contained invalid structure. "
-            "You must discard that attempt and completely rewrite your response. "
-            "REMINDER: You are strictly forbidden from using raw less-than or greater-than symbols in your thought or notes blocks. "
-            "If you must discuss code or HTML, spell it out in plain English (e.g., 'the div element'). "
-            "Generate a new, clean response now."
-            )
-            self.memory.add_message_to_agent(agent, {"from": "SYSTEM", "message": error_msg})
+            "You must discard that attempt and rewrite your response. "
+        )
+        self.memory.add_message_to_agent(agent, {"from": "SYSTEM", "message": error_msg})
         return True
 
     def _gatekeeper(self, tool: str, params: Dict[str, Any]) -> bool:
@@ -302,7 +314,7 @@ class MessageOrchestrator(Events):
         if target == "USER": return "USER"
         allowed = config.get("allowed_targets", ["STOP", "USER"])
         if target and target not in allowed:
-            self.memory.add_message_to_agent(agent, {"from": "SYSTEM", "message": f"Invalid transition: {target}"})
+            self.memory.add_message_to_agent(agent, {"from": "SYSTEM", "message": f"Invalid transition target: {target}"})
             return agent
         if is_empty and not target:
             self.memory.add_message_to_agent(agent, {"from": "SYSTEM", "message": "Instruction: Call a tool or transition."})

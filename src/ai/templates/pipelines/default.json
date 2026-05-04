@@ -8,8 +8,7 @@
     "MASTER": {
       "role": "management",
       "prompt_file": "agents/default.md",
-      "tools": ["read_dir" ,"smart_search", "read_file","read_files","write_file", 
-      "patch_file", "web_search", "web_read", "query_memory", "trigger_reflection"],
+      "tools": ["read_dir" ,"smart_search", "read_file","read_files","write_file","patch_file", "web_search", "web_read", "query_memory", "trigger_reflection"],
       "allowed_targets": ["MASTER", "SYSTEM_OPERATOR", "USER", "STOP"]
     },
        "SYSTEM_OPERATOR": {

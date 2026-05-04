@@ -2,7 +2,7 @@ import os
 import json
 import zlib
 import base64
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 
 import functions as func
@@ -34,7 +34,7 @@ class SessionVault:
         func.debug(f"SessionVault: Committing state for {self.session_id} (Iter: {orchestrator_state.get('iteration')})")
 
         payload = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "state": orchestrator_state,
             "version": "1.0"
         }
