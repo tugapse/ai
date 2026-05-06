@@ -87,7 +87,7 @@ class SystemDiagnostics:
 
 ENGINES = [
     {"id": "gguf", "name": "Llama-CPP GGUF", "deps": ["llama-cpp-python", "huggingface-hub", "numpy"]},
-    {"id": "transformers", "name": "Transformers (HF)", "deps": ["torch", "transformers", "accelerate", "huggingface-hub", "bitsandbytes>=0.46.1"]},
+    {"id": "transformers", "name": "Transformers (HF)", "deps": ["torch", "transformers", "accelerate", "huggingface-hub", "bitsandbytes", "autoawq", "turboquant", "gptqmodel" ]},
     {"id": "ollama", "name": "Ollama (Local API)", "deps": ["ollama", "requests"]},
     {"id": "openai", "name": "OpenAI (Cloud API)", "deps": ["openai"]},
     {"id": "gemini_api", "name": "Gemini (API Key)", "deps": ["google-generativeai"]},
