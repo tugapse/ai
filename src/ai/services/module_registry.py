@@ -40,11 +40,8 @@ class ModuleRegistry:
             except Exception:
                 enabled_value = None
 
-            # If the setting is not explicitly provided, auto-enable knowledge_graph by default
-            if enabled_value is None:
-                should_load = (mod_name == "knowledge_graph")
-            else:
-                should_load = bool(enabled_value)
+
+            should_load = bool(enabled_value)
 
             if should_load:
                 func.log(f"ModuleRegistry: Booting '{mod_name}'...")
