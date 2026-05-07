@@ -6,8 +6,9 @@ import time
 import re
 import subprocess
 import warnings
+import json
 
-# Silencia o aviso de depreciação chato do Vertex AI
+# Silencia o aviso de depreciação do Vertex AI
 warnings.filterwarnings(
     "ignore", 
     message=".*This feature is deprecated as of June 24, 2025.*", 
@@ -28,109 +29,109 @@ class GeminiAPIModel(BaseModel):
         if self.use_vertex:
             if not self._check_gcp_auth():
                 func.error("Google Cloud Auth não encontrada!")
-                func.out("\n[ ! ] Por favor, corre o seguinte comando no teu terminal:")
-                func.out("    gcloud auth application-default login\n")
-                raise PermissionError("Autenticação Google Cloud (ADC) necessária para Vertex AI.")
+                raise PermissionError("Autenticação Google Cloud (ADC) necessária.")
             
             try:
                 import vertexai
-                from vertexai.generative_models import GenerativeModel, Part, GenerationConfig, Tool
+                from vertexai.generative_models import GenerativeModel, Part, GenerationConfig, Tool, FunctionDeclaration
                 self.project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT") 
                 vertexai.init(project=self.project_id, location=location)
                 
                 self.config_class = GenerationConfig
                 self.part_class = Part
                 self.tool_class = Tool
-                func.log(f"Vertex AI Setup concluído para o modelo {self.model_name}", level="DEBUG")
+                self.func_decl_class = FunctionDeclaration
+                func.log(f"Vertex AI Setup concluído para {self.model_name}", level="DEBUG")
             except ImportError:
-                func.error("Missing 'google-cloud-aiplatform'. Run: pip install google-cloud-aiplatform")
+                func.error("Missing 'google-cloud-aiplatform'.")
                 raise
         else:
-            try:
-                from google import genai
-                from google.genai import types
-                self.genai_module = genai
-                self.genai_types = types
-                
-                self.api_key = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_JARVIS_API_KEY")
-                if not self.api_key:
-                    raise ValueError("Gemini API Key required for non-vertex mode.")
-                self.client = self.genai_module.Client(api_key=self.api_key)
-                func.log(f"GenAI SDK Setup concluído para o modelo {self.model_name}", level="DEBUG")
-            except ImportError:
-                func.error("Missing 'google-genai'. Run: pip install google-genai")
-                raise
+            from google import genai
+            self.client = genai.Client(api_key=api_key or os.environ.get("GEMINI_API_KEY"))
 
         model_params = kargs.get('model_params', {}) or {}
         self.config_kwargs = {}
         self.token_info_count.max_context_window = model_params.get('n_ctx', self.CONTEXT_WINDOW_1M)
-        for param_name, api_name in [
-            ('temperature', 'temperature'),
-            ('max_new_tokens', 'max_output_tokens'),
-            ('top_p', 'top_p'),
-            ('top_k', 'top_k')
-        ]:
-            val = model_params.get(param_name, kargs.get(param_name))
-            if val is not None:
-                self.config_kwargs[api_name] = val
+
+        for param, api_param in [('temperature', 'temperature'), ('max_new_tokens', 'max_output_tokens'), ('top_p', 'top_p'), ('top_k', 'top_k')]:
+            val = model_params.get(param, kargs.get(param))
+            if val is not None: self.config_kwargs[api_param] = val
+
+    @staticmethod
+    def get_test_tools():
+        return [{
+            "function_declarations": [
+                {
+                    "name": "manage_server_module",
+                    "description": "Checks status or controls the JARVIS server module (start, stop, restart, status).",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "action": {"type": "string", "enum": ["start", "stop", "restart", "status"]}
+                        },
+                        "required": ["action"]
+                    }
+                }
+            ]
+        }]
+
+    def _prepare_vertex_tools(self, tools_list):
+        if not tools_list or not self.use_vertex: return None
+        from vertexai.generative_models import Tool, FunctionDeclaration
+        vertex_tools = []
+        for tool_dict in tools_list:
+            decls = []
+            for decl in tool_dict.get("function_declarations", []):
+                func.log(f"DEBUG: Wrapping tool: {decl['name']}", level="DEBUG")
+                decls.append(FunctionDeclaration(**decl))
+            if decls: vertex_tools.append(Tool(function_declarations=decls))
+        return vertex_tools
 
     def _convert_messages_to_api(self, messages: list):
-        if not messages:
-            return []
+        """Converte o histórico para o formato Vertex AI, garantindo papéis e tipos corretos."""
+        if not messages or not self.use_vertex: return []
+        from vertexai.generative_models import Content, Part
+
+        api_messages = []
+        for m in messages:
+            role = m.get('role')
+            if role == 'system': continue
+
+            parts = []
             
-        if self.use_vertex:
-            from vertexai.generative_models import Content, Part
-            return [Content(role="user" if m.get('role', 'user') == "user" else "model", 
-                            parts=[Part.from_text(m.get('content', ''))]) 
-                    for m in messages if m.get('role') != 'system']
-        else:
-            return [self.genai_types.Content(
-                        role="user" if m.get('role', 'user') == "user" else "model", 
-                        parts=[self.genai_types.Part.from_text(text=m.get('content', ''))]
-                    ) 
-                    for m in messages if m.get('role') != 'system']
+            # 1. FUNCTION/TOOL RESPONSE (Result from Orchestrator)
+            if role in ['tool', 'function']:
+                parts.append(Part.from_function_response(
+                    name=m.get('name'),
+                    response={"result": m.get('content')} 
+                ))
+                api_messages.append(Content(role="function", parts=parts))
+                continue
 
-    def load_images(self, images: list):
-        image_parts = []
-        for img in images:
-            try:
-                import PIL.Image
-                img_obj = PIL.Image.open(img) if isinstance(img, str) else img
-                img_byte_arr = io.BytesIO()
-                img_obj.save(img_byte_arr, format='PNG')
-                data = img_byte_arr.getvalue()
-                
-                if self.use_vertex:
-                    image_parts.append(self.part_class.from_data(data=data, mime_type="image/png"))
-                else:
-                    image_parts.append(self.genai_types.Part.from_bytes(data=data, mime_type="image/png"))
-            except Exception as e:
-                func.error(f"Image Error: {e}")
-        return image_parts
+            # 2. ASSISTANT WITH TOOL CALLS (The fix is here!)
+            if role == 'assistant' and m.get('tool_calls'):
+                for call in m['tool_calls']:
+                    args = call['function']['arguments']
+                    if isinstance(args, str): args = json.loads(args)
+                    
+                    # SDK Workaround: Use from_dict instead of from_function_call
+                    parts.append(Part.from_dict({
+                        "function_call": {
+                            "name": call['function']['name'],
+                            "args": args
+                        }
+                    }))
+                api_messages.append(Content(role="model", parts=parts))
+                continue
 
-    def _append_images_to_history(self, history, images):
-        if not images:
-            return
+            # 3. STANDARD TEXT (User or Assistant)
+            if m.get('content'):
+                parts.append(Part.from_text(m.get('content')))
             
-        image_parts = self.load_images(images)
-        if not image_parts:
-            return
-
-        is_last_user = False
-        if history:
-            is_last_user = getattr(history[-1], 'role', '') == "user"
-
-        if is_last_user:
-            if isinstance(history[-1].parts, list):
-                history[-1].parts.extend(image_parts)
-            else:
-                history[-1].parts = list(history[-1].parts) + image_parts
-        else:
-            if self.use_vertex:
-                from vertexai.generative_models import Content
-                history.append(Content(role="user", parts=image_parts))
-            else:
-                history.append(self.genai_types.Content(role="user", parts=image_parts))
+            if parts:
+                api_messages.append(Content(role="user" if role == "user" else "model", parts=parts))
+            
+        return api_messages
 
     def chat(self, messages: list, images: list = [], stream: bool = True, options: dict = None):
         self.stop_generation_event.clear()
@@ -140,16 +141,20 @@ class GeminiAPIModel(BaseModel):
             if m.get('role') == 'system':
                 dynamic_system_prompt = m.get('content')
                 break
-                
+        
         if dynamic_system_prompt:
             dynamic_system_prompt = f"{self.get_system_info()}\n{dynamic_system_prompt}"
-            func.log("System Prompt updated with system info!", level="DEBUG")
 
         history = self._convert_messages_to_api(messages)
         self._append_images_to_history(history, images)
 
+        raw_tools = options.get('tools') if options else None
+        if not raw_tools:
+            func.log("DEBUG: Auto-Injecting test tools...", level="DEBUG")
+            raw_tools = self.get_test_tools()
+            
+        tools = self._prepare_vertex_tools(raw_tools)
         current_options = self.config_kwargs.copy()
-        tools = None
         
         if options:
             if 'max_tokens' in options:
@@ -168,188 +173,100 @@ class GeminiAPIModel(BaseModel):
         
         if stream:
             return self._stream_generator(history, dynamic_system_prompt, current_options, tools)
-        else:
-            return self._generate_response_sync(history, dynamic_system_prompt, current_options, tools)
+        return self._generate_response_sync(history, dynamic_system_prompt, current_options, tools)
 
-    def _log_usage_metadata(self, response_obj, is_stream=False):
+    def _stream_generator(self, history, dynamic_system_prompt, current_options, tools):
+        full_content = ""
+        first_chunk_received = False
         try:
-            usage = getattr(response_obj, 'usage_metadata', None)
-            if usage:
-                in_tokens = getattr(usage, 'prompt_token_count', '?')
-                out_tokens = getattr(usage, 'candidates_token_count', '?')
-                mode = "Streaming" if is_stream else "Sync Generation"
-                func.log(f"{Color.GREEN}{mode} Finished. Tokens -> Input: {in_tokens} | Output: {out_tokens}{Color.RESET}", level="DEBUG")
-        except Exception:
-            pass
+            from vertexai.generative_models import GenerativeModel
+            model = GenerativeModel(self.model_name, system_instruction=[dynamic_system_prompt] if dynamic_system_prompt else None)
+            
+            responses = model.generate_content(
+                history, 
+                stream=True, 
+                generation_config=self.config_class(**current_options), 
+                tools=tools
+            )
+            
+            for r in responses:
+                if self.stop_generation_event.is_set(): break
+                extracted = self._extract_response_content(r)
+                
+                if not first_chunk_received:
+                    if extracted["type"] == "function_call":
+                        func.log(f"{Color.CYAN}[SENTINEL]: ACTION DETECTED -> {extracted['name']}{Color.RESET}")
+                        self.trigger("tool_detected", extracted["name"])
+                    else:
+                        func.log("DEBUG: First chunk is TEXT intent.", level="DEBUG")
+                    first_chunk_received = True
+
+                if extracted["type"] == "function_call":
+                    yield extracted 
+                    return
+                    
+                if extracted["content"]:
+                    full_content += extracted["content"]
+                    self.trigger("token", extracted["content"])
+                    yield extracted["content"]
+        except Exception as e:
+            func.error(f"Stream Loop Error: {e}")
+            yield f"Error: {e}"
+        finally:
+            self.trigger(BaseModel.STREAMING_FINISHED_EVENT, full_content)
 
     def _extract_response_content(self, resp_or_chunk):
-        """Safely extracts text or function_call from a response chunk/object."""
         try:
             return {"type": "text", "content": resp_or_chunk.text}
-        except ValueError:
-            # Se falhar o `.text`, verifica se é um function_call
-            if hasattr(resp_or_chunk, 'candidates') and resp_or_chunk.candidates and resp_or_chunk.candidates[0].content.parts:
-                part = resp_or_chunk.candidates[0].content.parts[0]
-                
-                # Check for Function Call payload
-                if hasattr(part, 'function_call') and part.function_call:
-                    func_call = part.function_call
-                    # Converter argumentos de forma segura para dicionário Python
-                    args_dict = {k: v for k, v in func_call.args.items()} if hasattr(func_call.args, 'items') else dict(func_call.args)
-                    return {"type": "function_call", "name": func_call.name, "args": args_dict}
-                
-                # Fallback para extração manual de texto
-                if hasattr(part, 'text'):
-                    return {"type": "text", "content": part.text}
-                    
+        except Exception:
+            if hasattr(resp_or_chunk, 'candidates') and resp_or_chunk.candidates:
+                candidate = resp_or_chunk.candidates[0]
+                if candidate.content.parts:
+                    part = candidate.content.parts[0]
+                    if hasattr(part, 'function_call') and part.function_call:
+                        fc = part.function_call
+                        func.log(f"DEBUG: Extracted Tool Call: {fc.name}", level="DEBUG")
+                        return {"type": "function_call", "name": fc.name, "args": dict(fc.args)}
             return {"type": "text", "content": ""}
 
     def _generate_response_sync(self, history, dynamic_system_prompt, current_options, tools):
-        if self.use_vertex:
-            from vertexai.generative_models import GenerativeModel
-            local_model = GenerativeModel(
-                model_name=self.model_name,
-                system_instruction=[dynamic_system_prompt] if dynamic_system_prompt else None
-            )
-            
-            kwargs = {"generation_config": self.config_class(**current_options)}
-            if tools:
-                kwargs["tools"] = tools
+        from vertexai.generative_models import GenerativeModel
+        model = GenerativeModel(self.model_name, system_instruction=[dynamic_system_prompt] if dynamic_system_prompt else None)
+        resp = model.generate_content(history, generation_config=self.config_class(**current_options), tools=tools)
+        extracted = self._extract_response_content(resp)
+        return extracted if extracted["type"] == "function_call" else extracted["content"]
 
-            resp = local_model.generate_content(history, **kwargs)
-            
-            extracted = self._extract_response_content(resp)
-            self._log_usage_metadata(resp, is_stream=False)
-            
-            if extracted["type"] == "function_call":
-                func.debug(f"Tool Call Triggered: {extracted['name']}")
-                return extracted # Return dict so orchestrator handles execution
-                
-            func.debug(extracted["content"])
-            return extracted["content"]
-
-        else:
-            if dynamic_system_prompt:
-                current_options['system_instruction'] = dynamic_system_prompt
-            if tools:
-                current_options['tools'] = tools
-            
-            resp = self.client.models.generate_content(
-                model=self.model_name, 
-                contents=history, 
-                config=self.genai_types.GenerateContentConfig(**current_options)
-            )
-            
-            extracted = self._extract_response_content(resp)
-            self._log_usage_metadata(resp, is_stream=False)
-            
-            if extracted["type"] == "function_call":
-                func.debug(f"Tool Call Triggered: {extracted['name']}")
-                return extracted 
-                
-            func.debug(extracted["content"])
-            return extracted["content"]
-
-    def _stream_generator(self, history, dynamic_system_prompt, current_options, tools):
-        full_response_content = "" 
-        last_chunk_with_usage = None
-        
+    def _check_gcp_auth(self):
+        if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"): return True
+        paths = [
+            os.path.expanduser('~/.config/gcloud/application_default_credentials.json'),
+            os.path.join(os.environ.get('APPDATA', ''), 'gcloud', 'application_default_credentials.json') if os.name == 'nt' else ''
+        ]
+        if any(os.path.exists(p) for p in paths if p): return True
         try:
-            if self.use_vertex:
-                from vertexai.generative_models import GenerativeModel
-                local_model = GenerativeModel(
-                    model_name=self.model_name,
-                    system_instruction=[dynamic_system_prompt] if dynamic_system_prompt else None
-                )
-                
-                kwargs = {
-                    "stream": True,
-                    "generation_config": self.config_class(**current_options)
-                }
-                if tools:
-                    kwargs["tools"] = tools
+            return subprocess.run(["gcloud", "auth", "print-access-token"], capture_output=True, timeout=5).returncode == 0
+        except: return False
 
-                responses = local_model.generate_content(history, **kwargs)
-                
-                for r in responses:
-                    if self.stop_generation_event.is_set(): break
-                    
-                    extracted = self._extract_response_content(r)
-                    
-                    if extracted["type"] == "function_call":
-                        # Em streaming, function calls vêm inteiras num único chunk normalmente
-                        yield extracted 
-                        return # Aborta o stream de texto porque a AI quer usar uma tool
-                        
-                    chunk_text = extracted["content"]
-                    if chunk_text:
-                        full_response_content += chunk_text
-                        self.trigger("token", chunk_text)
-                        yield chunk_text
-                    
-                    if getattr(r, 'usage_metadata', None):
-                        last_chunk_with_usage = r
+    def load_images(self, images: list):
+        image_parts = []
+        for img in images:
+            try:
+                import PIL.Image
+                img_obj = PIL.Image.open(img) if isinstance(img, str) else img
+                img_byte_arr = io.BytesIO()
+                img_obj.save(img_byte_arr, format='PNG')
+                image_parts.append(self.part_class.from_data(data=img_byte_arr.getvalue(), mime_type="image/png"))
+            except Exception as e:
+                func.error(f"Image Error: {e}")
+        return image_parts
 
-            else:
-                if dynamic_system_prompt:
-                    current_options['system_instruction'] = dynamic_system_prompt
-                if tools:
-                    current_options['tools'] = tools
-                
-                responses = self.client.models.generate_content_stream(
-                    model=self.model_name, 
-                    contents=history,
-                    config=self.genai_types.GenerateContentConfig(**current_options)
-                )
-                for chunk in responses:
-                    if self.stop_generation_event.is_set(): break
-                    
-                    extracted = self._extract_response_content(chunk)
-                    
-                    if extracted["type"] == "function_call":
-                        yield extracted
-                        return
-                        
-                    chunk_text = extracted["content"]
-                    if chunk_text: 
-                        full_response_content += chunk_text
-                        self.trigger("token", chunk_text)
-                        yield chunk_text
-                    
-                    if getattr(chunk, 'usage_metadata', None):
-                        last_chunk_with_usage = chunk
-                        
-            if last_chunk_with_usage:
-                self._log_usage_metadata(last_chunk_with_usage, is_stream=True)
-            else:
-                func.log(f"{Color.GREEN}Streaming Finished. Output length: {len(full_response_content)} chars{Color.RESET}", level="DEBUG")
-                
-        except Exception as e:
-            func.error(f"Stream Error: {e}")
-            self.trigger("token", f"Error: {e}")
-            yield f"Error: {e}"
-        finally:
-            self.trigger(BaseModel.STREAMING_FINISHED_EVENT, full_response_content)
+    def _append_images_to_history(self, history, images):
+        if not images or not history: return
+        image_parts = self.load_images(images)
+        for content in reversed(history):
+            if content.role == "user":
+                content.parts.extend(image_parts)
+                break
 
     def is_gpu_available(self): return False
     def clean_cache(self): gc.collect()
-    
-    def _check_gcp_auth(self):
-        adc_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-        if adc_path and os.path.exists(adc_path):
-            return True
-            
-        if os.name == 'nt': 
-            default_path = os.path.join(os.environ.get('APPDATA', ''), 'gcloud', 'application_default_credentials.json')
-        else: 
-            default_path = os.path.expanduser('~/.config/gcloud/application_default_credentials.json')
-            
-        if os.path.exists(default_path):
-            return True
-            
-        try:
-            result = subprocess.run(["gcloud", "auth", "print-access-token"], 
-                                    capture_output=True, text=True, timeout=5)
-            return result.returncode == 0
-        except:
-            return False

@@ -168,18 +168,70 @@ class Program:
                 debug_voice=False,
             )
 
+            # --- FIRST STREAM (Checking Intent) ---
+            options = self.model_params.copy() if self.model_params else {}
             stream = self.llm.chat(  
                 self.chat.messages,
                 stream=True,
-                options=self.model_params,  
+                options=options,  
             )
 
             stream_result = orchestrator.run(stream)  
 
-           
-            if stream_result.interrupted:
+            # --- THE HANDSHAKE (Tool Execution Loop) ---
+            if stream_result.tool_calls:
+                for tool_call in stream_result.tool_calls:
+                    if isinstance(tool_call, dict) and tool_call.get("type") == "function_call":
+                        name = tool_call["name"]
+                        args = tool_call["args"]
+                        
+                        func.log(f"\n[ORCHESTRATOR]: Executing tool '{name}'...", level="DEBUG")
+                        
+                        # Execute the tool (Fallback safely if execute_test_tool isn't defined)
+                        try:
+                            if hasattr(self.llm, 'execute_test_tool'):
+                                result_data = self.llm.execute_test_tool(name, args)
+                            else:
+                                result_data = {"status": "simulated_success", "action": args.get('action', 'unknown')}
+                        except Exception as e:
+                            result_data = {"error": str(e)}
+                            
+                        func.log(f"[ORCHESTRATOR]: Tool result: {result_data}", level="DEBUG")
+                        
+                        # Fix history formatting for Vertex AI by injecting into the raw messages list
+                        self.chat.messages.append({
+                            "role": "assistant",
+                            "tool_calls": [{"function": {"name": name, "arguments": args}}]
+                        })
+                        
+                        self.chat.messages.append({
+                            "role": "tool",
+                            "name": name,
+                            "content": str(result_data) 
+                        })
+                
+                # --- TRIGGER THE SECOND STREAM (The Final Answer) ---
+                func.log("[ORCHESTRATOR]: Sending results back to JARVIS...", level="DEBUG")
+                second_stream = self.llm.chat(
+                    self.chat.messages,
+                    stream=True,
+                    options=options
+                )
+                second_result = orchestrator.run(second_stream)
+                
+                # Store the final text response
+                if second_result.interrupted:
+                    func.log("\nProgram: LLM stream interrupted by user (Ctrl+C). Signaling LLM to stop.", level="INFO")
+                    self.llm.request_shutdown()
+                    self.chat.current_message = "[Generation interrupted by user]"
+                elif second_result.accumulated_text:
+                    self.history.add_message(ChatRoles.ASSISTANT, second_result.accumulated_text)
+                    self.chat.current_message = second_result.accumulated_text
+
+            # --- STANDARD TEXT CHAT (No tools used) ---
+            elif stream_result.interrupted:
                 func.log(
-                    "\\nProgram: LLM stream interrupted by user (Ctrl+C). Signaling LLM to stop.",
+                    "\nProgram: LLM stream interrupted by user (Ctrl+C). Signaling LLM to stop.",
                     level="INFO",
                 )
                 self.llm.request_shutdown()
@@ -190,7 +242,7 @@ class Program:
                 )
                 self.chat.current_message = (
                     stream_result.accumulated_text
-                )  # Ensure current_message is set for history
+                )
 
         except Exception as e:
             func.log(f"Program: Chat Error: {e}", level="CRITICAL")

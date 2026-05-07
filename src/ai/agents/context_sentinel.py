@@ -29,7 +29,8 @@ class ContextSentinel:
         """
         # Heuristic: 4 characters per token
         est_tokens = len(json.dumps(payload)) / 3.2
-        pressure = est_tokens / (self.max_tokens - self.buffer)
+        delta = (self.max_tokens - self.buffer )
+        pressure = est_tokens / delta if delta > 0 else 1
 
         if pressure < self.threshold:
             return payload, False
