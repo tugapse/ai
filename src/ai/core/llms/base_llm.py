@@ -164,32 +164,77 @@ class BaseModel:
         )
         return manual
 
-    def parse_manual_tags(self, text: str):
-        """Standardized regex for catching tool triggers."""
-        pattern = r"(?:____@tool|____@|<\|?tool_call\|?>)\s*call:(\w+)\s*(\{.*?\})"
-        match = re.search(pattern, text, re.DOTALL)
+    def format_tools_for_prompt(self) -> str:
+        """
+        Constructs the system access manual using a generic protocol.
+        Safely handles missing keys for legacy or hardcoded tool schemas.
+        """
+        if not self.tool_registry:
+            return ""
+            
+        all_tools = self.tool_registry.get_all_tools()
+        if not all_tools:
+            return ""
 
+        manual = "\n\n[PROTOCOL: SYSTEM ACCESS]\n"
+        for name, ref in all_tools.items():
+            # If ref is a callable, parse it. If it's already a dict, use it directly.
+            schema = self._parse_docstring_to_schema(name, ref) if callable(ref) else ref
+            
+            # Use .get() to safely handle missing 'returns' or 'description' keys
+            f_name = schema.get('name', name)
+            f_desc = schema.get('description', 'No description provided.')
+            f_returns = schema.get('returns', 'Standard status dictionary.')
+            f_params = json.dumps(schema.get('parameters', {}))
+            
+            manual += f"Function: {f_name} | Desc: {f_desc} | Returns: {f_returns} | Schema: {f_params}\n"
+        
+        manual += (
+            "\n[CRITICAL RULE: TOOL CALLING]\n"
+            "1. You have NO direct access to the environment or system state unless you use a tool.\n"
+            "2. To use a tool, you MUST output: ____@tool call:name{\"intent\":\"your reasoning\", \"param_name\":\"value\"}\n"
+            "3. DO NOT use XML tags or alternate markers. Only ____@tool is valid.\n"
+            "4. Stop writing immediately after the tool call closing brace.\n"
+            "5. Only call ONE tool per response turn.\n"
+        )
+        return manual
+
+    def parse_manual_tags(self, text: str):
+        """Standardized regex parser for catching tool triggers in the stream."""
+        
+        # Matches J.A.R.V.I.S. tags AND Gemma's <|tool_call> artifacts
+        pattern = r"(?:____@tool|____@|<\|?tool_call\|?>)\s*(?:call:)?(\w+)\s*(\{.*?\})"
+        match = re.search(pattern, text, re.DOTALL)
+        
         if match:
             name, raw_args = match.group(1), match.group(2)
-            raw_args = raw_args.replace('<|"', '"').replace('"|>', '"')
+            
+            # 1. Clean Gemma's weird quote artifacts
+            clean_args = raw_args.replace('<|"|>', '"').replace('<|"', '"').replace('"|>', '"')
+            
+            # 2. Fix unquoted JSON keys (e.g., {content: "..."} -> {"content": "..."})
+            clean_args = re.sub(r'([{,]\s*)([a-zA-Z0-9_]+)\s*:', r'\1"\2":', clean_args)
+            
             try:
-                return {
-                    "type": "function_call",
-                    "name": name,
-                    "args": json.loads(raw_args),
-                }
-            except:
-                return {
-                    "type": "function_call",
-                    "name": name,
-                    "args": {"raw": raw_args},
-                }
+                # 3. Use strict=False to forgive literal newlines inside strings
+                parsed_args = json.loads(clean_args, strict=False)
+                
+                # Pop the 'intent' key so it doesn't crash Python functions
+                if isinstance(parsed_args, dict) and "intent" in parsed_args:
+                    del parsed_args["intent"]
+                    
+                return {"type": "function_call", "name": name, "args": parsed_args}
+            except Exception as e:
+                import functions as func
+                func.log(f"DEBUG: JSON parse fallback triggered for {name}. Error: {e}", level="DEBUG")
+                return {"type": "function_call", "name": name, "args": {"raw": raw_args}}
+                
         return None
     
     def handle_sentinel(self, content: str, is_intercepting: bool, sentinel_buffer: str):
         """
-        Unified Sentinel logic for all child classes.
-        Returns: (output_to_user, updated_buffer, updated_state, should_stop)
+        Unified Sentinel logic. Removed hard character cap to allow 
+        large tool payloads (like write_file/patch_file).
         """
         TRIGGER_PREFIXES = ["____", "<|"]
         
@@ -211,11 +256,8 @@ class BaseModel:
                 # Tool found! Stop stream and return the action dictionary
                 return action, "", False, True
             
-            if len(new_buffer) > 400:
-                # Buffer overflow (hallucinated tag): flush and stop intercepting
-                return new_buffer, "", False, False
-            
-            # Still searching for the closing brace
+            # Hard cap removed. We rely on the model eventually closing the JSON 
+            # or the StreamOrchestrator timeout/interruption.
             return None, new_buffer, True, False
 
     # =========================================================================

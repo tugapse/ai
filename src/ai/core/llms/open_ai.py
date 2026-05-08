@@ -1,17 +1,19 @@
 import os
 import threading
 import gc
+import json
 from typing import Dict, List, Any, Optional, Union, Generator
 
 from .base_llm import BaseModel
 import functions as func
+from color import Color
 
 
 class OpenAIAPIModel(BaseModel):
     """
     A generalized, OpenAI-compatible API interface for Just A Reasoning Virtual Intelligent Sentinel (JARVIS).
     
-    This class handles standard text generation, native streaming tool calls (via an internal accumulator),
+    This class handles standard text generation, pure text-based streaming tool calls (via Sentinel interception),
     and real-time telemetry tracking across any provider implementing the OpenAI specification 
     (OpenAI, Azure AI Foundry, Mistral, Ollama, vLLM, etc.).
     """
@@ -78,51 +80,72 @@ class OpenAIAPIModel(BaseModel):
         self.token_info_count.max_output_tokens = out_tokens
         self.token_info_count.max_context_window = kargs.get("n_ctx", BaseModel.CONTEXT_WINDOW_128K)
 
+    # NOTE: Inheriting format_tools_for_prompt() from BaseModel to inject the ____@tool text protocol.
+
     def _convert_messages(self, messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
         """
-        Formats internal message dictionaries into the standard OpenAI message schema.
+        Formats internal message dictionaries into the standard OpenAI message schema,
+        flattening tool calls and results into pure text to enforce the agnostic protocol.
 
         Args:
             messages (List[Dict[str, str]]): The internal conversation history.
 
         Returns:
-            List[Dict[str, str]]: The formatted conversation history, including the system prompt.
+            List[Dict[str, str]]: The formatted pure-text conversation history.
         """
         formatted = []
         if self.system_prompt:
             formatted.append({"role": "system", "content": self.system_prompt})
             
         for msg in messages:
-            if msg['role'] == 'system': 
+            role = msg.get('role')
+            if role == 'system': 
                 continue
-            formatted.append({"role": msg['role'], "content": msg['content']})
+
+            # 1. TOOL RESULT FLATTENING
+            if role in ['tool', 'function']:
+                text = f"[SYSTEM RESULT FOR TOOL '{msg.get('name', 'unknown')}']\n{msg.get('content')}"
+                formatted.append({"role": "user", "content": text})
+                continue
+
+            # 2. TOOL CALL FLATTENING
+            if role == 'assistant' and msg.get('tool_calls'):
+                for call in msg['tool_calls']:
+                    name = call['function']['name']
+                    args = call['function']['arguments']
+                    args_str = json.dumps(args) if isinstance(args, dict) else args
+                    text = f"____@tool call:{name}{args_str}"
+                    formatted.append({"role": "assistant", "content": text})
+                continue
+
+            # 3. STANDARD TEXT
+            formatted.append({"role": role, "content": msg.get('content', '')})
+
         return formatted
 
     def chat(self, messages: List[Dict[str, str]], tools: Optional[List[Dict[str, Any]]] = None, stream: bool = True, options: Optional[Dict[str, Any]] = None) -> Union[str, Dict[str, Any], Generator[Union[str, Dict[str, Any]], None, None]]:
         """
-        Executes a chat completion request to the configured API provider.
-
-        Args:
-            messages (List[Dict[str, str]]): The conversation history.
-            tools (List[Dict[str, Any]], optional): A list of JSON schemas defining available tools.
-            stream (bool, optional): If True, yields a generator for streaming responses. Defaults to True.
-            options (Dict[str, Any], optional): Additional runtime overrides.
-
-        Returns:
-            Union[str, Dict[str, Any], Generator]: 
-                - If stream=True: Returns a Generator yielding string tokens or a Tool Call Dictionary.
-                - If stream=False: Returns a complete string response or a Tool Call Dictionary.
+        Executes a pure-text chat completion request to the configured API provider.
+        Native API tool passing is deliberately bypassed to enforce the Sentinel Protocol.
         """
         self.stop_generation_event.clear()
-        formatted_msgs = self._convert_messages(messages)
+        
+        # Check if the Orchestrator passed dynamic context
+        dynamic_system_prompt = self.system_prompt
+        for m in messages:
+            if m.get('role') == 'system':
+                dynamic_system_prompt = m.get('content')
+                break
+        
+        if dynamic_system_prompt:
+            self.system_prompt = dynamic_system_prompt
 
+        formatted_msgs = self._convert_messages(messages)
         request_kwargs = {**self.options}
-        if tools:
-            request_kwargs["tools"] = tools
 
         try:
             if stream:
-                return self._run_streaming_chat(formatted_msgs, tools)
+                return self._run_streaming_chat(formatted_msgs)
             else:
                 response = self.client.chat.completions.create(
                     model=self.model_name,
@@ -136,13 +159,14 @@ class OpenAIAPIModel(BaseModel):
                     self._update_token_metrics(response.usage)
 
                 choice = response.choices[0]
-                
-                # Intercept synchronous tool calls
-                if choice.message.tool_calls:
-                    self.trigger(BaseModel.STREAMING_FINISHED_EVENT)
-                    return {"type": "tool_calls", "data": choice.message.tool_calls}
-                
                 final_text = choice.message.content or ""
+                
+                # Intercept synchronous text-based tool calls using the BaseModel parser
+                action = self.parse_manual_tags(final_text)
+                if action:
+                    self.trigger(BaseModel.STREAMING_FINISHED_EVENT)
+                    return action
+                
                 self.trigger("token", final_text)
                 self.trigger(BaseModel.STREAMING_FINISHED_EVENT)
                 return final_text
@@ -152,25 +176,16 @@ class OpenAIAPIModel(BaseModel):
             self.trigger(BaseModel.STREAMING_FINISHED_EVENT)
             return ""
 
-    def _run_streaming_chat(self, formatted_msgs: List[Dict[str, str]], tools: Optional[List[Dict[str, Any]]] = None) -> Generator[Union[str, Dict[str, Any]], None, None]:
+    def _run_streaming_chat(self, formatted_msgs: List[Dict[str, str]]) -> Generator[Union[str, Dict[str, Any]], None, None]:
         """
-        Handles the streaming logic, including telemetry retrieval and tool call fragment accumulation.
-
-        Args:
-            formatted_msgs (List[Dict[str, str]]): The formatted conversation history.
-            tools (List[Dict[str, Any]], optional): A list of JSON schemas defining available tools.
-
-        Yields:
-            Union[str, Dict[str, Any]]: Individual string tokens, system messages, or a fully assembled tool call dictionary.
+        Handles the streaming logic, including telemetry retrieval and Sentinel text interception.
         """
         request_kwargs = {**self.options}
-        if tools:
-            request_kwargs["tools"] = tools
-
-        # Request telemetry data in the final chunk
         request_kwargs["stream_options"] = {"include_usage": True}
 
-        accumulated_tool_calls: Dict[int, Dict[str, Any]] = {}
+        sentinel_buffer = ""
+        is_intercepting = False
+        full_content = ""
 
         try:
             stream = self.client.chat.completions.create(
@@ -184,69 +199,60 @@ class OpenAIAPIModel(BaseModel):
                 if self.stop_generation_event.is_set():
                     break
                 
-                # Telemetry Update (typically arrives in the final chunk)
+                # Telemetry Update
                 if hasattr(chunk, 'usage') and chunk.usage:
                     self._update_token_metrics(chunk.usage)
                 
                 if chunk.choices and len(chunk.choices) > 0:
                     choice = chunk.choices[0]
-                    
-                    # 1. Yield Standard Text Tokens
-                    if choice.delta.content:
-                        content = choice.delta.content
-                        self.trigger("token", content)
-                        yield content  
-                    
-                    # 2. Accumulate Tool Call Fragments
-                    if choice.delta.tool_calls:
-                        for tool_chunk in choice.delta.tool_calls:
-                            idx = tool_chunk.index
-                            
-                            if idx not in accumulated_tool_calls:
-                                accumulated_tool_calls[idx] = {
-                                    "id": tool_chunk.id,
-                                    "type": "function",
-                                    "function": {
-                                        "name": tool_chunk.function.name or "",
-                                        "arguments": ""
-                                    }
-                                }
-                            
-                            if tool_chunk.function and tool_chunk.function.arguments:
-                                accumulated_tool_calls[idx]["function"]["arguments"] += tool_chunk.function.arguments
+                    content = choice.delta.content
 
-                    # 3. Handle Stream Termination
+                    if content:
+                        full_content += content
+                        
+                        # --- UNIVERSAL SENTINEL INTERCEPTION ---
+                        out, sentinel_buffer, is_intercepting, should_stop = self.handle_sentinel(
+                            content, is_intercepting, sentinel_buffer
+                        )
+                        
+                        if out:
+                            if isinstance(out, dict) and out.get("type") == "function_call":
+                                func.log(f"{Color.CYAN}[SENTINEL]: TEXT ACTION DETECTED -> {out['name']}{Color.RESET}")
+                                self.trigger("tool_detected", out["name"])
+                                yield out
+                                return
+                            else:
+                                self.trigger("token", out)
+                                yield out
+                        
+                        if should_stop:
+                            break
+
+                    # Handle Stream Termination
                     finish_reason = choice.finish_reason
-                    if finish_reason:
-                        if finish_reason == "tool_calls":
-                            assembled_tools = list(accumulated_tool_calls.values())
-                            self.trigger("tool_call", assembled_tools)
-                            yield {"type": "tool_calls", "data": assembled_tools}
-                            
-                        elif finish_reason == "length":
+                    if finish_reason and finish_reason not in ["stop", "tool_calls"]:
+                        if finish_reason == "length":
                             error_msg = "\n\n[SYSTEM: Transmission truncated. Max tokens reached.]"
-                            self.trigger("token", error_msg)
-                            yield error_msg
                         elif finish_reason == "content_filter":
-                            error_msg = "\n\n[SYSTEM: Azure Content Filter blocked the transmission.]"
-                            self.trigger("token", error_msg)
-                            yield error_msg
-                        elif finish_reason != "stop":
+                            error_msg = "\n\n[SYSTEM: Content Filter blocked the transmission.]"
+                        else:
                             error_msg = f"\n\n[SYSTEM: Stream ended. Reason: {finish_reason}]"
-                            self.trigger("token", error_msg)
-                            yield error_msg
+                            
+                        self.trigger("token", error_msg)
+                        yield error_msg
+
+            if is_intercepting and sentinel_buffer:
+                self.trigger("token", sentinel_buffer)
+                yield sentinel_buffer
 
         except Exception as e:
             func.error(f"Interface Stream Error [{type(e).__name__}]: {e}")
         finally:
-            self.trigger(BaseModel.STREAMING_FINISHED_EVENT)
+            self.trigger(BaseModel.STREAMING_FINISHED_EVENT, full_content)
 
     def _update_token_metrics(self, usage: Any) -> None:
         """
         Updates the internal telemetry tracker with the latest usage data from the API.
-
-        Args:
-            usage (Any): The API response usage object containing prompt and completion token counts.
         """
         self.token_info_count.prompt_count = usage.prompt_tokens
         self.token_info_count.printed_tokens_count = usage.completion_tokens

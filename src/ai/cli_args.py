@@ -26,8 +26,8 @@ from direct import ask
 
 # Agent logic
 from agents.agent import MessageOrchestrator, LLMConnector, ToolRegistry, load_pipeline_config
-from agents.tool_loader import load_and_register_user_tools
-import agents.agent_tools as agent_tools
+from tools.tool_loader import load_and_register_user_tools
+import tools.agent_tools as agent_tools
 
 import functions as func
 

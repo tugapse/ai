@@ -67,7 +67,6 @@ class HuggingFaceModel(BaseModel):
                     functions.log("TurboQuant: Library found, but no CUDA device detected. Defaulting to standard cache.")
             except ImportError:
                 functions.log("TurboQuant: Module not found. To enable, pip install turboquant. Defaulting to standard cache.")
-        # ----------------------------------------------
 
         try:
             self._load_llm_params()
@@ -109,7 +108,6 @@ class HuggingFaceModel(BaseModel):
         if overrides:
             tokenizer_kwargs.update(overrides)
             functions.debug(f"Applied tokenizer_kwargs from config: {overrides}")
-        # -----------------------------
 
         quant_method = self.quantization_method.lower()
         quantization_config = None
@@ -122,14 +120,12 @@ class HuggingFaceModel(BaseModel):
                     import bitsandbytes as bnb  
                     from transformers import BitsAndBytesConfig
 
-                    # --- THE MONKEY PATCH FIX (For BNB compatibility) ---
-                    if hasattr(bnb.nn, 'Params4bit'):
-                        original_new = bnb.nn.Params4bit.__new__
-                        def patched_new(cls, *args, **kwargs):
-                            kwargs.pop('_is_hf_initialized', None)
-                            return original_new(cls, *args, **kwargs)
-                        bnb.nn.Params4bit.__new__ = staticmethod(patched_new)
-                    # ----------------------------
+                    # if hasattr(bnb.nn, 'Params4bit'):
+                    #     original_new = bnb.nn.Params4bit.__new__
+                    #     def patched_new(cls, *args, **kwargs):
+                    #         kwargs.pop('_is_hf_initialized', None)
+                    #         return original_new(cls, *args, **kwargs)
+                    #     bnb.nn.Params4bit.__new__ = staticmethod(patched_new)
 
                     if self.quantization_bits == 4:
                         quantization_config = BitsAndBytesConfig(
@@ -154,7 +150,6 @@ class HuggingFaceModel(BaseModel):
                     functions.log(f"ERROR: Could not create BitsAndBytesConfig for {self.quantization_bits}-bit quantization: {e}. Falling back to non-quantized loading.")
                     self.quantization_bits = 0
 
-        # --- APPLY CONFIGURATIONS ---
         if quantization_config:
             load_kwargs["quantization_config"] = quantization_config
             if self.is_gpu_available():
@@ -295,7 +290,9 @@ class HuggingFaceModel(BaseModel):
 
         functions.debug("Chat method initialized, queues cleared.")
 
-        processed_messages = messages
+        safe_messages = [m.copy() for m in messages]
+        processed_messages = self.check_system_prompt(safe_messages)
+
         processed_messages_log = processed_messages[-1]["content"][:50].replace("\n", "\\n") if processed_messages else "[No messages to process]"
         functions.debug(f"Processed messages. Input for LLM will be based on: '{processed_messages_log}'...")
 
@@ -312,7 +309,7 @@ class HuggingFaceModel(BaseModel):
         else:
             inputs_on_device = input_data
 
-        gen_options = self.options
+        gen_options = self.options.copy()
         gen_options.update(options)
 
         max_new_tokens = gen_options.get("max_new_tokens", 1024)
@@ -347,13 +344,11 @@ class HuggingFaceModel(BaseModel):
             streamer=streamer if stream else None,
         )
 
-        # --- TURBOQUANT APPENDIX: Inference Injection ---
         if self.turboquant_available:
             from turboquant import TurboQuantCache
             generation_kwargs["past_key_values"] = TurboQuantCache(bits=4)
             generation_kwargs["use_cache"] = True
             functions.debug("TurboQuantCache injected into generation kwargs (4-bit mode).")
-        # ------------------------------------------------
 
         if stream:
             functions.debug("Entering streaming (threaded) generation path with TextIteratorStreamer.")
@@ -369,15 +364,39 @@ class HuggingFaceModel(BaseModel):
                 },
             )
             self._generation_thread.start()
-            functions.debug(f"Generation thread started ({self._generation_thread.name}). Starting to yield tokens from streamer...")
+            
+            full_content = ""
+            sentinel_buffer = ""
+            is_intercepting = False
 
             try:
                 for new_token in streamer:
-                    yield new_token
-                    if not self.error_queue.empty():
-                        error_message = self.error_queue.get()
-                        functions.log(f"ERROR: Error received from generation thread during streaming: {error_message}")
+                    if self.stop_generation_event.is_set():
                         break
+
+                    out, sentinel_buffer, is_intercepting, should_stop = self.handle_sentinel(
+                        new_token, is_intercepting, sentinel_buffer
+                    )
+
+                    if out:
+                        if isinstance(out, dict) and out.get("type") == "function_call":
+                            functions.log(f"{Color.CYAN}[SENTINEL]: HF ACTION DETECTED -> {out['name']}{Color.RESET}")
+                            self.trigger("tool_detected", out["name"])
+                            self.stop_generation_event.set()
+                            yield out
+                            return
+                        else:
+                            full_content += out
+                            yield out
+
+                    if should_stop:
+                        self.stop_generation_event.set()
+                        break
+
+                if is_intercepting and sentinel_buffer:
+                    full_content += sentinel_buffer
+                    yield sentinel_buffer
+
                 functions.debug("Streamer finished yielding all tokens.")
 
             except KeyboardInterrupt:
@@ -391,6 +410,7 @@ class HuggingFaceModel(BaseModel):
                     self._generation_thread.join(timeout=5.0)
                     if self._generation_thread.is_alive():
                         functions.log("Warning: Generation thread did not join cleanly.")
+                self.trigger(BaseModel.STREAMING_FINISHED_EVENT, full_content)
                 functions.debug("Chat method streaming block finished.")
 
             if not self.error_queue.empty():
@@ -403,10 +423,13 @@ class HuggingFaceModel(BaseModel):
                 response_text = self._generate_response(inputs_on_device, gen_options)
                 functions.debug(f"Synchronous generation complete. Output length: {len(response_text)}. Yielding...")
 
+                action = self.parse_manual_tags(response_text)
+                
                 if isinstance(self, Events):
                     functions.debug("Triggering STREAMING_FINISHED_EVENT (synchronous path).")
 
-                yield response_text
+                yield action if action else response_text
+
             except RuntimeError as e:
                 error_message = (
                     f"ERROR: Model generation failed due to a CUDA/Runtime error."
@@ -493,7 +516,6 @@ class HuggingFaceModel(BaseModel):
             generation_kwargs["past_key_values"] = TurboQuantCache(bits=4)
             generation_kwargs["use_cache"] = True
             functions.debug("TurboQuantCache injected into synchronous kwargs.")
-        # ---------------------------------------------
 
         functions.debug(f"_generate_response calling model.generate. max_new_tokens={max_new_tokens}, do_sample={do_sample}, temp={temperature}, eos_token_id={eos_token_id}")
 

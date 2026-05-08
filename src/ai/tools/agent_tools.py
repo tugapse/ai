@@ -246,6 +246,7 @@ def write_file(**kwargs) -> Dict[str, Any]:
     """
     try:
         full_path = _resolve_path(kwargs)
+        
         content = kwargs.get("content") or ""
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
         with open(full_path, "w", encoding="utf-8") as f:
