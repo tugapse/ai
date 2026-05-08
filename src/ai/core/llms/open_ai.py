@@ -47,7 +47,6 @@ class OpenAIAPIModel(BaseModel):
         self.api_version = kargs.get("api_version") or os.environ.get("AI_API_VERSION")
         self.azure_endpoint = kargs.get("azure_endpoint") or os.environ.get("AI_AZURE_ENDPOINT")
 
-        # Client instantiation based on Azure vs Standard OpenAI routing
         if self.azure_endpoint:
             func.log(f"JARVIS: Connecting to Azure Interface [{self.model_name}]")
             self.client = self._AzureClient(
@@ -62,7 +61,7 @@ class OpenAIAPIModel(BaseModel):
                 base_url=self.base_url 
             )
         
-        # Determine model parameters dynamically based on reasoning capabilities
+
         self.options: Dict[str, Any] = {}
         is_reasoning_model = any(keyword in self.model_name.lower() for keyword in ["o1-", "o1", "nano", "reasoning"])
 
@@ -75,12 +74,10 @@ class OpenAIAPIModel(BaseModel):
             self.options["presence_penalty"] = kargs.get('presence_penalty', 0.0)
             self.options["frequency_penalty"] = kargs.get('frequency_penalty', 0.0)
 
-        # Telemetry Initialization
         out_tokens = self.options.get("max_completion_tokens") or self.options.get("max_tokens") or 2048
         self.token_info_count.max_output_tokens = out_tokens
         self.token_info_count.max_context_window = kargs.get("n_ctx", BaseModel.CONTEXT_WINDOW_128K)
 
-    # NOTE: Inheriting format_tools_for_prompt() from BaseModel to inject the ____@tool text protocol.
 
     def _convert_messages(self, messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
         """
@@ -102,13 +99,12 @@ class OpenAIAPIModel(BaseModel):
             if role == 'system': 
                 continue
 
-            # 1. TOOL RESULT FLATTENING
             if role in ['tool', 'function']:
                 text = f"[SYSTEM RESULT FOR TOOL '{msg.get('name', 'unknown')}']\n{msg.get('content')}"
                 formatted.append({"role": "user", "content": text})
                 continue
 
-            # 2. TOOL CALL FLATTENING
+
             if role == 'assistant' and msg.get('tool_calls'):
                 for call in msg['tool_calls']:
                     name = call['function']['name']
@@ -118,7 +114,7 @@ class OpenAIAPIModel(BaseModel):
                     formatted.append({"role": "assistant", "content": text})
                 continue
 
-            # 3. STANDARD TEXT
+
             formatted.append({"role": role, "content": msg.get('content', '')})
 
         return formatted
@@ -130,7 +126,7 @@ class OpenAIAPIModel(BaseModel):
         """
         self.stop_generation_event.clear()
         
-        # Check if the Orchestrator passed dynamic context
+
         dynamic_system_prompt = self.system_prompt
         for m in messages:
             if m.get('role') == 'system':
@@ -154,14 +150,12 @@ class OpenAIAPIModel(BaseModel):
                     **request_kwargs # type: ignore
                 )
                 
-                # Telemetry Update
                 if hasattr(response, 'usage') and response.usage:
                     self._update_token_metrics(response.usage)
 
                 choice = response.choices[0]
                 final_text = choice.message.content or ""
                 
-                # Intercept synchronous text-based tool calls using the BaseModel parser
                 action = self.parse_manual_tags(final_text)
                 if action:
                     self.trigger(BaseModel.STREAMING_FINISHED_EVENT)
@@ -199,7 +193,6 @@ class OpenAIAPIModel(BaseModel):
                 if self.stop_generation_event.is_set():
                     break
                 
-                # Telemetry Update
                 if hasattr(chunk, 'usage') and chunk.usage:
                     self._update_token_metrics(chunk.usage)
                 
@@ -210,7 +203,6 @@ class OpenAIAPIModel(BaseModel):
                     if content:
                         full_content += content
                         
-                        # --- UNIVERSAL SENTINEL INTERCEPTION ---
                         out, sentinel_buffer, is_intercepting, should_stop = self.handle_sentinel(
                             content, is_intercepting, sentinel_buffer
                         )
@@ -228,7 +220,6 @@ class OpenAIAPIModel(BaseModel):
                         if should_stop:
                             break
 
-                    # Handle Stream Termination
                     finish_reason = choice.finish_reason
                     if finish_reason and finish_reason not in ["stop", "tool_calls"]:
                         if finish_reason == "length":
