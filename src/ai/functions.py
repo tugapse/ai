@@ -25,7 +25,7 @@ ALLOW_CLEAR_CONSOLE = False
 
 
 
-def get_system_info_prompt_concise() -> str:
+def get_system_info_prompt_concise() -> dict:
     """
     Gathers and formats essential system information into a highly concise string
     for LLM token efficiency.

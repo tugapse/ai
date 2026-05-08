@@ -1,14 +1,20 @@
+import os
 import traceback
 import gc
+import json
 from typing import Optional, Any
 
 # Core logic and message types
 from chat.chat import Chat, ChatRoles
 from core.llms.base_llm import BaseModel
 from config import ProgramConfig, ProgramSetting
+from color import Color
 
 # Agent
 from agents.agent import Agent
+from tools.tool_registry import ToolRegistry
+from tools.agent_tools import AVAILABLE_TOOLS
+from tools.tool_loader import load_and_register_user_tools
 
 # Services Orchestration
 from services.session_manager import SessionManager
@@ -49,6 +55,7 @@ class Program:
         self.history = None
         self.models = None
         self.llm_initialized = False
+        self.tool_registry = ToolRegistry()
 
     @property
     def llm(self) -> Optional[BaseModel]:
@@ -58,18 +65,12 @@ class Program:
 
     @llm.setter
     def llm(self, value):
-        """
-        NEW: Allows us to inject a Remote Link or a specific LLM instance.
-        This is what the Client Mode uses to 'become' the remote brain.
-        """
         if self.models:
             self.models.llm = value
             self.llm_initialized = True
-            # func.log("Program: LLM instance injected via setter.", level="DEBUG")
 
     @property
     def model_params(self) -> dict:
-        # Ensure LLM is loaded only when model parameters are accessed
         self._ensure_llm_loaded()
         return self.models.get_params()
 
@@ -96,14 +97,19 @@ class Program:
         session_paths = SessionManager.initialize_session_paths(self.config)
         self.history.initialize_session(session_paths)
         self.ui.initialize(self.history.get_log_path())
-
+        self.load_tool_registry()
         func.log("Program initialized with configuration and modules.")
+    
+    def load_tool_registry(self):
+        func.log("Loading System tools into Jarvis system")
+        for name, tool_ref in AVAILABLE_TOOLS.items():
+            self.tool_registry.register_tool(name, tool_ref)
+        
+        func.log("Loading User tools into Jarvis system")
+        user_tools_dir = os.path.join(func.get_root_directory(), "tools")
+        load_and_register_user_tools(self.tool_registry, user_tools_dir)
 
     def _ensure_llm_loaded(self) -> None:
-        """
-        Ensures the LLM is loaded and initialized only if it hasn't been already.
-        This method should be called before any operation requiring the LLM.
-        """
         if not self.llm_initialized:
             func.log("Program: Lazily loading LLM...", level="DEBUG")
             if self.models is None:
@@ -111,29 +117,26 @@ class Program:
 
             system_file = self.config.get(ProgramSetting.SYSTEM_PROMPT_FILE)
             system_prompt = PromptLoader.load_system_prompt(self.config, system_file)
+
             self.models.load(
-                self.config.get(ProgramSetting.MODEL_CONFIG_NAME), system_prompt
+                self.config.get(ProgramSetting.MODEL_CONFIG_NAME), system_prompt,
+                self.tool_registry
             )
+            
+            if self.models.llm:
+                # Handshake: Inject dynamic tool schemas into the pilot's manual
+                tool_rules = self.models.llm.format_tools_for_prompt()
+                if tool_rules:
+                    self.models.llm.system_prompt += tool_rules
+                    func.log("Program: Dynamic tool protocol injected into System Prompt.", level="DEBUG")
+                    
             self.llm_initialized = True
             func.log("Program: LLM loaded.", level="DEBUG")
 
-    def _handle_tool_call(self, tool_call_string: str):
-        self.history.add_message(ChatRoles.ASSISTANT, tool_call_string)
-        tool_result = f"<result>\\nTool execution confirmed.\\n</result>"
-        self.history.add_message(ChatRoles.TOOL, tool_result)
-        self.history.save()
-        self.start_chat(user_input=None)
-
     def _handle_agent_run_requested(self, prompt: str) -> None:
-        """Handler for EVENT_AGENT_RUN_REQUESTED."""
-        func.log(f"Program: Agent run requested with prompt: '{prompt}'", level="DEBUG")
         if not self.agent:
-            func.log("Program: Initializing Agent...", level="DEBUG")
             self.agent = Agent(self)
         
-        # Note: This is a blocking call. If the agent's work is long,
-        # it will freeze the main chat loop.
-        # A more robust solution might involve running the agent in a separate thread.
         if self.agent:
             try:
                 self.agent.run(user_prompt=prompt)
@@ -142,23 +145,17 @@ class Program:
                 func.log(traceback.format_exc(), level="ERROR")
 
     def start_chat(self, user_input: Optional[str]):
-        """Executes one interaction turn with the LLM and enabled modules."""
-        if not self.llm:  
-            return
-
-        stream_result = None 
+        """Executes interaction turns with the LLM using an Autonomous Agent Loop."""
+        if not self.llm: return
 
         try:
             if user_input and user_input.strip():
                 self.history.add_message(ChatRoles.USER, user_input)
 
             ui_tools = self.ui.get_components()
-
             voice_mod = None
-            try:
-                voice_mod = self.modules["voice"]
-            except (KeyError, TypeError):
-                pass
+            try: voice_mod = self.modules["voice"]
+            except (KeyError, TypeError): pass
 
             orchestrator = StreamOrchestrator(
                 voice_module=voice_mod,
@@ -168,107 +165,113 @@ class Program:
                 debug_voice=False,
             )
 
-            # --- FIRST STREAM (Checking Intent) ---
             options = self.model_params.copy() if self.model_params else {}
-            stream = self.llm.chat(  
-                self.chat.messages,
-                stream=True,
-                options=options,  
-            )
+            
+            # --- LOOP STATE ---
+            step_count = 0
+            MAX_STEPS_BEFORE_WARNING = 5
 
-            stream_result = orchestrator.run(stream)  
-
-            # --- THE HANDSHAKE (Tool Execution Loop) ---
-            if stream_result.tool_calls:
-                for tool_call in stream_result.tool_calls:
-                    if isinstance(tool_call, dict) and tool_call.get("type") == "function_call":
-                        name = tool_call["name"]
-                        args = tool_call["args"]
-                        
-                        func.log(f"\n[ORCHESTRATOR]: Executing tool '{name}'...", level="DEBUG")
-                        
-                        # Execute the tool (Fallback safely if execute_test_tool isn't defined)
-                        try:
-                            if hasattr(self.llm, 'execute_test_tool'):
-                                result_data = self.llm.execute_test_tool(name, args)
-                            else:
-                                result_data = {"status": "simulated_success", "action": args.get('action', 'unknown')}
-                        except Exception as e:
-                            result_data = {"error": str(e)}
-                            
-                        func.log(f"[ORCHESTRATOR]: Tool result: {result_data}", level="DEBUG")
-                        
-                        # Fix history formatting for Vertex AI by injecting into the raw messages list
-                        self.chat.messages.append({
-                            "role": "assistant",
-                            "tool_calls": [{"function": {"name": name, "arguments": args}}]
-                        })
-                        
-                        self.chat.messages.append({
-                            "role": "tool",
-                            "name": name,
-                            "content": str(result_data) 
-                        })
+            # --- THE AUTONOMOUS AGENT LOOP ---
+            while True:
+                step_count += 1
                 
-                # --- TRIGGER THE SECOND STREAM (The Final Answer) ---
-                func.log("[ORCHESTRATOR]: Sending results back to JARVIS...", level="DEBUG")
-                second_stream = self.llm.chat(
+                # Injection of warning if the loop is getting too long (The Stamina Meter)
+                if step_count > MAX_STEPS_BEFORE_WARNING:
+                    warning_msg = (
+                        f"SYSTEM WARNING: Autonomous loop has reached {step_count} steps. "
+                        "If you haven't found a solution, summarize your progress and ask the user for guidance."
+                    )
+                    # Use a system message to nudge the pilot
+                    self.chat.messages.append({"role": "system", "content": warning_msg})
+                    func.log(f"[SENTINEL]: Step limit exceeded. Warning injected.", level="WARNING")
+
+                stream = self.llm.chat(  
                     self.chat.messages,
                     stream=True,
-                    options=options
+                    options=options,  
                 )
-                second_result = orchestrator.run(second_stream)
-                
-                # Store the final text response
-                if second_result.interrupted:
+
+                stream_result = orchestrator.run(stream)  
+
+                if stream_result.interrupted:
                     func.log("\nProgram: LLM stream interrupted by user (Ctrl+C). Signaling LLM to stop.", level="INFO")
                     self.llm.request_shutdown()
                     self.chat.current_message = "[Generation interrupted by user]"
-                elif second_result.accumulated_text:
-                    self.history.add_message(ChatRoles.ASSISTANT, second_result.accumulated_text)
-                    self.chat.current_message = second_result.accumulated_text
+                    break
 
-            # --- STANDARD TEXT CHAT (No tools used) ---
-            elif stream_result.interrupted:
-                func.log(
-                    "\nProgram: LLM stream interrupted by user (Ctrl+C). Signaling LLM to stop.",
-                    level="INFO",
-                )
-                self.llm.request_shutdown()
-                self.chat.current_message = "[Generation interrupted by user]"
-            elif stream_result.accumulated_text:
-                self.history.add_message(
-                    ChatRoles.ASSISTANT, stream_result.accumulated_text
-                )
-                self.chat.current_message = (
-                    stream_result.accumulated_text
-                )
+                # --- THE HANDSHAKE (Tool Execution) ---
+                if stream_result.tool_calls:
+                    for tool_call in stream_result.tool_calls:
+                        if isinstance(tool_call, dict) and tool_call.get("type") == "function_call":
+                            name = tool_call["name"]
+                            args = tool_call["args"]
+                            
+                            func.log(f"\n[ORCHESTRATOR]: Action Requested -> {name}", level="INFO")
+                            
+                            # --- HUMAN IN THE LOOP (HIL) GATEKEEPER ---
+                            if name in getattr(self.llm, "HIL_TOOLS", []):
+                                func.out(f"\n{Color.YELLOW}[J.A.R.V.I.S. REQUESTS PERMISSION]{Color.RESET}")
+                                func.out(f"Action: {name}\nArgs: {json.dumps(args, indent=2)}")
+                                
+                                confirm = input(f"{Color.CYAN}Proceed? (y/n): {Color.RESET}").lower()
+                                
+                                if confirm != 'y':
+                                    reason = input(f"{Color.YELLOW}Reason for denial (optional): {Color.RESET}")
+                                    result_data = {
+                                        "status": "DENIED", 
+                                        "error": f"User denied execution. Reason: {reason if reason else 'No reason provided.'}"
+                                    }
+                                    func.log("[ORCHESTRATOR]: Execution blocked by user.", level="WARNING")
+                                else:
+                                    result_data = self.tool_registry.execute_tool(name, args)
+                            else:
+                                # Standard autonomous execution
+                                result_data = self.tool_registry.execute_tool(name, args)
+                            
+                            # --- RECORD INTERACTION ---
+                            func.log(f"[ORCHESTRATOR]: Tool result: {result_data.get('status')}", level="DEBUG")
+                            
+                            # Format for LLM feedback
+                            self.chat.messages.append({
+                                "role": "assistant",
+                                "content": "", 
+                                "tool_calls": [{"function": {"name": name, "arguments": args}}]
+                            })
+                            
+                            self.chat.messages.append({
+                                "role": "tool",
+                                "name": name,
+                                "content": json.dumps(result_data) 
+                            })
+                    
+                    # Loop back: J.A.R.V.I.S. will see the 'tool' message and continue
+                    continue
+
+                else:
+                    # --- FINAL TEXT RESPONSE ---
+                    if stream_result.accumulated_text:
+                        self.history.add_message(ChatRoles.ASSISTANT, stream_result.accumulated_text)
+                        self.chat.current_message = stream_result.accumulated_text
+                    break
 
         except Exception as e:
             func.log(f"Program: Chat Error: {e}", level="CRITICAL")
             func.log(traceback.format_exc(), level="ERROR")
-            if self.llm:
-                self.llm.request_shutdown()
+            if self.llm: self.llm.request_shutdown()
 
         finally:
             self.ui.reset_turn()
-
-            # Final hardware-level cleanup for the voice module
             try:
                 voice = self.modules["voice"]
-                if voice:
-                    voice.collect_audio()
-            except:
-                pass
+                if voice: voice.collect_audio()
+            except: pass
 
             self.history.save()
             self.chat.chat_finished()
             func.out("")
 
     def run(self) -> None:
-        """Main Loop: Binds core events and starts the chat loop."""
         func.log("Program: Interface active.")
-
         if not self.llm:
             raise RuntimeError("LLM failed to initialize. Cannot start chat loop.")
         
@@ -281,58 +284,35 @@ class Program:
                 if self.active_executor
                 else None
             ),
-            llm_stream_finished_callback=lambda _: None,  # This callback is not strictly needed for shutdown, as start_chat handles it.
+            llm_stream_finished_callback=lambda _: None,  
         )
         
         self.chat.add_event(Chat.EVENT_AGENT_RUN_REQUESTED, self._handle_agent_run_requested)
-        func.log("Program: Agent run event handler bound.", level="DEBUG")
 
         try:
             self.chat.loop()
         except KeyboardInterrupt:
-            func.log(
-                "\\nProgram: Shutdown initiated (KeyboardInterrupt caught in chat.loop)."
-            )
+            func.log("\nProgram: Shutdown initiated.")
         finally:
-            if self.modules:
-                self.modules.shutdown()
+            if self.modules: self.modules.shutdown()
             self.shutdown()
 
     def shutdown(self) -> None:
-        """
-        Safety-first shutdown. Prevents crashes if exiting during boot.
-        This version is more aggressive about releasing resources.
-        """
         func.log("Program: Initiating aggressive shutdown...", level="DEBUG")
+        if not hasattr(self, "config") or self.config is None: return
 
-        # If config was never loaded, we can't do anything else.
-        if not hasattr(self, "config") or self.config is None:
-            func.log("Program: Shutdown aborted, config not loaded.", level="DEBUG")
-            return
-
-        # Only try to kill the LLM if it was actually initialized
         if self.llm_initialized:
             try:
                 llm_instance = self.models.llm
                 if llm_instance:
-                    func.log("Program: Requesting LLM shutdown.", level="DEBUG")
                     llm_instance.request_shutdown()
                     del self.models.llm
-                    func.log("Program: LLM reference deleted.", level="DEBUG")
             except Exception as e:
                 func.log(f"Program: Error during LLM shutdown: {e}", level="ERROR")
 
-        if hasattr(self, "models"):
-            del self.models
-            func.log("Program: Model orchestrator reference deleted.", level="DEBUG")
-
+        if hasattr(self, "models"): del self.models
         gc.collect()
-        func.log("JARVIS Shutdown complete. Garbage collection forced.", level="DEBUG")
+        func.log("JARVIS Shutdown complete.", level="DEBUG")
 
     def route_session(self, filepath: str) -> None:
-        """
-        Allows external modules (like the API Server) to instruct JARVIS
-        to look at a specific memory file before processing a request.
-        """
-        if self.history:
-            self.history.switch_active_session(filepath)
+        if self.history: self.history.switch_active_session(filepath)

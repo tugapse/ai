@@ -3,6 +3,7 @@ import threading
 import queue
 import gc
 import ctypes
+import json
 from typing import List, Dict, Any
 from huggingface_hub import hf_hub_download
 from llama_cpp import Llama, llama_log_set
@@ -20,6 +21,7 @@ llama_log_set(_callback_ref, ctypes.c_void_p())
 class GGUFImageLLM(BaseModel):
     """
     JARVIS GGUF Engine - Hardened for CPU.
+    Inference only. Protocol injection handled externally by Orchestrator.
     """
     _shared_mem_lock = threading.Lock()
     def __init__(
@@ -32,7 +34,7 @@ class GGUFImageLLM(BaseModel):
         model_params: dict = None,
         **kwargs,
     ):
-        super().__init__(model_name, system_prompt=system_prompt,**kwargs)
+        super().__init__(model_name, system_prompt=system_prompt, **kwargs)
         functions.log(f"Initializing Hardened GGUF: {model_name}")
         
         self.model_repo_id = model_repo_id
@@ -43,7 +45,7 @@ class GGUFImageLLM(BaseModel):
         self.token_info_count.max_context_window = self._n_ctx
         
         self.options = ModelParams(**model_params).to_dict() if model_params else {
-            "max_new_tokens":2048,
+            "max_new_tokens": 2048,
             "temperature": 0.7
         }
 
@@ -89,29 +91,29 @@ class GGUFImageLLM(BaseModel):
             functions.error(f"Failed to load GGUF: {e}")
 
     def _generate_in_thread(self, messages: List[Dict[str, str]], gen_options: dict, output_queue: queue.Queue):
-        """Threaded generation using internal Chat API."""
         functions.debug("[GGUF Engine] Stream thread started.")
         output_token_count = 0
+        sentinel_buffer = ""
+        is_intercepting = False
         
         try:
             self.token_info_count.max_output_tokens = gen_options.get("max_new_tokens", 1024)
-            
             with GGUFImageLLM._shared_mem_lock:
                 stream_iter = self.llama_model.create_chat_completion(
                     messages=messages,
                     stream=True,
                     max_tokens=gen_options.get("max_new_tokens", 1024),
                     temperature=gen_options.get("temperature", 0.7),
-                    top_p=gen_options.get("top_p", 0.95)
+                    top_p=gen_options.get("top_p", 0.95),
+                    stop=["System Response:", "User:"] 
                 )
 
                 full_response = ""
                 for chunk in stream_iter:
-                    if self.stop_generation_event.is_set():
-                        functions.debug("[GGUF Engine] Generation stopped by user/system event.")
-                        break
+                    if self.stop_generation_event.is_set(): break
                     delta = chunk["choices"][0]["delta"]
                     
+                    # Handle Reasoning (Gemma/DeepSeek style)
                     reasoning = delta.get("reasoning_content", "")
                     if reasoning:
                         output_queue.put(f"{Color.ITALIC}{Color.NORMAL_BLACK}[Thinking: {reasoning}]{Color.RESET}")
@@ -120,25 +122,37 @@ class GGUFImageLLM(BaseModel):
                     content = delta.get("content", "")
                     if content:
                         full_response += content
-                        output_token_count += 1
-                        output_queue.put(content)
-                    self.token_info_count.printed_tokens_count = output_token_count
+                        
+                        # --- CLEAN SENTINEL CALL ---
+                        out, sentinel_buffer, is_intercepting, should_stop = self.handle_sentinel(
+                            content, is_intercepting, sentinel_buffer
+                        )
+                        
+                        if out:
+                            output_queue.put(out)
+                            if not isinstance(out, dict): # Only count tokens for actual text
+                                output_token_count += 1
+                        
+                        if should_stop:
+                            functions.debug("[SENTINEL] Tool detected. Terminating stream.")
+                            break
+                        # ----------------------------
+                        
+                self.token_info_count.printed_tokens_count = output_token_count
+                
+                # Final flush
+                if is_intercepting and sentinel_buffer:
+                    output_queue.put(sentinel_buffer)
             
             self._update_token_metrics(messages, gen_options)
             output_queue.put(None)
             self.trigger(BaseModel.STREAMING_FINISHED_EVENT, full_response)
-
-            functions.log(f"{Color.NORMAL_BLACK}{Color.BG_BRIGHT_WHITE}{self.token_info_count.get_log_string()}{Color.RESET}", level="INFO")
-            functions.debug(f"[GGUF Engine] Stream finished normally. Total chunks/tokens: {output_token_count}")
             
         except Exception as e:
-            import traceback
-            error_traceback = traceback.format_exc()
-            functions.error(f"[GGUF Engine] Error in generation thread: {e}\n{error_traceback}")
-            self.error_queue.put(str(e))
+            functions.error(f"[GGUF Engine] Error: {e}")
             output_queue.put(None)
         finally:
-            self.stop_generation_event.clear() 
+            self.stop_generation_event.clear()
 
     def _update_token_metrics(self, messages: List[Dict[str, str]], gen_options: dict):
         self.token_info_count.max_context_window = self._n_ctx
@@ -170,22 +184,27 @@ class GGUFImageLLM(BaseModel):
 
         self.stop_generation_event.clear()
 
+        # DEEP COPY: Protect history integrity
+        safe_messages = [m.copy() for m in messages]
+
         if images:
             image_msg = self.load_images(images)
             if image_msg:
-                for i in reversed(range(len(messages))):
-                    if messages[i]["role"] == "user":
-                        messages[i]["content"] += f"\n{image_msg['content']}"
+                for i in reversed(range(len(safe_messages))):
+                    if safe_messages[i]["role"] == "user":
+                        safe_messages[i]["content"] += f"\n{image_msg['content']}"
                         break
 
-        messages = self.check_system_prompt(messages)
-        self._update_token_metrics(messages, options)
+        # Refresh System Prompt context (Time, OS, etc.)
+        safe_messages = self.check_system_prompt(safe_messages)
+        
+        self._update_token_metrics(safe_messages, options)
 
         current_options = self.options.copy()
         current_options.update(options)
         applied_max_new_tokens = current_options.get("max_new_tokens", 1024)
 
-        raw_text_for_counting = "\n".join([str(m.get("content", "")) for m in messages])
+        raw_text_for_counting = "\n".join([str(m.get("content", "")) for m in safe_messages])
         try:
             with GGUFImageLLM._shared_mem_lock:
                 est_prompt_tokens = len(self.llama_model.tokenize(raw_text_for_counting.encode("utf-8")))
@@ -198,7 +217,7 @@ class GGUFImageLLM(BaseModel):
             q = queue.Queue()
             self._generation_thread = threading.Thread(
                 target=self._generate_in_thread,
-                args=(messages, current_options, q),
+                args=(safe_messages, current_options, q),
             )
             self._generation_thread.start()
 
@@ -206,6 +225,12 @@ class GGUFImageLLM(BaseModel):
                 try:
                     token = q.get(timeout=0.1)
                     if token is None: break
+                    
+                    if isinstance(token, dict) and token.get("type") == "function_call":
+                        functions.log(f"{Color.CYAN}[SENTINEL]: ACTION DETECTED -> {token['name']}{Color.RESET}")
+                        self.trigger("tool_detected", token["name"])
+                        yield token
+                        return 
                     yield token
                 except queue.Empty:
                     if not self._generation_thread.is_alive(): break
@@ -214,7 +239,7 @@ class GGUFImageLLM(BaseModel):
             functions.debug("[GGUF Engine] Executing synchronous generation...")
             with GGUFImageLLM._shared_mem_lock:
                 output = self.llama_model.create_chat_completion(
-                    messages=messages,
+                    messages=safe_messages,
                     stream=False,
                     max_tokens=applied_max_new_tokens,
                     temperature=current_options.get("temperature", 0.7),
@@ -227,8 +252,10 @@ class GGUFImageLLM(BaseModel):
             c_tokens = usage.get("completion_tokens", "Unknown")
             
             functions.debug(f"{Color.GREEN}[GGUF Engine] Sync Complete. Prompt: {p_tokens} | Output: {c_tokens}")
+            
+            action = self.parse_manual_tags(text)
             self.trigger(BaseModel.STREAMING_FINISHED_EVENT, text)
-            return text
+            return action if action else text
 
     def list(self) -> list:
         if self.llama_model:
@@ -236,16 +263,11 @@ class GGUFImageLLM(BaseModel):
         return []
 
     def request_shutdown(self):
-        """Overrides the base method to ensure full resource cleanup."""
         functions.debug("[GGUF Engine] Full shutdown requested. Unloading model.")
         super().request_shutdown()
         self.unload()
 
     def unload(self):
-        """
-        Safely unloads the model, releasing all CPU and GPU memory resources.
-        This is a more aggressive approach to ensure C++ resources are freed.
-        """
         if self.llama_model is None:
             functions.debug("[GGUF Engine] Unload called but model is already None.")
             return
@@ -272,7 +294,6 @@ class GGUFImageLLM(BaseModel):
         
         if model_to_unload is not None:
             functions.debug("[GGUF Engine] Deleting Llama model object reference...")
-
             del model_to_unload
             functions.debug("[GGUF Engine] Triggering garbage collection...")
             gc.collect()
@@ -291,12 +312,7 @@ class GGUFImageLLM(BaseModel):
         functions.log(f"BrainHub: Resources cleared for {self.model_name}.")
 
     def __del__(self):
-        """
-        Ensures resources are freed if the object is destroyed by the GC.
-        """
-        # Try to unload, but safely catch lock errors if Python is tearing down
         try:
             self.unload()
         except Exception:
             pass
-  

@@ -33,14 +33,13 @@ class GeminiAPIModel(BaseModel):
             
             try:
                 import vertexai
-                from vertexai.generative_models import GenerativeModel, Part, GenerationConfig, Tool, FunctionDeclaration
+                # Removed native Tool and FunctionDeclaration imports. Using pure text processing.
+                from vertexai.generative_models import GenerativeModel, Part, GenerationConfig
                 self.project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT") 
                 vertexai.init(project=self.project_id, location=location)
                 
                 self.config_class = GenerationConfig
                 self.part_class = Part
-                self.tool_class = Tool
-                self.func_decl_class = FunctionDeclaration
                 func.log(f"Vertex AI Setup concluído para {self.model_name}", level="DEBUG")
             except ImportError:
                 func.error("Missing 'google-cloud-aiplatform'.")
@@ -57,38 +56,11 @@ class GeminiAPIModel(BaseModel):
             val = model_params.get(param, kargs.get(param))
             if val is not None: self.config_kwargs[api_param] = val
 
-    @staticmethod
-    def get_test_tools():
-        return [{
-            "function_declarations": [
-                {
-                    "name": "manage_server_module",
-                    "description": "Checks status or controls the JARVIS server module (start, stop, restart, status).",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "action": {"type": "string", "enum": ["start", "stop", "restart", "status"]}
-                        },
-                        "required": ["action"]
-                    }
-                }
-            ]
-        }]
-
-    def _prepare_vertex_tools(self, tools_list):
-        if not tools_list or not self.use_vertex: return None
-        from vertexai.generative_models import Tool, FunctionDeclaration
-        vertex_tools = []
-        for tool_dict in tools_list:
-            decls = []
-            for decl in tool_dict.get("function_declarations", []):
-                func.log(f"DEBUG: Wrapping tool: {decl['name']}", level="DEBUG")
-                decls.append(FunctionDeclaration(**decl))
-            if decls: vertex_tools.append(Tool(function_declarations=decls))
-        return vertex_tools
+    # NOTE: We DO NOT override format_tools_for_prompt() here anymore.
+    # It will inherit from BaseModel and inject the text manual!
 
     def _convert_messages_to_api(self, messages: list):
-        """Converte o histórico para o formato Vertex AI, garantindo papéis e tipos corretos."""
+        """Converte o histórico para o formato Vertex AI, forçando a estrutura de texto puro do J.A.R.V.I.S."""
         if not messages or not self.use_vertex: return []
         from vertexai.generative_models import Content, Part
 
@@ -97,39 +69,41 @@ class GeminiAPIModel(BaseModel):
             role = m.get('role')
             if role == 'system': continue
 
-            parts = []
-            
-            # 1. FUNCTION/TOOL RESPONSE (Result from Orchestrator)
+            # 1. TOOL RESULT FLATTENING
+            # Converts the Orchestrator's tool result into a plain text USER message
             if role in ['tool', 'function']:
-                parts.append(Part.from_function_response(
-                    name=m.get('name'),
-                    response={"result": m.get('content')} 
-                ))
-                api_messages.append(Content(role="function", parts=parts))
+                text = f"[SYSTEM RESULT FOR TOOL '{m.get('name', 'unknown')}']\n{m.get('content')}"
+                if api_messages and api_messages[-1].role == "user":
+                    api_messages[-1].parts.append(Part.from_text(f"\n{text}"))
+                else:
+                    api_messages.append(Content(role="user", parts=[Part.from_text(text)]))
                 continue
 
-            # 2. ASSISTANT WITH TOOL CALLS (The fix is here!)
+            # 2. TOOL CALL FLATTENING
+            # Converts previous tool calls into the literal text the model would have generated
             if role == 'assistant' and m.get('tool_calls'):
                 for call in m['tool_calls']:
+                    name = call['function']['name']
                     args = call['function']['arguments']
-                    if isinstance(args, str): args = json.loads(args)
+                    args_str = json.dumps(args) if isinstance(args, dict) else args
+                    text = f"____@tool call:{name}{args_str}"
                     
-                    # SDK Workaround: Use from_dict instead of from_function_call
-                    parts.append(Part.from_dict({
-                        "function_call": {
-                            "name": call['function']['name'],
-                            "args": args
-                        }
-                    }))
-                api_messages.append(Content(role="model", parts=parts))
+                    if api_messages and api_messages[-1].role == "model":
+                        api_messages[-1].parts.append(Part.from_text(f"\n{text}"))
+                    else:
+                        api_messages.append(Content(role="model", parts=[Part.from_text(text)]))
                 continue
 
-            # 3. STANDARD TEXT (User or Assistant)
+            # 3. STANDARD TEXT
             if m.get('content'):
-                parts.append(Part.from_text(m.get('content')))
-            
-            if parts:
-                api_messages.append(Content(role="user" if role == "user" else "model", parts=parts))
+                v_role = "user" if role == "user" else "model"
+                
+                # Vertex AI strictly requires alternating roles (User->Model->User).
+                # This merges consecutive messages of the same role to prevent API crashes.
+                if api_messages and api_messages[-1].role == v_role:
+                    api_messages[-1].parts.append(Part.from_text(f"\n{m.get('content')}"))
+                else:
+                    api_messages.append(Content(role=v_role, parts=[Part.from_text(m.get('content'))]))
             
         return api_messages
 
@@ -148,36 +122,25 @@ class GeminiAPIModel(BaseModel):
         history = self._convert_messages_to_api(messages)
         self._append_images_to_history(history, images)
 
-        raw_tools = options.get('tools') if options else None
-        if not raw_tools:
-            func.log("DEBUG: Auto-Injecting test tools...", level="DEBUG")
-            raw_tools = self.get_test_tools()
-            
-        tools = self._prepare_vertex_tools(raw_tools)
         current_options = self.config_kwargs.copy()
         
         if options:
-            if 'max_tokens' in options:
-                current_options['max_output_tokens'] = options['max_tokens']
-            if 'temperature' in options:
-                current_options['temperature'] = options['temperature']
-            if 'top_p' in options:
-                current_options['top_p'] = options['top_p']
-            if 'top_k' in options:
-                current_options['top_k'] = options['top_k']
-            # Capture tools if passed in the chat options
-            if 'tools' in options:
-                tools = options['tools']
+            if 'max_tokens' in options: current_options['max_output_tokens'] = options['max_tokens']
+            if 'temperature' in options: current_options['temperature'] = options['temperature']
+            if 'top_p' in options: current_options['top_p'] = options['top_p']
+            if 'top_k' in options: current_options['top_k'] = options['top_k']
 
-        func.debug(f"Gemini Processing {len(history)} messages | Stream: {stream} | Tools attached: {bool(tools)}")
+        func.debug(f"Gemini Processing {len(history)} messages (Pure Text Protocol) | Stream: {stream}")
         
         if stream:
-            return self._stream_generator(history, dynamic_system_prompt, current_options, tools)
-        return self._generate_response_sync(history, dynamic_system_prompt, current_options, tools)
+            return self._stream_generator(history, dynamic_system_prompt, current_options)
+        return self._generate_response_sync(history, dynamic_system_prompt, current_options)
 
-    def _stream_generator(self, history, dynamic_system_prompt, current_options, tools):
+    def _stream_generator(self, history, dynamic_system_prompt, current_options):
         full_content = ""
-        first_chunk_received = False
+        sentinel_buffer = ""
+        is_intercepting = False
+        
         try:
             from vertexai.generative_models import GenerativeModel
             model = GenerativeModel(self.model_name, system_instruction=[dynamic_system_prompt] if dynamic_system_prompt else None)
@@ -185,56 +148,60 @@ class GeminiAPIModel(BaseModel):
             responses = model.generate_content(
                 history, 
                 stream=True, 
-                generation_config=self.config_class(**current_options), 
-                tools=tools
+                generation_config=self.config_class(**current_options)
             )
             
             for r in responses:
                 if self.stop_generation_event.is_set(): break
-                extracted = self._extract_response_content(r)
                 
-                if not first_chunk_received:
-                    if extracted["type"] == "function_call":
-                        func.log(f"{Color.CYAN}[SENTINEL]: ACTION DETECTED -> {extracted['name']}{Color.RESET}")
-                        self.trigger("tool_detected", extracted["name"])
-                    else:
-                        func.log("DEBUG: First chunk is TEXT intent.", level="DEBUG")
-                    first_chunk_received = True
-
-                if extracted["type"] == "function_call":
-                    yield extracted 
-                    return
+                try:
+                    content = r.text
+                except Exception:
+                    continue
                     
-                if extracted["content"]:
-                    full_content += extracted["content"]
-                    self.trigger("token", extracted["content"])
-                    yield extracted["content"]
+                if not content: continue
+                full_content += content
+                
+                # --- UNIVERSAL SENTINEL INTERCEPTION ---
+                out, sentinel_buffer, is_intercepting, should_stop = self.handle_sentinel(
+                    content, is_intercepting, sentinel_buffer
+                )
+                
+                if out:
+                    if isinstance(out, dict) and out.get("type") == "function_call":
+                        func.log(f"{Color.CYAN}[SENTINEL]: TEXT ACTION DETECTED -> {out['name']}{Color.RESET}")
+                        self.trigger("tool_detected", out["name"])
+                        yield out
+                        return
+                    else:
+                        self.trigger("token", out)
+                        yield out
+                
+                if should_stop:
+                    break
+
+            if is_intercepting and sentinel_buffer:
+                self.trigger("token", sentinel_buffer)
+                yield sentinel_buffer
+
         except Exception as e:
             func.error(f"Stream Loop Error: {e}")
             yield f"Error: {e}"
         finally:
             self.trigger(BaseModel.STREAMING_FINISHED_EVENT, full_content)
 
-    def _extract_response_content(self, resp_or_chunk):
-        try:
-            return {"type": "text", "content": resp_or_chunk.text}
-        except Exception:
-            if hasattr(resp_or_chunk, 'candidates') and resp_or_chunk.candidates:
-                candidate = resp_or_chunk.candidates[0]
-                if candidate.content.parts:
-                    part = candidate.content.parts[0]
-                    if hasattr(part, 'function_call') and part.function_call:
-                        fc = part.function_call
-                        func.log(f"DEBUG: Extracted Tool Call: {fc.name}", level="DEBUG")
-                        return {"type": "function_call", "name": fc.name, "args": dict(fc.args)}
-            return {"type": "text", "content": ""}
-
-    def _generate_response_sync(self, history, dynamic_system_prompt, current_options, tools):
+    def _generate_response_sync(self, history, dynamic_system_prompt, current_options):
         from vertexai.generative_models import GenerativeModel
         model = GenerativeModel(self.model_name, system_instruction=[dynamic_system_prompt] if dynamic_system_prompt else None)
-        resp = model.generate_content(history, generation_config=self.config_class(**current_options), tools=tools)
-        extracted = self._extract_response_content(resp)
-        return extracted if extracted["type"] == "function_call" else extracted["content"]
+        resp = model.generate_content(history, generation_config=self.config_class(**current_options))
+        
+        try:
+            text = resp.text
+        except Exception:
+            text = ""
+            
+        action = self.parse_manual_tags(text)
+        return action if action else text
 
     def _check_gcp_auth(self):
         if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"): return True
