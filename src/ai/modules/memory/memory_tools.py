@@ -1,5 +1,6 @@
 import functions as func
 from typing import Dict, Any, Optional, Callable
+from tools.agent_tools import tool
 
 class MemoryTools:
     """

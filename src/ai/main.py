@@ -117,7 +117,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     net_group = parser.add_argument_group(f'{Color.CYAN}DISTRIBUTED ARCHITECTURE{Color.RESET}')
     net_group.add_argument("--server", action="store_true", help="Initialize Brain Server module")
     net_group.add_argument("--remote", "-r", type=str, help="Connect to remote neural hub URL")
-    net_group.add_argument("--modules", nargs="+", default=[], help="Load specific server sub-modules")
+    net_group.add_argument("--modules", nargs="+", default=['vector_memory'], help="Load specific server sub-modules")
 
     # 5. System Debug & Maintenance
     sys_group = parser.add_argument_group(f'{Color.CYAN}SYSTEM DEBUG & MAINTENANCE{Color.RESET}')
