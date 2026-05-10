@@ -1,16 +1,16 @@
 {
-    "model_name": "Qwen/Qwen2.5-7B-GGUF",
+    "model_name": "Gemma 4 - E2B",
     "model_type": "gguf",
     "model_properties": {
-        "gguf_filename": "qwen2.5-coder-7b-instruct-q4_k_m.gguf",
-        "model_repo_id": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
-        "n_gpu_layers": 15,
-        "n_ctx": 8192,
-        "max_new_tokens": 2048,
-        "temperature": 1,
+        "gguf_filename": "gemma-4-E2B-it-Q4_K_M.gguf",
+        "model_repo_id": "unsloth/gemma-4-E2B-it-GGUF",
+        "n_gpu_layers": -1,
+        "n_ctx": 50000,
+        "max_new_tokens": 8192,
+        "temperature": 0.5,
         "top_p": 0.95,
-        "top_k": 40,
-        "presence_penalty": 1,
-        "frequency_penalty": 1
+        "top_k": 20,
+        "presence_penalty": 1.4,
+        "frequency_penalty": 1.8
     }
 }
