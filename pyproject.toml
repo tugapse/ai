@@ -39,3 +39,6 @@ ai = "ai.main:run"
 [tool.pytest.ini_options]
 pythonpath = ["src", "src/ai"]
 testpaths = ["tests"]
+
+[tool.pyright]
+extraPaths = ["src/ai"]

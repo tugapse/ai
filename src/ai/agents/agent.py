@@ -9,7 +9,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from config import ProgramSetting
 
-from .tool_registry import ToolRegistry
+from tools.tool_registry import ToolRegistry
 from .llm_connector import LLMConnector
 from .message_orchestrator import MessageOrchestrator
 from core.events import Events

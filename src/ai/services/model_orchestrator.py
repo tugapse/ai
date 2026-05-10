@@ -2,7 +2,7 @@ import os
 import sys
 from typing import Optional, Dict, Any
 
-from services.model_manager import EngineManager
+from services.engine_manager import EngineManager
 from core.llms.base_llm import ModelParams, BaseModel
 from services.config_helper import ProgramConfig, ProgramSetting
 import functions as func

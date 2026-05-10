@@ -26,8 +26,8 @@ from direct import ask
 
 # Agent logic
 from agents.agent import MessageOrchestrator, LLMConnector, ToolRegistry, load_pipeline_config
-from agents.tool_loader import load_and_register_user_tools
-import agents.agent_tools as agent_tools
+from tools.tool_loader import load_and_register_user_tools
+import tools.agent_tools as agent_tools
 
 import functions as func
 
@@ -69,6 +69,7 @@ class CliArgs:
             os._exit(0) 
 
         self._has_message(prog, args) 
+    
     def _handle_create_tool(self, args):
             if not args.create_tool:
                 return
@@ -111,7 +112,7 @@ def {function_name}(argument: str) -> str:
         str: A description of the return value.
     \"\"\"
     try:
-        # We use quadruple braces here because this will be an f-string inside the generated file
+        
         result = f"Executing {function_name} with: {{argument}}"
 
         return {{"status": "SUCCESS", "result": result}}
@@ -122,8 +123,7 @@ def {function_name}(argument: str) -> str:
                 with open(file_path, "w", encoding="utf-8") as f:
                     f.write(skeleton_content.strip())
                 
-                # Fixed the escaping for the log message as well
-                func.log(f"{Color.GREEN}[+] Tool skeleton created successfully at: {file_path}{Color.RESET}")
+                func.out(f"{Color.GREEN}[+] Tool skeleton created successfully at: {file_path}{Color.RESET}")
 
             except Exception as e:
                 func.error(f"Failed to create tool file: {e}")
@@ -186,11 +186,8 @@ def {function_name}(argument: str) -> str:
         self._has_task(prog, args)
         
 
-    # --- Logic Implementations ---
-
     def _handle_agent_mode(self, prog, args):
         """Handles the execution of the agent pipeline."""
-        # check and load for task file
         taskfile=""
         if args.task_file:
              taskfile = func.read_file(args.task_file)
@@ -291,14 +288,16 @@ def {function_name}(argument: str) -> str:
             root = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])),"..","..")
             installer_path = os.path.join(root, "scripts", "install_engines.py")
             spec = importlib.util.spec_from_file_location("install_engines", installer_path)
-            installer_module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(installer_module)
-            installer_module.main_menu()
+            if spec and spec.loader: 
+                installer_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(installer_module)
+                installer_module.main_menu()
             sys.exit(0)
 
     def _is_list_models(self, args):
         if args.list_models:
-            os.system("ollama list")
+            # FIXME read the user dir and list all models
+            func.out("Not available at the moment: ", level="WARN")
             sys.exit(0)
 
     def _has_output_files(self, prog, args):
@@ -369,4 +368,4 @@ def {function_name}(argument: str) -> str:
                 hide_think_anim=args.no_think_anim,
                 print_output=args.no_out != True
             )
-            os._exit(0)
+            sys.exit(0)
