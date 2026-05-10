@@ -52,6 +52,7 @@ class Program:
         self.llm_initialized = False
         self.tool_registry = ToolRegistry()
         self.vector_memory : Optional[VectorMemory] = None
+        self.allow_tools = False
         self._active_tools_system_prompt = ""
 
 
@@ -190,6 +191,7 @@ class Program:
         
         func.log(f"\n[ORCHESTRATOR]: Action Requested -> {name}", level="INFO")
         func.log(f"\n -> {args}", level="INFO")
+        func.out(f"\nUsing tool: {name} Args: {args}")
         
         # Human-In-The-Loop (HIL) Gatekeeper
         if name in getattr(self.llm, "HIL_TOOLS", []):
@@ -257,6 +259,7 @@ class Program:
     # --- CORE UTILITIES ---
 
     def _ensure_llm_loaded(self) -> None:
+        if not self.allow_tools: self._active_tools_system_prompt = ""
         system_file = self.config.get(ProgramSetting.SYSTEM_PROMPT_FILE)
         system_prompt = PromptLoader.load_system_prompt(self.config, system_file) + self._active_tools_system_prompt
         
@@ -287,6 +290,7 @@ class Program:
                 func.log(traceback.format_exc(), level="ERROR")
 
     def run(self) -> None:
+        self.allow_tools = True
         func.log("Program: Interface active.")
         if not self.llm:
             raise RuntimeError("LLM failed to initialize. Cannot start chat loop.")

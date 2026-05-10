@@ -103,6 +103,9 @@ class ProgramConfig(Generic[T]):
         if self.config.get(ProgramSetting.MODEL_CONFIG_NAME) is None:
             self.set(ProgramSetting.MODEL_CONFIG_NAME, "default.json")
 
+        if self.config.get(ProgramSetting.SYSTEM_PROMPT_FILE) is None:
+            self.set(ProgramSetting.SYSTEM_PROMPT_FILE, "default")
+
         if self.config.get(ProgramSetting.VOICE_ENABLED) is None:
             self.set(ProgramSetting.VOICE_ENABLED, False)
 

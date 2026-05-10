@@ -147,7 +147,7 @@ def print_chat_header(prog: Program) -> None:
         func.clear_console()
         
     func.out(f"{Color.CYAN} # {Color.RESET}Established neural link to: {Color.CYAN}{chat_name}{Color.RESET}")
-    func.out(f"{Color.CYAN} #{Color.PURPLE} Sentinel status: ACTIVE | Stage 2 Logic: INJECTED{Color.RESET}")
+    func.out(f"{Color.CYAN} #{Color.PURPLE} Sentinel status: ACTIVE | Logic: INJECTED{Color.RESET}")
     func.out(f"{Color.CYAN} # {Color.RESET}-----------------------------------------------------------")
 
 def run():
@@ -166,7 +166,7 @@ def run():
 
     signal.signal(signal.SIGINT, shutdown_handler)
     signal.signal(signal.SIGTERM, shutdown_handler)
-    func.log(f"Starting:\n{logo}")
+    func.log(f"\n{logo}" , start_line="")
 
     try:
         prog.load_config(args=args) 
@@ -192,7 +192,6 @@ def run():
             sys.exit(0) 
         prog.init_config(args=args)
         prog.init_program()         
-        prog.llm 
         cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
         
         if func.ALLOW_CLEAR_CONSOLE: 
