@@ -26,7 +26,6 @@ class ThinkingLogManager:
         self.lock_poll_interval = lock_poll_interval
         self._lock_fd = None
 
-        # --- CRITICAL FIX: Handle NoneType input ---
         # If history.get_log_path() returns None, fallback to default
         actual_name = log_file_name if log_file_name else self.DEFAULT_FILENAME
         
