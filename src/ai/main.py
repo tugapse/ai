@@ -19,6 +19,15 @@ from color import Color
 from cli_args import CliArgs 
 
 __version__ = "3.1.1"
+ # logo uses cyan for the brand, and we'll keep the description clean
+logo = f"""{Color.CYAN}
+      ██╗  █████╗  ██████╗  ██╗   ██╗ ██╗ ███████╗      █████╗  ██╗
+      ██║ ██╔══██╗ ██╔══██╗ ██║   ██║ ██║ ██╔════╝     ██╔══██╗ ██║
+      ██║ ███████║ ██████╔╝ ██║   ██║ ██║ ███████╗     ███████║ ██║
+ ██   ██║ ██╔══██║ ██╔══██╗ ╚██╗ ██╔╝ ██║ ╚════██║     ██╔══██║ ██║
+ ╚█████╔╝ ██║  ██║ ██║  ██║  ╚████╔╝  ██║ ███████║     ██║  ██║ ██║
+  ╚════╝  ╚═╝  ╚═╝ ╚═╝  ╚═╝   ╚═══╝   ╚═╝ ╚══════╝     ╚═╝  ╚═╝ ╚═╝
+{Color.RESET}"""
 
 def check_dependencies():
     """Diagnostic boot check for JARVIS dependencies."""
@@ -63,25 +72,18 @@ class JarvisHelpFormatter(argparse.RawDescriptionHelpFormatter):
 def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     """Defines and parses flags for the JARVIS ecosystem."""
     
-    # logo uses cyan for the brand, and we'll keep the description clean
-    logo = f"""{Color.CYAN}
-      ██╗  █████╗  ██████╗  ██╗   ██╗ ██╗ ███████╗      █████╗  ██╗
-      ██║ ██╔══██╗ ██╔══██╗ ██║   ██║ ██║ ██╔════╝     ██╔══██╗ ██║
-      ██║ ███████║ ██████╔╝ ██║   ██║ ██║ ███████╗     ███████║ ██║
- ██   ██║ ██╔══██║ ██╔══██╗ ╚██╗ ██╔╝ ██║ ╚════██║     ██╔══██║ ██║
- ╚█████╔╝ ██║  ██║ ██║  ██║  ╚████╔╝  ██║ ███████║     ██║  ██║ ██║
-  ╚════╝  ╚═╝  ╚═╝ ╚═╝  ╚═╝   ╚═══╝   ╚═╝ ╚══════╝     ╚═╝  ╚═╝ ╚═╝
+    description="""
 
   JUST A REASONING VIRTUAL INTELLIGENT SENTINEL AGENTIC INTERFACE
-  Version: {__version__}{Color.RESET}
+  Version: {__version__}
   
   An integrated reasoning core powering autonomous agentic logic and long-term memory synthesis.
   
   {Color.CYAN}[ SYSTEM READY ] --------------------------------------------------------------------------{Color.RESET}
-    """
+"""
 
     parser = argparse.ArgumentParser(
-        description=logo,
+        description=logo+description,
         formatter_class=JarvisHelpFormatter,
         usage=f"{Color.CYAN}ai{Color.RESET} [OPTIONS]",
         add_help=False,
@@ -164,7 +166,7 @@ def run():
 
     signal.signal(signal.SIGINT, shutdown_handler)
     signal.signal(signal.SIGTERM, shutdown_handler)
-   
+    func.log(f"Starting:\n{logo}")
 
     try:
         prog.load_config(args=args) 

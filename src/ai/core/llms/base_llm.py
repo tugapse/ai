@@ -3,8 +3,6 @@ import gc
 import threading
 import json
 import re
-import yaml
-import textwrap
 from typing import Callable, Optional
 import functions
 from entities.model_enums import InferenceBackend
@@ -54,7 +52,7 @@ class BaseModel:
     # Tools that require manual user confirmation before execution.
     HIL_TOOLS = ["execute_command", "write_file", "patch_file", "delete_file"]
 
-    def __init__(self, model_name, system_prompt=None, **kargs):
+    def __init__(self, model_name, system_prompt="", **kargs):
         self.model_name = model_name
         self.system_prompt = system_prompt
         self.listeners = {}
@@ -76,13 +74,14 @@ class BaseModel:
     # J.A.R.V.I.S. PROTOCOL & TOOL SCHEMATICS
     # =========================================================================
 
-    def _parse_docstring_to_schema(self, func_name: str, func_ref: Callable) -> dict:
+    @staticmethod
+    def _parse_docstring_to_schema(func_name: str, func_ref: Callable) -> dict:
         """
         Dynamically translates Python docstrings into an LLM-friendly JSON Schema.
         Enforces a mandatory 'intent' property for latent reasoning.
         """
         doc = func_ref.__doc__ or "No description provided."
-        lines = doc.strip().split("\n")
+        lines = [line.strip() for line in doc.strip().split("\n")]
 
         description = ""
         properties = {
@@ -95,7 +94,6 @@ class BaseModel:
 
         state = "desc"
         for line in lines:
-            line = line.strip()
             if not line:
                 continue
 
@@ -140,109 +138,74 @@ class BaseModel:
             },
         }
 
-
-    def format_tools_for_prompt(self) -> str:
+    @staticmethod
+    def format_tools_for_prompt(tool_registry: Optional[ToolRegistry]) -> str:
         """
         Constructs the system access manual using a generic protocol.
         Safely handles missing keys for legacy or hardcoded tool schemas.
         """
-        if not self.tool_registry:
+        if not tool_registry:
             return ""
             
-        all_tools = self.tool_registry.get_all_tools()
+        all_tools = tool_registry.get_all_tools()
         if not all_tools:
             return ""
 
         manual = "\n\n[PROTOCOL: SYSTEM ACCESS]\n"
-        manual += "CRITICAL: You must use the ____@tool: YAML protocol. Do not use JSON.\n\n"
-        
         for name, ref in all_tools.items():
-            schema = self._parse_docstring_to_schema(name, ref) if callable(ref) else ref
+            # If ref is a callable, parse it. If it's already a dict, use it directly.
+            schema = (
+                BaseModel._parse_docstring_to_schema(name, ref) if callable(ref) else ref
+            )
             
+            # Use .get() to safely handle missing 'returns' or 'description' keys
             f_name = schema.get('name', name)
             f_desc = schema.get('description', 'No description provided.')
+            f_returns = schema.get('returns', 'Standard status dictionary.')
+            f_params = json.dumps(schema.get('parameters', {}))
             
-            manual += f"TOOL: {f_name}\n"
-            manual += f"  DESCRIPTION: {f_desc}\n"
-            manual += f"  ARGUMENTS:\n"
-            
-            # Extract parameters from the schema
-            params = schema.get('parameters', {}).get('properties', {})
-            required = schema.get('parameters', {}).get('required', [])
-            
-            if not params:
-                manual += "    None required.\n"
-            else:
-                for p_name, p_info in params.items():
-                    req_star = "*" if p_name in required else ""
-                    p_type = p_info.get('type', 'any')
-                    p_desc = p_info.get('description', '')
-                    manual += f"    - {p_name}{req_star} ({p_type}): {p_desc}\n"
-            
-            manual += "\n"
-        # manual += (
-        #     "\n[CRITICAL RULE: TOOL CALLING]\n"
-        #     "1. You have NO direct access to the environment or system state unless you use a tool.\n"
-        #     "2. To use a tool, you MUST output: ____@tool call:name{\"intent\":\"your reasoning\", \"param_name\":\"value\"}\n"
-        #     "3. DO NOT use XML tags or alternate markers. Only ____@tool is valid.\n"
-        #     "4. Stop writing immediately after the tool call closing brace.\n"
-        #     "5. Only call ONE tool per response turn.\n"
-        # )
+            manual += f"Function: {f_name} | Desc: {f_desc} | Returns: {f_returns} | Schema: {f_params}\n"
+        
+        manual += (
+            "\n[CRITICAL RULE: TOOL CALLING]\n"
+            "1. You have NO direct access to the environment or system state unless you use a tool.\n"
+            "2. To use a tool, you MUST output: ____@tool call:name{\"intent\":\"your reasoning\", \"param_name\":\"value\"}\n"
+            "3. DO NOT use XML tags or alternate markers. Only ____@tool is valid.\n"
+            "4. Stop writing immediately after the tool call closing brace.\n"
+            "5. Only call ONE tool per response turn.\n"
+        )
         return manual
 
     def parse_manual_tags(self, text: str):
-        """
-        Hyper-robust parser using explicit boundary markers.
-        Waits for the '____@tool_end' token before triggering.
-        """
-        import functions as func
+        """Standardized regex parser for catching tool triggers in the stream."""
         
-        # --- PROTOCOL 1: YAML SENTINEL (The Strict Boundary Method) ---
-        # The regex now waits for the exact closing token on a new line
-        yaml_pattern = r"____@tool:\s*(\w+)\s*\n(.*?)\n____@tool_end"
-        yaml_match = re.search(yaml_pattern, text, re.DOTALL)
+        # Matches J.A.R.V.I.S. tags AND Gemma's <|tool_call> artifacts
+        pattern = r"(?:____@tool|____@|<\|?tool_call\|?>)\s*(?:call:)?(\w+)\s*(\{.*?\})"
+        match = re.search(pattern, text, re.DOTALL)
         
-        if yaml_match:
-            name = yaml_match.group(1).strip()
-            body = yaml_match.group(2).strip()
+        if match:
+            name, raw_args = match.group(1), match.group(2)
+            
+            # 1. Clean Gemma's weird quote artifacts
+            clean_args = raw_args.replace('<|"|>', '"').replace('<|"', '"').replace('"|>', '"')
+            
+            # 2. Fix unquoted JSON keys (e.g., {content: "..."} -> {"content": "..."})
+            clean_args = re.sub(r'([{,]\s*)([a-zA-Z0-9_]+)\s*:', r'\1"\2":', clean_args)
             
             try:
-                # Clean out the INTENT key for the YAML parser
-                body_no_intent = re.sub(r'^INTENT:.*?\n', '', body, flags=re.MULTILINE | re.IGNORECASE)
-                clean_block = textwrap.dedent(body_no_intent)
-                full_data = yaml.safe_load(clean_block) or {}
+                # 3. Use strict=False to forgive literal newlines inside strings
+                parsed_args = json.loads(clean_args, strict=False)
                 
-                # Normalize keys
-                actual_args = full_data.get('ARGS', full_data) if isinstance(full_data, dict) else {}
-                normalized_args = {k.lower(): v for k, v in actual_args.items()}
-
-                func.log(f"SENTINEL SUCCESS: '{name}' envelope closed and parsed.", level="DEBUG")
-                return {"type": "function_call", "name": name, "args": normalized_args}
+                # Pop the 'intent' key so it doesn't crash Python functions
+                if isinstance(parsed_args, dict) and "intent" in parsed_args:
+                    del parsed_args["intent"]
+                    
+                return {"type": "function_call", "name": name, "args": parsed_args}
             except Exception as e:
-                func.log(f"YAML PARSE ERROR on closed envelope: {e}", level="ERROR")
-                return None
-
-        # --- PROTOCOL 2: GEMMA/LEGACY JSON (Fallback) ---
-        # Still catches the model if it regresses to its pre-trained <|tool_call|> tags
-        legacy_pattern = r"<\|tool_call>call:(\w+)(\{.*?\})(?:<tool_call\|>|\Z)"
-        legacy_match = re.search(legacy_pattern, text, re.DOTALL)
-
-        if legacy_match:
-            name = legacy_match.group(1).strip()
-            raw_json = legacy_match.group(2).strip()
-
-            if not raw_json.endswith("}"):
-                return None
-
-            try:
-                # Surgical repair of Gemma artifacts
-                clean_json = raw_json.replace('<|"|>', '"').replace('<|"', '"').replace('"|>', '"')
-                args = json.loads(clean_json)
-                func.log(f"SENTINEL: Legacy Regression caught for '{name}'", level="WARNING")
-                return {"type": "function_call", "name": name, "args": args}
-            except Exception as e:
-                return None
-
+                import functions as func
+                func.log(f"DEBUG: JSON parse fallback triggered for {name}. Error: {e}", level="DEBUG")
+                return {"type": "function_call", "name": name, "args": {"raw": raw_args}}
+                
         return None
     
     def handle_sentinel(self, content: str, is_intercepting: bool, sentinel_buffer: str):

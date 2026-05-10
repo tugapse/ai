@@ -52,6 +52,8 @@ class Program:
         self.llm_initialized = False
         self.tool_registry = ToolRegistry()
         self.vector_memory : Optional[VectorMemory] = None
+        self._active_tools_system_prompt = ""
+
 
     @property
     def llm(self) -> Optional[BaseModel]:
@@ -112,16 +114,14 @@ class Program:
         load_and_register_user_tools(self.tool_registry, user_tools_dir)
         self._load_vector_memory()
         
-        if self.models and self.models.llm:
-            tool_rules = self.models.llm.format_tools_for_prompt()
-            if tool_rules:
-                self.models.llm.system_prompt += tool_rules # type: ignore
-                func.log("Program: Dynamic tool protocol injected into System Prompt.", level="DEBUG")
+        if self.models:
+            self._active_tools_system_prompt = BaseModel.format_tools_for_prompt(self.tool_registry)
+            func.log(f"Program: Dynamic tool protocol injected into System Prompt. {self._active_tools_system_prompt}", level="DEBUG")
     
     def _load_vector_memory(self):
         if self.modules and (vector_memory := self.modules['vector_memory']):
             vector_memory.initialize("chat_db", self.llm)
-            self.vector_memory: VectorMemory = vector_memory.get_instance()
+            self.vector_memory = vector_memory.get_instance()
             tools = self.vector_memory.tools.get_tools()
             for name, tool_ref in tools.items(): 
                 self.tool_registry.register_tool(name, tool_ref)
@@ -257,13 +257,13 @@ class Program:
     # --- CORE UTILITIES ---
 
     def _ensure_llm_loaded(self) -> None:
+        system_file = self.config.get(ProgramSetting.SYSTEM_PROMPT_FILE)
+        system_prompt = PromptLoader.load_system_prompt(self.config, system_file) + self._active_tools_system_prompt
+        
         if not self.llm_initialized:
             func.log("Program: Lazily loading LLM...", level="DEBUG")
             if self.models is None:
                 self.models = ModelOrchestrator(self.config)
-
-            system_file = self.config.get(ProgramSetting.SYSTEM_PROMPT_FILE)
-            system_prompt = PromptLoader.load_system_prompt(self.config, system_file)
 
             self.models.load(
                 self.config.get(ProgramSetting.MODEL_CONFIG_NAME), system_prompt,
@@ -271,6 +271,10 @@ class Program:
             )
             self.llm_initialized = True
             func.log("Program: LLM loaded.", level="DEBUG")
+        elif self.models and self.models.llm:
+            self.models.llm.system_prompt = system_prompt
+
+
 
     def _handle_agent_run_requested(self, prompt: str) -> None:
         if not self.agent:

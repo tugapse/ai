@@ -270,7 +270,7 @@ def debug(text, start_line="[ # ]",  level="DEBUG", **kargs):
         sys.stdout.flush()
 
 
-def out(text,  level="INFO", **kargs):
+def out(text,  level="", **kargs):
     """
     Prints output message to stdout, respecting PRINT_OUTPUT setting.
     """
@@ -286,5 +286,7 @@ def get_formatted_text(text, level="INFO", start_line="[ * ]"):
         formatted_text = f"{Color.YELLOW}{start_line}{Color.RESET} {text}"
     elif level == "DEBUG":
         formatted_text = f"{Color.BRIGHT_CYAN}{start_line}{Color.RESET} {text}"
+    elif level == "INFO":
+        formatted_text = f"{Color.NORMAL_CYAN}{start_line}{Color.RESET} {text}"
     return formatted_text
         
