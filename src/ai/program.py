@@ -106,11 +106,11 @@ class Program:
         for name, tool_ref in AVAILABLE_TOOLS.items():
             self.tool_registry.register_tool(name, tool_ref)
         
-        self._load_vector_memory()
 
         func.log("Loading User tools into Jarvis system")
         user_tools_dir = os.path.join(func.get_root_directory(), "tools")
         load_and_register_user_tools(self.tool_registry, user_tools_dir)
+        self._load_vector_memory()
         
         if self.models and self.models.llm:
             tool_rules = self.models.llm.format_tools_for_prompt()

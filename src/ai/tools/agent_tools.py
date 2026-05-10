@@ -18,18 +18,33 @@ def tool(func):
     return func
 
 # --- INTERNAL HELPERS & NOTIFICATIONS ---
-
-
 def _resolve_path(params: Dict[str, Any]) -> str:
+    """
+    Resolves a path with strict type-safety to prevent 'normalize' crashes.
+    """
+    # 1. Extraction with fallback
     raw_path = params.get("path") or params.get("filepath") or params.get("location") or "."
+
+    # 2. Resilience: If the LLM sent a list or a nested dictionary by mistake
+    if isinstance(raw_path, list) and len(raw_path) > 0:
+        raw_path = raw_path[0]
+    elif isinstance(raw_path, dict):
+        # Extract the first string value found in the dict, or default to root
+        raw_path = next((v for v in raw_path.values() if isinstance(v, str)), ".")
+
+    # 3. Type Enforcement: Ensure we have a string before calling .replace() or os.path
+    if not isinstance(raw_path, str):
+        raw_path = str(raw_path) if raw_path is not None else "."
+
+    # 4. Normalization
     normalized = raw_path.replace("@ROOT/", "").replace("@ROOT", ".")
     absolute_target = os.path.abspath(os.path.join(PROJECT_ROOT, normalized))
 
+    # 5. Security Check
     if not absolute_target.startswith(os.path.abspath(PROJECT_ROOT)):
         raise PermissionError(f"Access denied: {raw_path} is outside project boundaries.")
     
     return absolute_target
-
 
 def _sanitize_output_path(full_path: str) -> str:
     """Converts absolute system paths back into the @ROOT format."""
@@ -44,7 +59,6 @@ def _sanitize_output_path(full_path: str) -> str:
     except:
         return "@ROOT/unknown"
 
-
 def ensure_list(input_val: Any) -> List[str]:
     """Helper to ensure input is a list."""
     if isinstance(input_val, list):
@@ -53,7 +67,6 @@ def ensure_list(input_val: Any) -> List[str]:
         cleaned = input_val.strip()
         if cleaned.startswith("'") and cleaned.endswith("'"):
             cleaned = cleaned[1:-1]
-            func.debug("Hacked '_ensure_list' input, has 2 extra ' characters.", level="DEBUG")
         if cleaned.startswith("[") and cleaned.endswith("]"):
             try:
                 return json.loads(cleaned)
@@ -62,9 +75,7 @@ def ensure_list(input_val: Any) -> List[str]:
         return [cleaned]
     return []
 
-
 # --- CORE SYSTEM TOOLS ---
-
 
 def execute_command(**kwargs) -> Dict[str, Any]:
     """
@@ -73,12 +84,10 @@ def execute_command(**kwargs) -> Dict[str, Any]:
     Use the '@ROOT' token in commands to refer to the absolute path of the project base directory.
     
     Args:
+        intent (str): Clear reasoning of why this tool is being called and the expected outcome. Required.
         command (str): The raw shell command to execute. Required.
-        path (str, optional): The directory path to run the command in. Defaults to '@ROOT'.
-        timeout (int, optional): Maximum execution time in seconds. Defaults to 60.
-        
-    Returns:
-        Dict: Contains 'status', 'stdout', 'stderr', 'returncode', and the formatted 'command'.
+        path (str): The directory path to run the command in. Defaults to '@ROOT'.
+        timeout (int): Maximum execution time in seconds. Defaults to 60.
     """
     command = kwargs.get("command")
     if not command:
@@ -107,23 +116,18 @@ def execute_command(**kwargs) -> Dict[str, Any]:
     except Exception as e:
         result = {"status": "FAILED", "error": str(e)}
 
-    func.debug(f"execute_command: status={result['status']}, ret_code={result.get('returncode')}, stdout_len={len(result.get('stdout', ''))}")
     return result
-
-
-# --- FILESYSTEM & RESEARCH TOOLS ---
-
 
 def read_dir(**kwargs) -> Dict[str, Any]:
     """
     Explores one or more directories and returns a mapped structure of their files and folders.
-    Use the '@ROOT' token in commands to refer to the absolute path of the project base directory.
+    
+    Use the '@ROOT' token to refer to the absolute path of the project base directory.
+    
     Args:
-        paths (str | List[str], optional): A single path string or a list of paths to inspect. Defaults to '@ROOT'.
-        depth (int, optional): How many levels deep to recursively list folders. Defaults to 0 (current directory only).
-        
-    Returns:
-        Dict: Contains a 'results' map detailing 'files' and 'folders' for each requested path.
+        intent (str): Clear reasoning of why this tool is being called and the expected outcome. Required.
+        paths (str | List[str]): A single path string or a list of paths to inspect. Defaults to '@ROOT'.
+        depth (int): How many levels deep to recursively list folders. Defaults to 0 (current directory only).
     """
     try:
         path_input = kwargs.get("paths", kwargs.get("path", "@ROOT"))
@@ -147,20 +151,13 @@ def read_dir(**kwargs) -> Dict[str, Any]:
                     res["folders"][d] = "[Sub-entries hidden. Increase depth to see.]"
             return res
 
-        total_files = 0
-        total_folders = 0
-
         for p in paths:
             try:
                 target = _resolve_path({"path": p})
                 if not os.path.isdir(target):
-                    # This is a common error case that should be handled gracefully
                     raise FileNotFoundError(f"No such directory: '{p}'")
                 structure = get_structure(target, depth)
                 results[_sanitize_output_path(target)] = structure
-                
-                total_files += len(structure["files"])
-                total_folders += len(structure["folders"])
             except Exception as e:
                 results[p] = f"ERROR: {str(e)}"
                 had_errors = True
@@ -171,46 +168,36 @@ def read_dir(**kwargs) -> Dict[str, Any]:
                 error_summary = next(iter(results.values()))
             return {"status": "FAILED", "error": error_summary, "results": results}
 
-        result = {"status": "SUCCESS", "results": results}
-        func.debug(f"read_dir: status=SUCCESS, paths_mapped={list(results.keys())}, items_found=(files:{total_files}, folders:{total_folders})")
-        return result
+        return {"status": "SUCCESS", "results": results}
     except Exception as e:
         return {"status": "FAILED", "error": str(e)}
-
 
 def read_file(**kwargs) -> Dict[str, Any]:
     """
     Retrieves the full UTF-8 text content of one or more specific files.
-    Use the '@ROOT' token in commands to refer to the absolute path of the project base directory.
+    
     Args:
-        paths (str | List[str] REQUIRED): A single file path or a list of file paths to read. Required.
-        
-    Returns:
-        Dict: A mapping of each sanitized file path to its string content.
+        intent (str): Clear reasoning of why this tool is being called and the expected outcome. Required.
+        paths (str | List[str]): A single file path or a list of file paths to read. Required.
     """
     try:
         path_input = kwargs.get("paths", kwargs.get("path", []))
         paths = ensure_list(path_input)
         
         results = {}
-        debug_info = []
         had_errors = False
 
         for p in paths:
             try:
                 full_path = _resolve_path({"path": p})
                 if not os.path.isfile(full_path):
-                     # This covers both non-existent files and directories passed as files
                     raise FileNotFoundError(f"No such file: '{p}'")
                 with open(full_path, "r", encoding="utf-8") as f:
                     content = f.read()
                     sanitized_path = _sanitize_output_path(full_path)
                     results[sanitized_path] = content
-                    debug_info.append(f"{sanitized_path} ({len(content)} chars)")
             except Exception as e:
-                func.error(f"Error reading path '{p}': {e}")
                 results[p] = f"FAILED: {str(e)}"
-                debug_info.append(f"{p} (FAILED)")
                 had_errors = True
         
         if had_errors:
@@ -219,60 +206,42 @@ def read_file(**kwargs) -> Dict[str, Any]:
                 error_summary = next(iter(results.values()))
             return {"status": "FAILED", "error": error_summary, "files": results}
 
-        result = {
-            "status": "SUCCESS",
-            "files": results,
-        }
-        
-        func.debug(f"read_file: status=SUCCESS, files_loaded=[{', '.join(debug_info)}]")
-        return result
-
+        return {"status": "SUCCESS", "files": results}
     except Exception as e:
-        func.error(f"read_file execution failed: {e}")
         return {"status": "FAILED", "error": str(e)}
-    
-    
+
 def write_file(**kwargs) -> Dict[str, Any]:
     """
     Creates a new file or overwrites an existing file with the provided text content.
     Automatically creates necessary parent directories.
-    Use the '@ROOT' token in commands to refer to the absolute path of the project base directory.
+    
     Args:
+        intent (str): Clear reasoning of why this tool is being called and the expected outcome. Required.
         path (str): The destination file path to write to. Required.
-        content (str): The raw text or code to write into the file. Required.
-        
-    Returns:
-        Dict: Status dictionary indicating success and the sanitized file path.
+        content (str): The raw text or code to write into the file. MANDATORY: Use the YAML pipe (|) for all multi-line content. Required.
     """
     try:
         full_path = _resolve_path(kwargs)
-        
         content = kwargs.get("content") or ""
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
         with open(full_path, "w", encoding="utf-8") as f:
             f.write(content)
         sanitized = _sanitize_output_path(full_path)
-        
-        result = {"status": "SUCCESS", "path": sanitized}
-        func.debug(f"write_file: status=SUCCESS, path={sanitized}, content_len={len(content)}")
-        return result
+        return {"status": "SUCCESS", "path": sanitized}
     except Exception as e:
         return {"status": "FAILED", "error": str(e)}
-
 
 def smart_search(**kwargs) -> Dict[str, Any]:
     """
     Searches for a keyword or regex pattern within filenames and file contents.
-    Automatically paginates large results to prevent context window overflow (50 items per page).
-    Use the '@ROOT' token in commands to refer to the absolute path of the project base directory.
+    Paginates results to prevent context window overflow (50 items per page).
+    
     Args:
-        path (str, optional): The base directory to search within. Defaults to '@ROOT'.
+        intent (str): Clear reasoning of why this tool is being called and the expected outcome. Required.
         pattern (str): The search keyword or regex pattern to look for. Required.
-        exclude_dirs (List[str], optional): Additional directory names to ignore during the search.
-        page (int, optional): The page number for paginated results. Defaults to 1.
-        
-    Returns:
-        Dict: Contains pagination metadata, a list of matched filenames, and matched content lines.
+        path (str): The base directory to search within. Defaults to '@ROOT'.
+        exclude_dirs (List[str]): Additional directory names to ignore during the search.
+        page (int): The page number for paginated results. Defaults to 1.
     """
     import re
     import math
@@ -365,7 +334,7 @@ def smart_search(**kwargs) -> Dict[str, Any]:
         if page < total_pages:
             paginated_content.append(f"... [End of Page {page}. Call tool again with page={page + 1} to see more] ...")
 
-        result = {
+        return {
             "status": "SUCCESS",
             "pagination": {
                 "current_page": page,
@@ -376,26 +345,18 @@ def smart_search(**kwargs) -> Dict[str, Any]:
             "matched_filenames": paginated_filenames,
             "matched_content": paginated_content
         }
-        func.debug(f"smart_search: status=SUCCESS, pattern='{raw_pattern}', file_matches={total_file_matches}, content_matches={total_content_matches}")
-        return result
-
     except Exception as e:
-        func.error(f"smart_search failed: {e}")
         return {"status": "FAILED", "error": str(e)}
-    
-    
+
 def patch_file(**kwargs) -> Dict[str, Any]:
     """
     Surgically replaces a specific block of text within a file without overwriting the entire file.
-    The 'search' block must match the text currently residing in the file.
-    Use the '@ROOT' token in commands to refer to the absolute path of the project base directory.
+    
     Args:
-        path (str): The exact path to the file you want to modify. Required.
-        search (str): The string block currently in the file to find. Required.
-        replace (str): The new string block to insert in its place. Required.
-        
-    Returns:
-        Dict: Contains the unified diff summary of the patch applied to the file.
+        intent (str): Clear reasoning of why this tool is being called and the expected outcome. Required.
+        path (str): The exact path to the file to modify. Required.
+        search (str): The exact string block currently in the file to find. MANDATORY: Use the YAML pipe (|). Required.
+        replace (str): The new string block to insert. MANDATORY: Use the YAML pipe (|). Required.
     """
     try:
         full_path = _resolve_path(kwargs)
@@ -411,28 +372,17 @@ def patch_file(**kwargs) -> Dict[str, Any]:
         with open(full_path, "r", encoding="utf-8") as f:
             content = f.read()
 
-        # Normalize line endings
         content_normalized = content.replace("\r\n", "\n")
         search_normalized = search_block.replace("\r\n", "\n")
         replace_normalized = replace_block.replace("\r\n", "\n")
 
         if search_normalized not in content_normalized:
-            return {
-                "status": "FAILED", 
-                "error": "The 'search' block was not found. Ensure exact indentation and adequate context to find a unique match."
-            }
+            return {"status": "FAILED", "error": "The 'search' block was not found. Check indentation."}
 
-        # GUARDRAIL: Prevent replacing the wrong block if the search is too generic
         if content_normalized.count(search_normalized) > 1:
-            return {
-                "status": "FAILED",
-                "error": "The 'search' block matched multiple times. Please include more surrounding context lines to make it unique."
-            }
+            return {"status": "FAILED", "error": "The 'search' block is not unique. Provide more context."}
 
-        # Apply the patch
         new_content = content_normalized.replace(search_normalized, replace_normalized, 1)
-
-        # Generate a useful diff
         diff = list(difflib.unified_diff(
             content_normalized.splitlines(), new_content.splitlines(),
             fromfile="original", tofile="patched", lineterm=""
@@ -441,17 +391,13 @@ def patch_file(**kwargs) -> Dict[str, Any]:
         with open(full_path, "w", encoding="utf-8") as f:
             f.write(new_content)
 
-        sanitized = _sanitize_output_path(full_path)
-
         return {
             "status": "SUCCESS",
-            "path": sanitized,
+            "path": _sanitize_output_path(full_path),
             "diff_summary": "\n".join(diff[:15]) + ("\n..." if len(diff) > 15 else ""),
         }
-        
     except Exception as e:
         return {"status": "FAILED", "error": str(e)}
-
 
 # --- REGISTRY ---
 AVAILABLE_TOOLS = {
@@ -461,5 +407,4 @@ AVAILABLE_TOOLS = {
     "patch_file": patch_file,
     "execute_command": execute_command,
     "smart_search": smart_search,
-    
 }
