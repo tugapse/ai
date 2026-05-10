@@ -6,6 +6,7 @@ from services.engine_manager import EngineManager
 from core.llms.base_llm import ModelParams, BaseModel
 from services.config_helper import ProgramConfig, ProgramSetting
 import functions as func
+from tools.tool_registry import ToolRegistry
 
 class ModelOrchestrator:
 
@@ -18,7 +19,7 @@ class ModelOrchestrator:
         self.llm:Optional[BaseModel] = None
 
 
-    def load(self, model_config_name: str, system_prompt: str) -> BaseModel:
+    def load(self, model_config_name: str, system_prompt: str, tool_registry:Optional[ToolRegistry] = None) -> BaseModel:
         if not model_config_name:
             model_config_name = "default.json"
             
@@ -42,7 +43,8 @@ class ModelOrchestrator:
 
             self.llm = EngineManager.load_model_instance(
                 model_config=model_config_data,
-                system_prompt=system_prompt
+                system_prompt=system_prompt,
+                tool_registry=tool_registry
             )
 
             if not self.llm:

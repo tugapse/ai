@@ -10,6 +10,7 @@ import functions as func
 from entities.model_enums import ModelType, EngineType
 
 from core.llms.base_llm import ModelParams, BaseModel
+from tools.tool_registry import ToolRegistry
 
 class EngineManager:
     """
@@ -124,7 +125,8 @@ class EngineManager:
     @staticmethod
     def load_model_instance(
         model_config: dict,
-        system_prompt: str
+        system_prompt: str,
+        tool_registry:Optional[ToolRegistry]
     ) -> BaseModel:
         """
         Loads and instantiates an LLM model based on the provided model configuration dictionary.
@@ -155,15 +157,16 @@ class EngineManager:
 
         func.log(f"Selected model: {model_name} (Type: {model_type.value})") 
         quantization_bits = model_properties.get("quantization_bits", 0)
-        override_system_by_user_template = model_properties.get("override_system_by_user_template", False)
      
         model_params = ModelParams(**model_properties ).to_dict()
 
         other_llm_kwargs = {k: v for k, v in model_properties.items()
                             if k not in ["quantization_bits", "n_ctx", "n_gpu_layers", "verbose",
                                          "gguf_filename", "model_repo_id", "do_sample",
-                                         "override_system_by_user_template", "azure_endpoint","api_key_name"]
+                                          "azure_endpoint","api_key_name"]
                            }
+        if tool_registry : 
+            other_llm_kwargs['tool_registry'] = tool_registry
 
         llm_instance: Optional[BaseModel] = None
         try:
@@ -174,21 +177,9 @@ class EngineManager:
                     system_prompt=system_prompt,
                     quantization_bits=quantization_bits,
                     model_params=model_params,
-                    override_system_by_user_template=override_system_by_user_template,
                     **other_llm_kwargs
                 )
                 func.log(f"Model '{model_name}' loaded as a Causal Language Model (HuggingFace).") 
-            elif model_type == ModelType.SEQ2SEQ_LM:
-                from core.llms.t5_model import T5Model
-                llm_instance = T5Model(
-                    model_name=model_name,
-                    system_prompt=system_prompt,
-                    quantization_bits=quantization_bits,
-                    model_params=model_params,
-                    override_system_by_user_template=override_system_by_user_template,
-                    **other_llm_kwargs
-                )
-                func.log(f"Model '{model_name}' loaded as a Seq2Seq Language Model (T5-type).") 
             elif model_type == ModelType.OLLAMA:
                 from core.llms.ollama_model import OllamaModel
 
@@ -196,7 +187,6 @@ class EngineManager:
                     model_name=model_name,
                     system_prompt=system_prompt,
                     model_params=model_params,
-                    override_system_by_user_template=override_system_by_user_template,
                     **other_llm_kwargs
                 )
                 func.log(f"Model '{model_name}' loaded as an Ollama Model.") 
@@ -229,7 +219,6 @@ class EngineManager:
                     n_ctx=n_ctx,
                     verbose=verbose,
                     model_params=model_params,
-                    override_system_by_user_template=override_system_by_user_template,
 
                     **other_llm_kwargs
                 )
@@ -240,7 +229,6 @@ class EngineManager:
                     model_name=model_name,
                     system_prompt=system_prompt,
                     model_params=model_params,
-                    override_system_by_user_template=override_system_by_user_template,
                     use_vertex=other_llm_kwargs.get("vertex_ai", False),
                     **other_llm_kwargs
                 )
@@ -251,7 +239,6 @@ class EngineManager:
                     model_name=model_name,
                     system_prompt=system_prompt,
                     model_params=model_params,
-                    override_system_by_user_template=override_system_by_user_template,
 
                     **other_llm_kwargs
                 )
