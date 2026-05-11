@@ -58,7 +58,7 @@ class ModuleRegistry:
             return None
             
         from modules.voice.vibe_module import VibeVoiceModule
-        voice = VibeVoiceModule() 
+        voice = VibeVoiceModule( voice_file=self.config.get(ProgramSetting.VOICE_FILE), volume=1.5) 
         voice.preload() 
         return voice
 
