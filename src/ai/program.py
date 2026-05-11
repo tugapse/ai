@@ -46,9 +46,6 @@ class Program:
         self.output_filename = None
         self.active_executor = None
         self.agent = None
-        self.modules = None
-        self.history = None
-        self.models = None
         self.llm_initialized = False
         self.tool_registry = ToolRegistry()
         self.vector_memory : Optional[VectorMemory] = None
@@ -76,11 +73,11 @@ class Program:
     # --- INITIALIZATION LOGIC ---
 
     def load_config(self, args=None):
-        self.config = ProgramConfig.load(args=args)
-        self.models = ModelOrchestrator(self.config)
-        self.history = HistoryManager(self.chat)
-        self.modules = ModuleRegistry(self.config)
-        self.ui = UIOrchestrator(self.config)
+        self.config: ProgramConfig = ProgramConfig.load(args=args)
+        self.models : ModelOrchestrator= ModelOrchestrator(self.config)
+        self.history : HistoryManager = HistoryManager(self.chat)
+        self.modules : ModuleRegistry = ModuleRegistry(self.config)
+        self.ui  = UIOrchestrator(self.config)
 
     def init_config(self, args):
         """Processes CLI arguments and enables modules."""
@@ -123,7 +120,7 @@ class Program:
         if self.modules and (vector_memory := self.modules['vector_memory']):
             vector_memory.initialize("chat_db", self.llm)
             self.vector_memory = vector_memory.get_instance()
-            tools = self.vector_memory.tools.get_tools()
+            tools = self.vector_memory.tools.get_tools() if self.vector_memory else {}
             for name, tool_ref in tools.items(): 
                 self.tool_registry.register_tool(name, tool_ref)
 
@@ -153,6 +150,9 @@ class Program:
         """Handles the continuous 'Thought-Action' cycle until completion."""
         step_count = 0
         MAX_STEPS_BEFORE_WARNING = 5
+        
+        if not self.llm: 
+            raise ValueError("LLM not initialized")
 
         while True:
             step_count += 1
@@ -165,7 +165,7 @@ class Program:
 
             if stream_result.interrupted:
                 func.log("\nProgram: LLM stream interrupted by user. Signaling stop.", level="INFO")
-                self.llm.request_shutdown()
+                if self.llm: self.llm.request_shutdown()
                 self.chat.current_message = "[Generation interrupted by user]"
                 break
 
@@ -273,6 +273,8 @@ class Program:
                 self.tool_registry
             )
             self.llm_initialized = True
+            # print(system_prompt)
+            # exit()
             func.log("Program: LLM loaded.", level="DEBUG")
         elif self.models and self.models.llm:
             self.models.llm.system_prompt = system_prompt

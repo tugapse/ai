@@ -19,8 +19,7 @@ from color import Color
 from cli_args import CliArgs 
 
 __version__ = "3.1.1"
- # logo uses cyan for the brand, and we'll keep the description clean
-logo = f"""{Color.CYAN}
+__logo = f"""{Color.CYAN}
       ██╗  █████╗  ██████╗  ██╗   ██╗ ██╗ ███████╗      █████╗  ██╗
       ██║ ██╔══██╗ ██╔══██╗ ██║   ██║ ██║ ██╔════╝     ██╔══██╗ ██║
       ██║ ███████║ ██████╔╝ ██║   ██║ ██║ ███████╗     ███████║ ██║
@@ -83,7 +82,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
 """
 
     parser = argparse.ArgumentParser(
-        description=logo+description,
+        description=__logo+description,
         formatter_class=JarvisHelpFormatter,
         usage=f"{Color.CYAN}ai{Color.RESET} [OPTIONS]",
         add_help=False,
@@ -166,7 +165,7 @@ def run():
 
     signal.signal(signal.SIGINT, shutdown_handler)
     signal.signal(signal.SIGTERM, shutdown_handler)
-    func.log(f"\n{logo}" , start_line="")
+    func.log(f"\n{__logo}" , start_line="")
 
     try:
         prog.load_config(args=args) 
@@ -191,6 +190,7 @@ def run():
             
             sys.exit(0) 
         prog.init_config(args=args)
+
         prog.init_program()         
         cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
         
