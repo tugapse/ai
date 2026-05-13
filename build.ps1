@@ -12,6 +12,7 @@ if (Test-Path $activationScript) {
     Write-Error "Virtual environment activation script not found at '$activationScript'. Please ensure the .venv is set up correctly."
     exit 1
 }
+$instalerScript = Join-Path $PSScriptRoot "scripts\dependency_installer.py"
 
 # Run the dependency installer
 python dependency_installer.py
