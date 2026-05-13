@@ -1,5 +1,5 @@
 from color import Color
-from response_parser import ResponseParser
+from xml_response_parser import ResponseParser
 import re
 import xml.etree.ElementTree as ET
 from typing import Dict, Any, List
