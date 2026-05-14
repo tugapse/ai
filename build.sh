@@ -34,7 +34,7 @@ echo -e "${CYAN}○${NC} Synchronizing dependencies..."
 # Suppressing logs for the installer and the python execution
 # We redirect both stdout and stderr to /dev/null
 if python3 -m pip install --upgrade pip > /dev/null 2>&1 && \
-   python3 "$FOLDER/dependency_installer.py" > /dev/null 2>&1; then
+   python3 "$FOLDER/dependency_installer.py"; then
     echo -e "${GREEN}✔${NC} System dependencies synchronized."
 else
     echo -e "${BOLD}${CYAN}✖${NC} Synchronization failed. Check logic manually."
