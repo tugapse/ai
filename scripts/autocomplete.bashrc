@@ -10,28 +10,49 @@ _ai_completion() {
     COMPREPLY=()
     local flags_and_options=""
 
-    # List all main flags and options
+    # 1. Cognitive Protocols
+    flags_and_options+="--help -h "
+    flags_and_options+="--version -v "
     flags_and_options+="--msg -m "
     flags_and_options+="--model -md "
     flags_and_options+="--system -s "
     flags_and_options+="--system-file -sf "
     flags_and_options+="--list-models -l "
+
+    # 2. Asset & Context Management
     flags_and_options+="--file -f "
     flags_and_options+="--image -i "
     flags_and_options+="--load-folder -D "
     flags_and_options+="--ext -e "
+
+    # 3. Autonomous Operations
+    flags_and_options+="--agent "
     flags_and_options+="--task -t "
     flags_and_options+="--task-file -tf "
+    flags_and_options+="--pipeline -ppl "
+    flags_and_options+="--session-id "
     flags_and_options+="--output-file -o "
-    flags_and_options+="--auto-task -at "
+
+    # 4. Distributed Architecture
+    flags_and_options+="--server "
+    flags_and_options+="--remote -r "
+    flags_and_options+="--modules "
+
+    # 5. System Debug & Maintenance
     flags_and_options+="--print-chat -p "
-    flags_and_options+="--no-think-anim "
     flags_and_options+="--print-log -pl "
     flags_and_options+="--print-debug -pdb "
     flags_and_options+="--no-out -q "
+    flags_and_options+="--no-think-anim -nta "
     flags_and_options+="--debug-console -dc "
+    flags_and_options+="--install "
+    flags_and_options+="--overwrite-config "
+    flags_and_options+="--create-tool "
+
+    # 6. Model Generation
     flags_and_options+="--generate-config "
     flags_and_options+="--model-type "
+
 
     # Check if the current word starts with a dash to suggest flags
     if [[ "${cur}" == -* ]]; then
@@ -42,31 +63,37 @@ _ai_completion() {
     # Handle specific argument completions
     case "${prev}" in
         --model-type)
-            options="causal_lm ollama gguf"
+            # As per main.py, choices are from ModelType enum. Assuming these are the values.
+            options="causal_lm ollama gguf gemini openai"
             COMPREPLY=( $(compgen -W "${options}" -- "${cur}") )
             return
             ;;
         --task|-t)
-            options="$(ls "$AI_ASSISTANT_DIRECTORY/task" | grep .md | sed 's/\.md//' | tr "\n"  " " )"
+            options="$(ls "$AI_ASSISTANT_DIRECTORY/task" 2>/dev/null | grep .md | sed 's/\\.md//' | tr "\\n"  " " )"
             COMPREPLY=( $(compgen -W "${options}" -- "${cur}") )
             return
             ;;
         --model|-md)
-            options="$(ls "$AI_ASSISTANT_DIRECTORY/model-config" | grep .json | sed 's/\.json//' | tr "\n"  " " )"
+            options="$(ls "$AI_ASSISTANT_DIRECTORY/model-config" 2>/dev/null | grep .json | sed 's/\\.json//' | tr "\\n"  " " )"
+            COMPREPLY=( $(compgen -W "${options}" -- "${cur}") )
+            return
+            ;;
+        --pipeline)
+            options="$(ls "$AI_ASSISTANT_DIRECTORY/pipelines" 2>/dev/null | grep .json | sed 's/\\.json//' | tr "\\n"  " " )"
             COMPREPLY=( $(compgen -W "${options}" -- "${cur}") )
             return
             ;;
         --system|-s)
-            options="$(ls "$AI_ASSISTANT_DIRECTORY/system" | grep .md | sed 's/\.md//' | tr "\n"  " " )"
+            options="$(ls "$AI_ASSISTANT_DIRECTORY/system" 2>/dev/null | grep .md | sed 's/\\.md//' | tr "\\n"  " " )"
             COMPREPLY=( $(compgen -W "${options}" -- "${cur}") )
             return
             ;;
-        --file|-f|--image|-i|--system-file|-sf|--load-folder|-D|--auto-task|-at|--output-file|-o|--print-chat|-p)
+        --file|-f|--image|-i|--system-file|-sf|--load-folder|-D|--task-file|-tf|--pipeline|-ppl|--output-file|-o|--print-chat|-p|--generate-config)
             _filedir
             return
             ;;
-        --generate-config)
-            _filedir -d
+        --create-tool)
+            # No completion for tool name
             return
             ;;
     esac

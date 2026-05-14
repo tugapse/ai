@@ -17,12 +17,27 @@ from core.events import Events
 def load_pipeline_config(prog, pipeline_file: str) -> dict:
     """
     Loads the pipeline configuration JSON file.
+    - If an absolute path is provided, it's used directly.
+    - If a relative path is provided, it's first checked relative to the project root.
+    - If not found, and it's a simple filename, it's then checked inside the 'pipelines' directory.
     """
     root_dir = prog.config.get(ProgramSetting.ROOT_DIRECTORY)
-    pipeline_path = pipeline_file if os.path.isabs(pipeline_file) else os.path.join(root_dir, pipeline_file)
+    pipeline_file = pipeline_file.replace(".json", "")+".json"
+
+    potential_paths = [pipeline_file]
+    if os.path.isabs(pipeline_file):
+        potential_paths.append(pipeline_file)
+    else:
+        potential_paths.append(os.path.join(root_dir, "pipelines", pipeline_file))
+
+    pipeline_path = ""
+    for path in potential_paths:
+        if os.path.exists(path):
+            pipeline_path = path
+            break
     
-    if not os.path.exists(pipeline_path):
-        func.error(f"Pipeline config not found: {pipeline_path}")
+    if not pipeline_path:
+        func.error(f"Pipeline config '{pipeline_file}' not found. Checked: {potential_paths}")
         return {}
         
     try:
