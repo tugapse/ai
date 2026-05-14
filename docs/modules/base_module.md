@@ -1,5 +1,10 @@
 ## 1. Architectural Role
-Serves as the abstract base class (ABC) defining the structural contract and lifecycle management for all pluggable components within the JARVIS ecosystem. It enforces standardized initialization, state tracking, and teardown procedures, ensuring that concrete implementations (e.g., [modules/voice/base_module.md](modules/voice/base_module.md) or [modules/memory/vector_memory_module.md](modules/memory/vector_memory_module.md)) maintain a predictable interface for the system orchestrators.
+
+**Functional Mission**
+The **BaseModule** class serves as the foundational abstract blueprint for all pluggable components within the JARVIS ecosystem. Its primary mission is to enforce a standardized lifecyclecomprising initialization, active state management, and graceful shutdownensuring that all specialized modules adhere to a predictable operational contract.
+
+**System Context & Integration**
+This component acts as the structural parent for diverse functional units, such as [vibe_module.md](/docs/modules/voice/vibe_module.md), [vector_memory_module.md](/docs/modules/memory/vector_memory_module.md), and [remote_module.md](/docs/modules/client/remote_module.md). By providing a unified interface for state tracking (`is_active`) and instance retrieval (`get_instance`), it allows orchestrators and registries to manage heterogeneous modules through a single, consistent API, facilitating seamless transitions between module activation and teardown.
 
 ## 2. Environment & Configuration
 **Environment Lookups:**
@@ -11,28 +16,28 @@ Serves as the abstract base class (ABC) defining the structural contract and lif
 ## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `BaseModule` | Class | Abstract blueprint for modular component lifecycles. |
-| `__init__` | Method | Initializes module metadata and internal state containers. |
-| `initialize` | Method | Orchestrates startup logic; prevents redundant initializations via state checking. |
-| `get_instance` | Method | Provides access to the managed internal engine/instance; performs safety checks. |
-| `is_active` | Property | Boolean check verifying both initialization state and instance presence. |
-| `shutdown` | Method | Executes cleanup by resetting the instance and initialization flags. |
+| `BaseModule` | Class | Defines the lifecycle template and state management for all system modules. |
+| `__init__` | Method | Initializes module metadata, including `module_name` and arbitrary `kwargs`. |
+| `initialize` | Method | Orchestrates the setup of internal logic; intended to be overridden by subclasses to set `_instance`. |
+| `get_instance` | Method | Provides access to the underlying engine/instance, enforcing a check for prior initialization. |
+| `is_active` | Property | Returns a boolean indicating if the module is both initialized and possesses a non-null instance. |
+| `shutdown` | Method | Performs cleanup by nullifying the internal instance and resetting the initialization state. |
 
 ## 4. Execution Logic & Flow
 - **Initialization**: 
-    - Sets `module_name` and `kwargs` (Note: contains a typo `kwaargs` in source).
-    - Sets `_instance` to `None` and `_is_initialized` to `False`.
+    - The constructor sets `_is_initialized` to `False` and `_instance` to `None`.
+    - The `initialize` method checks the `_is_initialized` flag; if `True`, it logs a warning via `func.log` and aborts. If `False`, it proceeds to set `_is_initialized` to `True` (subclasses must populate `_instance` during this phase).
 - **Data Path**: 
-    - **Input**: `module_name` (str) and `**kwargs` (dict) passed via constructor.
-    - **Processing**: State transitions from uninitialized $\rightarrow$ initialized via `initialize()` call.
-    - **Output**: Access to the internal `_instance` via `get_instance()`.
+    - Input: `module_name` (str) and `kwargs` (dict) provided during instantiation.
+    - Processing: State transitions occur through `initialize()` and `shutdown()`.
+    - Output: `get_instance()` returns the `_instance` object (type `Any`) to the caller.
 - **Conditional Branching**:
-    - **Initialization Guard**: If `_is_initialized` is `True`, `initialize()` aborts and logs a warning.
-    - **Access Guard**: If `get_instance()` is called while `_is_initialized` is `False`, an error is logged.
-    - **Activity Check**: `is_active` returns `True` only if `_is_initialized == True` AND `_instance is not None`.
+    - **Initialization Guard**: In `initialize`, if `_is_initialized` is already `True`, the process is halted to prevent redundant setup.
+    - **Access Guard**: In `get_instance`, if `_is_initialized` is `False`, an error is logged via `func.error` before attempting to return the instance.
+    - **Activity Check**: The `is_active` property performs a logical `AND` between the initialization state and the existence of `_instance`.
 
 ## 5. Resource Dependencies
 - **Standard Libraries**: `typing`
 - **Internal Modules**: 
-    - [functions](functions.md)
+    - [functions](/docs/functions.md)
 - **External Packages**: None identified.

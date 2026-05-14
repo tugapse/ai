@@ -1,36 +1,40 @@
 ## 1. Architectural Role
-The [remote_module.py](src/ai/modules/client/remote_module.py) serves as the high-level abstraction layer for the Client (Tiny PC) to interface with the Main PC's intelligence. It implements the `RemoteConnectorModule` class, which wraps the [remote_connector.md](modules/client/remote_connector.md) to facilitate remote LLM execution. By inheriting from [base_module.md](core/modules/base_module.py), it integrates into the modular lifecycle of the client, providing a controlled gateway for network-based brain communication and lifecycle management (initialization and shutdown).
+
+**Functional Mission**
+The **RemoteConnectorModule** serves as the "Neural Link" abstraction layer for the Client (Tiny PC) architecture. Its primary mission is to encapsulate the complexities of network-based LLM interaction by wrapping the [RemoteBrainConnector](/docs/modules/client/remote_connector.md), allowing the local client to offload heavy computational reasoning tasks to a remote Main PC (JARVIS Server).
+
+**System Context & Integration**
+This component acts as a bridge between the local client environment and the remote server infrastructure. It inherits from [BaseModule](/docs/modules/base_module.md) to integrate into the client's module lifecycle. During execution, it facilitates the transition of high-level reasoning requests from the local client to the remote brain, managing the lifecycle of the connection from initialization through to a graceful shutdown via the remote endpoint.
 
 ## 2. Environment & Configuration
 **Environment Lookups:**
-- No environment lookups identified.
+- `url` (via `__init__`)  The base network address of the JARVIS Server.
+- `model_id` (via `__init__`)  The specific model configuration identifier to be utilized on the remote host.
 
 **Hardcoded Constants:**
-- `model_id` (Default: `"default"`)  The preferred model configuration identifier used when communicating with the remote server.
+- `module_name` (Default: `"RemoteBrainLink"`)  The internal identifier for the module within the registry.
 
 ## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `RemoteConnectorModule` | Class | Manages the lifecycle and interface for the remote brain connection. |
-| `__init__` | Method | Configures the module with the remote URL and model identity. |
-| `initialize` | Method | Instantiates the `RemoteBrainConnector` and prepares the link. |
-| `shutdown` | Method | Triggers a graceful termination request to the remote server. |
+| `RemoteConnectorModule` | Class | Provides a high-level module interface for remote brain connectivity. |
+| `__init__` | Method | Configures the module with target URL and model identity. |
+| `initialize` | Method | Sets up the [RemoteBrainConnector](/docs/modules/client/remote_connector.md) instance and logs the link attempt. |
+| `shutdown` | Method | Triggers a remote shutdown request to ensure clean termination of active generations. |
 
 ## 4. Execution Logic & Flow
-- **Initialization**: 
-    1. Captures `url` and `model_id`.
-    2. Calls `super().__init__` to register the module under the name "RemoteBrainLink".
+- **Initialization**: The module is instantiated with a `url` and `model_id`. It registers itself within the module system using the name `"RemoteBrainLink"`.
 - **Data Path**: 
-    1. `initialize(system_prompt)` is called.
-    2. `RemoteBrainConnector` is instantiated using provided `url`, `model_id`, `system_prompt`, and unpacked `kwargs`.
-    3. Communication logic is deferred to the internal `_instance` during runtime chat operations.
-- **Conditional Branching**:
-    1. **Shutdown Check**: During `shutdown()`, the code checks if `self._instance` exists before attempting to call `request_shutdown()` to prevent null reference errors.
+    1. `initialize()` is called with an optional `system_prompt`.
+    2. The `RemoteBrainConnector` is instantiated using the provided URL, model ID, and system prompt.
+    3. The connection is logically established, though physical network handshaking is deferred until the first functional call.
+- **Conditional Branching**: 
+    - During `shutdown()`, the module checks for the existence of `self._instance`. If present, it executes `self._instance.request_shutdown()` to signal the remote server before closing the local module context.
 
 ## 5. Resource Dependencies
 - **Standard Libraries**: `typing`
 - **Internal Modules**: 
-    - [functions.md](functions.md)
-    - [base_module.md](core/modules/base_module.md)
-    - [remote_connector.md](modules/client/remote_connector.md)
+    - [functions](/docs/functions.md)
+    - [BaseModule](/docs/modules/base_module.md)
+    - [RemoteBrainConnector](/docs/modules/client/remote_connector.md)
 - **External Packages**: None identified.

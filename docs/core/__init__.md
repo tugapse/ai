@@ -1,5 +1,10 @@
 ## 1. Architectural Role
-The [core/__init__.py](core/__init__.py) file serves as the package initialization layer for the core system logic, primarily functioning as a namespace aggregator. Its responsibility is to expose critical sub-modules and components to the rest of the application, facilitating clean imports and establishing the public API for the core engine, including [core/llms/__init__.md](core/llms/__init__.md), [core/events.md](core/events.md), and [core/context_file.md](core/context_file.md).
+
+**Functional Mission**
+The **`__init__.py`** component within the `ai.core` package serves as the structural gateway and namespace initializer for the core logic layer. Its primary mission is to define the package boundaries and facilitate the organized exposure of core functionalities, ensuring that the internal sub-modules are correctly recognized by the Python interpreter as a cohesive unit.
+
+**System Context & Integration**
+This component acts as the entry point for the core architectural layer, providing the necessary namespace for higher-level orchestrators and services to access fundamental logic. It sits at the base of the core hierarchy, supporting the integration of specialized modules such as [LLM implementations](/docs/core/llms/__init__.md) and [event handling](/docs/core/events.md). By establishing the package identity, it enables the seamless import of core utilities across the broader system, including the [Brain Hub](/docs/modules/server/brain_hub.md) and [Module Registry](/docs/services/module_registry.md).
 
 ## 2. Environment & Configuration
 **Environment Lookups:**
@@ -11,17 +16,13 @@ No hardcoded constants identified.
 ## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `N/A` | N/A | Direct exports only; no internal logic flow. |
+| `ai.core` | Package | Serves as the namespace root for all core architectural components. |
 
 ## 4. Execution Logic & Flow
-- **Initialization**: Direct exports only; no internal logic flow.
-- **Data Path**: Direct exports only; no internal logic flow.
-- **Conditional Branching**: Direct exports only; no internal logic flow.
+Direct exports or structural definitions only; no internal logic flow.
 
 ## 5. Resource Dependencies
 - **Standard Libraries**: None identified.
 - **Internal Modules**: 
-    - [core/llms/__init__.md](core/llms/__init__.md)
-    - [core/events.md](core/events.md)
-    - [core/context_file.md](core/context_file.md)
+    - None identified.
 - **External Packages**: None identified.

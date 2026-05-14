@@ -1,41 +1,53 @@
 ## 1. Architectural Role
-[console.py](/home/fabio/Code/ai/src/ai/extras/console.py) serves as a specialized terminal output utility responsible for deserializing JSON-based chat histories and rendering them to the standard output with semantic color coding. It implements a stateful token processing mechanism to handle markdown-style code blocks, ensuring visual distinction between user and assistant roles while maintaining terminal formatting integrity through [color.md](/home/fabio/Code/ai/src/ai/extras/color.md).
+
+**Functional Mission**
+The **ConsoleChatReader** component is designed to facilitate the visual reconstruction of historical chat sessions within a terminal environment. Its primary mission is to ingest JSON-formatted chat logs, parse the structured message data, and apply semantic color formatting to distinguish between different participants (User vs. Assistant) and highlight specific syntax elements like code blocks.
+
+**System Context & Integration**
+This component acts as a specialized UI utility that bridges stored data and the user's terminal interface. It consumes data structures defined by [ChatRoles](/docs/chat/chat.md) and utilizes [Color](/docs/color.md) constants to ensure visual consistency. By leveraging [ConsoleTokenFormatter](/docs/extras/console.md), it transforms raw text into a stylized stream, which is then dispatched to the system's output utility via [functions](/docs/functions.md).
 
 ## 2. Environment & Configuration
 **Environment Lookups:**
-- No environment lookups identified.
+No environment lookups identified.
 
 **Hardcoded Constants:**
-- `printing_block` (Default: `False`)  Internal state tracker for `ConsoleTokenFormatter` to manage code block toggling.
+- `ChatRoles.SYSTEM`  Used to identify and skip system-level messages during playback.
+- `ChatRoles.USER`  Used to trigger `Color.BLUE` and "User :" labeling.
+- `Color.YELLOW` (Assistant)  Used to trigger "Assistant" labeling.
+- `Color.RESET`  Used to clear terminal styling.
+- `'printing_block'` (Default: `False`)  Internal state key for tracking code block toggles.
 
 ## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
-| :--- | :--- | :--- |
-| `ConsoleChatReader` | Class | Orchestrates the loading of JSON files and iterates through chat messages for printing. |
-| `ConsoleChatReader.load` | Method | Validates file existence, parses JSON content, and triggers the print sequence. |
-| `ConsoleChatReader._print_chat` | Method | Filters system messages and routes user/assistant roles to specific color schemes. |
-| `ConsoleChatReader.color_text` | Method | Splits text into tokens and applies formatting via the token processor. |
-| `ConsoleTokenFormatter` | Class | Maintains stateful formatting logic for specific token patterns (e.g., code blocks). |
-| `ConsoleTokenFormatter.process_token` | Method | Injects ANSI color codes based on the presence of backticks (``) and current state. |
-| `ConsoleTokenFormatter.clear_process_token` | Method | Resets the `printing_block` state to default. |
+| :--- | :--- | Class responsible for loading JSON chat files and orchestrating the printing of formatted messages. |
+| `load` | Method | Validates file existence, parses JSON content, and iterates through messages for display. |
+| `_print_chat` | Method | Determines role-based coloring and labels, then outputs the formatted string to the console. |
+| `color_text` | Method | Splits message content into tokens and passes them to the formatter for syntax highlighting. |
+| `ConsoleTokenFormatter` | Class | Manages stateful token processing to toggle colors for markdown-style code blocks. |
+| `process_token` | Method | Evaluates individual tokens for block delimiters (`` ` ``) and applies/resets colors based on state. |
+| `clear_process_token` | Method | Resets the `printing_block` state to prevent carry-over formatting errors. |
 
 ## 4. Execution Logic & Flow
 - **Initialization**: 
-    - `ConsoleChatReader` initializes with a target filename, converts it to a `Path` object, and instantiates a `ConsoleTokenFormatter`.
-    - `ConsoleTokenFormatter` initializes a `token_states` dictionary with `printing_block` set to `False`.
+    - `ConsoleChatReader` is instantiated with a target `filename`. It initializes a `Path` object and a dedicated `ConsoleTokenFormatter` instance.
+    - `ConsoleTokenFormatter` initializes its `token_states` dictionary with `printing_block` set to `False`.
 - **Data Path**: 
-    - **Input**: JSON file path $\rightarrow$ `json.loads()` $\rightarrow$ List of message dictionaries.
-    - **Processing**: `_print_chat` checks `role` $\rightarrow$ `color_text` splits string by whitespace $\rightarrow$ `process_token` inspects for `` ` `` $\rightarrow$ ANSI codes appended.
-    - **Output**: Formatted string sent to `func.out`.
+    - **Input**: A JSON file containing a list of message objects.
+    - **Processing**: 
+        1. `load()` reads the file and iterates through the list.
+        2. `_print_chat()` filters out `SYSTEM` roles.
+        3. `color_text()` splits the content by spaces.
+        4. `process_token()` checks for `` ` `` delimiters to toggle `Color.YELLOW` or `Color.RESET`.
+    - **Output**: A formatted, colorized string is sent to `func.out()`.
 - **Conditional Branching**:
-    - **Role Filtering**: If `role == ChatRoles.SYSTEM`, the message is discarded.
-    - **Role Coloring**: If `role == ChatRoles.USER`, color is `Color.BLUE`; otherwise, `Color.YELLOW`.
-    - **Token State Toggle**: If `` ` `` is detected in a token, `printing_block` toggles between `True` (applying color) and `False` (resetting color).
+    - **Role Check**: If `role == ChatRoles.SYSTEM`, the message is immediately discarded.
+    - **Role Coloration**: If `role == ChatRoles.USER`, color is set to `Color.BLUE`; otherwise, it defaults to `Color.YELLOW`.
+    - **Block Toggle**: Inside `process_token`, if `` ` `` is detected, the logic checks `printing_block`. If `False`, it enables the block color; if `True`, it resets the color.
 
 ## 5. Resource Dependencies
 - **Standard Libraries**: `json`, `pathlib.Path`
 - **Internal Modules**: 
-    - [chat.chat](chat/chat.md) (via `ChatRoles`)
-    - [color.md](/home/fabio/Code/ai/src/ai/extras/color.md)
-    - [functions.md](/home/fabio/Code/ai/src/ai/extras/functions.md)
+    - [ChatRoles](/docs/chat/chat.md)
+    - [Color](/docs/color.md)
+    - [functions](/docs/functions.md)
 - **External Packages**: None identified.

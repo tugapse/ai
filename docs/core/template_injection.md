@@ -1,35 +1,47 @@
 ## 1. Architectural Role
-The [template_injection.py](src/ai/core/template_injection.py) module serves as a dynamic content augmentation engine responsible for modifying system prompt templates. It facilitates the injection of external markdown-based content into predefined placeholders within a base system template, allowing for modular and configurable prompt construction based on runtime configuration settings.
+
+**Functional Mission**
+The **TemplateInjection** class is responsible for the dynamic augmentation of system prompts through the programmatic replacement of predefined placeholders. Its core mission is to facilitate modular prompt engineering by allowing the system to inject external contentloaded from specialized markdown filesinto a base system template, ensuring that the LLM receives contextually enriched instructions without hardcoding complex strings.
+
+**System Context & Integration**
+This component acts as a middleware layer in the prompt construction pipeline. It sits between the raw configuration settings and the final prompt delivery to the LLM. By consuming configurations from `ProgramConfig` and utilizing file-system utilities via `functions`, it transforms static templates into dynamic, context-aware system instructions. This processed output is critical for downstream modules that require highly specific behavioral constraints or domain-specific knowledge injected directly into the model's system persona.
 
 ## 2. Environment & Configuration
+
 **Environment Lookups:**
-- `INJECT_TEMPPLATES` (via `ProgramConfig.current.config.get`)  Retrieves a list of key-value pairs defining which placeholders to replace and which template files to load.
-- `PATHS_INJECT_TEMPPLATES` (via `ProgramConfig.current.get`)  Retrieves the filesystem directory path where injection markdown files are stored.
+- `INJECT_TEMP_LATES` (via `ProgramConfig.current.config.get`)  Retrieves a list of injection key-value pairs defining which placeholders to replace.
+- `PATHS_INJECT_TEMP_LATES` (via `ProgramConfig.current.get`)  Retrieves the directory path where injection markdown templates are stored.
 
 **Hardcoded Constants:**
-- `.md` (Default: `.md`)  String suffix used to enforce markdown file extensions during template loading.
+- `".md"` (Default: `".md"`)  Used to enforce the markdown file extension during template loading.
 
 ## 3. Interface & API Surface
+
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `TemplateInjection` | Class | Manages the lifecycle of template substitution and file-based injection. |
-| `__init__` | Method | Initializes the instance with `system_template`, an optional `task_template`, and an optional `program` instance. |
+| `TemplateInjection` | Class | Orchestrates the lifecycle of template loading and placeholder substitution. |
+| `__init__` | Method | Initializes the instance with a base `system_template`, an optional `task_template`, and an optional `program` reference. |
 | `replace_system_template` | Method | Iterates through configured injections to perform string replacement on the `system_template`. |
-| `_load_injection_template` | Method | Handles filesystem I/O to read template content from the designated injection directory. |
+| `_load_injection_template` | Method | Performs file I/O to read the content of a specific markdown template from the configured directory. |
 
 ## 4. Execution Logic & Flow
-- **Initialization**: Stores the `system_template` and `task_template`. The state is prepared for subsequent string manipulation.
+
+- **Initialization**: The class is instantiated with a `system_template` string. It stores the template and optionally accepts a `task_template` and a `program` object for stateful context.
 - **Data Path**: 
-    1. **Input**: `system_template` (string) + `INJECT_TEMPPLATES` config list.
-    2. **Processing**: `replace_system_template` loops through the config; for each entry, `_load_injection_template` performs a path join and filesystem read.
-    3. **Output**: A fully concatenated `replaced_text` string where placeholders are swapped with file contents.
-- **Conditional Branching**:
-    - `os.path.exists(filepath)`: If the constructed path exists, the file is read via `functions.read_file`; otherwise, an empty string is returned to prevent injection failure.
+    1. `replace_system_template` is invoked.
+    2. The method fetches the list of injections from `ProgramConfig`.
+    3. For each injection entry, the `key` (placeholder) and `value` (filename) are processed.
+    4. `_load_injection_template` is called to resolve the filename into a full path and read the file content via `functions.read_file`.
+    5. The `replaced_text` is updated by replacing the `key` with the loaded content.
+    6. The final augmented string is returned.
+- **Conditional Branching**: 
+    - In `_load_injection_template`, the system checks `os.path.exists(filepath)`. If the file exists, it returns the content; otherwise, it returns an empty string to prevent execution failure.
 
 ## 5. Resource Dependencies
+
 - **Standard Libraries**: `os`
 - **Internal Modules**: 
-    - [config](config.md)
-    - [functions](functions.md)
-    - [program](program.md)
+    - [ProgramConfig](/docs/config.md)
+    - [ProgramSetting](/docs/config.md)
+    - [functions](/docs/functions.md)
 - **External Packages**: None identified.

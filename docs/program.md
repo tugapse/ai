@@ -1,66 +1,71 @@
 ## 1. Architectural Role
-The `Program` class acts as the central nervous system and primary orchestrator for the JARVIS ecosystem. It manages the lifecycle of all major subsystems, including the [ModelOrchestrator](services/model_orchestrator.md) for LLM management, the [ModuleRegistry](services/module_registry.md) for hardware/software components, and the [StreamOrchestrator](services/stream_orchestrator.md) for handling real-time inference and tool execution. It bridges the gap between user input via [Chat](chat/chat.md), persistent storage through [HistoryManager](services/history_manager.md), and agentic reasoning via [Agent](agents/agent.md), ensuring that tool calls, memory injection into [VectorMemory](modules/memory/vector_memory.md), and UI updates are synchronized.
+
+**Functional Mission**
+The **Program** class serves as the central nervous system and primary orchestrator for the JARVIS ecosystem. Its core mission is to synchronize disparate servicesincluding LLM management, tool execution, memory retrieval, and UI feedbackinto a cohesive, autonomous agentic loop. It solves the problem of complex state management by acting as the single point of truth for session persistence, hardware module activation, and the "Thought-Action" cycle required for agentic reasoning.
+
+**System Context & Integration**
+As the top-level controller, **Program** integrates the [Chat](/docs/chat/chat.md) state with the [ModelOrchestrator](/docs/services/model_orchestrator.md) to drive intelligence. It manages the lifecycle of the [Agent](/docs/agents/agent.md) and coordinates the [StreamOrchestrator](/docs/services/stream_orchestrator.md) to handle real-time LLM outputs. Data flows from user input through the [HistoryManager](/docs/services/history_manager.md) and into the LLM, while tool-based actions are routed through the [ToolRegistry](/docs/tools/tool_registry.md). It also serves as the bridge between high-level logic and low-level services like the [UIOrchestrator](/docs/services/ui_orchestrator.md) and [SessionManager](/docs/services/session_manager.md).
 
 ## 2. Environment & Configuration
 **Environment Lookups:**
-- `args` (via `load_config`)  CLI arguments passed to initialize the system state.
-- `args.modules` (via `init_config`)  List of specific modules to enable via CLI.
+- `args` (via `load_config`)  CLI arguments used to initialize system configuration.
+- `args.modules` (via `init_config`)  List of specific modules to enable via command line.
 
 **Hardcoded Constants:**
-- `MAX_STEP_BEFORE_WARNING` (Default: `5`)  Threshold for injecting sentinel warnings into the autonomous agent loop.
+- `MAX_STEPS_BEFORE_WARNING` (Default: `5`)  Threshold for injecting a sentinel warning into the LLM context to prevent infinite loops.
 
 ## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `Program` | Class | The main entry point and orchestrator for the entire application. |
-| `load_config` | Method | Loads the [ProgramConfig](config.md) and initializes core service managers. |
+| `Program` | Class | The main orchestrator managing the lifecycle of the entire application. |
+| `load_config` | Method | Loads `ProgramConfig` and initializes core services (Models, History, Modules, UI). |
 | `init_config` | Method | Applies CLI overrides to the configuration and triggers module loading. |
 | `init_program` | Method | Sets up session paths, history, UI, and the tool registry. |
-| `load_tool_registry` | Method | Populates the [ToolRegistry](tools/tool_registry.md) with system, user, and memory-derived tools. |
-| `start_chat` | Method | The primary entry point for a single interaction turn, managing the agent loop. |
-| `_run_agent_loop` | Method | Manages the iterative "Thought-Action-Observation" cycle of the LLM. |
-| `_process_tool_call` | Method | Executes requested tools and enforces Human-In-The-Loop (HIL) permissions. |
-| `run` | Method | Starts the main [Chat](chat/chat.md) loop and binds core events via [EventBinder](services/event_binder.md). |
-| `shutdown` | Method | Performs a graceful, aggressive cleanup of LLM instances and modules. |
-| `route_session` | Method | Switches the active history session to a different file path. |
+| `load_tool_registry` | Method | Populates the registry with system, user, and vector-memory-derived tools. |
+| `start_chat` | Method | The entry point for a user interaction turn; manages the agentic loop. |
+| `_run_agent_loop` | Method | Executes the iterative "Thought-Action" cycle (Inference $\rightarrow$ Tool Call $\rightarrow$ Completion). |
+| `_process_tool_call` | Method | Executes requested tools and manages Human-In-The-Loop (HIL) permission gates. |
+| `run` | Method | Starts the main event loop and binds core system events. |
+| `shutdown` | Method | Performs aggressive resource cleanup, including LLM shutdown and garbage collection. |
 
 ## 4. Execution Logic & Flow
 - **Initialization**: 
-    1. `load_config` creates service instances ([ModelOrchestrator](services/model_orchestrator.md), [HistoryManager](services/history_manager.md), etc.).
-    2. `init_config` applies CLI arguments to the [ProgramConfig](config.md).
-    3. `init_program` sets up [SessionManager](services/session_manager.md) paths and [UIOrchestrator](services/ui_orchestrator.md).
-    4. `load_tool_registry` pulls tools from [AVAILABLE_TOOLS](tools/agent_tools.md), user directories, and [VectorMemoryModule](modules/memory/vector_memory_module.md).
-- **Data Path**:
-    1. `User Input` $\rightarrow$ `Chat.add_message` $\rightarrow$ `llm.chat(stream=True)`.
-    2. `Stream` $\rightarrow$ `StreamOrchestrator.run()` $\rightarrow$ `stream_result`.
-    3. If `tool_calls` present $\rightarrow$ `_process_tool_call` $\rightarrow$ `ToolRegistry.execute_tool` $\rightarrow$ `Chat.messages` (updated with tool result).
-    4. If `accumulated_text` present $\rightarrow$ `HistoryManager.add_message` $\rightarrow$ `VectorMemory.add_memory`.
+    1. `load_config` instantiates the `ModelOrchestrator`, `HistoryManager`, `ModuleRegistry`, and `UIOrchestrator`.
+    2. `init_program` establishes session persistence via `SessionManager`.
+    3. `load_tool_registry` aggregates tools from `AVAILABLE_TOOLS`, local directories, and `VectorMemoryModule`.
+- **Data Path**: 
+    1. **Input**: `user_input` is received via `start_chat` and appended to `Chat` history.
+    2. **Inference**: `llm.chat` generates a stream; `StreamOrchestrator` processes the stream.
+    3. **Action**: If `tool_calls` are detected, `_process_tool_call` executes the tool via `ToolRegistry`.
+    4. **Feedback**: Tool results are appended to `Chat` messages as `tool` roles.
+    5. **Loop**: The cycle repeats until `accumulated_text` is received (Completion) or the user interrupts.
+    6. **Memory**: Final text is sent to `VectorMemory` for long-term storage.
 - **Conditional Branching**:
-    - **HIL Gatekeeper**: If a tool name is in `llm.HI_TOOLS`, execution halts for `_request_human_permission`.
-    - **Agent Loop Termination**: The loop breaks if the LLM produces `accumulated_text` (Completion) or if the user interrupts the stream.
-    - **Sentinel Warning**: If `step_count > MAX_STEPS_BEFORE_WARNING`, a system message is injected into the chat history to redirect the LLM.
+    - **HIL Gate**: If a tool name exists in `llm.HIL_TOOLS`, execution pauses for `_request_human_permission`.
+    - **Sentinel Check**: If `step_count` exceeds `MAX_STEPS_BEFORE_WARNING`, a system warning is injected into the chat context.
+    - **Interruption**: If `stream_result.interrupted` is true, the loop breaks and the LLM is signaled to shut down.
 
 ## 5. Resource Dependencies
 - **Standard Libraries**: `os`, `traceback`, `gc`, `json`, `typing`
 - **Internal Modules**: 
-    - [chat/chat.md](chat/chat.md)
-    - [core/llms/base_llm.md](core/llms/base_llm.md)
-    - [config.md](config.md)
-    - [color.md](color.md)
-    - [agents/agent.md](agents/agent.md)
-    - [modules/memory/vector_memory_module.md](modules/memory/vector_memory_module.md)
-    - [modules/memory/vector_memory.md](modules/memory/vector_memory.md)
-    - [tools/tool_registry.md](tools/tool_registry.md)
-    - [tools/agent_tools.md](tools/agent_tools.md)
-    - [tools/tool_loader.md](tools/tool_loader.md)
-    - [services/session_manager.md](services/session_manager.md)
-    - [services/prompt_loader.md](services/prompt_loader.md)
-    - [services/config_helper.md](services/config_helper.md)
-    - [services/event_binder.md](services/event_binder.md)
-    - [services/model_orchestrator.md](services/model_orchestrator.md)
-    - [services/history_manager.md](services/history_manager.md)
-    - [services/module_registry.md](services/module_registry.md)
-    - [services/ui_orchestrator.md](services/ui_orchestrator.md)
-    - [services/stream_orchestrator.md](services/stream_orchestrator.md)
-    - [functions.md](functions.md)
-- **External Packages**: None identified in imports (standard library usage only).
+    - [Chat](/docs/chat/chat.md)
+    - [BaseModel](/docs/core/llms/base_llm.md)
+    - [ProgramConfig](/docs/config.md)
+    - [Agent](/docs/agents/agent.md)
+    - [VectorMemoryModule](/docs/modules/memory/vector_memory_module.md)
+    - [VectorMemory](/docs/modules/memory/vector_memory.md)
+    - [ToolRegistry](/docs/tools/tool_registry.md)
+    - [AVAILABLE_TOOLS](/docs/tools/agent_tools.md)
+    - [load_and_register_user_tools](/docs/tools/tool_loader.md)
+    - [SessionManager](/docs/services/session_manager.md)
+    - [PromptLoader](/docs/services/prompt_loader.md)
+    - [CliConfig](/docs/services/config_helper.md)
+    - [EventBinder](/docs/services/event_binder.md)
+    - [ModelOrchestrator](/docs/services/model_orchestrator.md)
+    - [HistoryManager](/docs/services/history_manager.md)
+    - [ModuleRegistry](/docs/services/module_registry.md)
+    - [UIOrchestrator](/docs/services/ui_orchestrator.md)
+    - [StreamOrchestrator](/docs/services/stream_orchestrator.md)
+    - [functions](/docs/functions.md)
+    - [Color](/docs/color.md)
+- **External Packages**: None identified.

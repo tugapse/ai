@@ -1,43 +1,58 @@
 ## 1. Architectural Role
-`ThinkingAnimationHandler` serves as a stateful stream processor and UI controller designed to intercept and manage LLM "thought" processes. It identifies `<think>` and `</think>` XML-style tags within token streams to toggle between "thinking" mode (where it triggers visual animations) and "output" mode (where it passes text to the UI). It bridges the gap between raw token ingestion and visual feedback by managing an internal accumulation buffer, handling partial tag detection to prevent premature rendering, and delegating telemetry to [extras/thinking_log_manager.md](extras/thinking_log_manager.md).
+
+**Functional Mission**
+The **ThinkingAnimationHandler** is a specialized UI/UX utility designed to intercept and manage the visual representation of Large Language Model (LLM) "reasoning" or "thinking" processes. Its primary mission is to parse streaming token data for specific XML-style `<think>` tags, providing real-time visual feedback (such as spinners, dots, or progress bars) to the user while simultaneously delegating the raw thinking content to a logging subsystem.
+
+**System Context & Integration**
+This component acts as a middleware layer between the raw LLM stream and the terminal output. It integrates closely with [ThinkingLogManager](/docs/extras/thinking_log_manager.md) to ensure that while the user sees a clean animation, the full reasoning chain is preserved for debugging or session history. It is designed to be used within a streaming orchestration flow, where it intercepts tokens, determines if the model has entered a "thinking" state, and decides whether to suppress the raw text in favor of an animation or to pass the text through to the standard output via [functions](/docs/functions.md).
 
 ## 2. Environment & Configuration
+
 **Environment Lookups:**
 - No environment lookups identified.
 
 **Hardcoded Constants:**
-- `SPINNER_CHARS` (Default: `["|", "/", "-", "\\"]`)  Characters used for the "spinner" animation mode.
-- `PROGRESS_BAR_LENGTH` (Default: `5`)  The fixed width of the progress bar visual element.
-- `THINKING_PREFIX` (Default: `"Thinking"`)  The text label displayed during active thinking states.
-- `MAX_UNTILL_THINK_DRAW` (Default: `3`)  The token frequency threshold used to throttle animation updates.
+- `SPINNER_CHARS` (Default: `["|", "/", "-", "\\"]`)  Characters used for the spinner animation mode.
+- `PROGRESS_BAR_LENGTH` (Default: `5`)  The fixed length of the progress bar visual.
+- `THINKING_PREFIX` (Default: `"Thinking"`)  The string label displayed before animations.
+- `MAX_UNTILL_THINK_DRAW` (Default: `3`)  The token threshold used to throttle animation frame updates.
+- `THINK_START_PATTERN` (Default: `re.compile(r"\s*<think>\s*")`)  Regex for detecting the start of a thinking block.
+- `THINK_END_PATTERN` (Default: `re.compile(r"\s*</think>\s*")`)  Regex for detecting the end of a thinking block.
+- `CONTROL_CHARS_PATTERN` (Default: `re.compile(r"[\x00-\x09\x0B-\x1F\x7F]")`)  Regex to strip non-printable control characters.
+- `PARTIAL_TAG_PATTERN` (Default: `re.compile(r"<th(?:in(?:k>)?|/th(?:ink>)?|i|n|k|/i|/n|/k)?")`)  Regex to detect incomplete tags to prevent premature parsing.
 
 ## 3. Interface & API Surface
+
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `ThinkingAnimationHandler` | Class | Manages state, buffers, and UI rendering for LLM thinking blocks. |
-| `process_token_and_thinking_state` | Method | The primary entry point; ingests raw tokens and returns a tuple of `(is_thinking_active, display_content)`. |
-| `_draw_animation_frame` | Method | Internal private method that executes ANSI-escaped terminal drawing for `dots`, `spinner`, or `progressbar` modes. |
-| `get_max_thinking_indicator_length` | Method | Calculates the width required to clear the terminal line when a thinking block terminates. |
-| `print_think` | Method | Wraps the [functions.md](functions.md) output utility to allow conditional animation printing. |
+| `ThinkingAnimationHandler` | Class | Orchestrates the state machine for parsing `<think>` tags and managing terminal animations. |
+| `process_token_and_thinking_state` | Method | The primary entry point; accepts a raw token, updates internal state, and returns a tuple of `(is_thinking_active, display_content)`. |
+| `_draw_animation_frame` | Method | Internal logic for rendering the specific animation style (`dots`, `spinner`, or `progressbar`) to the terminal. |
+| `get_max_thinking_indicator_length` | Method | Calculates the character width required to clear the animation line effectively. |
+| `print_think` | Method | Wrapper for [func.out](/docs/functions.md) that controls whether animation messages are actually rendered to the console. |
 
 ## 4. Execution Logic & Flow
-- **Initialization**: Sets up the state machine including `_is_thinking_active` (boolean), `_token_accumulation_buffer` (string), and configuration for animation `mode` and `show_animation` visibility.
+
+- **Initialization**: The handler is instantiated with configuration for `enable_display`, `mode` (dots/spinner/progressbar), a `log_manager` instance, and `show_animation` toggles. It initializes an empty `_token_accumulation_buffer` and sets `_is_thinking_active` to `False`.
 - **Data Path**: 
-    1. **Ingestion**: `raw_token_string` is appended to `_token_accumulation_buffer`.
-    2. **Sanitization**: Control characters are stripped via `CONTROL_CHARS_PATTERN`.
-    3. **Pattern Matching**: The buffer is scanned for `THINK_END_PATTERN`, then `THINK_START_PATTERN`, then `PARTIAL_TAG_PATTERN`.
-    4. **State Transition**: 
-        - If `START` is found: Switch `_is_thinking_active` to `True`; trigger `_log_manager` headers; return text prior to tag.
-        - If `END` is found: Switch `_is_thinking_active` to `False`; clear terminal line; return text after tag.
-        - If `ACTIVE`: Increment `_current_thinking_count`; trigger `_draw_animation_frame`; return empty string.
-        - If `NORMAL`: Return accumulated tokens and clear buffer.
+    1. **Input**: A raw string token is received via `process_token_and_thinking_state`.
+    2. **Buffering**: The token is appended to `_token_accumulation_buffer`.
+    3. **Cleaning**: Control characters are stripped for pattern matching.
+    4. **Pattern Matching**: The buffer is scanned for `THINK_END_PATTERN` and `THINK_START_PATTERN`.
+    5. **State Transition**:
+        - If `THINK_START_PATTERN` is found: `_is_thinking_active` becomes `True`, the prefix is printed, and the tag is consumed.
+        - If `THINK_END_PATTERN` is found: `_is_thinking_active` becomes `False`, the animation line is cleared, and the remaining buffer is preserved.
+    6. **Animation/Output**: 
+        - If `_is_thinking_active` is `True`: The `_log_manager` records the token, and `_draw_animation_frame` updates the UI. Returns `(True, "")`.
+        - If `_is_thinking_active` is `False`: The buffer is checked for partial tags. If no partial tag exists, the buffer is cleared and returned as displayable text. Returns `(False, content)`.
 - **Conditional Branching**:
-    - `enable_display`: If `False`, bypasses all pattern matching and animation, acting as a transparent passthrough.
-    - `PARTIAL_TAG_PATTERN`: Prevents the parser from "consuming" a token if it looks like the start of a `<think>` tag (e.g., `<th`), ensuring the tag is caught when fully formed.
+    - **Partial Tag Detection**: If a token contains a partial tag (e.g., `<th`), the handler holds the token in the buffer to prevent the UI from breaking before the full tag is identified.
+    - **Display Toggle**: If `enable_display` is `False`, the handler acts as a transparent pass-through, returning all tokens without animation logic.
 
 ## 5. Resource Dependencies
+
 - **Standard Libraries**: `re`
 - **Internal Modules**: 
-    - [functions.md](functions.md)
-    - [extras/thinking_log_manager.md](extras/thinking_log_manager.md)
+    - [functions](/docs/functions.md)
+    - [ThinkingLogManager](/docs/extras/thinking_log_manager.md)
 - **External Packages**: None identified.

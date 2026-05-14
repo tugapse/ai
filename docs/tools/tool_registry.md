@@ -1,38 +1,40 @@
 ## 1. Architectural Role
-Acts as a centralized Singleton registry for managing the lifecycle of executable tool functions within the system. It provides a unified interface for registering callables, retrieving metadata/documentation for tool discovery, and executing tools via dynamic parameter unpacking, serving as the primary dispatch mechanism for agentic capabilities defined in [tools/tool_loader.md](tools/tool_loader.md) and [tools/agent_tools.md](tools/agent_tools.md).
+
+**Functional Mission**
+The **ToolRegistry** class serves as a centralized, singleton repository for managing the lifecycle and discovery of executable tool functions within the system. Its primary mission is to provide a unified interface for registering arbitrary callables and retrieving them via string identifiers, effectively decoupling the definition of tools from their invocation logic.
+
+**System Context & Integration**
+This component acts as a critical bridge between the agentic reasoning layer and the system's functional capabilities. It is designed to be consumed by orchestration modules that require dynamic tool invocation based on model outputs. By maintaining a single source of truth for available tools, it facilitates the transition from high-level intent (provided by LLMs) to low-level execution, ensuring that tool metadata and execution logic are consistently accessible across the architecture.
 
 ## 2. Environment & Configuration
 **Environment Lookups:**
-- No environment lookups identified.
+No environment lookups identified.
 
 **Hardcoded Constants:**
-- No hardcoded constants identified.
+No hardcoded constants identified.
 
 ## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `ToolRegistry` | Class | Singleton container managing the mapping of tool names to callable functions. |
-| `register_tool` | Method | Maps a string identifier to a function reference in the internal registry. |
-| `get_tool_info` | Method | Extracts and formats docstrings from registered functions for LLM context/description. |
-| `execute_tool` | Method | Invokes a registered function with provided keyword arguments and handles execution errors. |
-| `get_all_tools` | Method | Returns the raw dictionary of all registered tool mappings. |
+| `ToolRegistry` | Class | Implements a Singleton pattern to manage a global registry of tool functions. |
+| `register_tool` | Method | Maps a unique string name to a callable function reference in the internal registry. |
+| `get_tool_info` | Method | Retrieves and formats the docstring of a registered tool for model consumption. |
+| `execute_tool` | Method | Dynamically invokes a registered tool with provided parameters, including error handling. |
+| `get_all_tools` | Method | Returns the complete dictionary of registered tool mappings. |
 
 ## 4. Execution Logic & Flow
-- **Initialization**: 
-    - Employs the Singleton pattern via `__new__` to ensure `_instance` is unique.
-    - Initializes `_tools` as an empty `Dict[str, Callable]` on the first instantiation.
-- **Data Path**:
+- **Initialization**: The `__new__` method implements a Singleton pattern, ensuring only one instance of `_tools` exists. The `_tools` dictionary is initialized upon the first instantiation to store `Callable` references.
+- **Data Path**: 
     - **Registration**: `name` (str) + `func_ref` (Callable) $\rightarrow$ `_tools` dictionary.
-    - **Discovery**: `name` (str) $\rightarrow$ `_tools[name].__doc__` $\rightarrow$ Formatted string with indentation.
-    - **Execution**: `name` (str) + `params` (Dict) $\rightarrow$ Parameter validation $\rightarrow$ `**kwargs` unpacking $\rightarrow$ Function Return $\rightarrow$ `Dict[str, Any]`.
+    - **Information Retrieval**: `name` (str) $\rightarrow$ Lookup `_tools[name]` $\rightarrow$ Extract `__doc__` $\rightarrow$ String formatting $\rightarrow$ Indented docstring.
+    - **Execution**: `name` (str) + `params` (Dict) $\rightarrow$ Lookup `_tools[name]` $\rightarrow$ Parameter validation $\rightarrow$ Function invocation (`**p`) $\rightarrow$ Result Dict.
 - **Conditional Branching**:
-    - `get_tool_info`: Checks existence of `name` in `_tools`; if missing, returns fallback string.
-    - `execute_tool`: Checks existence of `name` in `_tools`; if missing, returns failure status.
-    - `execute_tool`: Validates if `params` is a dictionary; if not, defaults to an empty dictionary `{}`.
-    - `execute_tool`: Wraps execution in a `try/except` block to catch and return runtime errors without crashing the caller.
+    - **Tool Existence Check**: In `get_tool_info` and `execute_tool`, if the requested `name` is not in `_tools`, the system returns a fallback string or a `FAILED` status dictionary.
+    - **Parameter Validation**: In `execute_tool`, an `isinstance` check (noted as `isinstance` in source) determines if `params` is a valid dictionary; if not, it defaults to an empty dictionary.
+    - **Exception Handling**: The `execute_tool` method wraps the function call in a `try-except` block to catch runtime errors during tool execution, returning a `FAILED` status instead of crashing the registry.
 
 ## 5. Resource Dependencies
-- **Standard Libraries**: `typing`
+- **Standard Libraries**: `typing` (Dict, Any, Callable)
 - **Internal Modules**: 
-    - [functions](functions.md)
+    - [functions](/docs/functions.md)
 - **External Packages**: None identified.

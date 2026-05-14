@@ -1,41 +1,48 @@
 ## 1. Architectural Role
-The `ContextFile` class serves as a specialized data ingestion component responsible for the lifecycle management of external file content within the system's context. It provides a controlled mechanism to transition raw file data from the filesystem into a string-based memory state, handling existence validation and error propagation policies to support downstream processes such as [agents/context_sentinel](agents/context_sentinel.md).
+
+**Functional Mission**
+The **ContextFile** component serves as a specialized data ingestion utility designed to encapsulate and manage the lifecycle of external text-based files intended for inclusion in the system's operational context. Its primary mission is to provide a controlled mechanism for reading file contents from the filesystem, ensuring that file availability and error handling are managed according to predefined strictness policies.
+
+**System Context & Integration**
+Within the broader architecture, this component acts as a foundational data provider for modules requiring external knowledge or reference material. It functions as a low-level utility that transitions raw filesystem data into a structured `content` string, which can then be consumed by higher-level orchestration layers or agents, such as those described in [/docs/agents/context_sentinel.md](/docs/agents/context_sentinel.md), to augment the model's prompt or memory.
 
 ## 2. Environment & Configuration
+
 **Environment Lookups:**
 No environment lookups identified.
 
 **Hardcoded Constants:**
-- `THROW_ERROR_ON_LOAD_CONTEXT_FILE_NOT_EXIST` (Default: `False`)  Global toggle determining if missing files should trigger a `FileNotFoundError`.
+- `THROW_ERROR_ON_LOAD_CONTEXT_FILE_NOT_EXIST` (Default: `False`)  Global toggle determining if a missing file should trigger a `FileNotFoundError` during the `load` operation.
 
 ## 3. Interface & API Surface
+
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `ContextFile` | Class | Encapsulates file path, content state, and loading logic. |
-| `__init__` | Method | Configures file path and error-handling behavior. |
-| `load` | Method | Executes filesystem I/O to populate `content` and update `loaded` status. |
+| `ContextFile` | Class | Manages the state and loading logic for a specific file resource. |
+| `__init__` | Method | Initializes the instance with a filename and error-handling policy. |
+| `load` | Method | Executes the filesystem read operation and updates the `loaded` and `content` states. |
 
 ## 4. Execution Logic & Flow
+
 - **Initialization**: 
-    - Sets `self.filename` from input.
-    - Sets `self.content` to `None`.
-    - Sets `self.loaded` to `False`.
-    - Sets `self.throw_error_on_load` via parameter or global constant.
-    - Initializes an internal `_logger`.
+    - Receives `filename` (path string) and `throw_error_on_load` (boolean).
+    - Sets internal state: `content` to `None`, `loaded` to `False`.
+    - Initializes a local logger instance.
 - **Data Path**: 
-    - `filename` (str) $\rightarrow$ `Path` object $\rightarrow$ `read_text()` $\rightarrow$ `self.content` (str).
+    - **Input**: A string representing a filesystem path.
+    - **Processing**: The `Path` object checks for existence; if present, `read_text()` is invoked to pull the raw string into memory.
+    - **Output**: The `content` attribute is populated with the file's text, and `loaded` is set to `True`.
 - **Conditional Branching**:
-    - **File Existence Check**:
-        - If `file_path.exists()` is `False`:
-            - Logs error.
+    - **File Existence Check**: 
+        - If the path does **not** exist:
+            - Logs an error via `_logger`.
             - If `throw_error_on_load` is `True` $\rightarrow$ Raises `FileNotFoundError`.
-            - Else $\rightarrow$ Sets `self.loaded` to `False`.
-        - If `file_path.exists()` is `True`:
-            - Reads text into `self.content`.
-            - Sets `self.loaded` to `True`.
+            - If `throw_error_on_load` is `False` $\rightarrow$ Sets `loaded` to `False` and continues execution.
+        - If the path **does** exist $\rightarrow$ Proceeds to read content.
 
 ## 5. Resource Dependencies
-- **Standard Libraries**: `logging`, `os.path`, `pathlib`
+
+- **Standard Libraries**: `logging`, `os.path`, `pathlib.Path`
 - **Internal Modules**: 
-    - [core/context_file.md](core/context_file.md)
-- **External Packages**: None
+    - No internal module imports identified.
+- **External Packages**: No external packages identified.

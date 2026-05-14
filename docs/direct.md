@@ -1,44 +1,50 @@
 ## 1. Architectural Role
-[direct.md](src/ai/direct.py) serves as the high-level execution orchestrator for single-turn LLM interactions. It encapsulates the lifecycle of a "Direct Task," managing the transition from user input to streaming LLM response, while simultaneously handling UI feedback via [ui_orchestrator.md](services/ui_orchestrator.md), real-time token sanitization, and optional persistent file logging. It acts as the bridge between the low-level [base_llm.md](core/llms/base_llm.md) streaming interface and the user-facing terminal output.
+
+**Functional Mission**
+The **direct.py** module serves as the primary execution engine for single-turn, synchronous LLM interactions within the system. Its core mission is to orchestrate the complete lifecycle of a "Direct Task"from input sanitization and UI initialization to streaming token processing, real-time terminal rendering, and optional file persistence. It abstracts the complexity of managing streaming buffers, thinking animations, and latency tracking into a single, high-level entry point.
+
+**System Context & Integration**
+This component acts as a bridge between the high-level user intent and the low-level LLM execution layer. It integrates deeply with the [UIOrchestrator](/docs/services/ui_orchestrator.md) to manage terminal output and [ThinkingAnimationHandler](/docs/extras/think_parser.md) to provide visual feedback during inference. By consuming [BaseModel](/docs/core/llms/base_llm.md) instances, it remains agnostic of the specific LLM implementation (e.g., OpenAI, Ollama, or local GGUF) while ensuring that the resulting data stream is processed through the system's standardized [ChatRoles](/docs/chat/chat.md) and logging protocols.
 
 ## 2. Environment & Configuration
 **Environment Lookups:**
-- `ProgramConfig.current` (via `config.py`)  Retrieves the active application configuration instance.
+- `ProgramConfig.current` (via `ProgramConfig.load`)  Retrieves the active global configuration state.
 
 **Hardcoded Constants:**
-- `ThinkingAnimationHandler.THINKING_PREFIX` (Default: `"Processing request"`)  The text displayed during the thinking phase.
+- `ThinkingAnimationHandler.THINKING_PREFIX` (Default: `"Processing request"`)  Sets the visual label for the thinking animation.
 
 ## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `_sanitize_token` | Func | Normalizes Unicode (NFKC) and strips non-printable ASCII characters from raw tokens. |
-| `ask` | Func | The primary entry point; orchestrates LLM streaming, UI updates, and file writing. |
+| `_sanitize_token` | Func | Normalizes Unicode characters and strips non-printable ASCII to ensure clean file and terminal output. |
+| `ask` | Func | The primary orchestrator for a direct LLM request; manages UI, streaming, file I/O, and performance metrics. |
 
 ## 4. Execution Logic & Flow
 - **Initialization**: 
-    - Loads/initializes `ProgramConfig`.
-    - Instantiates `UIOrchestrator` to obtain `printer` and `handler` components.
-    - Configures `ThinkingAnimationHandler` prefix and visibility.
+    - Loads `ProgramConfig`.
+    - Initializes `UIOrchestrator` and configures the `ThinkingAnimationHandler` prefix.
+    - Retrieves UI components (`printer`, `handler`) from the orchestrator.
+    - Prepares the message payload by converting raw strings into `ChatRoles.USER` message objects via `BaseModel`.
 - **Data Path**: 
-    - **Input**: Accepts `input_message` (String or List of Dicts) $\rightarrow$ Formats into `ChatRoles` message structure via [base_llm.md](core/llms/base_llm.md).
-    - **Processing**: Iterates through `llm.chat` generator $\rightarrow$ Passes raw token to `_sanitize_token` $\rightarrow$ Passes sanitized token to `handler.process_token_chain`.
+    - **Input**: `input_message` (String or List of Dicts) $\rightarrow$ `messages`.
+    - **Processing**: `llm.chat(messages, stream=True)` $\rightarrow$ Raw Token $\rightarrow$ `_sanitize_token` $\rightarrow$ `handler.process_token_chain` $\rightarrow$ `content`.
     - **Output**: 
-        1. **UI**: `printer.process_and_print` for terminal display.
-        2. **Persistence**: If `write_to_file` is True, `func.write_to_file` appends content to the target path.
+        - Terminal: `printer.process_and_print(content)`.
+        - File: `func.write_to_file(output_filename, content, func.FILE_MODE_APPEND)`.
 - **Conditional Branching**:
-    - **Input Type**: Checks if `input_message` is `str` to wrap in a user role message.
-    - **File Setup**: Checks `write_to_file` and `output_filename` presence to ensure directory existence and file initialization.
+    - **File Writing**: If `write_to_file` and `output_filename` are truthy, creates directories and initializes the file.
+    - **Animation Control**: If `hide_think_anim` is true, disables the `handler.show_thinking_animation`.
     - **Token Filtering**: Skips processing if `_sanitize_token` returns an empty string.
-    - **Error Handling**: Catches `KeyboardInterrupt` to abort gracefully and logs execution latency in the `finally` block.
+    - **Error Handling**: Catches `KeyboardInterrupt` to gracefully abort the task and log the interruption.
 
 ## 5. Resource Dependencies
 - **Standard Libraries**: `os`, `re`, `unicodedata`, `time`, `typing`
 - **Internal Modules**: 
-    - [functions.md](functions.md)
-    - [color.md](color.md)
-    - [base_llm.md](core/llms/base_llm.md)
-    - [chat.md](chat/chat.md)
-    - [config.md](config.md)
-    - [ui_orchestrator.md](services/ui_orchestrator.md)
-    - [think_parser.md](extras/think_parser.md)
+    - [functions](/docs/functions.md)
+    - [color](/docs/color.md)
+    - [core.llms.base_llm](/docs/core/llms/base_llm.md)
+    - [chat.chat](/docs/chat/chat.md)
+    - [config](/docs/config.md)
+    - [services.ui_orchestrator](/docs/services/ui_orchestrator.md)
+    - [extras.think_parser](/docs/extras/think_parser.md)
 - **External Packages**: None identified.

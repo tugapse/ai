@@ -1,36 +1,35 @@
 ## 1. Architectural Role
-This file serves as the fundamental data schema definition layer for the Knowledge Graph subsystem. It establishes the strictly typed structural primitivesnodes, edges, and triplesrequired to represent code semantics and relationships. By utilizing `pydantic` models, it provides the validation framework for data flowing between the [modules/knowledge_graph/ast_parser.md](modules/knowledge_graph/ast_parser.md) and the [modules/knowledge_graph/manager.md](modules/knowledge_graph/manager.md), while also defining the reporting structures for analysis and ambiguity resolution processes.
+
+**Functional Mission**
+The **models.py** component serves as the foundational data schema definition layer for the Knowledge Graph module. Its primary mission is to provide a strictly typed, validated structure for representing entities (nodes), relationships (edges), and the analytical lifecycle of graph construction, including ambiguity handling and refinement reporting.
+
+**System Context & Integration**
+This component acts as the "source of truth" for data structures used throughout the knowledge extraction pipeline. It provides the schemas that the [ast_parser](/docs/modules/knowledge_graph/ast_parser.md) populates and that the [manager](/docs/modules/knowledge_graph/manager.md) orchestrates. By defining standardized `KGTriple` and `AmbiguityFlag` objects, it enables a feedback loop where uncertain extractions can be passed to LLMs for refinement, eventually resulting in a structured [graph](/docs/modules/knowledge_graph/graph.md).
 
 ## 2. Environment & Configuration
 **Environment Lookups:**
 No environment lookups identified.
 
 **Hardcoded Constants:**
-- `NodeTypes` (Enum)  Categorical definitions for semantic entities (FILE, CLASS, etc.).
-- `RelationshipTypes` (Enum)  Categorical definitions for directed edges (CONTAINS, CALLS, etc.).
+No hardcoded constants identified.
 
 ## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `NodeTypes` | Enum | Defines the set of valid entity types allowed within the graph. |
-| `RelationshipTypes` | Enum | Defines the set of valid semantic connections between nodes. |
-| `KGNode` | Class | Data model for a single entity, including metadata and properties. |
-| `KGEdge` | Class | Data model for a direct connection between two specific `KGNode` IDs. |
-| `KGTriple` | Class | Lightweight Subject-Predicate-Object structure used for processing and scoring. |
-| `AmbiguityFlag` | Class | Container for uncertainty metadata when LLM extraction is inconclusive. |
-| `AnalysisReport` | Class | Aggregated result schema for a single file's semantic extraction. |
-| `RefinementReport` | Class | Aggregated result schema for resolving flagged ambiguities. |
+| `NodeTypes` | Enum | Defines valid categories for graph nodes (e.g., FILE, CLASS, FUNCTION). |
+| `RelationshipTypes` | Enum | Defines valid types of connections between nodes (e.g., CALLS, CONTAINS). |
+| `KGNode` | Class | Represents a discrete entity within the graph with unique UUID and properties. |
+| `KGEdge` | Class | Represents a directed relationship between a source and target node. |
+| `KGTriple` | Class | A lightweight Subject-Predicate-Object structure used for processing and scoring. |
+| `AmbiguityFlag` | Class | Encapsulates uncertainty data for triples requiring LLM re-evaluation. |
+| `AnalysisReport` | Class | Aggregates nodes, triples, and ambiguities resulting from a single file analysis. |
+| `RefinementReport` | Class | Summarizes the outcome of resolving previously flagged ambiguities. |
 
 ## 4. Execution Logic & Flow
-- **Initialization**: Models are initialized via `pydantic.BaseModel` with default factories (e.g., `uuid4` for IDs, empty dicts/lists for collections).
-- **Data Path**: 
-    - **Extraction Phase**: `ast_parser` $\rightarrow$ `KGNode`/`KGEdge` $\rightarrow$ `KGTriple` $\rightarrow$ `AnalysisReport`.
-    - **Uncertainty Phase**: Low confidence `KGTriple` $\rightarrow$ `AmbiguityFlag` $\rightarrow$ `AnalysisReport.ambiguity_queue`.
-    - **Refinement Phase**: `AmbiguityFlag` $\rightarrow$ LLM Re-evaluation $\rightarrow$ `RefinementReport`.
-- **Conditional Branching**: None; this file is a purely declarative schema definition module.
+Direct exports or structural definitions only; no internal logic flow.
 
 ## 5. Resource Dependencies
 - **Standard Libraries**: `enum`, `uuid`, `typing`
 - **Internal Modules**: 
-    - [modules/knowledge_graph/models.md](modules/knowledge_graph/models.md)
-- **External Packages**: `pydantic`
+    - [models](/docs/modules/knowledge_graph/models.md) (Self-reference via module context)
+- **External Packages**: `pydantic` (imported as `pydantic`)

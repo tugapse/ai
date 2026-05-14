@@ -1,39 +1,30 @@
 ## 1. Architectural Role
-Acts as the centralized type-definition registry for the system, providing strictly typed enumerations that govern model selection, engine orchestration, and hardware acceleration strategies. It serves as the foundational schema used by [services/engine_manager.md](services/engine_manager.md) to validate engine types, [services/model_orchestrator.md](services/model_orchestrator.md) to categorize model architectures, and various model implementations like [core/llms/huggingface_model.md](core/llms/huggingface_model.md) or [core/llms/ollama_model.md](core/llms/ollama_model.md) to ensure compatibility with the underlying execution backends.
+
+**Functional Mission**
+The **model_enums.py** file serves as the centralized source of truth for categorical definitions within the AI ecosystem. Its primary mission is to provide type-safe, standardized enumerations that govern how the system identifies engine types, model architectures, and hardware backends, thereby preventing string-based errors across the codebase.
+
+**System Context & Integration**
+This component acts as a foundational schema layer used by high-level orchestrators and low-level drivers alike. It is critical for the [engine_manager](/docs/services/engine_manager.md) to determine which driver to instantiate, for [model_orchestrator](/docs/services/model_orchestrator.md) to categorize incoming requests, and for specific model implementations like [huggingface_model](/docs/core/llms/huggingface_model.md) or [ollama_model](/docs/core/llms/ollama_model.md) to validate their operational modes. By providing these constants, it ensures consistent state transitions between the [server_module](/docs/modules/server/server_module.md) and various specialized modules like [vector_memory_module](/docs/modules/memory/vector_memory_module.md).
 
 ## 2. Environment & Configuration
 **Environment Lookups:**
 No environment lookups identified.
 
 **Hardcoded Constants:**
-- `EngineType.HUGGINGFACE` (Default: `"huggingface"`)  Identifier for HF integration.
-- `EngineType.OLAMMA` (Default: `"ollama"`)  Identifier for Ollama local service.
-- `EngineType.GGUF` (Default: `"gguf"`)  Identifier for quantized local models.
-- `EngineType.VOICE_ENGINE` (Default: `"voice_engine"`)  Identifier for [modules/voice/vibe_module.md](modules/voice/vibe_module.md).
-- `EngineType.VECTOR_MEMORY` (Default: `"vector_memory"`)  Identifier for [modules/memory/vector_memory_module.md](modules/memory/vector_memory_module.md).
-- `EngineType.SERVER` (Default: `"server_hub"`)  Identifier for [modules/server/server_module.md](modules/server/server_module.md).
-- `EngineType.CLIENT` (Default: `"client_link"`)  Identifier for [modules/client/remote_module.md](modules/client/remote_module.md).
-- `ModelType.CAUSAL_LM` (Default: `"causal_lm"`)  Identifier for decoder-only architectures.
-- `ModelType.SEQ2SEQ_LM` (Default: `"seq2seq_lm"`)  Identifier for encoder-decoder architectures.
-- `InferenceBackend.GPU_CUDA` (Default: `"cuda"`)  Identifier for NVIDIA hardware acceleration.
-- `InferenceBackend.GPU_AMD` (Default: `"amd"`)  Identifier for AMD hardware acceleration.
-- `InferenceBackend.CPU` (Default: `"cpu"`)  Identifier for standard processor execution.
+No hardcoded constants identified.
 
 ## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `EngineType` | Enum | Categorizes the operational engine/module responsible for processing (e.g., LLM, Voice, Memory, or Network Hubs). |
-| `ModelType` | Enum | Defines the architectural nature of the model (e.g., Causal, Seq2Seq) or specific provider-based types (e.g., Gemini, OpenAI). |
-| `InferenceBackend` | Enum | Specifies the hardware abstraction layer used for computation (CUDA, AMD, or CPU). |
+| `EngineType` | Enum | Defines supported LLM engines and specialized modules (Voice, Memory, Server/Client links). |
+| `ModelType` | Enum | Defines architectural classifications (Causal, Seq2Seq) and specific provider types (Gemini, OpenAI, Ollama, GGUF). |
+| `InferenceBackend` | Enum | Defines the hardware acceleration layer (CUDA, AMD, CPU). |
 
 ## 4. Execution Logic & Flow
-- **Initialization**: The module defines static Enum classes at import time, establishing the available type-space for the application.
-- **Data Path**: No dynamic data path; serves as a static reference registry.
-- **Conditional Branching**: 
-    - `ModelType.__str__`: Returns the string `value` for human-readable output.
-    - `ModelType.__repr__`: Returns the Enum `name` for developer-centric debugging/logging.
+Direct exports or structural definitions only; no internal logic flow.
 
 ## 5. Resource Dependencies
 - **Standard Libraries**: `enum`
-- **Internal Modules**: None.
-- **External Packages**: None.
+- **Internal Modules**: 
+    - [model_enums.md](/docs/entities/model_enums.md)
+- **External Packages**: None identified.

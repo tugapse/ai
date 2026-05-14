@@ -1,40 +1,53 @@
 ## 1. Architectural Role
-The `ResponseParser` acts as a specialized deserialization engine designed to interpret the JARVIS Plain Text Protocol, specifically engineered to handle the structural inconsistencies and formatting "drift" common in 8B-parameter LLMs. It transforms raw, tokenized string outputs (delimited by `____@`) into structured Python dictionaries, sanitizing YAML blocks and extracting tool execution metadata to facilitate downstream orchestration. This component serves as the high-fidelity successor or alternative to [agents/xml_response_parser.md](agents/xml_response_parser.md).
+
+**Functional Mission**
+The **ResponseParser** class is a specialized parsing engine designed to decode the JARVIS Plain Text Protocol, which utilizes `____@` tokens to demarcate different data segments. Its primary mission is to provide a robust extraction layer that can handle the specific formatting inconsistencies and "drift" often produced by smaller-scale (8B) language models, ensuring that structured data like thoughts, tool calls, and manifests are correctly recovered from raw text.
+
+**System Context & Integration**
+This component acts as a critical translation layer between the raw LLM output and the system's execution logic. It sits within the agentic workflow, transforming unstructured string responses into a structured dictionary that downstream modulessuch as the orchestratorcan use to trigger tool executions or update internal states. By sanitizing YAML and normalizing indentation, it prevents malformed model outputs from causing cascading failures in the tool execution pipeline.
 
 ## 2. Environment & Configuration
+
 **Environment Lookups:**
 - No environment lookups identified.
 
 **Hardcoded Constants:**
-- `____@` (Regex/Token Pattern)  The primary delimiter used to segment the raw model response into logical blocks.
-- `____@TARGET` (Default: `"STOP"`)  The fallback termination state if no target is explicitly provided in the token stream.
+- `token_pattern` (Default: `re.compile(r"(____@[A-Za-z_:]+)")`)  Regex pattern used to identify protocol delimiters.
+- `____@thought`  Token key for extracting internal reasoning.
+- `____@notes`  Token key for extracting metadata/notes.
+- `____@response`  Token key for extracting the user-facing message.
+- `____@TARGET` (Default: `"STOP"`)  Token key for determining the next agent target.
+- `____@manifest`  Token key for extracting phase/priority metadata.
+- `____@tool:`  Prefix used to identify tool execution blocks.
 
 ## 3. Interface & API Surface
+
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `ResponseParser` | Class | Orchestrates the parsing lifecycle of raw model strings. |
-| `__init__` | Method | Initializes the regex engine for `____@` token detection. |
-| `_parse_key_value_block` | Method | Parses flat `KEY: VALUE` pairs, typically used for the `____@manifest` block. |
-| `_sanitize_yaml` | Method | Corrects 8B-specific YAML errors, including unquoted variables and indentation drift. |
-| `_parse_tool_block` | Method | Decodes tool execution instructions including name, intent, and sanitized arguments. |
-| `parse` | Method | The primary public entry point that executes the full transformation pipeline. |
+| `ResponseParser` | Class | Orchestrates the parsing of the JARVIS Plain Text Protocol. |
+| `_parse_key_value_block` | Func | Parses simple `KEY: VALUE` strings for manifest data. |
+| `_sanitize_yaml` | Func | Corrects 8B model errors including unquoted variables and indentation drift. |
+| `_parse_tool_block` | Func | Extracts tool names, intents, and YAML-formatted arguments from a tool segment. |
+| `parse` | Func | The primary public entry point that transforms a raw string into a structured dictionary. |
 
 ## 4. Execution Logic & Flow
-- **Initialization**: The class compiles a regular expression pattern to identify protocol tokens.
+
+- **Initialization**: The class initializes by compiling a regex pattern (`token_pattern`) to identify protocol tokens.
 - **Data Path**: 
-    1. **Input**: A raw string containing the model's unparsed response.
-    2. **Segmentation**: The string is split via `token_pattern` into a dictionary mapping tokens to their subsequent text content.
-    3. **Extraction**: Standard fields (`thought`, `notes`, `response`, `TARGET`) are extracted from the map.
-    4. **Manifest Processing**: The `____@manifest` block is parsed into a key-value dictionary.
-    5. **Tool Parsing**: If a `____@tool:` token is detected, the parser extracts the tool name, looks for an `INTENT:` field, and passes the `ARGS:` block through a YAML sanitizer.
-    6. **Output**: Returns a structured `Dict[str, Any]` containing `status`, `thought`, `notes`, `manifest`, `action`, and `response_to_user`.
+    1. **Segmentation**: The input `raw_string` is split into segments using the `token_pattern`.
+    2. **Mapping**: Segments are mapped into a `data_map` dictionary where tokens serve as keys and subsequent text serves as values.
+    3. **Extraction**: Standard fields (`thought`, `notes`, `response_to_user`, `agent_target`) are pulled from the map.
+    4. **Manifest Parsing**: The `____@manifest` block is processed via `_parse_key_value_block`.
+    5. **Tool Parsing**: If a `____@tool:` token is found, `_parse_tool_block` is invoked to extract the tool name, intent, and sanitized YAML arguments.
+    6. **Output**: A structured dictionary containing `status`, `thought`, `notes`, `manifest`, `action`, and `response_to_user` is returned.
 - **Conditional Branching**:
-    - **YAML Sanitization**: If a multi-line block (`|`) is detected, it forces 2-space indentation; otherwise, it strips leading whitespace for uniformity.
-    - **Tool Detection**: Only attempts tool block parsing if a token matching the `____@tool:` pattern exists.
-    - **Error Handling**: If any stage of the process fails, the entire `parse` method catches the exception and returns a `status: "FAILED"` dictionary.
+    - **YAML Sanitization**: If a multi-line block (`|`) is detected, the parser forces a 2-space indentation to correct model drift.
+    - **Error Handling**: If YAML parsing fails within a tool block, the error is logged via `func.log` and the error message is embedded in the `tool_parameters`.
+    - **Global Exception**: Any catastrophic failure during the `parse` method returns a dictionary with `status: "FAILED"`.
 
 ## 5. Resource Dependencies
+
 - **Standard Libraries**: `re`, `yaml`, `typing`
 - **Internal Modules**: 
-    - [functions](functions.md)
-- **External Packages**: `PyYAML` (imported as `yaml`)
+    - [functions](/docs/functions.md)
+- **External Packages**: `PyYAML`

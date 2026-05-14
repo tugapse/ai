@@ -1,5 +1,9 @@
 ## 1. Architectural Role
-Acts as the package entry point for the knowledge graph subsystem, facilitating clean namespace exposure by elevating the core graph implementation from [graph.md](modules/knowledge_graph/graph.md) to the module level. This enables higher-level orchestrators to interface with the knowledge graph via a simplified import path.
+**Functional Mission**
+The **knowledge_graph** package initialization file serves as the public interface for the knowledge graph subsystem. Its primary mission is to expose the core `KnowledgeGraph` class to the rest of the application, facilitating a clean entry point for graph-based data structures and relationship management.
+
+**System Context & Integration**
+This component acts as a structural gateway, aggregating the logic defined in [graph.md](/docs/modules/knowledge_graph/graph.md) and making it accessible to higher-level orchestrators. It enables downstream modules, such as memory management or agentic reasoning components, to import the primary graph controller without needing to navigate the internal file structure of the module.
 
 ## 2. Environment & Configuration
 **Environment Lookups:**
@@ -11,15 +15,13 @@ No hardcoded constants identified.
 ## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `KnowledgeGraph` | Class | The primary interface for graph operations, exported from [graph.md](modules/knowledge_graph/graph.md). |
+| `KnowledgeGraph` | Class | The primary controller for managing nodes, edges, and semantic relationships within the knowledge graph. |
 
 ## 4. Execution Logic & Flow
-- **Initialization**: Direct exports only; no internal logic flow.
-- **Data Path**: Direct exports only; no internal logic flow.
-- **Conditional Branching**: Direct exports only; no internal logic flow.
+Direct exports or structural definitions only; no internal logic flow.
 
 ## 5. Resource Dependencies
 - **Standard Libraries**: None identified.
 - **Internal Modules**: 
-    - [graph.md](modules/knowledge_graph/graph.md)
+    - [graph](/docs/modules/knowledge_graph/graph.md)
 - **External Packages**: None identified.

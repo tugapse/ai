@@ -1,58 +1,62 @@
 ## 1. Architectural Role
-The [engine_manager.py](src/ai/services/engine_manager.py) serves as the factory and lifecycle controller for Large Language Model (LLM) instances. It is responsible for verifying the presence of required backend engines via local configuration files, generating standardized model parameter templates, and performing the late-binding instantiation of specific model implementations from [core/llms/base_llm.md](core/llms/base_llm.md) subclasses. It acts as a critical bridge between static JSON configurations and active runtime model objects.
+
+**Functional Mission**
+The **EngineManager** serves as the centralized factory and validation layer for the system's Large Language Model (LLM) ecosystem. Its primary mission is to abstract the complexities of model instantiation, ensuring that requested model types are supported by installed local or remote engines before attempting to load heavy dependencies. It acts as a gatekeeper that prevents runtime crashes caused by missing drivers or incompatible configurations by performing pre-flight environment checks.
+
+**System Context & Integration**
+This component sits between high-level orchestration services and the low-level LLM implementations. It consumes configuration dictionaries (often generated via `generate_default_config`) and transforms them into live, functional objects derived from [BaseModel](/docs/core/llms/base_llm.md). By handling the "Lazy Import" pattern within its `load_model_instance` method, it ensures that heavy libraries like `llama_cpp` or `transformers` are only loaded into memory when a specific engine is actually required, optimizing the system's startup footprint and preventing dependency conflicts during the initial boot sequence.
 
 ## 2. Environment & Configuration
+
 **Environment Lookups:**
-- `installed_engines.json` (via `is_engine_installed`)  Validates if the specific backend (e.g., Ollama, OpenAI, GGuf) is configured and installed on the host system.
+- `installed_engines.json` (via `is_engine_installed`)  Reads the project root configuration to verify if specific engine drivers (e.g., Ollama, OpenAI) are marked as "installed".
 
 **Hardcoded Constants:**
-- `mapping` (Default: `dict`)  Maps [entities/model_enums.md](entities/model_enums.md) (`ModelType`, `EngineType`) to specific JSON keys for engine verification.
+- `mapping` (Default: `dict`)  Maps `ModelType` and `EngineType` enums to specific JSON keys in the installation config.
 - `max_new_tokens` (Default: `1024`)  Default generation limit in `generate_default_config`.
-- `temperature` (Default: `0.7` / `0.9`)  Default sampling randomness, adjusted for `SEQ2SEQ_LM`.
-- `top_p` (Default: `0.95` / `0.9`)  Default nucleus sampling threshold.
-- `top_k` (Default: `50`)  Default top-k sampling threshold.
+- `temperature` (Default: `0.7`)  Default sampling temperature.
+- `top_p` (Default: `0.95`)  Default nucleus sampling parameter.
+- `top_k` (Default: `50`)  Default top-k sampling parameter.
+- `quantization_bits` (Default: `0`)  Default bit-depth for quantization.
 
 ## 3. Interface & API Surface
+
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `EngineManager` | Class | Static utility container for model lifecycle operations. |
-| `is_engine_installed` | Static Method | Performs environment audits by checking `installed_engines.json`. |
-| `generate_default_config` | Static Method | Produces a structured dictionary for new model initialization. |
-| `load_config` | Static Method | Deserializes JSON configuration files with error handling. |
-| `save_config` | Static Method | Serializes configuration dictionaries to JSON files. |
-| `load_model_instance` | Static Method | The primary factory method; instantiates specific [core/llms/base_llm.md](core/llms/base_llm.md) implementations. |
+| `is_engine_installed` | Static Method | Validates if the required engine/driver is present in `installed_engines.json`. |
+| `generate_default_config` | Static Method | Creates a standardized dictionary template for new model configurations. |
+| `load_config` | Static Method | Reads and parses a JSON file into a configuration dictionary with error handling. |
+| `save_config` | Static Method | Persists a configuration dictionary to a JSON file. |
+| `load_model_instance` | Static Method | The primary factory method; performs engine validation and instantiates specific LLM classes. |
 
 ## 4. Execution Logic & Flow
-- **Initialization**: The class is stateless; logic is invoked via static methods.
-- **Data Path**: 
-    1. **Input**: `model_config` (dict) + `system_prompt` (str) + `tool_registry` (obj).
-    2. **Processing**: 
-        - Validate existence of `model_name` and `model_type`.
-        - Cast `model_type` using [entities/model_enums.md](entities/model_enums.md).
-        - Verify backend engine status via `is_engine_installed`.
-        - Transform `model_properties` into `ModelParams` and filter `other_llm_kwargs`.
-        - Execute conditional lazy-imports for specific model classes.
-    3. **Output**: A concrete instance of a subclass of [core/llms/base_llm.md](core/llms/base_llm.md).
+
+- **Initialization**: The class is stateless, utilizing static methods to provide utility services without requiring instance persistence.
+- **Data Path (Configuration)**: `model_name` + `model_type` $\rightarrow$ `generate_default_config` $\rightarrow$ `dict` $\rightarrow$ `save_config` $\rightarrow$ `JSON File`.
+- **Data Path (Instantiation)**: `JSON File` $\rightarrow$ `load_config` $\rightarrow$ `model_config (dict)` $\rightarrow$ `load_model_instance` $\rightarrow$ `BaseModel` instance.
 - **Conditional Branching**:
-    - **Engine Check**: If `is_engine_installed` returns `False`, raises `ValueError`.
-    - **Type Dispatch**: 
-        - `CAUSAL_LM` $\rightarrow$ [core/llms/huggingface_model.md](core/llms/huggingface_model.md)
-        - `OLLAMA` $\rightarrow$ [core/llms/ollama_model.md](core/llms/ollama_model.md)
-        - `GGUF` $\rightarrow$ [core/llms/gguf_model.md](core/llms/gguf_model.md) (includes `llama-cpp` logging override)
-        - `GEMINI` $\rightarrow$ [core/llms/gemini.md](core/llms/gemini.md)
-        - `OPEN_AI` $\rightarrow$ [core/llms/open_ai.md](core/llms/open_ai.md)
+    - **Engine Validation**: If `is_engine_installed` returns `False`, the process aborts with a `ValueError` and a user-facing instruction to run the install command.
+    - **Model Type Routing**: A multi-branch `if/elif` block evaluates `model_type` to determine which specific class to import and instantiate:
+        - `CAUSAL_LM` $\rightarrow$ `HuggingFaceModel`
+        - `OLLAMA` $\rightarrow$ `OllamaModel`
+        - `GGUF` $\rightarrow$ `GGUFImageLLM` (includes specialized `llama_cpp` logging setup)
+        - `GEMINI` $\rightarrow$ `GeminiAPIModel`
+        - `OPEN_AI` $\rightarrow$ `OpenAIAPIModel`
+    - **Error Handling**: Wraps file I/O and JSON parsing in try-except blocks, utilizing `func.error` for logging before re-raising exceptions to the caller.
 
 ## 5. Resource Dependencies
+
 - **Standard Libraries**: `json`, `os`, `sys`, `typing`, `ctypes`
 - **Internal Modules**: 
-    - [functions.md](functions.md)
-    - [entities/model_enums.md](entities/model_enums.md)
-    - [core/llms/base_llm.md](core/llms/base_llm.md)
-    - [tools/tool_registry.md](tools/tool_registry.md)
-    - [core/llms/huggingface_model.md](core/llms/huggingface_model.md)
-    - [core/llms/ollama_model.md](core/llms/ollama_model.md)
-    - [core/llms/gguf_model.md](core/llms/gguf_model.md)
-    - [core/llms/gemini.md](core/llms/gemini.md)
-    - [core/llms/open_ai.md](core/llms/open_ai.md)
-    - [color.md](color.md)
-- **External Packages**: `llama_cpp`
+    - [functions](/docs/functions.md)
+    - [ModelType](/docs/entities/model_enums.md)
+    - [EngineType](/docs/entities/model_enums.md)
+    - [ModelParams](/docs/core/llms/base_llm.md)
+    - [BaseModel](/docs/core/llms/base_llm.md)
+    - [ToolRegistry](/docs/tools/tool_registry.md)
+    - [HuggingFaceModel](/docs/core/llms/huggingface_model.md)
+    - [OllamaModel](/docs/core/llms/ollama_model.md)
+    - [GGUFImageLLM](/docs/core/llms/gguf_model.md)
+    - [GeminiAPIModel](/docs/core/llms/gemini.md)
+    - [OpenAIAPIModel](/docs/core/llms/open_ai.md)
+- **External Packages**: `llama_cpp`, `color`

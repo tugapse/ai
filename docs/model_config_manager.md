@@ -1,46 +1,58 @@
 ## 1. Architectural Role
-`ModelConfigManager` serves as the centralized persistence and factory layer for model-specific configuration schemas. It abstracts the complexities of generating, serializing, and deserializing JSON-based configuration profiles for different model architectures, ensuring that parameters for [core/llms/ollama_model.md](core/llms/ollama_model.md), [core/llms/gguf_model.md](core/llms/gguf_model.md), and [core/llms/huggingface_model.md](core/llms/huggingface_model.md) (Causal LM) are standardized and correctly structured before being consumed by the orchestration services.
+
+**Functional Mission**
+The **ModelConfigManager** serves as the centralized authority for the lifecycle of model configuration data. Its primary mission is to abstract the complexities of generating, persisting, and retrieving JSON-based configuration schemas for various LLM architectures, ensuring that model parameters are standardized and easily accessible across the system.
+
+**System Context & Integration**
+This component acts as a data utility layer that bridges the gap between raw model definitions and the operational requirements of the execution engine. It provides the necessary configuration dictionaries used by downstream modules such as [ollama_model](/docs/core/llms/ollama_model.md), [gguf_model](/docs/core/llms/gguf_model.md), and [huggingface_model](/docs/core/llms/huggingface_model.md) to initialize their respective runtime environments. By standardizing the `model_properties` schema, it ensures that orchestration services can predictably interact with different model types.
 
 ## 2. Environment & Configuration
+
 **Environment Lookups:**
-- No environment lookups identified.
+No environment lookups identified.
 
 **Hardcoded Constants:**
-- `n_gpu_layers` (Default: `-1`)  GGUF specific: utilizes all available GPU layers.
-- `n_ctx` (Default: `8192`)  GGUF specific: context window size.
-- `max_new_tokens` (Default: `4096` / `8192`)  Varies by type: limits generation length.
-- `temperature` (Default: `0.3` / `0.8`)  Varies by type: controls randomness.
+- `n_ctx` (Default: `8192`)  Context window size for GGUF models.
+- `max_new_tokens` (Default: `4096` for GGUF, `8192` for Causal/Ollama)  Maximum token generation limit.
+- `temperature` (Default: `0.3` for GGUF, `0.8` for others)  Sampling randomness control.
 - `top_p` (Default: `0.95`)  Nucleus sampling threshold.
-- `top_k` (Default: `50` / `30`)  Top-K sampling threshold.
-- `presence_penalty` (Default: `1.1`)  Penalty for repeating tokens.
-- `frequency_penalty` (Default: `1.2` / `1.1`)  Penalty for frequent tokens.
-- `quantization_bits` (Default: `4`)  Causal LM specific: bit-depth for quantization.
+- `top_k` (Default: `50` for GGUF, `30` for others)  Top-k sampling threshold.
+- `presence_penalty` (Default: `1.1`)  Penalty for repeating topics.
+- `frequency_penalty` (Default: `1.2` for GGUF, `1.1` for others)  Penalty for repeating tokens.
+- `n_gpu_layers` (Default: `-1`)  GPU offloading configuration for GGUF.
+- `quantization_bits` (Default: `4`)  Bit-depth for Causal LM quantization.
 
 ## 3. Interface & API Surface
+
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `ModelConfigManager` | Class | Static utility class for model configuration lifecycle management. |
-| `generate_default_config` | Static Method | Orchestrates the creation of a default configuration dict based on `ModelType`. |
-| `load_config` | Static Method | Reads and parses a JSON file into a dictionary with error handling. |
-| `save_config` | Static Method | Serializes a dictionary to a JSON file with indentation. |
-| `_generate_gguf_config` | Private Method | Constructs the schema specifically for GGUF models. |
-| `_generate_causal_lm_config` | Private Method | Constructs the schema specifically for Causal LM (HuggingFace) models. |
-| `_generate_ollama_config` | Private Method | Constructs the schema specifically for Ollama models. |
+| `ModelConfigManager` | Class | Static utility class for managing model configuration lifecycles. |
+| `generate_default_config` | Func | Orchestrates the creation of a default configuration dictionary based on `ModelType`. |
+| `load_config` | Func | Reads and parses a JSON configuration file from a specified filesystem path. |
+| `save_config` | Func | Serializes a configuration dictionary into a formatted JSON file. |
+| `_generate_gguf_config` | Func | Private: Returns a default schema specific to GGUF model requirements. |
+| `_generate_causal_lm_config` | Func | Private: Returns a default schema specific to Causal LM requirements. |
+| `_generate_ollama_config` | Func | Private: Returns a default schema specific to Ollama model requirements. |
 
 ## 4. Execution Logic & Flow
-- **Initialization**: Class is utilized via static methods; no instance state is maintained.
+
+- **Initialization**: The class is designed as a stateless utility container using `@staticmethod` decorators; it requires no instance-level initialization.
 - **Data Path**:
-    - **Generation**: `model_name` + `ModelType` $\rightarrow$ `generate_default_config` $\rightarrow$ specific `_generate_*_config` logic $\rightarrow$ Configuration Dictionary.
-    - **Loading**: Filepath $\rightarrow$ `os.path.exists` check $\rightarrow$ `json.load` $\rightarrow$ Dictionary.
-    - **Saving**: Dictionary $\rightarrow$ `json.dump` $\rightarrow$ File System.
+    - **Generation**: `model_name` + `model_type` $\rightarrow$ `_generate_[type]_config` $\rightarrow$ Nested Dictionary $\rightarrow$ `generate_default_config` output.
+    - **Persistence**: `config` (dict) $\rightarrow$ `json.dump` $\rightarrow$ File System.
+    - **Retrieval**: File System $\rightarrow$ `json.load` $\rightarrow$ `config` (dict).
 - **Conditional Branching**:
-    - `generate_default_config` branches logic based on the `ModelType` enum value to select the appropriate private generation method.
-    - `load_config` implements error branching for `FileNotFoundError`, `JSONDecodeError`, and general `Exception`.
+    - **Type Routing**: `generate_default_config` uses an `if/elif` ladder to route the request to the appropriate private generator based on the `ModelType` enum.
+    - **Error Handling**: 
+        - `load_config` checks for file existence via `os.path.exists`.
+        - `load_config` catches `json.JSONDecodeError` to provide specific formatting error feedback.
+        - `load_config` and `save_config` utilize broad `Exception` catches to log and re-raise failures during I/O operations.
 
 ## 5. Resource Dependencies
+
 - **Standard Libraries**: `json`, `os`, `sys`, `argparse`
 - **Internal Modules**: 
-    - [entities/model_enums.md](entities/model_enums.md)
-    - [color.md](color.md)
-    - [functions.md](functions.md)
+    - [ModelType](/docs/entities/model_enums.md)
+    - [Color](/docs/color.md)
+    - [functions](/docs/functions.md)
 - **External Packages**: None identified.

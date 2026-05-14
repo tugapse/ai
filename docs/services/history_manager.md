@@ -1,41 +1,53 @@
 ## 1. Architectural Role
-The `HistoryManager` class serves as the persistence layer for conversational state, responsible for the lifecycle of chat logs and thinking traces. It facilitates session resumption by synchronizing in-memory message lists within [chat/chat.md](chat/chat.md) with disk-based JSON storage, implements deduplication logic to prevent redundant message injection, and manages the hot-swapping of active memory contexts during session transitions.
+
+**Functional Mission**
+The **HistoryManager** class is responsible for the lifecycle management of conversational state, specifically focusing on the persistence and retrieval of chat histories. Its core mission is to bridge the gap between volatile RAM-based message buffers and permanent disk storage, ensuring that user interactions are preserved across sessions while preventing data corruption through duplication checks and session hot-swapping capabilities.
+
+**System Context & Integration**
+This component acts as a stateful persistence layer that interacts closely with [Chat](/docs/chat/chat.md) to manage the active message list. It is integrated into the broader execution flow by providing mechanisms to load historical context during session initialization and to save the current state during runtime. By managing file paths for both chat JSONs and thinking logs, it serves as a critical data provider for downstream modules that require context-aware continuity, such as the [Session Manager](/docs/services/session_manager.md).
 
 ## 2. Environment & Configuration
+
 **Environment Lookups:**
-- `session_chat_filepath` (via `initialize_session`)  Path to the JSON file containing conversation history.
-- `session_thinking_log_filepath` (via `initialize_session`)  Path to the file recording model reasoning/thinking processes.
-- `session_workspace_path` (via `initialize_session`)  The root directory for the current active workspace.
+- `session_chat_filepath` (via `initialize_session`)  Path to the JSON file storing chat messages.
+- `session_thinking_log_filepath` (via `initialize_session`)  Path to the log file for internal model reasoning.
+- `session_workspace_path` (via `initialize_session`)  The directory context for the current session.
 
 **Hardcoded Constants:**
-- `indent=4` (Default: `4`)  Formatting for JSON serialization in `save`.
+- `"/logs/active_thinking.log"` (Default: fallback path in `get_log_path`)  Default location for thinking logs if no specific path is provided.
 
 ## 3. Interface & API Surface
+
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `HistoryManager` | Class | Orchestrates loading, saving, and switching of chat history files. |
-| `initialize_session` | Method | Configures file paths and triggers initial history load. |
-| `switch_active_session` | Method | Clears current RAM context and re-routes to a new file path. |
-| `load_history` | Method | Deserializes JSON from disk and appends non-duplicate messages to the chat object. |
-| `add_message` | Method | Validates and encapsulates new messages using `BaseModel` before appending to session. |
-| `save` | Method | Serializes the current message list to the active chat filepath. |
-| `get_log_path` | Method | Returns the thinking log path or a default path in the root logs directory. |
+| `HistoryManager` | Class | Orchestrates chat history loading, saving, and session switching. |
+| `initialize_session` | Method | Configures session-specific file paths and triggers initial history load. |
+| `switch_active_session` | Method | Performs a hot-swap of the active memory file, clearing current RAM context. |
+| `load_history` | Method | Reads JSON data from disk and merges it into the chat object without duplicates. |
+| `add_message` | Method | Formats and appends new messages to the chat object with duplication prevention. |
+| `save` | Method | Serializes the current chat message list to the configured JSON filepath. |
+| `get_log_path` | Method | Returns the path for the thinking log, using a fallback if necessary. |
 
 ## 4. Execution Logic & Flow
-- **Initialization**: Sets `chat_filepath`, `thinking_log_filepath`, and `workspace_path` to `None`.
-- **Data Path (Load)**: Disk (JSON) $\rightarrow$ `json.load()` $\rightarrow$ Content Deduplication $\rightarrow$ `chat.messages` (Memory).
-- **Data Path (Add)**: Input (Role/Content) $\rightarrow$ `BaseModel.create_message` $\rightarrow$ Duplication Check $\rightarrow$ `chat.messages` (Memory).
-- **Data Path (Save)**: `chat.messages` (Memory) $\rightarrow$ `json.dump()` $\rightarrow$ Disk (JSON).
+
+- **Initialization**: The class is instantiated with a reference to a [Chat](/docs/chat/chat.md) object. Initial properties (`chat_filepath`, `thinking_log_filepath`, `workspace_path`) are set to `None`.
+- **Data Path**: 
+    1. **Input**: Raw role/content strings or JSON files from disk.
+    2. **Processing**: 
+        - `add_message` uses [BaseModel.create_message](/docs/core/llms/base_llm.md) to structure data.
+        - `load_history` performs a set-based comparison (`existing_contents`) to filter out messages already present in the `chat.messages` list.
+    3. **Output**: Updated `chat.messages` list in memory and serialized JSON files on disk.
 - **Conditional Branching**:
-    - `switch_active_session`: If `new_chat_filepath` matches current, abort to prevent redundant reloading.
-    - `load_history`: If file does not exist or is empty, abort.
-    - `load_history`: Iterates through `saved_messages`; skips if `content` matches an entry already in `existing_contents`.
-    - `add_message`: Skips if content is empty/whitespace or if the content is identical to the last message in the list.
+    - **Duplication Check**: In `load_history`, if a message's content exists in `existing_contents`, it is skipped.
+    - **Redundancy Check**: In `add_message`, if the new message content matches the last message in the buffer, the operation is aborted.
+    - **File Existence**: `load_history` exits early if the `chat_filepath` is null or the file does not exist on the filesystem.
+    - **Error Handling**: `load_history` and `save` wrap I/O operations in try-except blocks, logging errors via [functions](/docs/functions.md) instead of crashing.
 
 ## 5. Resource Dependencies
+
 - **Standard Libraries**: `os`, `json`, `typing`
 - **Internal Modules**: 
-    - [chat/chat.md](chat/chat.md)
-    - [core/llms/base_llm.md](core/llms/base_llm.md)
-    - [functions.md](functions.md)
+    - [Chat](/docs/chat/chat.md)
+    - [BaseModel](/docs/core/llms/base_llm.md)
+    - [functions](/docs/functions.md)
 - **External Packages**: None identified.

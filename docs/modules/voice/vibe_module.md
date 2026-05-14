@@ -1,46 +1,56 @@
 ## 1. Architectural Role
-`VibeVoiceModule` serves as the specialized high-fidelity text-to-speech (TTS) engine within the system, implementing the `microsoft/VibeVoice-Realtime-0.5B` architecture. It inherits from [base_module.md](modules/voice/base_module.md) to integrate with the global audio playback and queuing infrastructure. Its primary responsibility is the orchestration of hardware-accelerated inference, managing voice profile embeddings, and transforming text input into raw PCM audio data via the `vibevoice` streaming library.
+
+**Functional Mission**
+The **VibeVoiceModule** serves as a high-performance, realtime text-to-speech (TTS) engine implementation specifically optimized for the `microsoft/VibeVoice-Realtime-0.5B` architecture. Its primary mission is to transform textual input into high-fidelity audio waveforms by managing the lifecycle of heavy transformer-based weights, voice embeddings, and hardware-specific optimizations (CUDA/CPU) to ensure low-latency streaming capabilities.
+
+**System Context & Integration**
+This component functions as a specialized audio generation provider within the voice subsystem. It inherits from [BaseVoiceModule](/docs/modules/voice/base_module.md), which provides the foundational infrastructure for audio queuing and playback threading. The module is designed to be orchestrated by the [ModuleRegistry](/docs/services/module_registry.md), which triggers its `preload` sequence to move heavy model weights into VRAM/RAM before inference begins. Once audio is generated via `_run_inference`, the resulting numpy arrays are passed back to the base class for hardware-level playback.
 
 ## 2. Environment & Configuration
+
 **Environment Lookups:**
-- `device` (via `_initialize_model`)  Detects `cuda` or `cpu` availability for model placement.
-- `model_dtype` (via `_initialize_model`)  Determines `float16` (CUDA) or `float32` (CPU) precision.
+- `device` (via `_initialize_model`)  Determines if the model runs on `cuda` or `cpu` based on hardware availability.
+- `model_dtype` (via `_initialize_model`)  Sets precision to `torch.float16` for CUDA or `torch.float32` for CPU.
 
 **Hardcoded Constants:**
-- `model_id` (Default: `"microsoft/VibeVoice-Realtime-0.5B"`)  The HuggingFace repository identifier.
-- `voice_file` (Default: `"pt-Spk1_man"`)  The filename for the speaker embedding profile.
-- `sample_rate` (Default: `24000`)  The target audio sampling frequency.
-- `num_steps` (Default: `5`)  DDPM inference steps for the diffusion process.
-- `cfg_scale` (Default: `1.5`)  Classifier-Free Guidance scale for generation.
+- `model_id` (Default: `"microsoft/VibeVoice-Realtime-0.5B"`)  The HuggingFace identifier for the model weights.
+- `voice_file` (Default: `"pt-Spk1_man"`)  The identifier for the target voice profile.
+- `sample_rate` (Default: `24000`)  The audio sampling frequency passed to the superclass.
+- `num_steps` (Default: `5`)  The DDPM inference steps configured for the model.
+- `cfg_scale` (Default: `1.5`)  Classifier-Free Guidance scale used during the generation process.
 
 ## 3. Interface & API Surface
+
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `VibeVoiceModule` | Class | Main implementation of the VibeVoice realtime streaming model. |
-| `preload` | Method | Public entry point to trigger model and weights loading. |
+| `VibeVoiceModule` | Class | Main implementation of the VibeVoice TTS engine. |
+| `preload` | Method | Public entry point for the ModuleRegistry to trigger model loading. |
 | `_initialize_model` | Method | Internal logic for hardware detection, voice path discovery, and weight loading. |
-| `_recursive_cast` | Method | Utility to move complex nested structures (dicts/lists) to the target `device` and `dtype`. |
-| `_run_inference` | Method | Core generation loop: converts text to processed tensors and runs model generation. |
+| `_recursive_cast` | Method | Utility to traverse nested structures (dicts/lists) to move tensors to the correct device/dtype. |
+| `_run_inference` | Method | The core execution loop that converts text to a numpy audio array. |
 
 ## 4. Execution Logic & Flow
+
 - **Initialization**: 
-    1. `__init__` sets hyperparameters and initializes state variables (model, processor, embeddings) to `None`.
-    2. `super().__init__` starts the audio queues defined in [base_module.md](modules/voice/base_module.md).
-- **Data Path**: 
-    1. **Text Input** $\rightarrow$ `_run_inference(text)`.
-    2. **Pre-processing**: `processor.process_input_with_cached_prompt` uses existing voice embeddings to generate input tensors.
-    3. **Tensor Casting**: `_recursive_cast` ensures all input tensors match the model's `device` and `dtype`.
-    4. **Inference**: `model.generate` produces raw speech outputs using the provided prompt cache and CFG scale.
-    5. **Post-processing**: Tensors are concatenated, moved to CPU, squeezed, and cast to `np.float32`.
-    6. **Output**: Returns `np.ndarray` for playback via the base module.
+    1. Calls `super().__init__` to establish audio queues and playback threads.
+    2. Sets initial state for `model`, `processor`, and `voice_embeddings` to `None`.
+- **Data Path**:
+    1. **Input**: A raw `text` string is passed to `_run_inference`.
+    2. **Processing**: 
+        - `voice_embeddings` are deep-copied to prevent mutation.
+        - `processor.process_input_with_cached_prompt` generates input tensors.
+        - `_recursive_cast` ensures all input tensors match the model's `device` and `dtype`.
+        - `model.generate` performs the transformer inference using the provided prompt and CFG scale.
+    3. **Output**: The resulting `speech_outputs` or `wav` tensor is moved to CPU, converted to a `numpy.ndarray`, squeezed, and returned as `float32`.
 - **Conditional Branching**:
-    1. **Hardware Detection**: Selects `cuda` if `torch.cuda.is_available()` is True; else `cpu`.
-    2. **Voice Path Discovery**: Searches parent directories for `assets/voices`. If the preferred `.pt` file is missing, it attempts to grab the first available `.pt` file in that directory.
-    3. **Inference Fallback**: Returns a zero-filled array if the model is not loaded or text is empty.
+    - **Hardware Detection**: Switches between `float16` (CUDA) and `float32` (CPU).
+    - **Voice Discovery**: If the preferred `.pt` voice file is missing, the module attempts to glob the `assets/voices` directory for any available `.pt` file.
+    - **Output Extraction**: Checks for `speech_outputs` attribute first, falling back to `wav` or `audio` attributes if necessary.
 
 ## 5. Resource Dependencies
-- **Standard Libraries**: `os`, `copy`, `pathlib`
+
+- **Standard Libraries**: `os`, `copy`
 - **Internal Modules**: 
-    - [base_module.md](modules/voice/base_module.md)
-    - [functions.md](functions.md)
-- **External Packages**: `torch`, `numpy`, `vibevoice` (Official Microsoft package)
+    - [BaseVoiceModule](/docs/modules/voice/base_module.md)
+    - [functions](/docs/functions.md)
+- **External Packages**: `torch`, `numpy`, `vibevoice` (Microsoft official package)

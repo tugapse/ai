@@ -1,5 +1,10 @@
 ## 1. Architectural Role
-[services/stream_orchestrator.py](src/ai/services/stream_orchestratator.py) acts as the central synchronization engine for real-time LLM response streams. It manages the complex lifecycle of incoming tokens, bifurcating data into three distinct channels: UI rendering via [extras/output_printer.py](src/extras/output_printer.py), auditory playback via [modules/voice/speech_bridge.py](src/modules/voice/speech_bridge.py), and logical execution of tool calls. It ensures conversational integrity by accumulating all tokens (including silent tool data) to prevent context window errors, while providing high-level interruption handling via `KeyboardInterrupt`.
+
+**Functional Mission**
+The **StreamOrchestrator** serves as the central synchronization engine for real-time LLM response streaming. Its primary mission is to ingest raw token streams and orchestrate their simultaneous distribution to three distinct channels: visual output via the UI, auditory output via the speech engine, and logical state updates via tool call detection. It solves the complex problem of "split-stream" processing, where a single stream must be parsed to distinguish between text intended for human consumption and structured data intended for system execution.
+
+**System Context & Integration**
+This component acts as a high-level mediator between the raw LLM generator and the user-facing interfaces. It consumes tokens and passes them through a processing pipeline involving [OutputPrinter](/docs/extras/output_printer.md) for formatting and [handler_manager](/docs/extras/handler_manager.md) for semantic parsing. By managing the lifecycle of a response, it ensures that tool calls are captured for the conversation history to prevent API errors, while simultaneously feeding the [SpeechBridge](/docs/modules/voice/speech_bridge.md) to maintain a fluid, low-latency voice interaction.
 
 ## 2. Environment & Configuration
 **Environment Lookups:**
@@ -11,34 +16,32 @@
 ## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `StreamResult` | Dataclass | Data container for the final state of a stream, including accumulated text, interruption status, and captured tool calls. |
-| `StreamOrchestrator` | Class | The primary controller for managing token flow, sanitization, and multi-modal output dispatching. |
-| `_sanitize` | Method | Normalizes Unicode characters (NFKC) and strips non-printable ASCII characters to ensure clean text processing. |
-| `run` | Method | The main execution loop that iterates through a generator, handles token categorization (Dict vs. String), and manages error states. |
-| `_display_and_relay` | Method | Orchestrates the simultaneous terminal output, token processing, and feeding of the speech buffer. |
+| `StreamResult` | dataclass | Data container for the final state of a stream, including accumulated text, interruption status, and captured tool calls. |
+| `StreamOrchestrator` | Class | The primary controller for managing token stream lifecycle, sanitization, and multi-channel relay. |
+| `_sanitize` | Method | Performs Unicode normalization (NFKC) and strips non-printable ASCII characters to ensure stream stability. |
+| `run` | Method | The main execution loop that iterates over the `stream_generator`, handles branching logic for tool calls vs. text, and manages error/interrupt states. |
+| `_display_and_relay` | Method | Orchestrates the simultaneous side-effects of a valid text token: updating internal accumulation, printing to console, and feeding the voice buffer. |
 
 ## 4. Execution Logic & Flow
-- **Initialization**: Sets up the `SpeechBridge`, `OutputPrinter`, `HandlerManager`, and `TokenProcessor`. Resets internal buffers (`accumulated_text`, `tool_calls`, `started_response`).
+- **Initialization**: Sets up internal state buffers (`accumulated_text`, `tool_calls`, `started_response`) and initializes the [SpeechBridge](/docs/modules/voice/speech_bridge.md) with the provided voice module.
 - **Data Path**: 
-    1. **Input**: Receives a `stream_generator` yielding raw tokens (strings or dicts).
-    2. **Categorization**: 
-        - If **Dict**: Appended to `tool_calls` and `accumulated_text`; triggers `on_tool_call` callback.
-        - If **String**: Passed through `_sanitize` $\rightarrow$ `printer.process_token` $\rightarrow$ `handler.process_token_chain`.
-    3. **Routing**: 
-        - **Tool Content**: If `is_tool_call` is true, content is added to `tool_calls` and `accumulated_text` but bypassed from UI/Voice.
-        - **UI/Voice Content**: If `display_to_user` is true, content is passed to `_display_and_relay` for terminal printing and speech feeding.
-    4. **Output**: Returns a `StreamResult` object once the generator exhausts or is interrupted.
-- **Conditional Branching**: 
-    - **Interrupt Handling**: Catches `KeyboardInterrupt` to abort speech immediately.
-    - **Buffer Draining**: Executes a post-loop `flush()` on the printer to capture trailing fragments.
-    - **Sanitization Check**: Skips processing if the sanitized token results in an empty string.
+    1. **Ingestion**: Receives `raw_token` from `stream_generator`.
+    2. **Type Check**: If `raw_token` is a `dict`, it is treated as a native tool call, appended to `tool_calls`, and added to `accumulated_text`.
+    3. **Sanitization**: Non-dict tokens undergo `_sanitize` (Unicode normalization and regex filtering).
+    4. **Processing**: The token is passed to `self.printer.process_token` and then to `self.handler.process_token_chain`.
+    5. **Branching**:
+        - **If `is_tool_call`**: The content is added to `tool_calls` and `accumulated_text` but bypassed from the display/voice relay.
+        - **If `display_to_user`**: The content is passed to `_display_and_relay`, which triggers `func.out` and `self.speech_bridge.feed`.
+    6. **Finalization**: Flushes the printer buffer and the speech bridge, returning a `StreamResult`.
+- **Conditional Branching**:
+    - **KeyboardInterrupt**: Triggers `self.speech_bridge.abort()` and returns a `StreamResult` marked as `interrupted=True`.
+    - **Exception Handling**: Flushes the speech bridge before re-raising the exception to prevent hanging audio.
 
 ## 5. Resource Dependencies
 - **Standard Libraries**: `re`, `unicodedata`, `typing`, `dataclasses`
 - **Internal Modules**: 
-    - [color.md](src/color.md)
-    - [functions.md](src/functions.md)
-    - [modules/voice/speech_bridge.md](src/modules/voice/speech_bridge.md)
-    - [extras/output_printer.md](src/extras/output_printer.md)
-    - [extras/handler_manager.md](src/extras/handler_manager.md)
+    - [Color](/docs/color.md)
+    - [functions](/docs/functions.md)
+    - [SpeechBridge](/docs/modules/voice/speech_bridge.md)
+    - [OutputPrinter](/docs/extras/output_printer.md)
 - **External Packages**: None identified.

@@ -1,9 +1,14 @@
 ## 1. Architectural Role
-This module provides a command execution framework designed to decouple command invocation from execution timing. It establishes an abstract base class, `CommandExecutor`, to define a standard interface for command processing and output requirements, and provides a concrete `AsyncExecutor` implementation that leverages threading to run tasks in the background. This architecture enables non-blocking command execution, allowing the system to continue processing while long-running operations complete and notify the caller via a callback mechanism. This file is part of the [chat/command_executor.md](src/ai/chat/command_executor.py) component.
+
+**Functional Mission**
+The **CommandExecutor** module provides a structured abstraction layer for executing system or application commands, both synchronously and asynchronously. Its primary mission is to decouple the intent of a command from its execution mechanism, providing a standardized way to capture results or exceptions through a unified callback interface.
+
+**System Context & Integration**
+This component serves as a foundational execution utility within the chat infrastructure, likely utilized by higher-level orchestration layers to perform side effects or system operations without blocking the main execution thread. By implementing the `AsyncExecutor` subclass, the system can offload long-running tasks to background threads, ensuring that the user interface or primary command loop remains responsive. It acts as a bridge between command requests and the eventual resolution of those requests, passing `ExecutorResult` objects to registered callbacks to signal completion or failure.
 
 ## 2. Environment & Configuration
 **Environment Lookups:**
-- No environment lookups identified.
+No environment lookups identified.
 
 **Hardcoded Constants:**
 - `thread_name` (Default: `"Async Executor"`)  The identifier assigned to the background thread created by `AsyncExecutor`.
@@ -11,33 +16,32 @@ This module provides a command execution framework designed to decouple command 
 ## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `ExecutorResult` | Class | Data container for the outcome of an execution, encapsulating the `result` and any potential `error`. |
-| `CommandExecutor` | Class | Abstract base class defining the contract for command execution and output status checks. |
-| `_trigger_callback` | Method | Internal utility to wrap results/errors in an `ExecutorResult` and invoke the `finished_callback`. |
-| `run` | Method | Abstract method to initiate execution; must be implemented by subclasses. |
-| `output_requested` | Method | Abstract method to determine if the command requires output monitoring; must be implemented by subclasses. |
-| `AsyncExecutor` | Class | Concrete implementation of `CommandExecutor` that utilizes `threading.Thread` for asynchronous task processing. |
-| `run` (Async) | Method | Spawns or manages a thread to execute `_run_thread`, with options to `auto_start` or `wait` (join). |
-| `_run_thread` | Method | The internal worker loop that simulates command execution and handles exception catching for the thread. |
-| `terminate` | Method | Nullifies the thread reference. |
+| `ExecutorResult` | Class | A data container holding the `result` (any) and `error` (Exception) of a command execution. |
+| `CommandExecutor` | Class | An abstract base class defining the interface for command execution, including `run()` and `output_requested()`. |
+| `_trigger_callback` | Method | Internal helper to wrap results/errors into an `ExecutorResult` and invoke the `finished_callback`. |
+| `AsyncExecutor` | Class | A concrete implementation of `CommandExecutor` that utilizes `threading.Thread` to run commands non-blockingly. |
+| `run` | Method | In `AsyncExecutor`, initializes and optionally starts/joins a background thread to execute `_run_thread`. |
+| `_run_thread` | Method | The internal thread target that executes the command logic and handles exception catching. |
+| `terminate` | Method | Resets the thread reference to `None`. |
 
 ## 4. Execution Logic & Flow
 - **Initialization**: 
-    - `CommandExecutor` stores the target `command` and a `finish_callback`.
-    - `AsyncExecutor` initializes with a default thread name `"Async Executor"` and sets the thread reference to `None`.
+    - `CommandExecutor` is initialized with a `command` string and a `finish_callback` function.
+    - `AsyncExecutor` extends this by setting a default `thread_name` and initializing `self.thread` to `None`.
 - **Data Path**: 
-    - **Input**: Command string $\rightarrow$ `run()` $\rightarrow$ `_run_thread()`.
-    - **Processing**: `_run_thread()` executes logic (currently a simulated success string) inside a `try-except` block.
-    - **Output**: `_trigger_callback()` $\rightarrow$ `ExecutorResult(result, error)` $\rightarrow$ `finished_callback(result_obj)`.
+    - **Input**: A command string is passed during instantiation.
+    - **Processing**: 
+        1. `AsyncExecutor.run()` creates a new `Thread` targeting `_run_thread`.
+        2. `_run_thread` executes the command logic (currently simulated).
+        3. The result is encapsulated in an `ExecutorResult` object.
+    - **Output**: The `ExecutorResult` is passed as the sole argument to the `finished_callback`.
 - **Conditional Branching**:
-    - In `AsyncExecutor.run()`: If `auto_start` is `False`, the method returns immediately without spawning a thread.
-    - In `AsyncExecutor.run()`: If `wait` is `True`, the main thread blocks on `self.thread.join()` until the worker completes.
-    - In `AsyncExecutor._run_thread()`: If an exception occurs, the `error` payload is sent to the callback instead of the `result`.
+    - **Execution Mode**: In `AsyncExecutor.run()`, if `auto_start` is `False`, the thread is created but not started.
+    - **Blocking Behavior**: If `wait` is `True` in `AsyncExecutor.run()`, the calling thread invokes `self.thread.join()`, blocking until the command completes.
+    - **Error Handling**: Inside `_run_thread`, a `try-except` block catches any `Exception`. If an error occurs, `_trigger_callback` is called with `None` as the result and the exception object as the error.
 
 ## 5. Resource Dependencies
-- **Standard Libraries**: 
-    - `threading.Thread`
+- **Standard Libraries**: `threading.Thread`
 - **Internal Modules**: 
-    - No internal imports identified within this file.
-- **External Packages**: 
-    - No external packages identified.
+    - No internal module imports identified within this file.
+- **External Packages**: None identified.

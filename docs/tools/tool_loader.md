@@ -1,5 +1,10 @@
 ## 1. Architectural Role
-This module serves as the dynamic plugin ingestion engine for the system, responsible for scanning external directories to discover and instantiate functional extensions. It utilizes Python's `importlib` machinery to perform runtime module loading, enabling the system to extend its capabilities without core code modification by identifying functions decorated with specific metadata and registering them into the [tools/tool_registry.md](tools/tool_registry.md) instance.
+
+**Functional Mission**
+The **tool_loader.py** component serves as a dynamic discovery and injection engine for extending the system's capabilities at runtime. Its primary mission is to scan designated filesystem directories for Python modules, perform safe imports, and identify specific functions decorated with the `_is_tool` attribute to facilitate automated tool registration.
+
+**System Context & Integration**
+This component acts as a bridge between the local filesystem and the [ToolRegistry](/docs/tools/tool_registry.md). By modifying `sys.path` and `sys.modules` temporarily, it enables user-defined scripts to function as first-class citizens within the architecture, allowing for complex cross-module imports within the toolset itself. Once identified, these tools are handed off to the [ToolRegistry](/docs/tools/tool_registry.md) to be made available to downstream agents and execution engines.
 
 ## 2. Environment & Configuration
 **Environment Lookups:**
@@ -11,26 +16,25 @@ This module serves as the dynamic plugin ingestion engine for the system, respon
 ## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `load_and_register_user_tools` | Func | Orchestrates directory scanning, module importing, and registration of tool-marked functions into the provided registry. |
+| `load_and_register_user_tools` | Func | Orchestrates the directory scanning, module importing, and registration process for tools marked with `_is_tool`. |
 
 ## 4. Execution Logic & Flow
-- **Initialization**: Receives a `registry` object (conforming to [tools/tool_registry.md](tools/tool_registry.md)) and a `user_tools_dir` string path.
+- **Initialization**: Validates the existence of the `user_tools_dir`. If invalid, logs a warning via [functions](/docs/functions.md) and aborts.
 - **Data Path**: 
-    1. **Validation**: Checks if `user_tools_dir` exists via `os.path.isdir`.
-    2. **Path Injection**: Prepends `user_tools_dir` to `sys.path` to facilitate intra-tool relative imports.
-    3. **Discovery**: Iterates through files in `user_tools_dir`, filtering for non-private `.py` files.
-    4. **Loading**: Creates a module spec via `importlib.util`, executes the module, and injects it into `sys.modules`.
-    5. **Inspection**: Traverses module attributes to find callables possessing the `_is_tool` attribute.
-    6. **Registration**: Passes discovered functions to `registry.register_tool`.
-    7. **Cleanup**: Removes `user_tools_dir` from `sys.path` upon completion.
+    1. **Path Setup**: Injects `user_tools_dir` into `sys.path` to support relative imports between tools.
+    2. **Discovery**: Iterates through files in `user_tools_dir`, filtering for `.py` files that do not start with an underscore.
+    3. **Importation**: Uses `importlib.util` to create a module spec, loads the module into `sys.modules`, and executes it.
+    4. **Inspection**: Iterates through all attributes of the loaded module using `dir()`.
+    5. **Registration**: Checks if an attribute is callable and possesses the `_is_tool` flag; if true, calls `registry.register_tool()`.
+    6. **Cleanup**: Removes `user_tools_dir` from `sys.path` upon completion.
 - **Conditional Branching**:
-    - If directory is missing: Logs warning and aborts.
-    - If module loading fails: Logs error and raises `ImportError`.
-    - If `_is_tool` is True: Proceeds to registration.
+    - **Directory Check**: If `os.path.isdir` is false, the process exits early.
+    - **Import Error**: If `spec.loader.exec_module` fails, an `ImportError` is raised after logging the error via [functions](/docs/functions.md).
+    - **Tool Identification**: Only attributes where `hasattr(func_ref, "_is_tool")` is true are processed for registration.
 
 ## 5. Resource Dependencies
 - **Standard Libraries**: `os`, `sys`, `importlib.util`, `inspect`, `typing`
 - **Internal Modules**: 
-    - [functions](functions.md)
-    - [tools/tool_registry.md](tools/tool_registry.md)
-- **External Packages**: None
+    - [functions](/docs/functions.md)
+    - [ToolRegistry](/docs/tools/tool_registry.md)
+- **External Packages**: None identified.

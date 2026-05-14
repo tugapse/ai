@@ -1,42 +1,47 @@
 ## 1. Architectural Role
-This file implements an ASGI middleware layer designed to intercept HTTP traffic and enforce correct `Content-Type` headers for static assets. It acts as a preventative layer within the [modules/server/middleware.md](modules/server/middleware.md) stack to ensure that browsers correctly interpret and execute client-side resources (JavaScript, CSS, images) by injecting missing MIME type metadata into the ASGI scope before the request reaches the core application logic.
+
+**Functional Mission**
+The **MIMETypeFixerMiddleware** is a specialized ASGI middleware component designed to ensure correct HTTP response headers for static assets. Its primary mission is to intercept incoming HTTP requests for specific file extensions (such as `.js`, `.css`, and images) and inject the appropriate `Content-Type` header into the ASGI scope if it is missing, preventing browser rendering issues caused by incorrect or absent MIME types.
+
+**System Context & Integration**
+This component sits within the server's request-response pipeline, acting as a decorator for the core application. It intercepts the `scope` before it reaches the primary application logic, specifically targeting static resource paths. By modifying the `scope['headers']` list, it ensures that downstream handlers or static file servers receive a request context that already contains the necessary metadata for correct content delivery. It relies on [functions](/docs/functions.md) for telemetry and debugging during the interception process.
 
 ## 2. Environment & Configuration
 **Environment Lookups:**
-- No environment lookups identified.
+No environment lookups identified.
 
 **Hardcoded Constants:**
-- `'.js', '.css', '.png', '.jpg', '.svg'` (Default: `tuple`)  Target file extensions for MIME sniffing.
-- `'application/javascript'` (Default: `str`)  MIME type for `.js` files.
-- `'text/css'` (Default: `str`)  MIME type for `.css` files.
-- `'image/png'` (Default: `str`)  MIME type for `.png` files.
-- `'image/jpeg'` (Default: `str`)  MIME type for `.jpg`/`.jpeg` files.
-- `'image/svg+xml'` (Default: `str`)  MIME type for `.svg` files.
-- `'application/octet-stream'` (Default: `str`)  Fallback MIME type for unrecognized extensions.
+- `'.js', '.css', '.png', '.jpg', '.svg'` (Default: tuple of extensions)  Target file extensions for MIME type enforcement.
+- `'application/javascript'` (Default: string)  MIME type for `.js` files.
+- `'text/css'` (Default: string)  MIME type for `.css` files.
+- `'image/png'` (Default: string)  MIME type for `.png` files.
+- `'image/jpeg'` (Default: string)  MIME type for `.jpg`/`.jpeg` files.
+- `'image/svg+xml'` (Default: string)  MIME type for `.svg` files.
+- `'application/octet-stream'` (Default: string)  Fallback MIME type for unrecognized extensions.
 
 ## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `MIMETypeFixerMiddleware` | Class | Orchestrates the intercepting of ASGI scopes to inject header metadata. |
-| `__init__` | Method | Initializes the middleware with the wrapped application instance. |
-| `__call__` | Async Method | The primary entry point for ASGI requests; performs routing logic and header injection. |
-| `_determine_mime_type` | Method | Maps file path extensions to their corresponding string-based MIME type identifiers. |
+| `MIMETypeFixerMiddleware` | Class | ASGI middleware wrapper that manages MIME type injection. |
+| `__init__` | Method | Initializes the middleware with the target ASGI `app`. |
+| `__call__` | Async Method | The primary entry point for ASGI lifecycle; intercepts `scope`, `receive`, and `send`. |
+| `_determine_mime_type` | Method | Internal logic to map file extensions to valid MIME type strings. |
 
 ## 4. Execution Logic & Flow
-- **Initialization**: The class accepts an `app` instance (the next layer in the ASGI stack) and logs initialization via [functions.md](functions.md).
+- **Initialization**: The class is instantiated with an `app` instance, which is stored as `self.app` to facilitate the delegation of the request. A debug log is emitted via `func.debug`.
 - **Data Path**: 
-    1. **Intercept**: `__call__` receives `scope`, `receive`, and `send`.
-    2. **Filter**: Checks if `scope['type']` is `http` and if the `path` ends with a recognized static asset extension.
-    3. **Analyze**: If matched, calls `_determine_mime_type` to resolve the correct string identifier.
-    4. **Inject**: Checks the `scope['headers']` list for existing `b'content-type'`. If absent, appends the new header.
-    5. **Delegate**: Passes the modified (or original) `scope` to `self.app`.
+    1. **Input**: Receives ASGI `scope`, `receive`, and `send` parameters.
+    2. **Filtering**: Checks if `scope['type']` is `'http'` and if `scope['path']` ends with a recognized static extension.
+    3. **Processing**: If a match is found, `_determine_mime_type` is called to resolve the string.
+    4. **Header Injection**: The middleware inspects `scope['headers']`. If `b'content-type'` is absent, it appends the new header.
+    5. **Output**: The modified (or original) `scope` is passed to `await self.app(scope, receive, send)`.
 - **Conditional Branching**:
-    - **Type Check**: If `scope['type'] != 'http'` or path does not match extension whitelist $\rightarrow$ Pass through immediately.
-    - **Header Check**: If `b'content-type'` is already present in `headers` $\rightarrow$ Log skip and pass through to avoid duplicate headers.
-    - **Extension Match**: If path matches an extension in `_determine_mime_type` $\rightarrow$ Return specific MIME; else $\rightarrow$ Return `application/octet-stream`.
+    - **Path Match**: If the path does not match the static extension list, the middleware immediately delegates to `self.app` without modification.
+    - **Header Existence**: If `content-type` is already present in the headers, the middleware skips injection to prevent duplicate headers and proceeds to the app.
+    - **MIME Resolution**: If an extension is recognized, the specific type is returned; otherwise, it falls back to `application/octet-stream`.
 
 ## 5. Resource Dependencies
-- **Standard Libraries**: `typing`
+- **Standard Libraries**: `typing.List`, `typing.Tuple`
 - **Internal Modules**: 
-    - [functions.md](functions.md)
+    - [functions](/docs/functions.md)
 - **External Packages**: None identified.

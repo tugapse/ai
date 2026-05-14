@@ -1,40 +1,48 @@
 ## 1. Architectural Role
-The `OutputPrinter` class acts as a stream-processing middleware responsible for controlling the temporal granularity of LLM token output displayed to the user. It manages internal buffers to implement various printing strategiesranging from raw token streaming to line-buffered or frequency-based chunkingensuring that the console output remains readable and synchronized with other system components like [modules/voice/vibe_module.md](modules/voice/vibe_module.md) via its final state capture mechanism.
+
+**Functional Mission**
+The **OutputPrinter** class is responsible for managing the real-time presentation of LLM-generated tokens to the user interface. Its primary mission is to abstract the complexity of token-by-token streaming by implementing various buffering strategiessuch as line-based or frequency-based printingto ensure a smooth, readable, and non-jittery console output experience.
+
+**System Context & Integration**
+This component acts as a presentation-layer utility within the streaming pipeline. It sits between the raw token stream provided by LLM modules and the final output destination. It is designed to be utilized by higher-level orchestrators, such as the [Stream Orchestrator](/docs/services/stream_orchestrator.md), to control how text appears to the user. Furthermore, its `flush` mechanism provides a critical bridge to downstream modules, such as the [Voice Module](/docs/modules/voice/base_module.md), by ensuring that the complete, buffered text is captured for text-to-speech processing once the stream concludes.
 
 ## 2. Environment & Configuration
+
 **Environment Lookups:**
-- No environment lookups identified.
+No environment lookups identified.
 
 **Hardcoded Constants:**
-- `print_mode` (Default: `"token"`)  Determines the buffering logic strategy.
-- `tokens_per_print` (Default: `5`)  Sets the threshold for chunk-based output in `every_x_tokens` or `line_or_x_tokens` modes.
+- `tokens_per_print` (Default: `5`)  Determines the threshold for the `every_x_tokens` and `line_or_x_tokens` printing modes.
 
 ## 3. Interface & API Surface
+
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `OutputPrinter` | Class | Orchestrates token buffering and conditional printing logic. |
-| `process_and_print` | Method | Executes the transformation of a token and immediately triggers the output via [functions.md](functions.md). |
-| `flush_buffers` | Method | Forces the immediate printing of all remaining content in current buffers. |
-| `process_token` | Method | The core logic engine; calculates whether a token (or group of tokens) meets the criteria for display based on `print_mode`. |
-| `flush` | Method | Captures and returns buffered content as a string for external consumption (e.g., Voice Modules). |
+| `OutputPrinter` | Class | Manages token buffering and conditional printing logic based on selected modes. |
+| `process_and_print` | Method | Orchestrates the transformation of a token via `process_token` and executes the actual output via `func.out`. |
+| `flush_buffers` | Method | Immediately pushes all currently buffered content to the console and clears buffers. |
+| `process_token` | Method | The core logic engine; evaluates the current `print_mode` and determines if a string is ready to be released from the buffer. |
+| `flush` | Method | Returns the remaining buffered content as a string for external consumption (e.g., Voice Modules) instead of printing it. |
 
 ## 4. Execution Logic & Flow
-- **Initialization**: Sets the `print_mode` and `tokens_per_print` constraints; initializes `line_buffer`, `token_buffer`, and `buffered_token_count` to zero/empty states.
+
+- **Initialization**: Sets the `print_mode` and `tokens_per_print`. Initializes `line_buffer` (string), `token_buffer` (string), and `buffered_token_count` (integer) to manage state across asynchronous token arrivals.
 - **Data Path**: 
-    1. `process_and_print` receives `token_to_display`.
-    2. `process_token` appends the token to the appropriate internal buffer (`line_buffer` or `token_buffer`).
-    3. Logic evaluates if a delimiter (`\n`) is present or if `buffered_token_count` meets the threshold.
-    4. If criteria are met, a substring is returned; otherwise, `None` is returned.
-    5. If a string is returned, `func.out` is called to write to the console.
-- **Conditional Branching**:
-    - `token`: Zero buffering; immediate return.
-    - `line`: Buffers until `\n` is detected; returns all content preceding the newline.
-    - `every_x_tokens`: Buffers until `buffered_token_count` reaches `tokens_per_print`.
-    - `line_or_x_tokens`: Prioritizes newline detection; if no newline, falls back to the token count threshold.
-    - `Unknown mode`: Logs a warning via `func.log` and reverts to `token` mode.
+    1. **Input**: A single `token_to_display` string is passed to `process_and_print`.
+    2. **Processing**: `process_token` appends the token to the appropriate buffer (`line_buffer` or `token_buffer`) and increments `buffered_token_count`.
+    3. **Decision**: 
+        - If `mode == "token"`: Returns token immediately.
+        - If `mode == "line"`: Returns text only when a `\n` is detected, stripping the newline from the buffer.
+        - If `mode == "every_x_tokens"`: Returns text only when `buffered_token_count` reaches `tokens_per_print`.
+        - If `mode == "line_or_x_tokens"`: Returns text if a newline is detected OR if the token count threshold is met.
+    4. **Output**: If a string is returned, it is passed to `func.out` with `flush=True`.
+- **Conditional Branching**: 
+    - **Unknown Mode**: If an invalid `print_mode` is provided, the system logs a warning via `func.log` and falls back to immediate "token" mode.
+    - **Buffer Clearing**: Upon meeting a print condition (newline or count), the specific buffer and the `buffered_token_count` are reset to prevent duplicate output.
 
 ## 5. Resource Dependencies
+
 - **Standard Libraries**: None identified.
 - **Internal Modules**: 
-    - [functions.md](functions.md)
+    - [functions](/docs/functions.md)
 - **External Packages**: None identified.
