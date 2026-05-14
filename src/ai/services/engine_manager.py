@@ -38,7 +38,8 @@ class EngineManager:
             ModelType.CAUSAL_LM: "transformers",
             ModelType.SEQ2SEQ_LM: "transformers",
             ModelType.OPEN_AI: "openai",
-            ModelType.GEMINI: "gemini_api",
+            EngineType.GEMINI_API: "gemini_api",
+            EngineType.GEMINI_VERTEX: "gemini_vertex",
             EngineType.VOICE_ENGINE:"voice_engine",
             EngineType.VECTOR_MEMORY:"vector_memory"
 

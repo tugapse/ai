@@ -9,16 +9,48 @@ import time
 import signal
 import gc
 from typing import Optional
+import re
+from pathlib import Path
 
 # Core imports
 from program import Program
 from config import ProgramSetting
 from entities.model_enums import ModelType
 import functions as func
-from color import Color 
-from cli_args import CliArgs 
+from color import Color
+from cli_args import CliArgs
 
-__version__ = "3.1.1"
+def get_project_version() -> str:
+    """
+    Reads the project version from the pyproject.toml file.
+    
+    This function navigates up from the current file's directory to find
+    the pyproject.toml file, reads its content, and extracts the version
+    string. It provides a fallback version if the file or version key
+    cannot be found.
+    """
+    try:
+        # Assumes pyproject.toml is at the project root, three levels up from src/ai/main.py
+        pyproject_path = Path(__file__).resolve().parent.parent.parent / "pyproject.toml"
+
+        if not pyproject_path.exists():
+            return "0.0.0-dev (pyproject.toml not found)"
+
+        with open(pyproject_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        
+        # Use regex to find version = "x.y.z"
+        version_match = re.search(r'^version\s*=\s*"(.*?)"', content, re.MULTILINE)
+        
+        if version_match:
+            return version_match.group(1)
+        
+        return "0.0.0-dev (version key not found)"
+    except Exception:
+        # Fallback version in case of any other error (e.g., parsing error)
+        return "0.0.0-dev (fallback)"
+
+__version__ = get_project_version()
 __logo = f"""{Color.CYAN}
       ██╗  █████╗  ██████╗  ██╗   ██╗ ██╗ ███████╗      █████╗  ██╗
       ██║ ██╔══██╗ ██╔══██╗ ██║   ██║ ██║ ██╔════╝     ██╔══██╗ ██║
@@ -71,7 +103,7 @@ class JarvisHelpFormatter(argparse.RawDescriptionHelpFormatter):
 def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     """Defines and parses flags for the JARVIS ecosystem."""
     
-    description="""
+    description=f"""
 
   JUST A REASONING VIRTUAL INTELLIGENT SENTINEL AGENTIC INTERFACE
   Version: {__version__}
@@ -80,9 +112,8 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
   
   {Color.CYAN}[ SYSTEM READY ] --------------------------------------------------------------------------{Color.RESET}
 """
-
     parser = argparse.ArgumentParser(
-        description=__logo+description,
+        description=f"{__logo}{description}",
         formatter_class=JarvisHelpFormatter,
         usage=f"{Color.CYAN}ai{Color.RESET} [OPTIONS]",
         add_help=False,
@@ -92,6 +123,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     # 1. Cognitive Protocols (The Core Chat/Model flags)
     cog_group = parser.add_argument_group(f'{Color.CYAN}COGNITIVE PROTOCOLS{Color.RESET}')
     cog_group.add_argument("-h", "--help", action="help", help="Show this diagnostic help message")
+    cog_group.add_argument("-v", "--version", action="version", version=f"JARVIS Version {__version__}", help="Display the system version and exit")
     cog_group.add_argument("--msg", "-m", type=str, help="Direct inquiry to the sentinel")
     cog_group.add_argument("--model", "-md", type=str, help="Specify neural model configuration")
     cog_group.add_argument("--system", "-s", type=str, help="Load named system persona") 

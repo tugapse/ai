@@ -322,7 +322,7 @@ class Program:
 
         if self.llm_initialized:
             try:
-                llm_instance = self.models.llm
+                llm_instance = self.models.llm  
                 if llm_instance:
                     llm_instance.request_shutdown()
                     del self.models.llm
