@@ -1,40 +1,59 @@
 ## 1. Architectural Role
-The `ModelOrchestrator` acts as a lifecycle manager for LLM instances, handling the resolution of configuration files, the instantiation of model engines via `EngineManager`, and the synchronization of model parameters.
 
-## 2. Interface & API Surface
+**Functional Mission**
+The **ModelOrchestrator** serves as the centralized lifecycle manager for Large Language Model (LLM) instances within the application. Its primary mission is to abstract the complexities of model loading, configuration parsing, and resource management, providing a unified interface to switch between different model backends while ensuring that previous model instances are gracefully decommissioned to prevent resource leaks.
+
+**System Context & Integration**
+This component acts as a high-level controller that bridges configuration data and active execution engines. It utilizes [EngineManager](/docs/services/engine_manager.md) to instantiate specific [BaseModel](/docs/core/llms/base_llm.md) implementations based on JSON configuration files. By managing the `active_model_name` and handling the transition between models, it provides a stable state for downstream servicessuch as chat managers or agentic loopsto interact with a consistent LLM interface without needing to manage the underlying engine's lifecycle or parameter initialization.
+
+## 2. Environment & Configuration
+
+**Environment Lookups:**
+- `PATHS_MODEL_CONFIGS` (via `self.config.get`)  Retrieves the directory path where model JSON configuration files are stored.
+
+**Hardcoded Constants:**
+- `__no_chat_name__` (Default: `"__no_chat_name__"`)  Initial placeholder for the model's chat identifier.
+- `default.json` (Default: `"default.json"`)  Fallback filename if no specific model configuration is provided.
+
+## 3. Interface & API Surface
+
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `ModelOrchestrator` | Class | Orchestrates the loading, switching, and parameter tracking of LLM models. |
-| `__init__` | Method | Initializes state for config, LLM instance, parameters, and active model tracking. |
-| `load` | Method | Resolves config paths, shuts down existing models, instantiates a new `BaseModel`, and initializes parameters. |
-| `_init_model_params` | Method | Extracts `options` from the active LLM into a `ModelParams` dictionary. |
-| `get_params` | Method | Returns the current `model_params` dictionary. |
-| `get_chat_name` | Method | Returns the `model_chat_name` defined in the loaded JSON config. |
+| `ModelOrchestrator` | Class | Orchestrates the loading, lifecycle, and parameter management of LLM instances. |
+| `__init__` | Method | Initializes the orchestrator with a `ProgramConfig` and sets default empty states. |
+| `load` | Method | Performs the heavy lifting of loading a model: validates paths, shuts down existing models, invokes the engine manager, and initializes parameters. |
+| `_init_model_params` | Method | Synchronizes the internal `model_params` dictionary with the attributes of the currently loaded LLM instance. |
+| `get_params` | Method | Returns the current model's operational parameters as a dictionary. |
+| `get_chat_name` | Method | Returns the human-readable name associated with the currently loaded model. |
 
-## 3. Execution Logic & Flow
+## 4. Execution Logic & Flow
+
 - **Initialization**: 
-    1. Receives `ProgramConfig`.
-    2. Sets `llm` to `None`.
-    3. Initializes `model_params` as an empty dictionary.
-    4. Sets `model_chat_name` to `"__no_chat_name__"`.
-    5. Sets `active_model_name` to an empty string.
-- **Data Path (load)**: 
-    `model_config_name` + `system_prompt` $\rightarrow$ Path Resolution $\rightarrow$ `EngineManager.load_config` $\rightarrow$ `EngineManager.load_model_instance` $\rightarrow$ `_init_model_params` $\rightarrow$ `BaseModel` instance.
+    - Accepts `ProgramConfig`.
+    - Sets `model_params` to an empty dictionary.
+    - Sets `model_chat_name` to `__no_chat_name__`.
+    - Sets `active_model_name` to an empty string and `llm` to `None`.
+- **Data Path (Model Loading)**:
+    1. **Input**: `model_config_name` (string), `system_prompt` (string), `tool_registry` (optional).
+    2. **Path Normalization**: Appends `.json` if missing; resolves the directory path using `ProgramSetting.PATHS_MODEL_CONFIGS` or a fallback root directory.
+    3. **Lifecycle Check**: If the requested model differs from `active_model_name`, the current `llm.request_shutdown()` is called.
+    4. **Instantiation**: `EngineManager.load_config` reads the file; `EngineManager.load_model_instance` creates the LLM object.
+    5. **Parameter Sync**: `_init_model_params` extracts `options` from the LLM and converts them to a dictionary via `ModelParams`.
+    6. **Output**: Returns the initialized `BaseModel` instance.
 - **Conditional Branching**:
-    - **Filename Normalization**: If `model_config_name` is empty, defaults to `"default.json"`; if it lacks a `.json` extension, it is appended.
-    - **Model Switching**: If `model_config_name` differs from `active_model_name`, `self.llm.request_shutdown()` is called if an instance exists.
-    - **Path Resolution**: Checks `ProgramSetting.PATHS_MODEL_CONFIGS` in config; if `None`, falls back to `func.get_root_directory()` joined with `"model-config"`.
-    - **Error Handling**: Any exception during loading triggers `func.error` with `CRITICAL` level and executes `sys.exit(1)`.
+    - **Config Path Missing**: If `PATHS_MODEL_CONFIGS` is null, it falls back to a `model-config` folder in the project root.
+    - **Model Load Failure**: If `EngineManager` returns `None` or an exception occurs during loading, the error is logged via `func.error` and the process terminates via `sys.exit(1)`.
+    - **Parameter Availability**: If the LLM lacks an `options` attribute, `model_params` defaults to an empty `ModelParams` dictionary.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `os`, `sys`, `typing` (`Optional`, `Dict`, `Any`)
-- **Internal Modules**: `services.model_manager.EngineManager`, `core.llms.base_llm.ModelParams`, `core.llms.base_llm.BaseModel`, `config.ProgramConfig`, `config.ProgramSetting`, `functions` (as `func`)
+## 5. Resource Dependencies
 
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `"default.json"`: Default configuration filename.
-    - `".json"`: Required file extension for model configs.
-    - `"__no_chat_name__"`: Initial state for `model_chat_name`.
-    - `"model-config"`: Fallback directory name.
-- **Environment Lookups**: 
-    - `ProgramSetting.PATHS_MODEL_CONFIGS`: Used to locate the directory containing model JSON files.
+- **Standard Libraries**: `os`, `sys`, `typing`
+- **Internal Modules**: 
+    - [EngineManager](/docs/services/engine_manager.md)
+    - [ModelParams](/docs/core/llms/base_llm.md)
+    - [BaseModel](/docs/core/llms/base_llm.md)
+    - [ProgramConfig](/docs/services/config_helper.md)
+    - [ProgramSetting](/docs/services/config_helper.md)
+    - [functions](/docs/functions.md)
+    - [ToolRegistry](/docs/tools/tool_registry.md)
+- **External Packages**: None identified.

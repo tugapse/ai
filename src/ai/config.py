@@ -10,9 +10,14 @@ T = TypeVar("T")
 
 
 class ProgramSetting:
+    # GENERAL SETTINGS
     MODEL_NAME = "MODEL_NAME"
+    MODEL_CONFIG_NAME = "MODEL_CONFIG_NAME"
+    ROOT_DIRECTORY = "ROOT_DIRECTORY"
     SYSTEM_PROMPT_FILE = "SYSTEM_PROMPT_FILE"
     SYSTEM_PROMPT_FOLDER = "SYSTEM_PROMPT_FOLDER"
+
+    # PATH SETTINGS
     PATHS_LOGS = "PATHS_LOGS"
     PATHS_CHAT_LOG = "PATHS_CHAT_LOG"
     PATHS_TASKS_TEMPLATES = "PATHS_TASKS_TEMPLATES"
@@ -20,28 +25,36 @@ class ProgramSetting:
     PATHS_WORKSPACES = "PATHS_WORKSPACES"
     PATHS_INJECT_TEMPLATES = "PATHS_INJECT_TEMPLATES"
     PATHS_MODEL_CONFIGS = "PATHS_MODEL_CONFIGS"
-    VECTOR_DB_PATH = "VECTOR_DB_PATH"
-    ROOT_DIRECTORY = "ROOT_DIRECTORY"
+
     OLLAMA_HOST = "OLLAMA_HOST"
+    # PRINTING/OUTPUT SETTINGS
     PRINT_LOG = "PRINT_LOG"
     PRINT_DEBUG = "PRINT_DEBUG"
     PRINT_OUTPUT = "PRINT_OUTPUT"
+
+    # THINKING/RESPONSE STREAMING SETTINGS
     THINKING_MODE = "THINKING_MODE"
     PRINT_MODE = "PRINT_MODE"
     TOKENS_PER_PRINT = "TOKENS_PER_PRINT"
     ENABLE_THINKING_DISPLAY = "ENABLE_THINKING_DISPLAY"
-    MODEL_CONFIG_NAME = "MODEL_CONFIG_NAME"
+
+    # REMOTE SETTINGS
     REMOTE_MODE = "REMOTE_MODE"
-    REMOTE_URL = "REMOTE_URL"   
-    
+    REMOTE_URL = "REMOTE_URL"
+
+    # AGENT SETTINGS
+    AGENT_THOUGHT = "AGENT_THOUGHT"
+
     # MODULES
     VOICE_ENABLED = "VOICE_ENABLED"
+    VOICE_FILE = "VOICE_FILE"
     VECTOR_MEMORY_ENABLED = "VECTOR_MEMORY_ENABLED"
-
+    VECTOR_DB_PATH = "VECTOR_DB_PATH"
 
 
 class ProgramConfig(Generic[T]):
     """Manages loading, accessing, and saving of program configuration settings."""
+
     current: Optional["ProgramConfig"] = None
 
     def __init__(self, config: dict = {}) -> None:
@@ -81,17 +94,27 @@ class ProgramConfig(Generic[T]):
         self._ensure_path(ProgramSetting.PATHS_WORKSPACES, "workspaces")
         self._ensure_path(ProgramSetting.VECTOR_DB_PATH, "databases")
 
-        if self.config.get(ProgramSetting.MODEL_CONFIG_NAME) is None:
-            self.set(ProgramSetting.MODEL_CONFIG_NAME, "default.json")
-
-        if self.config.get(ProgramSetting.VOICE_ENABLED) is None:
-            self.set(ProgramSetting.VOICE_ENABLED, False)
-        
-        if self.config.get(ProgramSetting.VECTOR_MEMORY_ENABLED) is None:
-            self.set(ProgramSetting.VECTOR_MEMORY_ENABLED, False)
+        self._ensure_user_settings()
 
         if need_save:
             self.save(user_config_filename)
+
+    def _ensure_user_settings(self):
+
+        if self.config.get(ProgramSetting.MODEL_CONFIG_NAME) is None:
+            self.set(ProgramSetting.MODEL_CONFIG_NAME, "default.json")
+
+        if self.config.get(ProgramSetting.SYSTEM_PROMPT_FILE) is None:
+            self.set(ProgramSetting.SYSTEM_PROMPT_FILE, "default")
+
+        if self.config.get(ProgramSetting.VOICE_ENABLED) is None:
+            self.set(ProgramSetting.VOICE_ENABLED, False)
+
+        if self.config.get(ProgramSetting.VECTOR_MEMORY_ENABLED) is None:
+            self.set(ProgramSetting.VECTOR_MEMORY_ENABLED, False)
+
+        if self.config.get(ProgramSetting.AGENT_THOUGHT) is None:
+            self.set(ProgramSetting.AGENT_THOUGHT, False)
 
     def save(self, filename):
         try:
@@ -110,9 +133,10 @@ class ProgramConfig(Generic[T]):
             self.logger.warning("User directory not specified for template copy.")
             return
 
-        project_root_templates_dir = os.path.join(
-            dirname(__file__), "templates"
-        )  # Adjust if 'config.py' is not directly in 'core'
+        # Use pathlib for more robust path handling and resolution
+        project_root_templates_dir = (
+            pathlib.Path(dirname(__file__)) / ".." / ".." / "assets" / "templates"
+        ).resolve()
 
         if not os.path.exists(project_root_templates_dir):
             self.logger.warning(
@@ -127,16 +151,12 @@ class ProgramConfig(Generic[T]):
         try:
             for item_name in os.listdir(project_root_templates_dir):
                 src_item_path = os.path.join(project_root_templates_dir, item_name)
-                dest_item_path = os.path.join(
-                    user_dir, item_name
-                )  
+                dest_item_path = os.path.join(user_dir, item_name)
 
                 if os.path.isdir(src_item_path):
                     shutil.copytree(src_item_path, dest_item_path, dirs_exist_ok=True)
                 elif os.path.isfile(src_item_path):
-                    shutil.copy2(
-                        src_item_path, dest_item_path
-                    )  
+                    shutil.copy2(src_item_path, dest_item_path)
             self.logger.info("Templates copied successfully.")
         except Exception as e:
             self.logger.error(f"Error copying templates: {e}")

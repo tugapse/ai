@@ -1,40 +1,44 @@
 ## 1. Architectural Role
-Acts as a service-oriented tool wrapper that exposes `VectorMemory` capabilities (semantic retrieval and reflection) as a registry-compatible interface for an agent.
 
-## 2. Interface & API Surface
+**Functional Mission**
+The **MemoryTools** class serves as a service-oriented interface designed to bridge the gap between an active agent and the system's persistent long-term memory (LTM). Its primary mission is to expose high-level cognitive operationsspecifically semantic retrieval and architectural synthesisas executable tools that can be registered within an agent's toolset, thereby enabling the agent to interact with a [VectorMemory](/docs/modules/memory/vector_memory.md) instance.
+
+**System Context & Integration**
+This component acts as a functional wrapper that translates agentic intent into specific vector database operations. It integrates with the agentic loop by providing tools that prevent context window overflow through "distilled" knowledge retrieval. It relies on a provided `vector_memory_instance` to perform heavy lifting, effectively acting as the API layer between the [Agent](/docs/agents/agent.md) and the underlying [VectorMemory](/docs/modules/memory/vector_memory.md) storage, facilitating the transition from raw interaction logs to structured, queryable insights.
+
+## 2. Environment & Configuration
+
+**Environment Lookups:**
+No environment lookups identified.
+
+**Hardcoded Constants:**
+- `top_k` (Default: `3`)  The default number of memory fragments to retrieve during a `query_memory` operation.
+
+## 3. Interface & API Surface
+
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `MemoryTools` | Class | Encapsulates memory-related tool logic and manages the connection to a vector store. |
-| `MemoryTools.__init__` | Method | Binds an optional `vector_memory_instance` to the toolset. |
-| `MemoryTools.get_tools` | Method | Returns a dictionary mapping tool names (`query_memory`, `trigger_reflection`) to their method references. |
-| `MemoryTools.query_memory` | Method | Performs semantic search against the vector store using a query string and `top_k` limit. |
-| `MemoryTools.trigger_reflection` | Method | Commands the vector store to synthesize recent observations into permanent knowledge. |
+| `MemoryTools` | Class | Orchestrates the mapping of memory-related capabilities to the agent's tool registry. |
+| `get_tools` | Method | Returns a dictionary mapping tool identifiers (`query_memory`, `trigger_reflection`) to their respective class methods. |
+| `query_memory` | Method | Performs a semantic search within the vector store to retrieve historical context or technical details. |
+| `trigger_reflection` | Method | Initiates a synthesis cycle within the vector memory to consolidate recent logs into structured knowledge. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: 
-    1. `MemoryTools` is instantiated.
-    2. The `vector_memory_instance` is assigned to `self.vector_memory`.
-- **Data Path (query_memory)**: 
-    1. **Input**: Receives `**kwargs` (expects `query` or `search` and optional `top_k`).
-    2. **Validation**: Checks if `self.vector_memory` exists $\rightarrow$ Checks if a query string is present.
-    3. **Processing**: Calls `self.vector_memory.retrieve_memories(query, top_k=top_k)`.
-    4. **Output**: Returns a dictionary containing `status`, `results` (list of memories), and metadata.
-- **Data Path (trigger_reflection)**:
-    1. **Input**: Receives `**kwargs` (none required).
-    2. **Validation**: Checks if `self.vector_memory` exists.
-    3. **Processing**: Calls `self.vector_memory.trigger_reflection()`.
-    4. **Output**: Returns a success/failure status dictionary.
+## 4. Execution Logic & Flow
+
+- **Initialization**: The class is instantiated with an optional `vector_memory_instance`. If provided, this instance is stored in `self.vector_memory` to enable all subsequent tool operations.
+- **Data Path**:
+    - **Query Path**: `query` (str) or `search` (str) $\rightarrow$ `vector_memory.retrieve_memories(query, top_k)` $\rightarrow$ List of memory fragments $\rightarrow$ Result Dictionary.
+    - **Reflection Path**: `trigger_reflection` call $\rightarrow$ `vector_memory.trigger_reflection()` $\rightarrow$ Success/Failure status.
 - **Conditional Branching**:
-    - **Availability Check**: If `self.vector_memory` is `None`, both tools return a `FAILED` status immediately.
-    - **Query Resolution**: `query_memory` attempts to resolve the search term from either the `query` key or the `search` key.
-    - **Result Handling**: If `retrieve_memories` returns an empty list, a specific "No matches found" note is returned.
-    - **Error Handling**: All primary logic is wrapped in `try-except` blocks that route exceptions to `func.error` and return a `FAILED` status.
+    - **Memory Availability**: If `self.vector_memory` is `None`, both `query_memory` and `trigger_reflection` immediately return a `FAILED` status with an error message.
+    - **Query Validation**: In `query_memory`, if neither `query` nor `search` keys are present in `kwargs`, the process aborts with a `FAILED` status.
+    - **Empty Results**: In `query_memory`, if the vector store returns no matches, a `SUCCESS` status is returned with an empty list and a suggestion to broaden the search.
+    - **Exception Handling**: Both primary methods wrap their logic in `try-except` blocks to catch runtime errors, logging them via `func.error` and returning a `FAILED` status to the caller.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `typing` (`Dict`, `Any`, `Optional`, `Callable`)
-- **Internal Modules**: `functions` (aliased as `func`)
+## 5. Resource Dependencies
 
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `top_k` default value: `3`
-- **Environment Lookups**: None
+- **Standard Libraries**: `typing`
+- **Internal Modules**: 
+    - [functions](/docs/functions.md)
+    - [tool](/docs/tools/tool_registry.md)
+- **External Packages**: None identified (relies on injected `vector_memory_instance`).

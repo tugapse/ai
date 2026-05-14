@@ -9,16 +9,56 @@ import time
 import signal
 import gc
 from typing import Optional
+import re
+from pathlib import Path
 
 # Core imports
 from program import Program
 from config import ProgramSetting
 from entities.model_enums import ModelType
 import functions as func
-from color import Color 
-from cli_args import CliArgs 
+from color import Color
+from cli_args import CliArgs
 
-__version__ = "3.1.2"
+def get_project_version() -> str:
+    """
+    Reads the project version from the pyproject.toml file.
+    
+    This function navigates up from the current file's directory to find
+    the pyproject.toml file, reads its content, and extracts the version
+    string. It provides a fallback version if the file or version key
+    cannot be found.
+    """
+    try:
+        # Assumes pyproject.toml is at the project root, three levels up from src/ai/main.py
+        pyproject_path = Path(__file__).resolve().parent.parent.parent / "pyproject.toml"
+
+        if not pyproject_path.exists():
+            return "0.0.0-dev (pyproject.toml not found)"
+
+        with open(pyproject_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        
+        # Use regex to find version = "x.y.z"
+        version_match = re.search(r'^version\s*=\s*"(.*?)"', content, re.MULTILINE)
+        
+        if version_match:
+            return version_match.group(1)
+        
+        return "0.0.0-dev (version key not found)"
+    except Exception:
+        # Fallback version in case of any other error (e.g., parsing error)
+        return "0.0.0-dev (fallback)"
+
+__version__ = get_project_version()
+__logo = f"""{Color.CYAN}
+      ██╗  █████╗  ██████╗  ██╗   ██╗ ██╗ ███████╗      █████╗  ██╗
+      ██║ ██╔══██╗ ██╔══██╗ ██║   ██║ ██║ ██╔════╝     ██╔══██╗ ██║
+      ██║ ███████║ ██████╔╝ ██║   ██║ ██║ ███████╗     ███████║ ██║
+ ██   ██║ ██╔══██║ ██╔══██╗ ╚██╗ ██╔╝ ██║ ╚════██║     ██╔══██║ ██║
+ ╚█████╔╝ ██║  ██║ ██║  ██║  ╚████╔╝  ██║ ███████║     ██║  ██║ ██║
+  ╚════╝  ╚═╝  ╚═╝ ╚═╝  ╚═╝   ╚═══╝   ╚═╝ ╚══════╝     ╚═╝  ╚═╝ ╚═╝
+{Color.RESET}"""
 
 def check_dependencies():
     """Diagnostic boot check for JARVIS dependencies."""
@@ -63,25 +103,17 @@ class JarvisHelpFormatter(argparse.RawDescriptionHelpFormatter):
 def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     """Defines and parses flags for the JARVIS ecosystem."""
     
-    # logo uses cyan for the brand, and we'll keep the description clean
-    logo = f"""{Color.CYAN}
-      ██╗  █████╗  ██████╗  ██╗   ██╗ ██╗ ███████╗      █████╗  ██╗
-      ██║ ██╔══██╗ ██╔══██╗ ██║   ██║ ██║ ██╔════╝     ██╔══██╗ ██║
-      ██║ ███████║ ██████╔╝ ██║   ██║ ██║ ███████╗     ███████║ ██║
- ██   ██║ ██╔══██║ ██╔══██╗ ╚██╗ ██╔╝ ██║ ╚════██║     ██╔══██║ ██║
- ╚█████╔╝ ██║  ██║ ██║  ██║  ╚████╔╝  ██║ ███████║     ██║  ██║ ██║
-  ╚════╝  ╚═╝  ╚═╝ ╚═╝  ╚═╝   ╚═══╝   ╚═╝ ╚══════╝     ╚═╝  ╚═╝ ╚═╝
+    description=f"""
 
   JUST A REASONING VIRTUAL INTELLIGENT SENTINEL AGENTIC INTERFACE
-  Version: {__version__}{Color.RESET}
+  Version: {__version__}
   
   An integrated reasoning core powering autonomous agentic logic and long-term memory synthesis.
   
   {Color.CYAN}[ SYSTEM READY ] --------------------------------------------------------------------------{Color.RESET}
-    """
-
+"""
     parser = argparse.ArgumentParser(
-        description=logo,
+        description=f"{__logo}{description}",
         formatter_class=JarvisHelpFormatter,
         usage=f"{Color.CYAN}ai{Color.RESET} [OPTIONS]",
         add_help=False,
@@ -91,6 +123,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     # 1. Cognitive Protocols (The Core Chat/Model flags)
     cog_group = parser.add_argument_group(f'{Color.CYAN}COGNITIVE PROTOCOLS{Color.RESET}')
     cog_group.add_argument("-h", "--help", action="help", help="Show this diagnostic help message")
+    cog_group.add_argument("-v", "--version", action="version", version=f"JARVIS Version {__version__}", help="Display the system version and exit")
     cog_group.add_argument("--msg", "-m", type=str, help="Direct inquiry to the sentinel")
     cog_group.add_argument("--model", "-md", type=str, help="Specify neural model configuration")
     cog_group.add_argument("--system", "-s", type=str, help="Load named system persona") 
@@ -129,6 +162,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     sys_group.add_argument("--debug-console", "-dc", action="store_true", help="Lock console (disable clear-screen)")
     sys_group.add_argument("--install", action="store_true", help="Execute dependency sync protocol")
     sys_group.add_argument("--overwrite-config", action="store_true", help="Force configuration override")
+    sys_group.add_argument("--create-tool", type=str, metavar='TOOL_NAME', help="Create a new user tool skeleton file")
 
     # 6. Model Generation (Your existing group)
     config_group = parser.add_argument_group(f'{Color.CYAN}MODEL CONFIG GENERATION{Color.RESET}')
@@ -144,7 +178,7 @@ def print_chat_header(prog: Program) -> None:
         func.clear_console()
         
     func.out(f"{Color.CYAN} # {Color.RESET}Established neural link to: {Color.CYAN}{chat_name}{Color.RESET}")
-    func.out(f"{Color.CYAN} #{Color.PURPLE} Sentinel status: ACTIVE | Stage 2 Logic: INJECTED{Color.RESET}")
+    func.out(f"{Color.CYAN} #{Color.PURPLE} Sentinel status: ACTIVE | Logic: INJECTED{Color.RESET}")
     func.out(f"{Color.CYAN} # {Color.RESET}-----------------------------------------------------------")
 
 def run():
@@ -163,7 +197,7 @@ def run():
 
     signal.signal(signal.SIGINT, shutdown_handler)
     signal.signal(signal.SIGTERM, shutdown_handler)
-   
+    func.log(f"\n{__logo}" , start_line="")
 
     try:
         prog.load_config(args=args) 
@@ -177,7 +211,7 @@ def run():
         
         cli_args_processor = CliArgs()
 
-        maintenance_keys = ['install', 'generate_config', 'server', 'print_chat', 'list_models']
+        maintenance_keys = ['install', 'generate_config', 'server', 'print_chat', 'list_models', 'create_tool']
         if any(getattr(args, key, None) for key in maintenance_keys):
             cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
             if is_server:
@@ -188,8 +222,8 @@ def run():
             
             sys.exit(0) 
         prog.init_config(args=args)
+
         prog.init_program()         
-        prog.llm 
         cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
         
         if func.ALLOW_CLEAR_CONSOLE: 

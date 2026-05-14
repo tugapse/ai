@@ -1,6 +1,7 @@
 from typing import Any, Optional
 import functions as func
 from modules.base_module import BaseModule
+from core.llms.base_llm import BaseModel
 from .vector_memory import VectorMemory
 
 class VectorMemoryModule(BaseModule):
@@ -22,7 +23,7 @@ class VectorMemoryModule(BaseModule):
         self.kwargs = kwargs
         super().__init__(module_name="vector_memory", **kwargs)
 
-    def initialize(self, session_id: str, connector: Any):
+    def initialize(self, session_id: str,llm:BaseModel):
         """
         Initializes the underlying VectorMemory instance with session-specific data.
         This must be called before the memory can be used.
@@ -38,7 +39,7 @@ class VectorMemoryModule(BaseModule):
         func.log(f"Initializing VectorMemory for session {session_id}...")
         self._instance = VectorMemory(
             session_id=session_id,
-            connector=connector,
+            llm=llm,
             db_path=self.db_path,
             **self.kwargs
         )

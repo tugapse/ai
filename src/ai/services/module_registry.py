@@ -1,6 +1,6 @@
 from typing import Dict, Any, Optional
 from entities.model_enums import EngineType
-from services.model_manager import EngineManager
+from services.engine_manager import EngineManager
 from services.config_helper import ProgramConfig, ProgramSetting
 import functions as func
 
@@ -9,6 +9,7 @@ class ModuleRegistry:
     Plugin Manager for JARVIS modules.
     Supports dynamic loading/unloading and dictionary-style access.
     """
+
     def __init__(self, config: ProgramConfig):
         self.config = config
         self._active_modules: Dict[str, Any] = {}
@@ -16,7 +17,8 @@ class ModuleRegistry:
         # Manifest of available module loaders
         self._manifest = {
             "voice": self._load_voice_logic,
-            "vector_memory": self._load_vector_memory_logic
+            "vector_memory": self._load_vector_memory_logic,
+            "knowledge_graph": self._load_knowledge_graph_logic
         }
 
     def __getitem__(self, key: str) -> Optional[Any]:
@@ -30,8 +32,18 @@ class ModuleRegistry:
         """Loads all modules specified as enabled in the configuration."""
         for mod_name, loader_func in self._manifest.items():
             config_key = f"{mod_name.upper()}_ENABLED"
-            
-            if self.config.get(config_key, False):
+
+            # Determine whether to load this module
+            enabled_value = None
+            try:
+                enabled_value = self.config.get(config_key, None)
+            except Exception:
+                enabled_value = None
+
+
+            should_load = bool(enabled_value)
+
+            if should_load:
                 func.log(f"ModuleRegistry: Booting '{mod_name}'...")
                 instance = loader_func()
                 if instance:
@@ -46,7 +58,7 @@ class ModuleRegistry:
             return None
             
         from modules.voice.vibe_module import VibeVoiceModule
-        voice = VibeVoiceModule() 
+        voice = VibeVoiceModule( voice_file=self.config.get(ProgramSetting.VOICE_FILE), volume=1.5) 
         voice.preload() 
         return voice
 
@@ -73,6 +85,27 @@ class ModuleRegistry:
             func.error(f"Failed to import VectorMemoryModule. Error: {e}", level="ERROR")
             return None
 
+    def _load_knowledge_graph_logic(self):
+        """Boots the KnowledgeGraph module wrapper."""
+        try:
+            from modules.knowledge_graph import KnowledgeGraph
+            kg = KnowledgeGraph()
+            if hasattr(kg, "preload"):
+                kg.preload()
+            # Auto-wire Knowledge Graph integration with orchestrator if available, else bootstrap module-level
+            try:
+                if hasattr(kg, "register_with_orchestrator"):
+                    kg.register_with_orchestrator()
+                else:
+                    from modules.knowledge_graph import register_with_orchestrator as _kg_reg
+                    _kg_reg()
+            except Exception as _e:
+                func.debug(f"KG integration hook failed: {_e}")
+            func.log("KnowledgeGraphModule loaded.")
+            return kg
+        except Exception as e:
+            func.error(f"Failed to import KnowledgeGraphModule. Error: {e}", level="ERROR")
+            return None
 
     def unload_module(self, name: str):
         """Safely unloads a single module and frees its resources."""
@@ -95,7 +128,6 @@ class ModuleRegistry:
             
         except Exception as e:
             func.error(f"ModuleRegistry: Error unloading '{name}': {e}", level="ERROR")
-
 
     def unload_all(self):
         """Cleanly unloads all active modules."""

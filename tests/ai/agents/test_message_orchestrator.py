@@ -1,3 +1,4 @@
+import os
 import sys
 import unittest
 from unittest.mock import patch, MagicMock
@@ -18,7 +19,7 @@ sys.modules["program"] = mock_program
 sys.modules["ai.program"] = mock_program
 
 # Now we import the class we want to test
-from ai.agents.agent import MessageOrchestrator
+from agents.message_orchestrator import MessageOrchestrator
 
 
 # =================================================================
@@ -65,6 +66,23 @@ class TestMessageOrchestrator(unittest.TestCase):
 
     def setUp(self):
         """Sets up a fresh pipeline for every test."""
+        # --- 1. CONFIGURE THE MOCK ---
+        # The SessionVault depends on get_root_directory() to find the project root
+        # and build the path to the /logs/agents directory. In the test environment,
+        # the `functions` module is mocked. We MUST configure the mock to return a
+        # valid path, otherwise SessionVault cannot read, write, or delete sessions.
+        # We use os.getcwd() to ensure it points to the project root where `pytest` is run.
+        self.test_root = os.getcwd()
+        mock_func.get_root_directory.return_value = self.test_root
+
+        # --- 2. CLEAN UP PREVIOUS TEST STATE ---
+        # Now that the mock is configured, we can reliably find and delete the
+        # session file from the previous test run.
+        session_file = os.path.join(self.test_root, "logs", "agents", "test-session.json")
+        if os.path.exists(session_file):
+            os.remove(session_file)
+
+        # --- 3. SET UP TEST-SPECIFIC CONFIG ---
         self.pipeline_config = {
             "entry_point": "MANAGER",
             "max_iterations": 10,

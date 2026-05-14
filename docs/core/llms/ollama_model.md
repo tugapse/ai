@@ -1,42 +1,56 @@
 ## 1. Architectural Role
-`OllamaModel` serves as a concrete implementation of `BaseModel` that interfaces with the Ollama API to manage local LLM lifecycle, model pulling, and text/image generation.
 
-## 2. Interface & API Surface
+**Functional Mission**
+The **OllamaModel** class serves as a specialized implementation of a Large Language Model (LLM) interface designed specifically for the Ollama ecosystem. Its primary mission is to abstract the complexities of interacting with a local or remote Ollama server, providing standardized methods for model pulling, chat interactions (both streaming and non-streaming), and parameter management. It ensures that the broader system can utilize Ollama-hosted models through a consistent API, regardless of the underlying transport or specific Ollama API nuances.
+
+**System Context & Integration**
+This component functions as a concrete provider within the LLM abstraction layer, inheriting from [BaseModel](/docs/core/llms/base_llm.md). It integrates with the system by consuming `ModelParams` to configure inference behavior and utilizes [Events](/docs/core/events.md) to manage generation lifecycle states, such as interruption via stop events. It acts as a bridge between the high-level orchestration logic and the low-level Ollama HTTP/Client API, facilitating the flow of text and image data from the user to the model and back to the application's output streams.
+
+## 2. Environment & Configuration
+**Environment Lookups:**
+- `host` (via `__init__`)  Defines the IP address/hostname of the Ollama server (defaults to `127.0.0.1`).
+
+**Hardcoded Constants:**
+- `server_ip` (Default: `"127.0.0.1"`)  The fallback local address for the Ollama service.
+- `model_suffix` (Default: `":latest"`)  Appended to model names if no tag is specified during the `pull` process.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `OllamaModel` | Class | Orchestrates communication with the Ollama server for model management and inference. |
-| `__init__` | Method | Initializes the Ollama client, sets server IP, configures model parameters, and ensures the target model is pulled. |
-| `join_generation_thread` | Method | Resets the `stop_generation_event` (synchronous placeholder for the base class interface). |
-| `chat` | Method | Handles message exchange with the LLM, supporting both streaming and non-streaming modes and image inputs. |
-| `list` | Method | Retrieves a list of available models from the Ollama server. |
-| `pull` | Method | Checks if a model exists locally; if not, triggers the `__pull_model` download process. |
-| `__pull_model` | Method | Manages the streaming download of a model with real-time progress tracking via `tqdm`. |
+| `OllamaModel` | Class | Concrete implementation of `BaseModel` for Ollama-based LLM operations. |
+| `join_generation_thread` | Method | Clears the `stop_generation_event` to simulate thread synchronization for synchronous Ollama calls. |
+| `chat` | Method | Executes model inference; supports streaming (generator) and non-streaming (direct return) modes. |
+| `list` | Method | Retrieves a list of models currently available on the Ollama server. |
+| `pull` | Method | Checks for model existence and initiates a download if the model is missing. |
+| `__pull_model` | Method | Private helper that manages the visual progress of model downloads using `tqdm`. |
 
-## 3. Execution Logic & Flow
+## 4. Execution Logic & Flow
 - **Initialization**: 
-    1. Calls `super().__init__` to set basic model identity.
-    2. Instantiates `ollama.Client` using `host` (default: "127.0.0.1").
-    3. Executes `pull()` to ensure the specified `model_name` is available.
-    4. Sets `keep_alive` status and initializes `options` from `ModelParams`.
-- **Data Path (Chat)**: 
-    1. **Input**: `messages` (list), `images` (list), `stream` (bool), `options` (dict).
-    2. **Preprocessing**: Merges `self.options` with provided `options` $\rightarrow$ applies `check_system_prompt` $\rightarrow$ appends images via `load_images`.
-    3. **Execution**: 
-        - If `stream=True`: Iterates through `self.model.chat` generator $\rightarrow$ yields content $\rightarrow$ monitors `stop_generation_event` to break loop.
-        - If `stream=False`: Calls `self.model.chat` $\rightarrow$ returns final content string.
-    4. **Output**: Stream of content chunks or a single response string.
+    1. Calls `super().__init__` to establish base model properties.
+    2. Initializes `ollama.Client` using the provided `host`.
+    3. Automatically triggers `self.pull(self.model_name)` to ensure the required model is available locally.
+    4. Stores `keep_alive` settings and converts `model_params` into a dictionary for API compatibility.
+- **Data Path (Streaming Chat)**: 
+    1. **Input**: Receives `messages` (list) and optional `images` (list of strings).
+    2. **Processing**: 
+        - Injects system prompts via `check_system_prompt`.
+        - Appends processed image data via `load_images`.
+        - Merges provided `options` with default `self.options`.
+    3. **Execution**: Calls `self.model.chat` with `stream=True`.
+    4. **Output**: Yields content chunks iteratively while monitoring `self.stop_generation_event`.
+- **Data Path (Non-Streaming Chat)**:
+    1. **Input/Processing**: Same as streaming path.
+    2. **Execution**: Calls `self.model.chat` with `stream=False`.
+    3. **Output**: Returns the complete string content from the response object.
 - **Conditional Branching**:
-    - **Model Pulling**: If `model_name` lacks a tag, `:latest` is appended; if the model is already in `self.model.list()`, the download is skipped.
-    - **Streaming Logic**: Diverges between a `yield` loop (with interruption checks) and a direct return based on the `stream` flag.
-    - **Error Handling**: Catches `KeyboardInterrupt` for stream closure and generic `Exception` for critical failures (triggering `sys.exit(1)`).
+    - **Model Existence**: In `pull()`, if the model name exists in the `list()` output, the download is bypassed.
+    - **Interruption**: During streaming, if `stop_generation_event.is_set()` is true, the loop breaks and the response is closed.
+    - **Error Handling**: Catches `KeyboardInterrupt` for graceful stream closure and generic `Exception` for critical failures, triggering a system exit.
 
-## 4. Resource Dependencies
+## 5. Resource Dependencies
 - **Standard Libraries**: `sys`, `threading`
-- **Internal Modules**: `core.events.Events`, `core.llms.base_llm.BaseModel`, `core.llms.base_llm.ModelParams`, `functions`
+- **Internal Modules**: 
+    - [BaseModel](/docs/core/llms/base_llm.md)
+    - [Events](/docs/core/events.md)
+    - [functions](/docs/functions.md)
 - **External Packages**: `ollama`, `tqdm`
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - Default Host: `"127.0.0.1"`
-    - Default Model Tag: `":latest"`
-- **Environment Lookups**: None.

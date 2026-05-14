@@ -1,31 +1,43 @@
 ## 1. Architectural Role
-Acts as a lifecycle wrapper for `VectorMemory`, deferring the instantiation of the memory system until session-specific context (`session_id` and `connector`) is provided by the `ModuleRegistry`.
 
-## 2. Interface & API Surface
+**Functional Mission**
+The **VectorMemoryModule** serves as a high-level management wrapper for the underlying vector database system. Its primary mission is to bridge the gap between the generic module lifecycle managed by the system registry and the session-specific requirements of the actual vector storage engine, ensuring that memory resources are lazily initialized only when a specific user session is active.
+
+**System Context & Integration**
+This component acts as a lifecycle controller within the broader module ecosystem. It integrates with [BaseModule](/docs/modules/base_module.md) to participate in the system's modular architecture and relies on [BaseModel](/docs/core/llms/base_llm.md) to provide the intelligence required for importance rating and memory reflection. By wrapping [VectorMemory](/docs/modules/memory/vector_memory.md), it allows the system to defer heavy database connections and session-specific configurations until the `initialize` method is explicitly invoked by a session manager or orchestrator.
+
+## 2. Environment & Configuration
+**Environment Lookups:**
+- No environment lookups identified.
+
+**Hardcoded Constants:**
+- `module_name` (Default: `"vector_memory"`)  Identifier used for registration within the module registry.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `VectorMemoryModule` | Class | Manages the delayed initialization and retrieval of a `VectorMemory` instance. |
-| `__init__` | Method | Stores configuration (`db_path`, `kwargs`) without instantiating the memory engine. |
-| `initialize` | Method | Instantiates `VectorMemory` using the provided `session_id` and `connector`. |
-| `get_instance` | Method | Provides access to the active `VectorMemory` instance or logs an error if uninitialized. |
-| `shutdown` | Method | Clears the `_memory_instance` reference to facilitate cleanup. |
+| `VectorMemoryModule` | Class | Manages the lifecycle and session-specific instantiation of the vector memory system. |
+| `__init__` | Method | Stores configuration parameters (`db_path`, `kwargs`) without instantiating the heavy memory engine. |
+| `initialize` | Method | Performs the actual instantiation of the `VectorMemory` instance using a provided `session_id` and `llm`. |
+| `get_instance` | Method | Provides access to the active `VectorMemory` object, performing error logging if accessed prematurely. |
+| `shutdown` | Method | Cleans up the module by nullifying the active memory instance. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: 
-    1. `__init__` is called with `db_path` and optional `kwargs`.
-    2. `self.db_path` and `self.kwargs` are persisted.
-    3. `self._memory_instance` is set to `None`.
+## 4. Execution Logic & Flow
+- **Initialization**: The module is instantiated with a `db_path` and optional `kwargs`. At this stage, `_instance` remains `None`, and the module is in a dormant state, holding only the configuration necessary for future setup.
 - **Data Path**: 
-    1. `initialize(session_id, connector)` $\rightarrow$ `VectorMemory(...)` $\rightarrow$ `self._memory_instance`.
-    2. `get_instance()` $\rightarrow$ returns `self._memory_instance` $\rightarrow$ External consumer.
+    1. `initialize(session_id, llm)` is called.
+    2. The `VectorMemory` object is constructed using the stored `db_path`, `session_id`, `llm`, and `kwargs`.
+    3. The resulting object is assigned to `self._instance`.
+    4. Downstream components call `get_instance()` to retrieve the operational memory engine for RAG (Retrieval-Augmented Generation) tasks.
 - **Conditional Branching**:
-    - **Initialization Guard**: In `initialize`, if `self._memory_instance` is not `None`, it logs a `WARN` and aborts instantiation.
-    - **Access Guard**: In `get_instance`, if `self._memory_instance` is `None`, it logs an `ERROR` before returning `None`.
+    - **Re-initialization Guard**: In `initialize()`, if `self._instance` is already truthy, the process aborts with a `WARN` log to prevent overwriting an active session.
+    - **Access Guard**: In `get_instance()`, if `self._instance` is `None`, an `ERROR` log is triggered to alert the system of an out-of-order execution attempt.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `typing` (`Any`, `Optional`)
-- **Internal Modules**: `functions` (aliased as `func`), `.vector_memory.VectorMemory`
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: None.
-- **Environment Lookups**: None.
+## 5. Resource Dependencies
+- **Standard Libraries**: `typing`
+- **Internal Modules**: 
+    - [functions](/docs/functions.md)
+    - [BaseModule](/docs/modules/base_module.md)
+    - [BaseModel](/docs/core/llms/base_llm.md)
+    - [VectorMemory](/docs/modules/memory/vector_memory.md)
+- **External Packages**: None identified.

@@ -1,5 +1,3 @@
-# src/knowledge_graph_module/models.py
-
 from __future__ import annotations
 from enum import Enum
 from uuid import UUID, uuid4
@@ -71,3 +69,14 @@ class RefinementReport(BaseModel):
     resolved_triples: List[KGTriple] = Field(default_factory=list)
     unresolved_flags: List[AmbiguityFlag] = Field(default_factory=list)
     summary: str
+
+__all__ = [
+    "NodeTypes",
+    "RelationshipTypes",
+    "KGNode",
+    "KGEdge",
+    "KGTriple",
+    "AmbiguityFlag",
+    "AnalysisReport",
+    "RefinementReport",
+]

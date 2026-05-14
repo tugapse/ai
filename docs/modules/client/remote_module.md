@@ -1,30 +1,40 @@
 ## 1. Architectural Role
-Acts as a client-side wrapper that integrates the `RemoteBrainConnector` into the `BaseModule` framework to enable a remote connection between a client (Tiny PC) and a central server (Main PC).
 
-## 2. Interface & API Surface
+**Functional Mission**
+The **RemoteConnectorModule** serves as the "Neural Link" abstraction layer for the Client (Tiny PC) architecture. Its primary mission is to encapsulate the complexities of network-based LLM interaction by wrapping the [RemoteBrainConnector](/docs/modules/client/remote_connector.md), allowing the local client to offload heavy computational reasoning tasks to a remote Main PC (JARVIS Server).
+
+**System Context & Integration**
+This component acts as a bridge between the local client environment and the remote server infrastructure. It inherits from [BaseModule](/docs/modules/base_module.md) to integrate into the client's module lifecycle. During execution, it facilitates the transition of high-level reasoning requests from the local client to the remote brain, managing the lifecycle of the connection from initialization through to a graceful shutdown via the remote endpoint.
+
+## 2. Environment & Configuration
+**Environment Lookups:**
+- `url` (via `__init__`)  The base network address of the JARVIS Server.
+- `model_id` (via `__init__`)  The specific model configuration identifier to be utilized on the remote host.
+
+**Hardcoded Constants:**
+- `module_name` (Default: `"RemoteBrainLink"`)  The internal identifier for the module within the registry.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `RemoteConnectorModule` | Class | Manages the lifecycle and configuration of the remote brain connection. |
-| `__init__` | Method | Sets the target `url` and `model_id` for the remote connection. |
-| `initialize` | Method | Instantiates the `RemoteBrainConnector` and logs the connection attempt. |
-| `shutdown` | Method | Triggers the remote brain's shutdown sequence via the connector instance. |
+| `RemoteConnectorModule` | Class | Provides a high-level module interface for remote brain connectivity. |
+| `__init__` | Method | Configures the module with target URL and model identity. |
+| `initialize` | Method | Sets up the [RemoteBrainConnector](/docs/modules/client/remote_connector.md) instance and logs the link attempt. |
+| `shutdown` | Method | Triggers a remote shutdown request to ensure clean termination of active generations. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: 
-    1. `__init__` is called with `url` and `model_id`.
-    2. `BaseModule.__init__` is invoked with `module_name="RemoteBrainLink"`.
-    3. State is stored in `self.url` and `self.model_id`.
+## 4. Execution Logic & Flow
+- **Initialization**: The module is instantiated with a `url` and `model_id`. It registers itself within the module system using the name `"RemoteBrainLink"`.
 - **Data Path**: 
-    1. `initialize(system_prompt)` $\rightarrow$ `RemoteBrainConnector` instantiation $\rightarrow$ `self._instance`.
-    2. (Implicit) Client requests $\rightarrow$ `self._instance` $\rightarrow$ Remote Server.
+    1. `initialize()` is called with an optional `system_prompt`.
+    2. The `RemoteBrainConnector` is instantiated using the provided URL, model ID, and system prompt.
+    3. The connection is logically established, though physical network handshaking is deferred until the first functional call.
 - **Conditional Branching**: 
-    1. In `shutdown()`: Checks if `self._instance` exists before calling `request_shutdown()`.
+    - During `shutdown()`, the module checks for the existence of `self._instance`. If present, it executes `self._instance.request_shutdown()` to signal the remote server before closing the local module context.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `typing.Optional`, `typing.Any`
-- **Internal Modules**: `functions` (as `func`), `core.modules.base_module.BaseModule`, `core.llms.remote_connector.RemoteBrainConnector`
-- **External Packages**: None
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: `model_id` defaults to `"default"`.
-- **Environment Lookups**: None.
+## 5. Resource Dependencies
+- **Standard Libraries**: `typing`
+- **Internal Modules**: 
+    - [functions](/docs/functions.md)
+    - [BaseModule](/docs/modules/base_module.md)
+    - [RemoteBrainConnector](/docs/modules/client/remote_connector.md)
+- **External Packages**: None identified.

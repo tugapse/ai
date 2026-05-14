@@ -1,26 +1,30 @@
 ## 1. Architectural Role
-Provides a centralized set of strongly-typed enumerations to standardize the identification of LLM engines, model architectures, and hardware acceleration backends across the system.
 
-## 2. Interface & API Surface
+**Functional Mission**
+The **model_enums.py** file serves as the centralized source of truth for categorical definitions within the AI ecosystem. Its primary mission is to provide type-safe, standardized enumerations that govern how the system identifies engine types, model architectures, and hardware backends, thereby preventing string-based errors across the codebase.
+
+**System Context & Integration**
+This component acts as a foundational schema layer used by high-level orchestrators and low-level drivers alike. It is critical for the [engine_manager](/docs/services/engine_manager.md) to determine which driver to instantiate, for [model_orchestrator](/docs/services/model_orchestrator.md) to categorize incoming requests, and for specific model implementations like [huggingface_model](/docs/core/llms/huggingface_model.md) or [ollama_model](/docs/core/llms/ollama_model.md) to validate their operational modes. By providing these constants, it ensures consistent state transitions between the [server_module](/docs/modules/server/server_module.md) and various specialized modules like [vector_memory_module](/docs/modules/memory/vector_memory_module.md).
+
+## 2. Environment & Configuration
+**Environment Lookups:**
+No environment lookups identified.
+
+**Hardcoded Constants:**
+No hardcoded constants identified.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `EngineType` | Class (Enum) | Categorizes the source/module of the LLM (e.g., `HUGGINGFACE`, `OLLAMA`, `VOICE_ENGINE`). |
-| `ModelType` | Class (Enum) | Defines the structural architecture of the model (e.g., `CAUSAL_LM`, `GEMINI`) with custom string/repr overrides. |
-| `InferenceBackend` | Class (Enum) | Specifies the hardware target for computation (`GPU_CUDA`, `GPU_AMD`, `CPU`). |
+| `EngineType` | Enum | Defines supported LLM engines and specialized modules (Voice, Memory, Server/Client links). |
+| `ModelType` | Enum | Defines architectural classifications (Causal, Seq2Seq) and specific provider types (Gemini, OpenAI, Ollama, GGUF). |
+| `InferenceBackend` | Enum | Defines the hardware acceleration layer (CUDA, AMD, CPU). |
 
-## 3. Execution Logic & Flow
-- **Initialization**: The Python interpreter loads the `Enum` base class and instantiates the three enumeration classes, mapping symbolic names to their corresponding string values.
-- **Data Path**: Static lookup; external modules import these enums to pass type-safe identifiers into model loaders or configuration managers.
-- **Conditional Branching**: No internal logic flow; behavior is limited to `ModelType.__str__` returning the value and `ModelType.__repr__` returning the name.
+## 4. Execution Logic & Flow
+Direct exports or structural definitions only; no internal logic flow.
 
-## 4. Resource Dependencies
+## 5. Resource Dependencies
 - **Standard Libraries**: `enum`
-- **Internal Modules**: None
-- **External Packages**: None
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `EngineType` values: `"huggingface"`, `"ollama"`, `"gguf"`, `"voice_engine"`, `"vector_memory"`, `"server_hub"`, `"client_link"`.
-    - `ModelType` values: `"causal_lm"`, `"seq2seq_lm"`, `"ollama"`, `"gguf"`, `"gemini"`, `"openai"`.
-    - `InferenceBackend` values: `"cuda"`, `"amd"`, `"cpu"`.
-- **Environment Lookups**: None
+- **Internal Modules**: 
+    - [model_enums.md](/docs/entities/model_enums.md)
+- **External Packages**: None identified.

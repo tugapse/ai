@@ -1,51 +1,66 @@
 ## 1. Architectural Role
-The `ModuleRegistry` acts as a dynamic plugin manager responsible for the conditional instantiation, lifecycle management, and centralized access of system modules based on the `ProgramConfig`.
 
-## 2. Interface & API Surface
+**Functional Mission**
+The **ModuleRegistry** serves as the centralized plugin management system for the JARVIS architecture. Its primary responsibility is to manage the lifecycle of various functional modulesspecifically voice, vector memory, and knowledge graph componentsby dynamically loading, accessing, and unloading them based on the system's configuration state.
+
+**System Context & Integration**
+This component acts as a gatekeeper between the core system configuration and the specialized functional modules. It interfaces with [ProgramConfig](/docs/services/config_helper.md) to determine which modules should be instantiated and utilizes [EngineManager](/docs/services/engine_manager.md) to verify the presence of required underlying engines before attempting to boot a module. Once loaded, it provides a dictionary-style interface for other system components to access active module instances, facilitating seamless integration between the orchestrator and specialized services like [VibeVoiceModule](/docs/modules/voice/vibe_module.md), [VectorMemoryModule](/docs/modules/memory/vector_memory_module.md), and [KnowledgeGraph](/docs/modules/knowledge_graph/__init__.md).
+
+## 2. Environment & Configuration
+
+**Environment Lookups:**
+- `VOICE_ENABLED` (via `load_all`)  Determines if the voice module should be initialized.
+- `VECTOR_MEMORY_ENABLED` (via `load_all`)  Determines if the vector memory module should be initialized.
+- `KNOWLEDGE_GRAPH_ENABLED` (via `load_all`)  Determines if the knowledge graph module should be initialized.
+- `VOICE_FILE` (via `_load_voice_logic`)  Path to the voice asset file.
+- `VECTOR_DB_PATH` (via `_load_vector_memory_logic`)  Filesystem path for the vector database.
+- `VECTOR_RECENCY_WEIGHT` (via `_load_vector_memory_logic`)  Weighting factor for recency in memory retrieval.
+- `VECTOR_IMPORTANCE_WEIGHT` (via `_load_vector_memory_logic`)  Weighting factor for importance in memory retrieval.
+- `VECTOR_RELEVANCE_WEIGHT` (via `_load_vector_memory_logic`)  Weighting factor for relevance in memory retrieval.
+
+**Hardcoded Constants:**
+- `volume` (Default: `1.5`)  Audio output volume for the voice module.
+- `timeout` (Default: `2.0`)  Seconds to wait when joining module threads during unloading.
+
+## 3. Interface & API Surface
+
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `ModuleRegistry` | Class | Orchestrates the loading, storage, and unloading of system modules. |
-| `__init__` | Method | Initializes the registry with a config object and defines the module loader manifest. |
+| `ModuleRegistry` | Class | Orchestrates the lifecycle (load/unload/shutdown) of system modules. |
 | `__getitem__` | Method | Provides dictionary-style access to active modules via string keys. |
-| `load_all` | Method | Iterates through the manifest and instantiates modules enabled in the configuration. |
-| `_load_server_logic` | Method | Configures and instantiates `JarvisServerModule`. |
-| `_load_client_logic` | Method | Configures and instantiates `RemoteConnectorModule`. |
-| `_load_voice_logic` | Method | Validates voice engine installation and instantiates `VibeVoiceModule`. |
-| `_load_vector_memory_logic` | Method | Validates memory engine installation and instantiates `VectorMemoryModule`. |
-| `shutdown` | Method | Iterates through active modules to trigger their unloading process. |
+| `items` | Method | Returns an iterator over the active modules and their instances. |
+| `load_all` | Method | Iterates through the manifest and boots enabled modules. |
+| `_load_voice_logic` | Method | Internal loader for the voice module; validates engine presence. |
+| `_load_vector_memory_logic` | Method | Internal loader for the vector memory module; configures weights. |
+| `_load_knowledge_graph_logic` | Method | Internal loader for the knowledge graph; handles auto-wiring. |
+| `unload_module` | Method | Gracefully shuts down a specific module and cleans up resources. |
+| `unload_all` | Method | Triggers a sequential shutdown of all currently active modules. |
+| `shutdown` | Method | Alias for `unload_all` to provide API compatibility. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: 
-    1. Receives `ProgramConfig` instance.
-    2. Initializes `_active_modules` as an empty dictionary.
-    3. Maps module keys (`voice`, `vector_memory`, `server_hub`, `client_link`) to their respective internal loader methods in `_manifest`.
-- **Data Path**: `ProgramConfig` $\rightarrow$ `load_all()` $\rightarrow$ `_load_[module]_logic()` $\rightarrow$ `_active_modules` $\rightarrow$ `__getitem__` (External Access).
+## 4. Execution Logic & Flow
+
+- **Initialization**: The registry is instantiated with a `ProgramConfig` object. It initializes an empty `_active_modules` dictionary and defines a `_manifest` mapping module names to their respective internal loader functions.
+- **Data Path**: 
+    1. `load_all` iterates through `_manifest`.
+    2. Configuration is queried for `[MODULE]_ENABLED`.
+    3. If `True`, the corresponding `_load_[module]_logic` function is invoked.
+    4. The resulting instance is stored in `_active_modules`.
+    5. Downstream components access these instances via `__getitem__`.
 - **Conditional Branching**:
-    1. **Enablement Check**: In `load_all`, the registry checks if `{MOD_NAME}_ENABLED` is `True` in the config before calling the loader.
-    2. **Dependency Validation**: `_load_voice_logic` and `_load_vector_memory_logic` check `EngineManager.is_engine_installed` before proceeding.
-    3. **Configuration Validation**: `_load_client_logic` verifies the existence of `REMOTE_BRAIN_URL`; if missing, it aborts loading.
-    4. **Import Safety**: All loader methods wrap imports in `try-except ImportError` blocks to prevent system crash on missing module files.
+    - **Engine Check**: Before loading voice or vector memory, `EngineManager.is_engine_installed` is checked; if it fails, the module load is aborted with an error log.
+    - **Import Error Handling**: `_load_vector_memory_logic` and `_load_knowledge_graph_logic` use `try-except` blocks to catch `ImportError` or general exceptions, preventing a single module failure from crashing the entire registry.
+    - **Unload Logic**: `unload_module` checks for specific cleanup methods (`unload` vs `shutdown`) and attempts to join threads if a `thread` attribute is present.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `typing` (`Dict`, `Any`, `Optional`)
+## 5. Resource Dependencies
+
+- **Standard Libraries**: `typing`
 - **Internal Modules**: 
-    - `entities.model_enums.EngineType`
-    - `services.model_manager.EngineManager`
-    - `config.ProgramConfig`, `config.ProgramSetting`
-    - `functions` (aliased as `func`)
-    - `modules.server.server_module.JarvisServerModule`
-    - `modules.client.remote_module.RemoteConnectorModule`
-    - `modules.voice.vibe_module.VibeVoiceModule`
-    - `modules.memory.vector_memory_module.VectorMemoryModule`
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - Default Server Host: `"0.0.0.0"`
-    - Default Server Port: `8000`
-    - Default Model Config Name: `"default"`
-- **Environment Lookups**:
-    - `VOICE_ENABLED`, `VECTOR_MEMORY_ENABLED`, `SERVER_HUB_ENABLED`, `CLIENT_LINK_ENABLED`
-    - `SERVER_HOST`, `SERVER_PORT`
-    - `REMOTE_BRAIN_URL`, `MODEL_CONFIG_NAME`
-    - `VECTOR_DB_PATH`
-    - `VECTOR_RECENCY_WEIGHT`, `VECTOR_IMPORTANCE_WEIGHT`, `VECTOR_RELEVANCE_WEIGHT`
+    - [EngineType](/docs/entities/model_enums.md)
+    - [EngineManager](/docs/services/engine_manager.md)
+    - [ProgramConfig](/docs/services/config_helper.md)
+    - [ProgramSetting](/docs/services/config_helper.md)
+    - [functions](/docs/functions.md)
+    - [VibeVoiceModule](/docs/modules/voice/vibe_module.md)
+    - [VectorMemoryModule](/docs/modules/memory/vector_memory_module.md)
+    - [KnowledgeGraph](/docs/modules/knowledge_graph/__init__.md)
+- **External Packages**: None identified.

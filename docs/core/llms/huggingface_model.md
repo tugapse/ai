@@ -1,47 +1,63 @@
 ## 1. Architectural Role
-Provides a concrete implementation of `BaseModel` to load, quantize, and execute inference on Hugging Face transformer models with support for both synchronous and threaded streaming generation.
 
-## 2. Interface & API Surface
+**Functional Mission**
+The **HuggingFaceModel** class serves as a high-performance integration layer for Large Language Models hosted on the Hugging Face Hub. Its primary mission is to abstract the complexities of model loading, quantization (specifically BitsAndBytes and AWQ), and inference execution. It provides a unified interface for both synchronous and asynchronous (streaming) text generation, while implementing advanced memory optimizations like TurboQuant for KV Cache compression.
+
+**System Context & Integration**
+As a specialized implementation of [BaseModel](/docs/core/llms/base_llm.md), this component sits within the LLM abstraction layer of the core architecture. It consumes configuration parameters via [ModelParams](/docs/core/llms/base_llm.md) and interacts with the system's event bus through [Events](/docs/core/events.md) to signal the completion of streaming tasks. It is designed to be orchestrated by higher-level services, providing raw token streams or parsed responses to downstream modules like the chat interface or agentic controllers.
+
+## 2. Environment & Configuration
+
+**Environment Lookups:**
+- `BITSANDBYTES_NOWELCOME` (via `os.environ`)  Suppresses welcome messages from the bitsandbytes library.
+- `PYTORCH_CUDA_ALLOC_CONF` (via `os.environ`)  Configures CUDA memory management using `expandable_segments:True`.
+- `TRANSFORMERS_VERBOSITY` (via `os.environ`)  Sets Hugging Face Transformers logging level to error.
+
+**Hardcoded Constants:**
+- `BITSANDBYTES_NOWELCOME` (Default: `'1'`)  Disables library welcome text.
+- `PYTORCH_CUDA_ALLOC_CONF` (Default: `"expandable_segments:True"`)  Optimizes GPU memory allocation.
+- `TRANSFORMERS_VERBOSITY` (Default: `"error"`)  Minimizes transformer log noise.
+
+## 3. Interface & API Surface
+
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `CustomStoppingCriteria` | Class | Monitors a `threading.Event` to interrupt model generation mid-sequence. |
-| `HuggingFaceModel` | Class | Main orchestrator for HF model lifecycle, including loading, quantization, and chat execution. |
-| `HuggingFaceModel.__init__` | Method | Initializes model parameters and triggers the loading sequence via `_load_llm_params`. |
-| `HuggingFaceModel._load_llm_params` | Method | Handles tokenizer/model instantiation with local-first caching and `BitsAndBytesConfig` quantization. |
-| `HuggingFaceModel.chat` | Method | Primary entry point for generating responses; manages the switch between sync and threaded streaming paths. |
-| `HuggingFaceModel._generate_in_thread` | Method | Background worker that executes `model.generate` and pipes tokens to a `TextIteratorStreamer`. |
-| `HuggingFaceModel._prepare_input` | Method | Converts message lists into tensors using `apply_chat_template` or manual role-based formatting. |
-| `HuggingFaceModel._generate_response` | Method | Executes a synchronous, non-streaming generation pass. |
-| `HuggingFaceModel.pull` | Method | Forces a remote download/update of a model and tokenizer from the HF Hub. |
+| `CustomStoppingCriteria` | Class | Implements `transformers.StoppingCriteria` to allow external interruption of generation via a `threading.Event`. |
+| `HuggingFaceModel` | Class | Main driver for HF model lifecycle: loading, quantization, and inference. |
+| `__init__` | Method | Initializes model parameters, detects TurboQuant availability, and triggers model loading. |
+| `_load_llm_params` | Method | Orchestrates the downloading/loading of tokenizer and model with specific quantization configs (BNB/AWQ). |
+| `_ensure_alternating_roles` | Method | Sanitizes chat history to ensure valid role transitions (System/User/Assistant) for template compatibility. |
+| `_generate_in_thread` | Method | Executes the blocking `model.generate` call within a separate thread to support non-blocking streaming. |
+| `join_generation_thread` | Method | Safely synchronizes and waits for the background generation thread to terminate. |
+| `chat` | Method | The primary entry point for inference; handles both streaming (generator) and synchronous (yield) modes. |
+| `_prepare_input` | Method | Converts message lists into model-ready tensors using `apply_chat_template` or manual formatting. |
+| `_generate_response` | Method | Handles the synchronous, non-streaming execution path for model inference. |
+| `list` | Method | Returns available model categories (stub for HF Hub search). |
+| `pull` | Method | Downloads/pre-loads model weights and tokenizers from the Hub to local cache. |
 
-## 3. Execution Logic & Flow
+## 4. Execution Logic & Flow
+
 - **Initialization**: 
-    1. Sets environment variables to suppress `bitsandbytes` and `transformers` warnings.
-    2. Calls `super().__init__` and initializes an `error_queue` and `ModelParams`.
-    3. Executes `_load_llm_params` $\rightarrow$ checks GPU $\rightarrow$ configures `BitsAndBytesConfig` (if 4/8 bit requested) $\rightarrow$ attempts `local_files_only=True` load $\rightarrow$ falls back to remote download if local fails.
-- **Data Path (Chat)**:
-    1. **Input**: `messages` list $\rightarrow$ `_prepare_input` $\rightarrow$ `input_ids` (Tensors).
-    2. **Device Transfer**: Tensors moved to `cuda` if `is_gpu_available()` is true.
-    3. **Branching (Stream vs Sync)**:
-        - **Streaming**: Spawns `_generate_in_thread` $\rightarrow$ `model.generate` writes to `TextIteratorStreamer` $\rightarrow$ `chat` yields tokens from streamer $\rightarrow$ `_generate_in_thread` calls `streamer.end()`.
-        - **Synchronous**: Calls `_generate_response` $\rightarrow$ `model.generate` $\rightarrow$ `tokenizer.decode` $\rightarrow$ yields full string.
-    4. **Output**: Decoded text tokens or full response string.
+    1. Sets environment variables for CUDA and logging.
+    2. Checks for `turboquant` availability and CUDA support.
+    3. Attempts to load the model via `_load_llm_params`.
+    4. If loading fails due to missing files, it attempts a remote download; if gated or missing, it exits the process.
+- **Data Path**: 
+    1. **Input**: `messages` (list of dicts) $\rightarrow$ `_prepare_input` (applies chat templates) $\rightarrow$ `input_ids` (Tensors).
+    2. **Processing**: `chat` $\rightarrow$ `model.generate` (via `_generate_in_thread` for streaming or `_generate_response` for sync).
+    3. **Output**: `TextIteratorStreamer` (for streaming tokens) OR `tokenizer.decode` (for sync text) $\rightarrow$ `yield` to caller.
 - **Conditional Branching**:
-    - **Quantization**: If `quantization_bits` is 4 or 8, `BitsAndBytesConfig` is applied; otherwise, `torch.bfloat16` is used on GPU.
-    - **Tokenizer Template**: If `tokenizer.apply_chat_template` exists, it is used; otherwise, a manual "User:/Assistant:" string is constructed.
-    - **Error Handling**: `GatedRepoError`, `RepositoryNotFoundError`, and `HTTPError` trigger `sys.exit(1)` during init.
+    - **Quantization Path**: Checks `quantization_method` (AWQ vs BNB) and `quantization_bits` (4 vs 8) to build `BitsAndBytesConfig`.
+    - **Streaming Path**: If `stream=True`, spawns a `threading.Thread` and iterates over a `TextIteratorStreamer`.
+    - **Sentinel Detection**: During streaming, `handle_sentinel` intercepts specific patterns to detect tool/function calls.
+    - **Error Handling**: Catches `RuntimeError` (specifically for CUDA OOM/errors) and `Exception` within the generation thread, passing errors back to the main thread via `error_queue`.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `logging`, `os`, `threading`, `sys`, `queue`, `gc`, `warnings`
-- **Internal Modules**: `core.llms.base_llm` (`BaseModel`, `ModelParams`), `core.events` (`Events`), `color` (`Color`), `functions`
-- **External Packages**: `torch`, `transformers` (`TextIteratorStreamer`, `StoppingCriteriaList`, `AutoModelForCausalLM`, `AutoTokenizer`, `BitsAndBytesConfig`), `huggingface_hub.errors` (`RepositoryNotFoundError`, `GatedRepoError`), `requests.exceptions`, `bitsandbytes`
+## 5. Resource Dependencies
 
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `BITSANDBYTES_NOWELCOME`: `'1'`
-    - `TRANSFORMERS_VERBOSITY`: `"error"`
-    - Default `max_new_tokens`: `1024`
-    - Default `temperature`: `0.7`
-    - Default `top_p`: `0.95`
-    - Default `top_k`: `50`
-- **Environment Lookups**: None (Uses `os.environ` for setting, not getting).
+- **Standard Libraries**: `logging`, `os`, `threading`, `sys`, `queue`, `gc`, `warnings`, `traceback`
+- **Internal Modules**: 
+    - [BaseModel](/docs/core/llms/base_llm.md)
+    - [Events](/docs/core/events.md)
+    - [Color](/docs/color.md)
+    - [functions](/docs/functions.md)
+- **External Packages**: `torch`, `transformers`, `huggingface_hub`, `requests`, `bitsandbytes`, `turboquant`

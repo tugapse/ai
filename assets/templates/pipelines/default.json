@@ -1,0 +1,30 @@
+{
+  "name": "Single Agent workflow",
+  "description": "A high-fidelity single-agent loop with strategic planning, technical scouting, and shell execution.",
+  "entry_point": "MASTER",
+  "max_iterations": 300,
+  "agents": {
+    "MASTER": {
+      "role": "management",
+      "prompt_file": "agents/default.md",
+      "tools": [
+        "read_dir",
+        "smart_search",
+        "read_file",
+        "read_files",
+        "write_file",
+        "patch_file",
+        "web_search",
+        "web_read",
+        "query_memory",
+        "trigger_reflection"
+      ],
+      "allowed_targets": [
+        "MASTER",
+        "SYSTEM_OPERATOR",
+        "USER",
+        "STOP"
+      ]
+    }
+  }
+}

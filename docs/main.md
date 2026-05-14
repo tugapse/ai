@@ -1,39 +1,57 @@
 ## 1. Architectural Role
-Acts as the system entry point and bootstrapper, responsible for dependency validation, CLI argument parsing, environment configuration, and the lifecycle management of the `Program` instance.
 
-## 2. Interface & API Surface
+**Functional Mission**
+The **main.py** component serves as the primary entry point and orchestration bootstrap for the JARVIS ecosystem. Its mission is to manage the lifecycle of the application, ranging from initial dependency validation and environment sanitization to the parsing of complex command-line directives and the eventual execution of the core reasoning engine.
+
+**System Context & Integration**
+This file acts as the gateway between the user's shell environment and the internal logic of the [Program](/docs/program.md). It orchestrates the transition from a static CLI invocation to a dynamic runtime state by initializing [CliArgs](/docs/cli_args.md) and configuring the [ProgramSetting](/docs/config.md) parameters. Depending on the provided flags, it can pivot the entire system architecture from a local interactive chat session into a distributed [Brain Server](/docs/modules/server/server_module.md) mode, effectively controlling the execution flow for both client-side reasoning and server-side module hosting.
+
+## 2. Environment & Configuration
+
+**Environment Lookups:**
+- `TQDM_DISABLE` (via `os.environ`)  Suppresses progress bar noise.
+- `BITSANDBYTES_NOWELCOME` (via `os.environ`)  Suppresses library welcome messages.
+- `TRANSFORMERS_VERBOSITY` (via `os.environ`)  Sets transformer logging level.
+
+**Hardcoded Constants:**
+- `__version__` (Default: `"3.1.1"`)  Current software version identifier.
+- `__logo` (Default: ASCII Art)  Visual branding for terminal output.
+
+## 3. Interface & API Surface
+
 | Entity | Type | Functional Responsibility |
-| :--- | :--- | :--- |
-| `check_dependencies` | Func | Validates presence of required third-party modules; exits if missing. |
-| `hack_warnings` | Func | Suppresses library logs and environment-level warnings for cleaner output. |
-| `load_args` | Func | Defines the `argparse` schema for distributed architecture, model config, and task execution. |
-| `print_chat_header` | Func | Renders the visual start-up banner using the active model's chat name. |
-| `run` | Func | Orchestrates the boot sequence: deps $\rightarrow$ warnings $\rightarrow$ config $\rightarrow$ program init $\rightarrow$ execution. |
+| :--- | :--- | Class/Func |
+| `check_dependencies` | Func | Validates presence of required Python packages before execution. |
+| `hack_warnings` | Func | Configures environment variables and logging levels to suppress noise. |
+| `JarvisHelpFormatter` | Class | Custom `argparse` formatter for high-width, aligned terminal help text. |
+| `load_args` | Func | Defines the CLI schema, including cognitive, asset, agentic, and network groups. |
+| `print_chat_header` | Func | Renders the visual UI header once a neural link is established. |
+| `run` | Func | The primary execution loop containing signal handling and error management. |
 
-## 3. Execution Logic & Flow
+## 4. Execution Logic & Flow
+
 - **Initialization**: 
-    1. Appends current directory to `sys.path`.
-    2. Executes `check_dependencies()` to verify `colorama`, `dotenv`, `huggingface-hub`, `prompt_toolkit`, `requests`, and platform-specific `triton`/`pyreadline3`.
-    3. Executes `hack_warnings()` to set `TQDM_DISABLE`, `BITSANDBYTES_NOWELCOME`, and `TRANSFORMERS_VERBOSITY`.
+    1. Performs `check_dependencies` to ensure the environment is viable.
+    2. Executes `hack_warnings` to sanitize the terminal output.
+    3. Instantiates the [Program](/docs/program.md) core.
+    4. Configures signal handlers (`SIGINT`, `SIGTERM`) for graceful shutdown via `prog.shutdown()`.
 - **Data Path**: 
-    `CLI Arguments` $\rightarrow$ `load_args()` $\rightarrow$ `prog.load_config()` $\rightarrow$ `CliArgs.parse_args()` $\rightarrow$ `prog.run()`.
+    1. **Input**: CLI arguments are captured via `load_args`.
+    2. **Processing**: `prog.load_config` applies settings; `CliArgs` processes specific operational directives.
+    3. **Output**: If in maintenance mode, outputs status/logs and exits; otherwise, enters `prog.run()` for interactive reasoning.
 - **Conditional Branching**:
-    - **Dependency Check**: If `missing` list is not empty $\rightarrow$ print error and `sys.exit(1)`.
-    - **Debug Mode**: If `args.debug_console` is True $\rightarrow$ disable console clearing and enable `PRINT_LOG`/`PRINT_DEBUG`.
-    - **Maintenance Mode**: If `install`, `generate_config`, `server`, `print_chat`, or `list_models` are present $\rightarrow$ execute `cli_args_processor.parse_args` and exit (unless `is_server` is True, then enter infinite sleep loop).
-    - **Server Mode**: If `args.server` is True $\rightarrow$ bypasses standard `prog.run()` and remains active in a `while True` loop.
-    - **Error Handling**: `KeyboardInterrupt` triggers graceful shutdown; other `Exception` types trigger `traceback` (if debug) or a red error message.
+    - **Maintenance Check**: If flags like `--install`, `--server`, or `--list-models` are present, the system executes specific maintenance logic via `cli_args_processor` and exits immediately.
+    - **Debug Mode**: If `--debug-console` is active, `func.ALLOW_CLEAR_CONSOLE` is disabled and verbosity is forced to maximum.
+    - **Server vs. Client**: If `--server` is active, the system enters a persistent loop to keep the `Brain Server` alive.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `os`, `sys`, `importlib.util`, `argparse`, `warnings`, `logging`, `traceback`, `time`
-- **Internal Modules**: `program.Program`, `config.ProgramSetting`, `entities.model_enums.ModelType`, `functions`, `color.Color`, `cli_args.CliArgs`
-- **External Packages**: `colorama`, `python-dotenv`, `huggingface-hub`, `prompt_toolkit`, `requests`, `pyreadline3` (Win), `triton` (Linux/Win)
+## 5. Resource Dependencies
 
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `__version__ = "2.3.2"`
-    - `RED_B = "\033[91;1m"`, `YLW_B = "\033[93;1m"`, `WHITE = "\033[0m"`
-- **Environment Lookups**: 
-    - `os.environ['TQDM_DISABLE'] = '1'`
-    - `os.environ['BITSANDBYTES_NOWELCOME'] = '1'`
-    - `os.environ["TRANSFORMERS_VERBOSITY"] = "error"`
+- **Standard Libraries**: `os`, `sys`, `importlib.util`, `argparse`, `warnings`, `logging`, `traceback`, `time`, `signal`, `gc`
+- **Internal Modules**: 
+    - [Program](/docs/program.md)
+    - [ProgramSetting](/docs/config.md)
+    - [ModelType](/docs/entities/model_enums.md)
+    - [functions](/docs/functions.md)
+    - [Color](/docs/color.md)
+    - [CliArgs](/docs/cli_args.md)
+- **External Packages**: `colorama`, `python-dotenv`, `huggingface-hub`, `prompt_toolkit`, `requests`, `triton`, `pyreadline3`

@@ -1,40 +1,58 @@
 ## 1. Architectural Role
-Integrates Hugging Face T5-type encoder-decoder models to perform sequence-to-sequence tasks by processing conversation history as a single concatenated input string.
 
-## 2. Interface & API Surface
+**Functional Mission**
+The **T5Model** class serves as a specialized implementation for integrating Hugging Face Seq2Seq (encoder-decoder) architectures into the system. Its primary mission is to bridge the gap between standard chat-based interaction patterns and the specific input requirements of T5-type models, which typically process entire conversation contexts as single, unified strings for tasks such as summarization, translation, or structured response generation.
+
+**System Context & Integration**
+As a specialized subclass of [BaseModel](/docs/core/llms/base_llm.md), this component operates within the LLM abstraction layer. It consumes message lists and transforms them into formatted text strings via `_prepare_input` before passing them to the underlying transformer model. It integrates with the system's event architecture by interacting with [Events](/docs/core/events.md) to signal the completion of streaming operations. While it adheres to the standard model interface, it deviates from token-by-token streaming, instead yielding full response blocks to maintain compatibility with the Seq2Seq generation pattern.
+
+## 2. Environment & Configuration
+
+**Environment Lookups:**
+- `torch.cuda.is_available` (via `init_pytorch_cuda`)  Determines if GPU acceleration is available for model loading and tensor placement.
+
+**Hardcoded Constants:**
+- `quantization_bits` (Default: `0`)  Determines the bit-depth for BitsAndBytes quantization (4 or 8).
+- `max_new_tokens` (Default: `1024`)  The maximum number of tokens to generate during the inference phase.
+- `top_k` (Default: `50`)  Parameter for nucleus sampling during generation.
+- `top_p` (Default: `0.95`)  Parameter for nucleus sampling during generation.
+- `temperature` (Default: `0.7`)  Controls the randomness of the output distribution.
+
+## 3. Interface & API Surface
+
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `T5Model` | Class | Main wrapper for T5 model lifecycle, inference, and resource management. |
-| `T5Model.__init__` | Method | Initializes model parameters and triggers the loading sequence with error handling for gated/missing repos. |
-| `T5Model._load_llm_params` | Method | Handles PyTorch/CUDA initialization, tokenizer loading, and conditional quantization (4/8-bit) via `BitsAndBytesConfig`. |
-| `T5Model.chat` | Method | Orchestrates the input preparation, device placement, and generation of a response (non-streaming). |
-| `T5Model._prepare_input` | Method | Transforms a list of messages into a formatted string (System/User/Assistant) and tokenizes it. |
-| `T5Model._generate_response` | Method | Executes the `model.generate` call using provided sampling and token constraints. |
-| `T5Model.list` | Method | Provides a static informational message regarding Hugging Face model discovery. |
-| `T5Model.pull` | Method | Validates the availability of a model by attempting to load its tokenizer and model. |
+| `T5Model` | Class | Manages the lifecycle, loading, and inference of T5-based Seq2Seq models. |
+| `__init__` | Method | Initializes model parameters, quantization settings, and triggers the loading sequence. |
+| `_load_llm_params` | Method | Handles the heavy lifting of downloading/loading the tokenizer and model via Hugging Face `transformers`. |
+| `chat` | Method | The primary entry point for interaction; prepares context and yields the generated response. |
+| `_prepare_input` | Method | Converts a list of message dictionaries into a single formatted string compatible with T5. |
+| `_generate_response` | Method | Executes the `model.generate` call and decodes the resulting token IDs into text. |
+| `list` | Method | Provides information regarding available Hugging Face models. |
+| `pull` | Method | Simulates the downloading and verification of model assets from the Hugging Face Hub. |
 
-## 3. Execution Logic & Flow
+## 4. Execution Logic & Flow
+
 - **Initialization**: 
-    1. Calls `super().__init__` to set base parameters.
-    2. Executes `_load_llm_params()` within a try-except block to catch `GatedRepoError`, `RepositoryNotFoundError`, and `HTTPError`.
-    3. If any critical loading error occurs, logs the failure and executes `sys.exit(1)`.
+    1. Calls `super().__init__` to establish base model properties.
+    2. Executes `_load_llm_params` which checks for CUDA availability.
+    3. Configures `BitsAndBytesConfig` if `quantization_bits` is set to 4 or 8.
+    4. Loads the `AutoTokenizer` and `AutoModelForSeq2SeqLM` using `device_map="auto"` if a GPU is detected.
+    5. Implements extensive error handling for gated repositories, missing models, and network failures.
 - **Data Path**: 
-    `messages` (list) $\rightarrow$ `_prepare_input` (string formatting $\rightarrow$ tokenization) $\rightarrow$ `chat` (device migration to CUDA if available) $\rightarrow$ `_generate_response` (`model.generate` $\rightarrow$ `tokenizer.decode`) $\rightarrow$ `yield` (final response string).
+    1. **Input**: A list of `messages` (role/content dicts).
+    2. **Processing**: `_prepare_input` concatenates messages into a "System/User/Assistant" formatted string $\rightarrow$ `tokenizer` converts string to `input_ids` and `attention_mask` $\rightarrow$ `_generate_response` passes tensors to `model.generate`.
+    3. **Output**: Decoded string yielded via the `chat` generator.
 - **Conditional Branching**:
-    - **Quantization**: If `quantization_bits` is 4 or 8, it attempts to load `bitsandbytes` and configure `BitsAndBytesConfig`; otherwise, it defaults to `torch.bfloat16` if GPU is available.
-    - **Device Placement**: Checks `is_gpu_available()` to determine if `device_map="auto"` and `.to('cuda')` should be applied.
-    - **Event Triggering**: Checks `isinstance(self, Events)` to trigger `STREAMING_FINISHED_EVENT` upon completion or interruption.
+    - **Quantization Check**: If `quantization_bits` is requested, it attempts to import `bitsandbytes`; if it fails, it falls back to non-quantized loading.
+    - **Device Placement**: If `is_gpu_available()` is true, tensors are moved to `'cuda'` and `torch.cuda.empty_cache()` is called to manage VRAM.
+    - **Error Handling**: Catches `KeyboardInterrupt` to trigger `STREAMING_FINISHED_EVENT` and handles `Exception` by logging the traceback and exiting.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `threading`, `sys`, `gc`
-- **Internal Modules**: `core.llms.base_llm` (`BaseModel`, `ModelParams`), `core.events` (`Events`)
-- **External Packages**: `huggingface_hub`, `requests`, `torch`, `transformers`, `bitsandbytes`
+## 5. Resource Dependencies
 
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `max_new_tokens`: 1024
-    - `do_sample`: True
-    - `top_k`: 50
-    - `top_p`: 0.95
-    - `temperature`: 0.7
-- **Environment Lookups**: None (relies on `model_name` and `quantization_bits` passed during instantiation).
+- **Standard Libraries**: `threading`, `sys`, `gc`, `traceback`
+- **Internal Modules**: 
+    - [BaseModel](/docs/core/llms/base_llm.md)
+    - [Events](/docs/core/events.md)
+    - [functions](/docs/functions.md)
+- **External Packages**: `huggingface_hub`, `requests`, `torch`, `transformers`, `bitsandbytes`, `accelerate`

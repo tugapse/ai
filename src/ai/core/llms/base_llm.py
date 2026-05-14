@@ -1,25 +1,39 @@
 import os
 import gc
 import threading
+import json
+import re
+from typing import Callable, Optional
 import functions
 from entities.model_enums import InferenceBackend
+from tools.tool_registry import ToolRegistry
+
 
 class TokenCountInfo:
     def __init__(self) -> None:
         self.prompt_count = 0
         self.max_context_window = 0
         self.max_output_tokens = 0
-        self.total_prompt_count = 0 
+        self.total_prompt_count = 0
         self.printed_tokens_count = 0
-    
+
     def get_log_string(self) -> str:
         """Returns a condensed 'fuel gauge' of the current token state."""
-        # Calculate usage percentage for the log
-        usage = (self.total_prompt_count / (self.max_context_window-self.max_output_tokens) * 100) if self.max_context_window > 0 else 0
+        usage = (
+            (
+                self.total_prompt_count
+                / (self.max_context_window - self.max_output_tokens)
+                * 100
+            )
+            if self.max_context_window > 0
+            else 0
+        )
         return (
             f"Tokens: [P: {self.prompt_count} | T: {self.total_prompt_count} | Out: {self.printed_tokens_count}] "
             f"Window: {self.max_context_window-self.max_output_tokens} ({usage:.1f}%)"
         )
+
+
 class BaseModel:
     CONTEXT_WINDOW_SMALL = 2048
     CONTEXT_WINDOW_MEDIUM = 4096
@@ -34,24 +48,203 @@ class BaseModel:
 
     STREAMING_FINISHED_EVENT = "streaming_finished"
 
-    def __init__(self, model_name, system_prompt=None, override_system_by_user_template=False, **kargs):
+    # --- HUMAN-IN-THE-LOOP (HIL) GATEKEEPER ---
+    # Tools that require manual user confirmation before execution.
+    HIL_TOOLS = ["execute_command", "write_file", "patch_file", "delete_file"]
+
+    def __init__(self, model_name, system_prompt="", **kargs):
         self.model_name = model_name
         self.system_prompt = system_prompt
-        self.listeners = {} # For event handling
-        self.options = {} # Default options
+        self.listeners = {}
+        self.options = {}
         self.tokenizer = None
-        self.override_system_by_user_template = override_system_by_user_template
-        
-        # Common attributes for graceful interruption
+        self.override_system_by_user_template = kargs.get(
+            "override_system_by_user_template", False
+        )
+
         self.stop_generation_event = threading.Event()
-        self._generation_thread = None # Placeholder for potential background thread
-        self.inference_device = InferenceBackend.CPU # Default to CPU, lazy-load torch for GPU check
+        self._generation_thread = None
+        self.inference_device = InferenceBackend.CPU
         self.token_info_count = TokenCountInfo()
 
+        # Registry instance to be injected by the Orchestrator
+        self.tool_registry: Optional[ToolRegistry] = kargs.get("tool_registry")
+
+    # =========================================================================
+    # J.A.R.V.I.S. PROTOCOL & TOOL SCHEMATICS
+    # =========================================================================
+
+    @staticmethod
+    def _parse_docstring_to_schema(func_name: str, func_ref: Callable) -> dict:
+        """
+        Dynamically translates Python docstrings into an LLM-friendly JSON Schema.
+        Enforces a mandatory 'intent' property for latent reasoning.
+        """
+        doc = func_ref.__doc__ or "No description provided."
+        lines = [line.strip() for line in doc.strip().split("\n")]
+
+        description = ""
+        properties = {
+            "intent": {
+                "type": "string",
+                "description": "Clear reasoning of why this tool is being called and the expected outcome.",
+            }
+        }
+        required = ["intent"]
+
+        state = "desc"
+        for line in lines:
+            if not line:
+                continue
+
+            if line.startswith("Args:"):
+                state = "args"
+                continue
+            elif line.startswith("Returns:"):
+                state = "returns"
+                continue
+
+            if state == "desc":
+                description += line + " "
+            elif state == "args":
+                # Matches: param_name (type): description
+                match = re.match(r"^(\w+)\s*\(([^)]+)\)\s*:\s*(.*)$", line)
+                if match:
+                    p_name, p_type, p_desc = match.groups()
+
+                    json_type = "string"
+                    if "int" in p_type.lower():
+                        json_type = "integer"
+                    elif "bool" in p_type.lower():
+                        json_type = "boolean"
+                    elif "list" in p_type.lower():
+                        json_type = "array"
+
+                    properties[p_name] = {
+                        "type": json_type,
+                        "description": p_desc.strip(),
+                    }
+
+                    if "optional" not in p_type.lower():
+                        required.append(p_name)
+
+        return {
+            "name": func_name,
+            "description": description.strip(),
+            "parameters": {
+                "type": "object",
+                "properties": properties,
+                "required": required,
+            },
+        }
+
+    @staticmethod
+    def format_tools_for_prompt(tool_registry: Optional[ToolRegistry]) -> str:
+        """
+        Constructs the system access manual using a generic protocol.
+        Safely handles missing keys for legacy or hardcoded tool schemas.
+        """
+        if not tool_registry:
+            return ""
+            
+        all_tools = tool_registry.get_all_tools()
+        if not all_tools:
+            return ""
+
+        manual = "\n\n[PROTOCOL: SYSTEM ACCESS]\n"
+        for name, ref in all_tools.items():
+            # If ref is a callable, parse it. If it's already a dict, use it directly.
+            schema = (
+                BaseModel._parse_docstring_to_schema(name, ref) if callable(ref) else ref
+            )
+            
+            # Use .get() to safely handle missing 'returns' or 'description' keys
+            f_name = schema.get('name', name)
+            f_desc = schema.get('description', 'No description provided.')
+            f_returns = schema.get('returns', 'Standard status dictionary.')
+            f_params = json.dumps(schema.get('parameters', {}))
+            
+            manual += f"Function: {f_name} | Desc: {f_desc} | Returns: {f_returns} | Schema: {f_params}\n"
+        
+        manual += (
+            "\n[CRITICAL RULE: TOOL CALLING]\n"
+            "1. You have NO direct access to the environment or system state unless you use a tool.\n"
+            "2. To use a tool, you MUST output: ____@tool call:name{\"intent\":\"your reasoning\", \"param_name\":\"value\"}\n"
+            "3. DO NOT use XML tags or alternate markers. Only ____@tool is valid.\n"
+            "4. Stop writing immediately after the tool call closing brace.\n"
+            "5. Only call ONE tool per response turn.\n"
+        )
+        return manual
+
+    def parse_manual_tags(self, text: str):
+        """Standardized regex parser for catching tool triggers in the stream."""
+        
+        # Matches J.A.R.V.I.S. tags AND Gemma's <|tool_call> artifacts
+        pattern = r"(?:____@tool|____@|<\|?tool_call\|?>)\s*(?:call:)?(\w+)\s*(\{.*?\})"
+        match = re.search(pattern, text, re.DOTALL)
+        
+        if match:
+            name, raw_args = match.group(1), match.group(2)
+            
+            # 1. Clean Gemma's weird quote artifacts
+            clean_args = raw_args.replace('<|"|>', '"').replace('<|"', '"').replace('"|>', '"')
+            
+            # 2. Fix unquoted JSON keys (e.g., {content: "..."} -> {"content": "..."})
+            clean_args = re.sub(r'([{,]\s*)([a-zA-Z0-9_]+)\s*:', r'\1"\2":', clean_args)
+            
+            try:
+                # 3. Use strict=False to forgive literal newlines inside strings
+                parsed_args = json.loads(clean_args, strict=False)
+                
+                # Pop the 'intent' key so it doesn't crash Python functions
+                if isinstance(parsed_args, dict) and "intent" in parsed_args:
+                    del parsed_args["intent"]
+                    
+                return {"type": "function_call", "name": name, "args": parsed_args}
+            except Exception as e:
+                import functions as func
+                func.log(f"DEBUG: JSON parse fallback triggered for {name}. Error: {e}", level="DEBUG")
+                return {"type": "function_call", "name": name, "args": {"raw": raw_args}}
+                
+        return None
+    
+    def handle_sentinel(self, content: str, is_intercepting: bool, sentinel_buffer: str):
+        """
+        Unified Sentinel logic. Removed hard character cap to allow 
+        large tool payloads (like write_file/patch_file).
+        """
+        TRIGGER_PREFIXES = ["____", "<|"]
+        
+        if not is_intercepting:
+            # Check if this chunk or the potential transition triggers interception
+            if any(p in content for p in TRIGGER_PREFIXES) or \
+               any(p in (sentinel_buffer + content) for p in TRIGGER_PREFIXES):
+                return None, sentinel_buffer + content, True, False
+            
+            # Not intercepting: pass through content, but keep a tiny tail for prefix detection
+            new_tail = (sentinel_buffer + content)[-3:]
+            return content, new_tail, False, False
+        else:
+            # Currently intercepting: buffer everything and try to parse
+            new_buffer = sentinel_buffer + content
+            action = self.parse_manual_tags(new_buffer)
+            
+            if action:
+                # Tool found! Stop stream and return the action dictionary
+                return action, "", False, True
+            
+            # Hard cap removed. We rely on the model eventually closing the JSON 
+            # or the StreamOrchestrator timeout/interruption.
+            return None, new_buffer, True, False
+
+    # =========================================================================
+    # CORE SYSTEM UTILITIES
+    # =========================================================================
 
     def init_pytorch_cuda(self):
         try:
             import torch
+
             if torch.cuda.is_available():
                 self.inference_device = InferenceBackend.GPU_CUDA
                 functions.log("PyTorch CUDA available. Set inference device to GPU.")
@@ -59,56 +252,30 @@ class BaseModel:
                 functions.log("PyTorch CUDA not available. Using CPU.")
         except ImportError:
             functions.log("PyTorch not found. Using CPU.")
-            pass
 
     def _prepare_input(self, messages: list):
-        """
-        Formats chat messages into model input, ensuring the last turn is for the assistant to generate.
-        This handles models with and without `apply_chat_template`.
-        """
+        
+        if not self.tokenizer:
+            raise ValueError("Tokenizer we not defined")
+        
         if self.system_prompt and not any(m["role"] == "system" for m in messages):
-                messages.insert(0, BaseModel.create_message("system", self.system_prompt))
+            messages.insert(0, BaseModel.create_message("system", self.system_prompt))
+
         if (
             hasattr(self.tokenizer, "apply_chat_template")
-            and self.tokenizer.apply_chat_template is not None
+            and self.tokenizer.apply_chat_template
         ):
             input_string = self.tokenizer.apply_chat_template(
                 messages, tokenize=False, add_generation_prompt=True
             )
-            inputs = self.tokenizer(input_string, return_tensors="pt")
-            functions.debug(
-                f"_prepare_input using apply_chat_template. Input string length: {len(input_string)}"
-            )
-            return inputs
+            return self.tokenizer(input_string, return_tensors="pt")
         else:
-            prepared_messages = []
-            if self.system_prompt and not any(m["role"] == "system" for m in messages):
-                prepared_messages.append(
-                    BaseModel.create_message("system", self.system_prompt)
-                )
-
-            for msg in messages:
-                role = msg.get("role", "user")
-                content = msg.get("content", "")
-                prepared_messages.append(BaseModel.create_message(role, content))
-
             input_text = ""
-            for msg in prepared_messages:
-                if msg["role"] == "system":
-                    input_text += f"System: {msg['content']}\n"
-                elif msg["role"] == "user":
-                    input_text += f"User: {msg['content']}\n"
-                elif msg["role"] == "assistant":
-                    input_text += f"Assistant: {msg['content']}\n"
-
-            if messages and messages[-1]["role"] == "user":
-                input_text += "Assistant:"
-
-            inputs = self.tokenizer(input_text, return_tensors="pt")
-            functions.debug(
-                f"_prepare_input using manual formatting. Input text length: {len(input_text)}"
-            )
-            return inputs
+            for msg in messages:
+                role = msg.get("role", "user").capitalize()
+                input_text += f"{role}: {msg.get('content', '')}\n"
+            input_text += "Assistant:"
+            return self.tokenizer(input_text, return_tensors="pt")
 
     def add_event(self, event_name, listener):
         if event_name not in self.listeners:
@@ -122,166 +289,100 @@ class BaseModel:
 
     @staticmethod
     def create_message(role: str, content: str) -> dict:
-        """
-        Creates a message dictionary in the format expected by LLMs.
-        
-        Args:
-            role (str): The role of the message sender (e.g., 'user', 'assistant', 'system').
-            content (str): The text content of the message.
-        
-        Returns:
-            dict: A dictionary representing the message.
-        """
-        return {'role': role, 'content': content}
-   
-    def get_system_info(self)-> str:
+        return {"role": role, "content": content}
 
+    def get_system_info(self) -> str:
         system_info = functions.get_system_info_prompt_concise()
-
         current_time_str = system_info.get("time", "Unknown Time")
         os_info = system_info.get("os", "Unknown OS")
+        return f"System Context: (Time: {current_time_str} | OS: {os_info})"
 
-        return f"System Context: (Time: {current_time_str} | OS: {os_info}) | pwd: {os.getcwd()}"
-    
     def check_system_prompt(self, messages: list):
-        """
-        Ensures the system prompt is at the beginning of the messages list,
-        updated with real-time system context information obtained as an object.
-        """
-
-        enriched_system_info_prefix = self.get_system_info()
-
-        final_system_prompt_content = enriched_system_info_prefix
+        enriched_info = self.get_system_info()
+        final_content = enriched_info
         if self.system_prompt:
-            final_system_prompt_content += f"\n{self.system_prompt}"
+            final_content += f"\n{self.system_prompt}"
 
-        filtered_messages = [
-            msg for msg in messages
-            if not (msg['role'] == "system" or msg.get('original_role') == "system")
+        filtered = [
+            msg
+            for msg in messages
+            if not (msg["role"] == "system" or msg.get("original_role") == "system")
         ]
-
-
-        updated_messages = [BaseModel.create_message("system", final_system_prompt_content)] + filtered_messages
+        updated = [BaseModel.create_message("system", final_content)] + filtered
 
         if self.override_system_by_user_template:
-            for msg in updated_messages:
-                if msg['role'] == "system":
-                    msg['role'] = "user"
-                    msg['original_role'] = "system" # Mark it as originally a system message
+            for msg in updated:
+                if msg["role"] == "system":
+                    msg["role"] = "user"
+                    msg["original_role"] = "system"
 
+        return updated
 
-        return updated_messages
+    def clean_cache(self):
+        if self.is_gpu_available():
+            try:
+                import torch
 
-
-    def load_images(self, images: list):
-        """
-        Placeholder for image loading logic.
-        """
-        # Implement image loading specific to the model if needed
-        # For now, just return a placeholder message or empty dict
-        return {"role": "user", "content": "Images provided (content omitted for base model)"}
-
-    def join_generation_thread(self, timeout: float = None):
-        """
-        Placeholder for joining the generation thread.
-        Subclasses should override this if they use a separate generation thread.
-        """
-        if self._generation_thread and self._generation_thread.is_alive():
-            functions.log("INFO: Waiting for LLM generation thread to finish...")
-            self._generation_thread.join(timeout=timeout)
-            if self._generation_thread.is_alive():
-                functions.log("WARNING: LLM generation thread did not terminate within timeout.")
-        self.stop_generation_event.clear() # Always clear the event after potential use
-    
-    # Abstract methods (to be implemented by subclasses)
-    def chat(self, messages: list, images: list = None, stream: bool = True, options: object = {}):
-        raise NotImplementedError
-
-    def generate_structured(self, messages: list, schema: object, images: list = None, options: object = {}):
-        """
-        Generates a structured output based on a provided schema (e.g., Pydantic model).
-        Subclasses must implement this to support structured data generation.
-        """
-        raise NotImplementedError
-
-    def list(self):
-        raise NotImplementedError
-
-    def pull(self, model_name, stream=True):
-        raise NotImplementedError
+                torch.cuda.empty_cache()
+            except ImportError:
+                pass
+        gc.collect()
 
     def is_gpu_available(self):
         if self.inference_device == InferenceBackend.GPU_CUDA:
             try:
                 import torch
+
                 return torch.cuda.is_available()
             except ImportError:
                 return False
-        elif self.inference_device == InferenceBackend.GPU_AMD:
-            # TODO add implentations here for direct_ml and override in gguf
-            return False
         return False
-    
-    def clean_cache(self):
-        functions.debug("Clearing cache")
-        if self.is_gpu_available():
-            try:
-                import torch
-                torch.cuda.empty_cache()
-            except ImportError:
-                functions.log("PyTorch not available, cannot clear CUDA cache.")
-        gc.collect()
-    
-    def getTokenCount(self,**kargs):
-        functions.debug("Implement getPromptTokens method in subclass")
-        return self.token_info_count
-    
+
     def request_shutdown(self):
         self.stop_generation_event.set()
         self.join_generation_thread(2)
         self.clean_cache()
-    
+
+    def join_generation_thread(self, timeout: float = 0.0):
+        if self._generation_thread and self._generation_thread.is_alive():
+            self._generation_thread.join(timeout=timeout)
+        self.stop_generation_event.clear()
+
+    # --- ABSTRACT INTERFACES ---
+    def chat(
+        self,
+        messages: list,
+        images: list = [],
+        stream: bool = True,
+        options: object = {},
+    ):
+        raise NotImplementedError
+
+    def generate_structured(
+        self, messages: list, schema: object, images: list = [], options: object = {}
+    ):
+        raise NotImplementedError
+
     def unload(self):
-        functions.error("Subclasses should implement the unload method to clear model resources.")
+        functions.error("Subclasses must implement unload to clear model resources.")
+
 
 class ModelParams:
-    """
-    A simple class to hold model parameters.
-    """
     def __init__(self, **kargs):
-        self.num_ctx = kargs.get('num_ctx') or BaseModel.CONTEXT_WINDOW_LARGE
-        self.max_new_tokens = kargs.get('max_new_tokens', 2048)
-        self.max_length =kargs.get('max_length', 4096)
-        self.do_sample = kargs.get('do_sample', True)
-        self.top_k = kargs.get('top_k', 50)
-        self.top_p =kargs.get('top_p', 0.95)
-        self.temperature = kargs.get('temperature',0.5)
-        self.quantization_bits = kargs.get('quantization_bits',0)  # New: 0 for no quantization, 4 for 4-bit, 8 for 8-bit
-        self.enable_thinking = kargs.get('enable_thinking',True)
-        self.presence_penalty = kargs.get('presence_penalty', 1.0)
-        self.frequency_penalty = kargs.get('frequency_penalty', 1.0)
-        self.use_system_prompt = kargs.get('use_system_prompt', True)
-        self.inference_backend :InferenceBackend = InferenceBackend.CPU
-        self.format = kargs.get('format', None) # New: for structured output, e.g., 'json'
+        self.num_ctx = kargs.get("num_ctx") or BaseModel.CONTEXT_WINDOW_LARGE
+        self.max_new_tokens = kargs.get("max_new_tokens", 2048)
+        self.max_length = kargs.get("max_length", 4096)
+        self.do_sample = kargs.get("do_sample", True)
+        self.top_k = kargs.get("top_k", 50)
+        self.top_p = kargs.get("top_p", 0.95)
+        self.temperature = kargs.get("temperature", 0.5)
+        self.quantization_bits = kargs.get("quantization_bits", 0)
+        self.enable_thinking = kargs.get("enable_thinking", True)
+        self.presence_penalty = kargs.get("presence_penalty", 1.0)
+        self.frequency_penalty = kargs.get("frequency_penalty", 1.0)
+        self.use_system_prompt = kargs.get("use_system_prompt", True)
+        self.format = kargs.get("format", None)
 
     def to_dict(self):
-        """Converts the parameters to a dictionary, excluding None values for format."""
-        d = {
-            "num_ctx": self.num_ctx,
-            "max_new_tokens": self.max_new_tokens,
-            "max_length": self.max_length,
-            "do_sample": self.do_sample,
-            "top_k": self.top_k,
-            "top_p": self.top_p,
-            "temperature": self.temperature,
-            "quantization_bits": self.quantization_bits,
-            "enable_thinking":self.enable_thinking,
-            "presence_penalty":self.presence_penalty,
-            "frequency_penalty":self.frequency_penalty,
-            "use_system_prompt":self.use_system_prompt
-        }
-        if self.format:
-            d['format'] = self.format
+        d = {k: v for k, v in self.__dict__.items() if v is not None}
         return d
-    
-

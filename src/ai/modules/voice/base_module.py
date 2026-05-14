@@ -15,9 +15,10 @@ class BaseVoiceModule(ABC):
     Core Voice Orchestrator.
     Updated with 'Buffer Drain' logic to prevent cutting off the end of sentences.
     """
-    def __init__(self, sample_rate: int = 24000, device_index: Optional[int] = None):
+    def __init__(self, sample_rate: int = 24000, device_index: Optional[int] = None, volume: float = 1.0):
         self.sample_rate = sample_rate
         self.device_index = device_index
+        self.volume = np.clip(volume, 0.0, 2.0)  # Store and sanitize volume (0x to 2x)
         
         self._text_queue = queue.Queue()
         self._audio_queue = queue.Queue()
@@ -122,6 +123,10 @@ class BaseVoiceModule(ABC):
                             np.arange(len(audio_chunk)),
                             audio_chunk
                         ).astype(np.float32)
+
+                    # Apply volume adjustment
+                    if self.volume != 1.0:
+                        audio_chunk *= self.volume
 
                     try:
                         self.stream.write(audio_chunk.tobytes())

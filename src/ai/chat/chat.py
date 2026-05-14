@@ -31,9 +31,8 @@ class PrefixCompleter(Completer):
         text = document.text_before_cursor
         
         if text.startswith('/'):
-            query = text[1:]
             for cmd in self.commands:
-                if cmd.startswith(query):
+                if cmd.startswith(text):
                     yield Completion(cmd, start_position=-len(text))
         
         elif text.startswith('@'):
@@ -107,6 +106,7 @@ class Chat(Events):
         self.current_prompt = ""
         self.session_chat_filepath = None
         
+        self.agent_mode_active = False
         self.multiline_mode = False
        
         # Completion setup
@@ -144,7 +144,10 @@ class Chat(Events):
 
     def _get_prompt_text(self):
         file_status = f" ({len(self.pending_files)} files pending)" if self.pending_files else ""
-        
+
+        if self.agent_mode_active:
+            return ANSI(format_text(f"Agent Task{file_status}: ", Color.PURPLE) + format_text(self.current_message, Color.WHITE))
+
         # Prepend the top bar display logic here, though prompt_toolkit usually handles this via custom UI components.
         # For simplicity within the prompt text function, we'll just return the prompt, 
         # but the top bar logic is now available via _get_top_bar_display().
@@ -211,6 +214,24 @@ class Chat(Events):
                 return
 
             self.multiline_mode = False
+
+            # If agent mode is active, treat the input as the task
+            if self.agent_mode_active:
+                final_task_content = user_input_stripped
+                if self.pending_files:
+                    file_context = "\n\n--- Attached Files ---\n"
+                    for path, content in self.pending_files.items():
+                        file_context += f"File: {path}\nContent:\n{content}\n---\n"
+                    final_task_content = file_context + user_input_stripped
+                
+                self.agent_mode_active = False # Reset after capturing task
+                self.trigger(self.EVENT_AGENT_RUN_REQUESTED, final_task_content)
+                self.running_command = True
+                
+                # Clear pending files after assigning to task
+                self.pending_files = {}
+                return
+
             if user_input_stripped.startswith("/"):
                 self.run_command(user_input_stripped)
             else:
@@ -261,9 +282,8 @@ class Chat(Events):
             func.out(format_text("Chat history cleared.", Color.BLUE))
             self.running_command = False
         elif message.startswith("/agent"):
-            parts = message.split(maxsplit=1)
-            task = parts[1] if len(parts) > 1 else ""
-            self.trigger(self.EVENT_AGENT_RUN_REQUESTED, task)
+            self.agent_mode_active = True
+            func.out(format_text("Agent mode activated. Enter your task.", Color.PURPLE))
             self.running_command = False
         else:
             self.running_command = True

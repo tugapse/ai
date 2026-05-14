@@ -1,63 +1,76 @@
 ## 1. Architectural Role
-The `CliArgs` class serves as the primary input dispatcher and mode orchestrator, translating command-line arguments into specific system behaviors: Standalone (Local/Direct), Server (Brain), Client (Remote), or Agent pipeline execution.
 
-## 2. Interface & API Surface
+**Functional Mission**
+The **CliArgs** class serves as the primary entry point and command-line interface orchestrator for the JARVIS system. Its mission is to parse user-provided arguments to determine the operational mode of the applicationdistinguishing between a centralized Brain (Server), a remote Body (Client), or a standalone Agent/Direct interaction modeand subsequently dispatching execution to the appropriate subsystem.
+
+**System Context & Integration**
+This component acts as the high-level dispatcher that bridges the gap between the OS shell and the core logic. It initializes the system state by configuring the LLM (via [RemoteBrainConnector](/docs/modules/client/remote_connector.md) or local models), setting up tool registries, and loading task contexts. It coordinates the transition from raw CLI input to structured execution flows, such as the [MessageOrchestrator](/docs/agents/message_orchestrator.md) for agentic tasks or the [ask](/docs/direct.md) function for direct chat interactions.
+
+## 2. Environment & Configuration
+
+**Environment Lookups:**
+- `SERVER_HOST` (via `prog.config.get`)  Defines the network interface for the server mode.
+- `SERVER_PORT` (via `prog.config.get`)  Defines the network port for the server mode.
+- `PATHS_MODEL_CONFIGS` (via `prog.config.get`)  Determines the directory for model configuration files.
+- `PATHS_TASKS_TEMPLATES` (via `prog.config.get`)  Locates the directory containing task templates.
+
+**Hardcoded Constants:**
+- `9999` (Default: `SERVER_PORT`)  Default port if not specified in config.
+- `0.0.0.0` (Default: `SERVER_HOST`)  Default host if not specified in config.
+- `pipelines/pipeline.json` (Default: `pipeline_path`)  Default path for agent pipeline configuration.
+
+## 3. Interface & API Surface
+
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `CliArgs` | Class | Orchestrates CLI input parsing and dispatches execution to specific mode handlers. |
-| `parse_args` | Method | Main entry point; analyzes `args` to trigger system/global actions or mode-specific logic. |
-| `_handle_server_mode` | Method | Initializes `JarvisServerModule` and optionally loads a model via `prog.models`. |
-| `_handle_client_mode` | Method | Injects `RemoteBrainConnector` into `prog.llm` to redirect LLM calls to a remote server. |
-| `_handle_agent_mode` | Method | Initializes `MessageOrchestrator` with a `ToolRegistry` and `LLMConnector` to run a pipeline. |
-| `_handle_local_direct_mode` | Method | Sequentially checks for files, images, and tasks to populate `prog.chat` for a one-shot `ask`. |
-| `_handle_config_generation` | Method | Generates a default JSON model configuration using `ModelConfigManager`. |
-| `_is_print_chat` | Method | Loads and displays a chat log using `ConsoleChatReader`. |
-| `_is_install` | Method | Dynamically executes the `install_engines.py` script. |
-| `_is_list_models` | Method | Executes a system call to `ollama list`. |
-| `_has_output_files` | Method | Sets `prog.write_to_file` and `prog.output_filename`. |
-| `_has_folder` | Method | Loads all files of a specific extension from a directory into `prog.chat`. |
-| `_has_file` | Method | Reads comma-separated files and adds their content to `prog.chat`. |
-| `_has_image` | Method | Appends image paths to `prog.chat.images`. |
-| `_has_task_file` | Method | Reads a task file and adds it as a `SYSTEM` message to `prog.chat`. |
-| `_has_task` | Method | Loads a predefined task template from the config path into `prog.chat`. |
-| `_has_message` | Method | Processes final user input (piped or flag) and invokes the `ask` function. |
+| `CliArgs` | Class | Orchestrates CLI argument parsing and mode dispatching. |
+| `parse_args` | Method | The main entry point that analyzes arguments and triggers mode-specific handlers. |
+| `_handle_create_tool` | Method | Generates a Python skeleton file for new user-defined tools. |
+| `_handle_server_mode` | Method | Initializes and starts the [JarvisServerModule](/docs/modules/server/server_module.md). |
+| `_handle_client_mode` | Method | Configures the system to use a [RemoteBrainConnector](/docs/modules/client/remote_connector.md). |
+| `_handle_local_direct_mode` | Method | Prepares the environment for one-shot tasks (files, images, folders). |
+| `_handle_agent_mode` | Method | Executes the agentic loop using [MessageOrchestrator](/docs/agents/message_orchestrator.md). |
+| `_handle_config_generation` | Method | Uses [ModelConfigManager](/docs/model_config_manager.md) to create new model JSON configs. |
+| `_is_print_chat` | Method | Loads and displays chat history via [ConsoleChatReader](/docs/extras/console.md). |
+| `_is_install` | Method | Triggers the external engine installation script. |
+| `_has_message` | Method | Finalizes the chat context and triggers the [ask](/docs/direct.md) execution loop. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: The class is instantiated; no internal state is maintained within `CliArgs` as it operates on the `prog` (Program) and `args` (Namespace) objects.
-- **Data Path**: `CLI Arguments` $\rightarrow$ `parse_args()` $\rightarrow$ `Mode Handler` $\rightarrow$ `prog.chat` / `prog.llm` modification $\rightarrow$ `Execution` (Server start / Agent loop / `ask()` function).
+## 4. Execution Logic & Flow
+
+- **Initialization**: The `parse_args` method is invoked with the program object, arguments, and the `argparse` parser. It first performs side-effect actions (tool creation, config generation, installation) before determining the primary execution mode.
+- **Data Path**: 
+    - **Input**: CLI arguments (flags like `--server`, `--remote`, `--agent`, `--task`, or piped `stdin`).
+    - **Processing**: 
+        - If `--server`: Starts the server module.
+        - If `--remote`: Replaces `prog.llm` with a remote connector.
+        - If `--agent`: Loads `pipeline_config`, registers tools via [ToolRegistry](/docs/tools/tool_registry.md), and starts the `MessageOrchestrator`.
+        - If Direct: Loads files/images/folders into `prog.chat`.
+    - **Output**: Either a running server, an agentic loop, or a direct response via the `ask` function.
 - **Conditional Branching**:
-    1. **Global Actions**: Checks for `--generate-config`, `--install`, `--print-chat`, or `--list-models`. If true, executes and calls `sys.exit(0)`.
-    2. **Mode Selection**:
-        - If `args.server` $\rightarrow$ `_handle_server_mode` $\rightarrow$ `os._exit(0)`.
-        - If `args.remote` $\rightarrow$ `_handle_client_mode` $\rightarrow$ continues to execution dispatch.
-    3. **Execution Dispatch**:
-        - If `args.agent` $\rightarrow$ `_handle_agent_mode` $\rightarrow$ `sys.exit(0)`.
-        - Default $\rightarrow$ `_handle_local_direct_mode` $\rightarrow$ populates context $\rightarrow$ `_has_message` $\rightarrow$ `ask()` $\rightarrow$ `os._exit(0)`.
+    - **Mode Priority**: Server mode takes precedence $\rightarrow$ Client mode $\rightarrow$ Local/Direct mode.
+    - **Agent vs. Direct**: If `--agent` is present, the system enters the agentic loop; otherwise, it falls back to the `_has_message` direct interaction logic.
+    - **Error Handling**: Uses `sys.exit(1)` and `func.error` for invalid tool names, missing files, or failed pipeline loads.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `argparse`, `os`, `sys`, `json`, `uuid`, `traceback`, `typing.Optional`.
+## 5. Resource Dependencies
+
+- **Standard Libraries**: `argparse`, `os`, `sys`, `uuid`, `traceback`, `re`, `typing`, `importlib.util`, `pathlib`.
 - **Internal Modules**: 
-    - `model_config_manager.ModelConfigManager`
-    - `config.ProgramConfig`, `config.ProgramSetting`
-    - `entities.model_enums.ModelType`
-    - `core.chat.ChatRoles`
-    - `core.llms.base_llm.BaseModel`
-    - `color.Color`, `color.format_text`
-    - `direct.ask`
-    - `agents.agent.MessageOrchestrator`, `agents.agent.LLMConnector`, `agents.agent.ToolRegistry`, `agents.agent.load_pipeline_config`
-    - `agents.agent_tools`
-    - `functions` (as `func`)
-    - `modules.server.server_module.JarvisServerModule`
-    - `modules.client.remote_connector.RemoteBrainConnector`
-    - `extras.console.ConsoleChatReader`
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - Default server host: `"0.0.0.0"`
-    - Default server port: `8000`
-    - Default pipeline path: `"pipelines/pipeline.json"`
-- **Environment Lookups**: 
-    - `ProgramSetting.PATHS_MODEL_CONFIGS`
-    - `ProgramSetting.PATHS_TASKS_TEMPLATES`
-    - `SERVER_HOST` (via `prog.config`)
-    - `SERVER_PORT` (via `prog.config`)
+    - [BrainHub](/docs/modules/server/brain_hub.md)
+    - [ModelConfigManager](/docs/model_config_manager.md)
+    - [ProgramConfig](/docs/config.md)
+    - [ModelType](/docs/entities/model_enums.md)
+    - [ChatRoles](/docs/chat/chat.md)
+    - [BaseModel](/docs/core/llms/base_llm.md)
+    - [Color](/docs/color.md)
+    - [ask](/docs/direct.md)
+    - [MessageOrchestrator](/docs/agents/message_orchestrator.md)
+    - [LLMConnector](/docs/agents/llm_connector.md)
+    - [ToolRegistry](/docs/tools/tool_registry.md)
+    - [load_pipeline_config](/docs/agents/agent.md)
+    - [load_and_register_user_tools](/docs/tools/tool_loader.md)
+    - [agent_tools](/docs/tools/agent_tools.md)
+    - [functions](/docs/functions.md)
+    - [JarvisServerModule](/docs/modules/server/server_module.md)
+    - [RemoteBrainConnector](/docs/modules/client/remote_connector.md)
+    - [ConsoleChatReader](/docs/extras/console.md)
+- **External Packages**: None identified.

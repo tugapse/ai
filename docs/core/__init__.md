@@ -1,31 +1,28 @@
 ## 1. Architectural Role
-Acts as the package initializer for the `core` module, exposing a curated public API by promoting key classes and types from internal submodules to the package level.
 
-## 2. Interface & API Surface
+**Functional Mission**
+The **`__init__.py`** component within the `ai.core` package serves as the structural gateway and namespace initializer for the core logic layer. Its primary mission is to define the package boundaries and facilitate the organized exposure of core functionalities, ensuring that the internal sub-modules are correctly recognized by the Python interpreter as a cohesive unit.
+
+**System Context & Integration**
+This component acts as the entry point for the core architectural layer, providing the necessary namespace for higher-level orchestrators and services to access fundamental logic. It sits at the base of the core hierarchy, supporting the integration of specialized modules such as [LLM implementations](/docs/core/llms/__init__.md) and [event handling](/docs/core/events.md). By establishing the package identity, it enables the seamless import of core utilities across the broader system, including the [Brain Hub](/docs/modules/server/brain_hub.md) and [Module Registry](/docs/services/module_registry.md).
+
+## 2. Environment & Configuration
+**Environment Lookups:**
+No environment lookups identified.
+
+**Hardcoded Constants:**
+No hardcoded constants identified.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `Chat` | Class | Core chat session management. |
-| `ChatRoles` | Class/Enum | Definition of participant roles within a chat. |
-| `ChatCommandInterceptor` | Class | Logic for intercepting and processing chat-based commands. |
-| `Events` | Class | System-wide event definitions or dispatcher. |
-| `AsyncExecutor` | Class | Asynchronous implementation of command execution. |
-| `CommandExecutor` | Class | Base or synchronous implementation of command execution. |
-| `ExecutorResult` | Class/Type | Standardized output format for executed commands. |
-| `ContextFile` | Class | Management of files providing context to the system. |
+| `ai.core` | Package | Serves as the namespace root for all core architectural components. |
 
-## 3. Execution Logic & Flow
-Direct exports only; no internal logic flow.
+## 4. Execution Logic & Flow
+Direct exports or structural definitions only; no internal logic flow.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: None.
+## 5. Resource Dependencies
+- **Standard Libraries**: None identified.
 - **Internal Modules**: 
-    - `core.chat`
-    - `core.chat_command_interceptor`
-    - `core.events`
-    - `core.command_executor`
-    - `core.context_file`
-- **External Packages**: None.
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: None.
-- **Environment Lookups**: None.
+    - None identified.
+- **External Packages**: None identified.

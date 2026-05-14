@@ -1,4 +1,5 @@
-from response_parser import ResponseParser
+from color import Color
+from xml_response_parser import ResponseParser
 import re
 import xml.etree.ElementTree as ET
 from typing import Dict, Any, List
@@ -13,7 +14,7 @@ class LLMConnector:
     def __init__(self, llm_instance: BaseModel, parameter_mode: str = "xml"):
         self.llm = llm_instance
         # Initialize the new strict parser here
-        self.parser = ResponseParser(parameter_mode=parameter_mode)
+        self.parser = ResponseParser()
         
     def get_context_limit(self) -> int:
         return self.llm.token_info_count.max_context_window
@@ -42,9 +43,11 @@ class LLMConnector:
                 "\n\n--- DYNAMIC CONSTRAINTS ---",
                 f"AVAILABLE TOOLS:\n{tool_descriptions}" if allowed_tools else "AVAILABLE TOOLS: None.",
                 f"ALLOWED AGENT TARGETS: {', '.join(allowed_targets)}",
-                "\nIMPORTANT: You must respond in XML format. Do not use Markdown code blocks."
+
             ]
-            system_content += "\n".join(injection)
+            system_content += "\n".join(injection) 
+            self.llm.system_prompt = system_content
+
 
         messages = [
             BaseModel.create_message(ChatRoles.SYSTEM, system_content),

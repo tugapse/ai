@@ -1,5 +1,24 @@
 # Changelog
 
+## v3.1.3
+
+### [Added]
+- feat(ai-project-documentation): Add script to generate project documentation.
+- feat(knowledge_graph): Integrate KnowledgeGraph with orchestrator surface.
+- feat(tools): Add dynamic user tool loader and tool skeleton generation.
+- feat(server): Add model-configs endpoint to list model configurations.
+- feat(prompt_manager): Add aliases for prompt management (read, create, update).
+- feat: Enhance chat service with improved session routing and system prompt handling.
+- feat: Add prompt management endpoints and schemas.
+- feat: Implement agent architecture with event handling and agent mode in chat.
+- test(tests): Add extensive test suite, tooling, and fixtures.
+- Add base CSS styles for dark and light themes.
+
+### [Changed]
+- refactor(tests): Align imports to the new ai.* package layout.
+- refactor(ai): Rename `ensure_list` and update call sites.
+- Make prefix command completion consider leading slash.
+
 ## v3.1.1
 
 ### [Fixed]

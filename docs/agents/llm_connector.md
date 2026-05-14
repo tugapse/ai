@@ -1,38 +1,56 @@
 ## 1. Architectural Role
-The `LLMConnector` acts as a structured communication bridge that manages the lifecycle of LLM requests, transforming raw model outputs into parsed XML-based agentic instructions.
 
-## 2. Interface & API Surface
+**Functional Mission**
+The **LLMConnector** serves as the primary communication gateway between the agentic framework and the underlying Large Language Model (LLM) instances. Its core mission is to abstract the complexities of LLM interaction by providing structured, XML-based communication protocols for agentic workflows while maintaining a fallback for raw text/code generation. It ensures that system prompts are dynamically augmented with tool descriptions and constraints before being dispatched to the model.
+
+**System Context & Integration**
+This component acts as a bridge between high-level agent logic and the low-level LLM implementations defined in [BaseModel](/docs/core/llms/base_llm.md). It consumes JSON-formatted context and transforms it into structured XML messages, which are then processed by the [ResponseParser](/docs/agents/xml_response_parser.md) to ensure output adheres to strict schema requirements. The component integrates deeply with the execution layer via [ask](/docs/direct.md) to manage the actual inference call and utilizes a file-based logging mechanism to capture and retrieve model outputs reliably.
+
+## 2. Environment & Configuration
+**Environment Lookups:**
+- `output_filename` (via `_execute_llm_call`)  Determines the path for the active LLM output log using `func.get_root_directory()`.
+
+**Hardcoded Constants:**
+- `parameter_mode` (Default: `"xml"`)  Defines the default communication protocol mode.
+- `STOP` (Default: `"STOP"`)  The default allowed agent target when no configuration is provided.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `LLMConnector` | Class | Orchestrates the sending, execution, and parsing of LLM requests. |
-| `send_request` | Method | Handles structured agentic communication using system prompts and XML constraints. |
-| `send_raw_request` | Method | Bypasses XML parsing to return raw text/code generation. |
-| `_execute_llm_call` | Method | Manages the physical LLM call via `ask` and handles temporary file I/O for output capture. |
-| `_parse_xml_response` | Method | Extracts data from XML, featuring an auto-repair mechanism for truncated tags. |
+| `LLMConnector` | Class | Orchestrates structured and raw communication with LLM instances. |
+| `get_context_limit` | Method | Returns the maximum token window supported by the current LLM. |
+| `get_max_tokens` | Method | Returns the maximum output token limit for the current LLM. |
+| `send_request` | Method | Executes a structured agentic request using XML wrapping and dynamic constraint injection. |
+| `send_raw_request` | Method | Executes a direct text/code generation request bypassing XML parsing. |
+| `_execute_llm_call` | Method | Internal handler that invokes the [ask](/docs/direct.md) function and manages output file persistence. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: The class is instantiated with a `llm_instance` (inheriting from `BaseModel`), which is stored as `self.llm`.
+## 4. Execution Logic & Flow
+- **Initialization**: The class is instantiated with an instance of [BaseModel](/docs/core/llms/base_llm.md) and initializes a [ResponseParser](/docs/agents/xml_response_parser.md) for output validation.
 - **Data Path (Structured)**: 
-    1. `send_request` reads a system prompt from `system_prompt_path`.
-    2. If `agent_config` is provided, it appends dynamic constraints (tools, targets, XML requirements) to the prompt.
-    3. Constructs a message list containing the `SYSTEM` prompt and the `USER` input wrapped in `<context>` tags.
-    4. Passes messages to `_execute_llm_call`.
-    5. `_execute_llm_call` invokes `ask()`, writes the stream to `llm_output_active.tmp`, and reads the file back into a string.
-    6. `_parse_xml_response` uses regex to isolate the `<response>` block, repairs missing closing tags if necessary, and converts XML elements into a Python dictionary.
-- **Data Path (Raw)**:
-    1. `send_raw_request` constructs a simple `SYSTEM` and `USER` message pair.
-    2. Calls `_execute_llm_call` and returns the stripped string directly.
+    1. Receives `json_input` and `system_prompt_path`.
+    2. Loads the system prompt from disk.
+    3. If `agent_config` is present, injects `AVAILABLE TOOLS` and `ALLOWED AGENT TARGETS` into the system prompt.
+    4. Wraps `json_input` in `<context>` XML tags.
+    5. Dispatches messages via `_execute_llm_call`.
+    6. Captures output from a temporary markdown file.
+    7. Passes raw string to `self.parser.parse()` for structured extraction.
+- **Data Path (Raw)**: 
+    1. Receives `payload` containing `task_context` and `instruction`.
+    2. Constructs a plain text message sequence.
+    3. Dispatches via `_execute_llm_call` and returns the stripped string.
 - **Conditional Branching**:
-    - **Prompt Loading**: If the prompt file cannot be read, it returns a `FAILED` status immediately.
-    - **XML Parsing**: If a complete `<response>` block is not found, the parser attempts to find the start tag and manually append missing closing tags based on a stack of open tags.
-    - **Manifest Handling**: The `manifest` tag is processed as a dictionary; if it's a string, the code attempts to parse it as JSON.
+    - **Prompt Loading Error**: If the system prompt file cannot be read, returns a `FAILED` status dictionary.
+    - **Parsing Error**: If the `ResponseParser` returns a `FAILED` status, logs an error via `func.error`.
+    - **File IO Error**: If the LLM execution completes but the expected output file is missing, logs an error and returns an empty string.
+    - **Execution Exception**: If `ask` fails, the component attempts to clean up the active output file before returning an empty string.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `re`, `xml.etree.ElementTree`, `typing`, `uuid`, `os`, `json`
-- **Internal Modules**: `functions` (as `func`), `core.llms.base_llm.BaseModel`, `core.chat.ChatRoles`, `direct.ask`
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `llm_output_active.tmp`: Temporary filename used for capturing LLM output.
-    - `STOP`: Default value for `allowed_targets` if not specified in `agent_config`.
-- **Environment Lookups**: None.
+## 5. Resource Dependencies
+- **Standard Libraries**: `re`, `xml.etree.ElementTree`, `typing`, `uuid`, `os`
+- **Internal Modules**: 
+    - [Color](/docs/color.md)
+    - [ResponseParser](/docs/agents/xml_response_parser.md)
+    - [functions](/docs/functions.md)
+    - [BaseModel](/docs/core/llms/base_llm.md)
+    - [ChatRoles](/docs/chat/chat.md)
+    - [ask](/docs/direct.md)
+- **External Packages**: None identified.

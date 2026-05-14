@@ -1,6 +1,6 @@
 # AI Assistant
 
-![Version](https://img.shields.io/badge/version-2.2.0-orange)
+![Version](https://img.shields.io/badge/version-3.1.3-orange)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -8,7 +8,7 @@ A modular conversational AI framework built with Python. It provides a unified i
 
 ---
 
-## ✨ Features
+##  Features
 
 * **Hybrid LLM Integration:** Toggle between Ollama (local inference) and Hugging Face (GGUF/PyTorch) models.
 * **Autonomous Agents:** Enable tool-use for terminal execution, file manipulation, and smart searching.
@@ -19,7 +19,7 @@ A modular conversational AI framework built with Python. It provides a unified i
 
 ---
 
-## 🤖 Autonomous Agents
+##  Autonomous Agents
 
 The assistant includes an **Agentic Mode** that allows the LLM to interact with your system via a suite of tools. 
 
@@ -32,23 +32,23 @@ The assistant includes an **Agentic Mode** that allows the LLM to interact with 
 
 ---
 
-## ⚙️ Installation & Setup
+##  Installation & Setup
 
 1.  **Clone the Repository:**
     ```bash
-    git clone [https://github.com/tugapse/ai.git](https://github.com/tugapse/ai.git)
+    git clone https://github.com/tugapse/ai.git
     cd ai
     ```
 
 2.  **Install Dependencies:**
-    The included installer automatically detects your hardware and configures the environment (including CUDA support).
+    The integrated installer automatically detects your hardware and configures the environment.
     ```bash
-    python install_deps.py --auto-accept
+    ./build.sh
     ```
 
 ---
 
-## 🚀 Usage
+##  Usage
 
 ### Interactive Chat Mode
 Run without arguments to start a continuous dialogue:
@@ -59,7 +59,7 @@ Run without arguments to start a continuous dialogue:
 ### Agent Mode (Autonomous)
 Run the assistant with tool-access enabled:
 ```bash
-./run.sh --agents --msg "Locate all .py files in /src and check them for security vulnerabilities."
+./run.sh --agent --msg "Locate all .py files in /src and check them for security vulnerabilities."
 ```
 
 ### Direct Command Execution
@@ -80,38 +80,59 @@ Run the assistant with tool-access enabled:
 
 ---
 
-## 📖 CLI Reference
+##  CLI Reference
 
-### Model & Interaction
+### Cognitive Protocols
 | Flag | Alias | Description |
 | :--- | :--- | :--- |
-| `--agents` | | Enable Agentic Mode (allows tool-use and autonomous iterations). |
-| `--msg` | `-m` | Direct question or statement. |
-| `--model` | `-md` | Model config filename (e.g., `gemma-2b.json`). |
-| `--system` | `-s` | Name of a predefined system prompt template. |
-| `--system-file` | `-sf` | Path to a specific system prompt `.md` file. |
-| `--list-models` | `-l` | List all available model configurations. |
+| `--help` | `-h` | Show the diagnostic help message. |
+| `--msg` | `-m` | Direct inquiry to the sentinel. |
+| `--model` | `-md` | Specify neural model configuration. |
+| `--system` | `-s` | Load named system persona. |
+| `--system-file` | `-sf` | Inject system prompt from disk. |
+| `--list-models` | `-l` | Audit available neural models. |
 
-### Data & Files
+### Asset & Context Management
 | Flag | Alias | Description |
 | :--- | :--- | :--- |
-| `--file` | `-f` | Pass a text file's content as a message. |
-| `--image` | `-i` | Pass an image file (requires multimodal model). |
-| `--load-folder` | `-D` | Load multiple files from a directory. |
-| `--ext` | `-e` | Filter folder search by extension (e.g., `py`, `md`). |
+| `--file` | `-f` | Analyze target file. |
+| `--image` | `-i` | Process visual input from path. |
+| `--load-folder` | `-D` | Ingest directory into context. |
+| `--ext` | `-e` | Filter context ingestion by extension. |
 
-### Automation & Debugging
+### Autonomous Operations
 | Flag | Alias | Description |
 | :--- | :--- | :--- |
-| `--task` | `-t` | Execute a prompt template from `prompt_templates/`. |
-| `--output-file` | `-o` | Redirect AI output to a specific file. |
-| `--print-log` | `-pl` | Show informational log messages. |
-| `--no-out` | `-q` | Suppress the main AI response in the console. |
-| `--debug-console`| `-dc` | Disable console clearing and show full debug logs. |
+| `--agent` | | Enable agentic logic injection. |
+| `--task` | `-t` | Load named directive |
+| `--task-file` | `-tf` | Load directive from file. |
+| `--pipeline` | `-ppl` | Define multi-stage instruction pipeline. (defaults to default.json) |
+| `--session-id`| | Session key. |
+| `--output-file` | `-o` | Designate clean output stream (temp-file mode). |
+
+### Distributed Architecture
+| Flag | Alias | Description |
+| :--- | :--- | :--- |
+| `--server` | | Initialize Brain Server module. |
+| `--remote` | `-r` | Connect to remote neural hub URL. |
+| `--modules` | | Load specific sub-modules. |
+
+### System Debug & Maintenance
+| Flag | Alias | Description |
+| :--- | :--- | :--- |
+| `--print-chat` | `-p` | Output session history. |
+| `--print-log` | `-pl` | Enable system telemetry logs. |
+| `--print-debug`| `-pdb` | Enable verbose debug stream. |
+| `--no-out` | `-q` | Quiet mode (suppress terminal output). |
+| `--no-think-anim`| `-nta` | Disable reasoning animations. |
+| `--debug-console`| `-dc` | Lock console (disable clear-screen). |
+| `--install` | | Execute dependency sync protocol. |
+| `--overwrite-config`| | Force configuration override. |
+| `--create-tool` | | Create a new user tool skeleton file. |
 
 ---
 
-## 🔧 Model Configuration Generation
+##  Model Configuration Generation
 
 The AI Assistant provides specialized options for generating model configuration files, defining how models are loaded and behave within the application.
 
@@ -121,23 +142,16 @@ python main.py --generate-config "new_model" --model-type "gguf"
 ```
 
 * **--generate-config:** Specify the filename to save the new JSON config (you can ommit .json).
-* **--model-type:** Choose the architectural type (`ollama`, `causallm`, or `gguf`).
+* **--model-type:** Choose the architectural type (`ollama`, `causallm`, `gguf`, `gemini`, `openai`).
 
 For detailed instructions on configuration parameters, refer to the [**Model Configuration Manager README**](docs/MODEL_CONFIG.md).
 
 ---
 
-## ❤️ Credits & Acknowledgements
 
-* **Ollama:** For providing the foundation for local model serving.
-* **Hugging Face:** For the Transformers ecosystem and GGUF support.
-* **The Python Community:** For continuous innovation in AI tooling.
-
----
-
-## 📄 License
+##  License
 MIT
 
-## 📧 Contact
+##  Contact
 **Maintainer:** Fabio Almeida 
 **Email:** tugapse@gmail.com

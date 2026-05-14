@@ -7,6 +7,7 @@ import gc
 import warnings
 
 os.environ['BITSANDBYTES_NOWELCOME'] = '1'
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
 warnings.filterwarnings("ignore", category=FutureWarning, module="bitsandbytes")
 os.environ["TRANSFORMERS_VERBOSITY"] = "error"
@@ -37,10 +38,11 @@ class CustomStoppingCriteria:
 
 class HuggingFaceModel(BaseModel):
     """
-    Integrates Hugging Face models as an LLM. Handles loading, quantization, and streaming responses.
+    Integrates Hugging Face models as an LLM. Handles loading, quantization (AWQ & BNB), and streaming.
+    Defaults to Google TurboQuant for KV Cache compression if the environment supports it.
     """
 
-    def __init__(self, model_name: str, system_prompt=None, quantization_bits: int = 0, model_params=None, **kargs):
+    def __init__(self, model_name: str, system_prompt=None, quantization_bits: int = 0, use_turboquant: bool = True, model_params=None, **kargs):
         functions.debug(f"HuggingFaceModel __init__ called for model: {model_name}")
         super().__init__(model_name, system_prompt, **kargs)
 
@@ -49,6 +51,22 @@ class HuggingFaceModel(BaseModel):
         self.quantization_bits = quantization_bits
         self.error_queue = queue.Queue()
         self.options = model_params or ModelParams().to_dict()
+        self.tokenizer_override = kargs.get("tokenizer_kwargs",{})
+        self.quantization_method = kargs.get("quantization_method","bitsandbytes")
+        self.device_map = kargs.get("device_map", "auto")
+        self.use_turboquant = use_turboquant
+        self.turboquant_available = False
+        
+        if self.use_turboquant:
+            try:
+                import turboquant
+                if torch.cuda.is_available():
+                    self.turboquant_available = True
+                    functions.log("TurboQuant: Valid environment detected. 4-bit KV Cache enabled by default.")
+                else:
+                    functions.log("TurboQuant: Library found, but no CUDA device detected. Defaulting to standard cache.")
+            except ImportError:
+                functions.log("TurboQuant: Module not found. To enable, pip install turboquant. Defaulting to standard cache.")
 
         try:
             self._load_llm_params()
@@ -79,54 +97,72 @@ class HuggingFaceModel(BaseModel):
         self.init_pytorch_cuda()
         import torch
         self.torch_lib = torch
-        from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+        from transformers import AutoModelForCausalLM, AutoTokenizer
 
         functions.log(f"Preparing to load model: {self.model_name}...")
 
         load_kwargs = {"trust_remote_code": True}
-        tokenizer_kwargs = {"trust_remote_code": True}
         
-        tokenizer_kwargs["additional_special_tokens"] = []
-        functions.debug("Applied workaround for Gemma tokenizer compatibility.")
+        tokenizer_kwargs = {"trust_remote_code": True}
+        overrides = self.options.get("tokenizer_kwargs", {})
+        if overrides:
+            tokenizer_kwargs.update(overrides)
+            functions.debug(f"Applied tokenizer_kwargs from config: {overrides}")
 
+        quant_method = self.quantization_method.lower()
         quantization_config = None
-        if self.quantization_bits in [4, 8]:
-            try:
-                import bitsandbytes as bnb  
 
-                if self.quantization_bits == 4:
-                    quantization_config = BitsAndBytesConfig(
-                        load_in_4bit=True,
-                        bnb_4bit_quant_type="nf4", 
-                        bnb_4bit_compute_dtype=torch.bfloat16,
-                        bnb_4bit_use_double_quant=True,
-                        llm_int8_enable_fp32_cpu_offload=True
-                    )
-                    functions.log("Configured for 4-bit quantization using BitsAndBytesConfig.")
-                elif self.quantization_bits == 8:
-                    quantization_config = BitsAndBytesConfig(
-                        load_in_8bit=True, 
-                        llm_int8_enable_fp32_cpu_offload=True
-                    )
-                    functions.log("Configured for 8-bit quantization using BitsAndBytesConfig.")
+        if quant_method == "awq":
+            functions.log("AWQ method selected from config. Expecting a pre-quantized AWQ model repository.")
+        else:
+            if self.quantization_bits in [4, 8]:
+                try:
+                    import bitsandbytes as bnb  
+                    from transformers import BitsAndBytesConfig
 
-            except ImportError:
-                functions.log("WARNING: bitsandbytes not found. Falling back to non-quantized loading.")
-                self.quantization_bits = 0
-            except Exception as e:
-                functions.log(f"ERROR: Could not create BitsAndBytesConfig for {self.quantization_bits}-bit quantization: {e}. Falling back to non-quantized loading.")
-                self.quantization_bits = 0
+                    # if hasattr(bnb.nn, 'Params4bit'):
+                    #     original_new = bnb.nn.Params4bit.__new__
+                    #     def patched_new(cls, *args, **kwargs):
+                    #         kwargs.pop('_is_hf_initialized', None)
+                    #         return original_new(cls, *args, **kwargs)
+                    #     bnb.nn.Params4bit.__new__ = staticmethod(patched_new)
+
+                    if self.quantization_bits == 4:
+                        quantization_config = BitsAndBytesConfig(
+                            load_in_4bit=True,
+                            bnb_4bit_quant_type="nf4", 
+                            bnb_4bit_compute_dtype=torch.bfloat16,
+                            bnb_4bit_use_double_quant=True,
+                            llm_int8_enable_fp32_cpu_offload=True
+                        )
+                        functions.log("Configured for 4-bit quantization using BitsAndBytesConfig.")
+                    elif self.quantization_bits == 8:
+                        quantization_config = BitsAndBytesConfig(
+                            load_in_8bit=True, 
+                            llm_int8_enable_fp32_cpu_offload=True
+                        )
+                        functions.log("Configured for 8-bit quantization using BitsAndBytesConfig.")
+
+                except ImportError:
+                    functions.log("WARNING: bitsandbytes not found. Falling back to non-quantized loading.")
+                    self.quantization_bits = 0
+                except Exception as e:
+                    functions.log(f"ERROR: Could not create BitsAndBytesConfig for {self.quantization_bits}-bit quantization: {e}. Falling back to non-quantized loading.")
+                    self.quantization_bits = 0
 
         if quantization_config:
             load_kwargs["quantization_config"] = quantization_config
             if self.is_gpu_available():
-                load_kwargs["device_map"] = "auto"
-            functions.log(f"Attempting to load model: {self.model_name} with {self.quantization_bits}-bit quantization config.")
+                load_kwargs["device_map"] = self.device_map
+            functions.log(f"Attempting to load model: {self.model_name} with {self.quantization_bits}-bit BNB config.")
         else:
-            functions.log("Loading model without quantization.")
+            if quant_method == "awq":
+                functions.log("Loading AWQ model natively without BNB config.")
+            else:
+                functions.log("Loading model without quantization.")
             if self.is_gpu_available():
                 load_kwargs["torch_dtype"] = torch.bfloat16
-                load_kwargs["device_map"] = "auto"
+                load_kwargs["device_map"] = self.device_map
 
         try:
             functions.debug(f"Checking local cache for model {self.model_name}...")
@@ -139,10 +175,14 @@ class HuggingFaceModel(BaseModel):
             if self.tokenizer.pad_token is None:
                 self.tokenizer.pad_token = self.tokenizer.eos_token
 
+            if self.is_gpu_available():
+                torch.cuda.empty_cache()
+
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_name,
                 local_files_only=True,
                 **load_kwargs
+
             )
             functions.log(f"Found model in local cache. Loaded: {self.model_name}")
 
@@ -250,7 +290,9 @@ class HuggingFaceModel(BaseModel):
 
         functions.debug("Chat method initialized, queues cleared.")
 
-        processed_messages = messages
+        safe_messages = [m.copy() for m in messages]
+        processed_messages = self.check_system_prompt(safe_messages)
+
         processed_messages_log = processed_messages[-1]["content"][:50].replace("\n", "\\n") if processed_messages else "[No messages to process]"
         functions.debug(f"Processed messages. Input for LLM will be based on: '{processed_messages_log}'...")
 
@@ -262,12 +304,12 @@ class HuggingFaceModel(BaseModel):
         input_data = self._prepare_input(processed_messages)
         functions.debug(f"Input data prepared. Input IDs shape: {input_data['input_ids'].shape}")
 
-        if self.is_gpu_available():
+        if self.is_gpu_available() and self.device_map == "cuda":
             inputs_on_device = {k: v.to("cuda") for k, v in input_data.items()}
         else:
             inputs_on_device = input_data
 
-        gen_options = self.options
+        gen_options = self.options.copy()
         gen_options.update(options)
 
         max_new_tokens = gen_options.get("max_new_tokens", 1024)
@@ -302,6 +344,12 @@ class HuggingFaceModel(BaseModel):
             streamer=streamer if stream else None,
         )
 
+        if self.turboquant_available:
+            from turboquant import TurboQuantCache
+            generation_kwargs["past_key_values"] = TurboQuantCache(bits=4)
+            generation_kwargs["use_cache"] = True
+            functions.debug("TurboQuantCache injected into generation kwargs (4-bit mode).")
+
         if stream:
             functions.debug("Entering streaming (threaded) generation path with TextIteratorStreamer.")
             self._generation_thread = threading.Thread(
@@ -316,15 +364,39 @@ class HuggingFaceModel(BaseModel):
                 },
             )
             self._generation_thread.start()
-            functions.debug(f"Generation thread started ({self._generation_thread.name}). Starting to yield tokens from streamer...")
+            
+            full_content = ""
+            sentinel_buffer = ""
+            is_intercepting = False
 
             try:
                 for new_token in streamer:
-                    yield new_token
-                    if not self.error_queue.empty():
-                        error_message = self.error_queue.get()
-                        functions.log(f"ERROR: Error received from generation thread during streaming: {error_message}")
+                    if self.stop_generation_event.is_set():
                         break
+
+                    out, sentinel_buffer, is_intercepting, should_stop = self.handle_sentinel(
+                        new_token, is_intercepting, sentinel_buffer
+                    )
+
+                    if out:
+                        if isinstance(out, dict) and out.get("type") == "function_call":
+                            functions.log(f"{Color.CYAN}[SENTINEL]: HF ACTION DETECTED -> {out['name']}{Color.RESET}")
+                            self.trigger("tool_detected", out["name"])
+                            self.stop_generation_event.set()
+                            yield out
+                            return
+                        else:
+                            full_content += out
+                            yield out
+
+                    if should_stop:
+                        self.stop_generation_event.set()
+                        break
+
+                if is_intercepting and sentinel_buffer:
+                    full_content += sentinel_buffer
+                    yield sentinel_buffer
+
                 functions.debug("Streamer finished yielding all tokens.")
 
             except KeyboardInterrupt:
@@ -338,6 +410,7 @@ class HuggingFaceModel(BaseModel):
                     self._generation_thread.join(timeout=5.0)
                     if self._generation_thread.is_alive():
                         functions.log("Warning: Generation thread did not join cleanly.")
+                self.trigger(BaseModel.STREAMING_FINISHED_EVENT, full_content)
                 functions.debug("Chat method streaming block finished.")
 
             if not self.error_queue.empty():
@@ -350,10 +423,13 @@ class HuggingFaceModel(BaseModel):
                 response_text = self._generate_response(inputs_on_device, gen_options)
                 functions.debug(f"Synchronous generation complete. Output length: {len(response_text)}. Yielding...")
 
+                action = self.parse_manual_tags(response_text)
+                
                 if isinstance(self, Events):
                     functions.debug("Triggering STREAMING_FINISHED_EVENT (synchronous path).")
 
-                yield response_text
+                yield action if action else response_text
+
             except RuntimeError as e:
                 error_message = (
                     f"ERROR: Model generation failed due to a CUDA/Runtime error."
@@ -424,9 +500,7 @@ class HuggingFaceModel(BaseModel):
             functions.log("WARNING: No EOS or PAD token ID found for tokenizer. Model generation might not terminate cleanly.")
             eos_token_id = -1
 
-        functions.debug(f"_generate_response calling model.generate. max_new_tokens={max_new_tokens}, do_sample={do_sample}, temp={temperature}, eos_token_id={eos_token_id}")
-
-        outputs = self.model.generate(
+        generation_kwargs = dict(
             **inputs,
             max_new_tokens=max_new_tokens,
             do_sample=do_sample,
@@ -436,6 +510,16 @@ class HuggingFaceModel(BaseModel):
             pad_token_id=eos_token_id,
             eos_token_id=eos_token_id,
         )
+
+        if self.turboquant_available:
+            from turboquant import TurboQuantCache
+            generation_kwargs["past_key_values"] = TurboQuantCache(bits=4)
+            generation_kwargs["use_cache"] = True
+            functions.debug("TurboQuantCache injected into synchronous kwargs.")
+
+        functions.debug(f"_generate_response calling model.generate. max_new_tokens={max_new_tokens}, do_sample={do_sample}, temp={temperature}, eos_token_id={eos_token_id}")
+
+        outputs = self.model.generate(**generation_kwargs)
         functions.debug(f"_generate_response model.generate completed. Outputs shape: {outputs.shape}")
         
         response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)

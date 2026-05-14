@@ -1,37 +1,43 @@
 ## 1. Architectural Role
-Coordinates the delegation of high-complexity generation tasks to specialized LLM workers by resolving file contexts and managing raw text output streams.
 
-## 2. Interface & API Surface
+**Functional Mission**
+The **SpecialistManager** is designed to orchestrate high-complexity, unstructured generation tasks by delegating specific tool-based requests to specialized LLM workers. Its primary mission is to act as a routing and context-enrichment layer that transforms a tool invocation into a highly focused prompt, ensuring that "specialist" models receive the necessary file state and specific role descriptions to perform precise writing or patching operations.
+
+**System Context & Integration**
+This component sits within the agentic orchestration layer, serving as a bridge between general tool execution and specialized model invocation. It consumes a `connector` (likely an implementation of an LLM interface) to dispatch raw requests. When a tool is identified as a specialist tool via `is_specialist_tool`, the manager intercepts the execution flow to perform file-system lookups via [agent_tools](/docs/tools/agent_tools.md), constructs a detailed task context including the current file state, and returns a raw text stream to the caller.
+
+## 2. Environment & Configuration
+**Environment Lookups:**
+- No environment lookups identified.
+
+**Hardcoded Constants:**
+- `3000` (Default: `3000`)  The character limit for the `current_state` buffer when reading existing files to prevent context overflow.
+- `"unknown"` (Default: `"unknown"`)  Fallback value for the `path` parameter if not provided.
+- `"Complete task."` (Default: `"Complete task."`)  Fallback instruction if `instructions`, `content`, or `replace` keys are missing from parameters.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `SpecialistManager` | Class | Orchestrates the lifecycle and invocation of specialist LLM workers. |
-| `SpecialistManager.__init__` | Method | Initializes the manager with a connector and a mapping of tool names to role descriptions. |
-| `SpecialistManager.is_specialist_tool` | Method | Validates if a given `tool_name` is registered in the specialist configuration. |
-| `SpecialistManager.invoke` | Method | Processes tool parameters, retrieves file state, and executes a raw request via the connector. |
+| `SpecialistManager` | Class | Manages the lifecycle and invocation of specialist LLM workers. |
+| `__init__` | Method | Initializes the manager with an LLM connector and a specialist configuration mapping. |
+| `is_specialist_tool` | Method | Validates if a given `tool_name` exists within the provided specialist configuration. |
+| `invoke` | Method | Orchestrates the context gathering (file reading), payload construction, and raw LLM request execution. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: 
-    1. Receives `connector` (LLM interface) and `specialist_config` (Role mapping).
-    2. Stores these as `self.connector` and `self.config`.
+## 4. Execution Logic & Flow
+- **Initialization**: The class is instantiated with a `connector` object for LLM communication and a `specialist_config` dictionary that maps tool names to specific system prompts (role descriptions).
 - **Data Path**: 
-    1. **Input**: `tool_name` and `params` (containing instructions/content/replace and path).
-    2. **Context Retrieval**: 
-        - Resolves `path` via `_resolve_path`.
-        - Checks if file exists; if so, reads the first 3000 characters.
-    3. **Payload Construction**: Combines `path`, `current_state`, and `goal` into `task_context`.
-    4. **Execution**: Sends `worker_payload` and `role_description` to `self.connector.send_raw_request`.
-    5. **Output**: Aggregates the raw output stream into a single stripped string.
+    1. **Input**: Receives `tool_name` and a `params` dictionary containing `instructions`/`content`/`replace` and `path`.
+    2. **Context Retrieval**: Attempts to resolve the file `path` using `_resolve_path`. If the file exists, it reads the first 3000 characters to populate `current_state`.
+    3. **Payload Construction**: Aggregates the target path, the current file content, and the goal into a `task_context` string. Adds a strict formatting instruction to the `instruction` field.
+    4. **LLM Dispatch**: Sends the payload to the `connector.send_raw_request` using the tool's role description as the `system_prompt`.
+    5. **Output**: Converts the resulting `raw_output_stream` into a single stripped string.
 - **Conditional Branching**:
-    - **Goal Selection**: Prioritizes `instructions` $\rightarrow$ `content` $\rightarrow$ `replace` $\rightarrow$ default "Complete task."
-    - **File Access**: If `_resolve_path` fails or file is missing, `current_state` defaults to "File does not exist yet or is empty."
+    - **Tool Validation**: `is_specialist_tool` checks for membership in `self.config`.
+    - **File Existence**: The `try...except` block handles cases where the file path is invalid, inaccessible, or does not exist, defaulting `current_state` to a placeholder string.
+    - **Parameter Fallback**: Uses logical `or` chains to select the most appropriate instruction key from the `params` dictionary.
 
-## 4. Resource Dependencies
+## 5. Resource Dependencies
 - **Standard Libraries**: `os`, `typing`
-- **Internal Modules**: `agents.agent_tools` (`_resolve_path`)
-- **External Packages**: None
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `3000`: Maximum character limit for reading the current state of a file.
-    - `"Output raw text only. Do not use markdown blocks or explanations."`: Static instruction sent to all specialist workers.
-- **Environment Lookups**: None
+- **Internal Modules**: 
+    - [agent_tools](/docs/tools/agent_tools.md)
+- **External Packages**: None identified.

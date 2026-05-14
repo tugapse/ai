@@ -18,3 +18,20 @@ class ChatCompletionRequest(BaseModel):
 class UpdateSessionRequest(BaseModel):
     session_title: str
     session_content: Optional[List[ChatMessage]] = None
+
+
+# --- Prompt Management Schemas ---
+
+class Prompt(BaseModel):
+    filename: str
+    last_updated: float
+
+class PromptData(Prompt):
+    content: str
+
+class PromptUpdateRequest(BaseModel):
+    content: str
+
+class PromptCreateRequest(BaseModel):
+    prompt_path: str
+    content: str
