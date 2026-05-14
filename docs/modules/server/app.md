@@ -1,51 +1,59 @@
 ## 1. Architectural Role
-Acts as the FastAPI application factory that orchestrates the assembly of the neural hub's web interface, wiring session, prompt, and chat services into a unified RESTful API.
+This file serves as the central orchestration layer for the FastAPI web server, responsible for bootstrapping the application and exposing a RESTful API surface. It integrates core business logic by wiring together [brain_hub.md](modules/server/brain_hub.md), [session_manager.md](modules/server/services/session_manager.md), [prompt_manager.md](modules/server/services/prompt_manager.md), and [chat.md](modules/server/services/chat.md) into a unified interface. The module manages the lifecycle of session/prompt CRUD operations, model configuration retrieval, and asynchronous chat completions while handling static frontend delivery and cross-cutting concerns via [middleware.md](modules/server/middleware.md).
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- `config` (via `create_app` parameter)  Injected dictionary containing application-wide settings.
+- `func.get_root_directory()` (via `functions.md`)  Determines the base filesystem path for sessions, prompts, and models.
+
+**Hardcoded Constants:**
+- `SESSION_ROOT_DIR` (Default: `root/sessions/server`)  Filesystem path for session storage.
+- `PROMPT_ROOT_DIR` (Default: `root/system`)  Filesystem path for system prompt storage.
+- `MODEL_CONFIG_DIR` (Default: `root/models`)  Filesystem path for model JSON configurations.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `create_app` | Func | Initializes the FastAPI instance, configures directory paths, instantiates managers, and mounts middleware/static files. |
-| `/api/v1/sessions` | GET | Lists available sessions, optionally filtered by `session_folder`. |
-| `/api/v1/sessions/{session_path:path}` | GET | Retrieves specific session content via `session_manager.load_session`. |
-| `/api/v1/sessions/{session_path:path}` | PUT | Overwrites session content using `UpdateSessionRequest`. |
-| `/api/v1/sessions/{session_path:path}/title` | PUT | Updates only the session title via `UpdateSessionRequest`. |
-| `/api/v1/sessions/{session_path:path}` | DELETE | Removes a session file via `session_manager.delete_session`. |
-| `/api/v1/prompts` | GET | Lists available prompts, optionally filtered by `prompt_folder`. |
-| `/api/v1/prompts/{prompt_path:path}` | GET | Reads specific prompt content via `prompt_manager.read_prompt`. |
-| `/api/v1/model-configs` | GET | Scans `MODEL_CONFIG_DIR` for JSON files and returns model metadata. |
-| `/api/v1/prompts` | POST | Creates a new prompt file via `prompt_manager.create_prompt`. |
-| `/api/v1/prompts/{prompt_path:path}` | PUT | Updates existing prompt content via `prompt_manager.update_prompt`. |
-| `/api/v1/prompts/{prompt_path:path}` | DELETE | Removes a prompt file via `prompt_manager.delete_prompt`. |
-| `/api/v1/chat/completions` | POST | Handles chat requests (streaming/non-streaming) via `chat_service.chat_completion`. |
-| `/api/v1/chat` | POST | Alias for chat completion endpoint. |
-| `/api/health` | GET | Returns system status and current `brain_hub` model name. |
+| `create_app` | Func | Primary factory function that instantiates FastAPI and injects dependencies. |
+| `/api/v1/sessions` | GET | Lists available session directories/files. |
+| `/api/v1/sessions/{path}` | GET | Retrieves specific session content. |
+| `/api/v1/sessions/{path}` | PUT | Overwrites full session content via `UpdateSessionRequest`. |
+| `/api/v1/sessions/{path}/title` | PUT | Updates only the metadata title of a session. |
+| `/api/v1/sessions/{path}` | DELETE | Removes a session file from the filesystem. |
+| `/api/v1/prompts` | GET | Lists available prompts. |
+| `/api/v1/prompts/{path}` | GET | Reads specific prompt content. |
+| `/api/v1/prompts` | POST | Creates a new prompt file using `PromptCreateRequest`. |
+| `/api/v1/prompts/{path}` | PUT | Updates existing prompt content via `PromptUpdateRequest`. |
+| `/api/v1/prompts/{path}` | DELETE | Removes a prompt file. |
+| `/api/v1/model-configs` | GET | Scans `MODEL_CONFIG_DIR` and returns parsed model JSON metadata. |
+| `/api/v1/chat` | POST | Entry point for AI interaction (streaming or non-streaming). |
+| `/api/v1/chat/completions` | POST | Alias for chat completion requests. |
+| `/api/health` | GET | Returns system status and current model name from `brain_hub`. |
 
-## 3. Execution Logic & Flow
+## 4. Execution Logic & Flow
 - **Initialization**: 
-    1. Resolves `SESSION_ROOT_DIR` and `PROMPT_ROOT_DIR` using `func.get_root_directory()`.
-    2. Instantiates `SessionManager`, `PromptManager`, and `ChatService`.
-    3. Creates `FastAPI` instance.
-    4. Checks for `FRONTEND_BUILD_DIR`; if present, mounts static files to `/`.
-    5. Appends `MIOMETypeFixerMiddleware` and `CORSMiddleware`.
-- **Data Path (Chat Completion)**: 
-    `ChatCompletionRequest` (JSON) $\rightarrow$ `chat_service.chat_completion` $\rightarrow$ `BrainHub` processing $\rightarrow$ Streaming/JSON Response.
-- **Data Path (Model Config Discovery)**: 
-    `MODEL_CONFIG_DIR` $\rightarrow$ `rglob("*.json")` $\rightarrow$ `json.load` $\rightarrow$ List of `model_name` and `model_file` dicts.
+    1. `create_app` receives `brain_hub` and `config`.
+    2. Path constants are calculated using `func.get_root_directory()`.
+    3. Service instances (`SessionManager`, `PromptManager`, `ChatService`) are instantiated.
+    4. FastAPI app is created; Middleware (`MIMETypeFixerMiddleware`, `CORSMiddleware`) is applied.
+    5. Frontend static files are mounted to `/` if the directory exists.
+- **Data Path (Chat)**: 
+    `Request (ChatCompletionRequest)` $\rightarrow$ `chat_service.chat_completion()` $\rightarrow$ `brain_hub` interaction $\rightarrow$ `Response (Stream/JSON)`.
+- **Data Path (Config Retrieval)**: 
+    `GET /api/v1/model-configs` $\rightarrow$ `rglob("*.json")` $\rightarrow$ `json.load()` $\rightarrow$ `List[Dict]`.
 - **Conditional Branching**:
-    - **Static Files**: If `FRONTEND_BUILD_DIR.is_dir()` is true, mount the directory; otherwise, skip.
-    - **Manager Availability**: Every endpoint checks if its respective manager (`session_manager`, `prompt_manager`, `chat_service`) is `None` before proceeding, raising a 500 error if unconfigured.
-    - **Error Handling**: Specific catch blocks for `SessionNotFoundError`, `SessionInvalidPathError`, `PromptNotFoundError`, `PromptInvalidPathError`, and `PromptAccessError` to map internal exceptions to HTTP status codes (400, 404, 500).
+    - **Frontend Presence**: If `FRONTEND_BUILD_DIR` is a directory, mount `StaticFiles`.
+    - **Manager Availability**: Check if `session_manager` or `prompt_manager` is `None` before executing CRUD (throws 500).
+    - **Error Handling**: Specific catch blocks for `SessionNotFoundError`, `PromptNotFoundError`, and `InvalidPathError` to return 404 or 400 status codes respectively.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `pathlib.Path`, `json`, `typing.Any`, `typing.Dict`, `typing.Optional`.
-- **Internal Modules**: `functions` (as `func`), `.schemas`, `.middleware.MIMETypeFixerMiddleware`, `.services.session_manager`, `.services.prompt_manager`, `.services.chat`, `.brain_hub`.
-- **External Packages**: `fastapi`, `fastapi.staticfiles`, `fastapi.middleware.cors`.
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `SESSION_ROOT_DIR` path suffix: `/sessions/server`.
-    - `PROMPT_ROOT_DIR` path suffix: `/system`.
-    - `MODEL_CONFIG_DIR` path suffix: `/models`.
-    - CORS `allow_origins`: `["*"]`.
-- **Environment Lookups**: 
-    - `func.get_root_directory()` (Used to anchor all filesystem-based pathing).
+## 5. Resource Dependencies
+- **Standard Libraries**: `pathlib`, `json`, `typing`
+- **Internal Modules**: 
+    - [functions.md](functions.md)
+    - [schemas.md](modules/server/schemas.md)
+    - [middleware.md](modules/server/middleware.md)
+    - [session_manager.md](modules/server/services/session_manager.md)
+    - [prompt_manager.md](modules/server/services/prompt_manager.md)
+    - [chat.md](modules/server/services/chat.md)
+    - [brain_hub.md](modules/server/brain_hub.md)
+- **External Packages**: `fastapi`, `fastapi.staticfiles`, `fastapi.middleware.cors`

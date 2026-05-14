@@ -1,46 +1,46 @@
 ## 1. Architectural Role
-Provides a specialized implementation of `BaseVoiceModule` for real-time text-to-speech synthesis using the Microsoft VibeVoice-Realtime-0.5B model.
+`VibeVoiceModule` serves as the specialized high-fidelity text-to-speech (TTS) engine within the system, implementing the `microsoft/VibeVoice-Realtime-0.5B` architecture. It inherits from [base_module.md](modules/voice/base_module.md) to integrate with the global audio playback and queuing infrastructure. Its primary responsibility is the orchestration of hardware-accelerated inference, managing voice profile embeddings, and transforming text input into raw PCM audio data via the `vibevoice` streaming library.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- `device` (via `_initialize_model`)  Detects `cuda` or `cpu` availability for model placement.
+- `model_dtype` (via `_initialize_model`)  Determines `float16` (CUDA) or `float32` (CPU) precision.
+
+**Hardcoded Constants:**
+- `model_id` (Default: `"microsoft/VibeVoice-Realtime-0.5B"`)  The HuggingFace repository identifier.
+- `voice_file` (Default: `"pt-Spk1_man"`)  The filename for the speaker embedding profile.
+- `sample_rate` (Default: `24000`)  The target audio sampling frequency.
+- `num_steps` (Default: `5`)  DDPM inference steps for the diffusion process.
+- `cfg_scale` (Default: `1.5`)  Classifier-Free Guidance scale for generation.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `VibeVoiceModule` | Class | Orchestrates model loading, hardware acceleration, voice profile management, and inference. |
-| `preload` | Method | Triggers the model loading sequence via `_initialize_model`. |
-| `_initialize_model` | Method | Performs hardware detection, voice asset discovery, and loads the processor and model weights. |
-| `_recursive_cast` | Method | Recursively migrates tensors and nested structures to the target `device` and `model_dtype`. |
-| `_run_inference` | Method | Transforms input text into a NumPy audio array via model generation and autocasting. |
+| `VibeVoiceModule` | Class | Main implementation of the VibeVoice realtime streaming model. |
+| `preload` | Method | Public entry point to trigger model and weights loading. |
+| `_initialize_model` | Method | Internal logic for hardware detection, voice path discovery, and weight loading. |
+| `_recursive_cast` | Method | Utility to move complex nested structures (dicts/lists) to the target `device` and `dtype`. |
+| `_run_inference` | Method | Core generation loop: converts text to processed tensors and runs model generation. |
 
-## 3. Execution Logic & Flow
+## 4. Execution Logic & Flow
 - **Initialization**: 
-    1. Calls `super().__init__` to initialize audio queues and playback at 24kHz.
-    2. Sets internal state for `model_id`, `voice_file`, `volume`, and placeholder attributes for `model`, `processor`, `voice_embeddings`, `device`, and `model_dtype`.
+    1. `__init__` sets hyperparameters and initializes state variables (model, processor, embeddings) to `None`.
+    2. `super().__init__` starts the audio queues defined in [base_module.md](modules/voice/base_module.md).
 - **Data Path**: 
-    1. **Input**: `text` (string) passed to `_run_inference`.
-    2. **Processing**: 
-        - Deep copies `voice_embeddings` into `prompt_cache`.
-        - `processor.process_input_with_cached_prompt` converts text + cache into `raw_inputs`.
-        - `_recursive_cast` moves `raw_inputs` to GPU/CPU and correct precision.
-        - `model.generate` executes inference within a `torch.amp.autocast` context.
-    3. **Output**: `audio_tensor` extracted from `output.speech_outputs` (or `wav`/`audio`), converted to CPU, squeezed, and cast to `np.float32` NumPy array.
+    1. **Text Input** $\rightarrow$ `_run_inference(text)`.
+    2. **Pre-processing**: `processor.process_input_with_cached_prompt` uses existing voice embeddings to generate input tensors.
+    3. **Tensor Casting**: `_recursive_cast` ensures all input tensors match the model's `device` and `dtype`.
+    4. **Inference**: `model.generate` produces raw speech outputs using the provided prompt cache and CFG scale.
+    5. **Post-processing**: Tensors are concatenated, moved to CPU, squeezed, and cast to `np.float32`.
+    6. **Output**: Returns `np.ndarray` for playback via the base module.
 - **Conditional Branching**:
-    - **Hardware Detection**: Selects `cuda` (float16) or `cpu` (float32) based on `torch.cuda.is_available()`.
-    - **Voice Discovery**: 
-        - If `voice_file` exists in `assets/voices`, load it.
-        - If `voice_file` is missing, attempts to glob the first available `.pt` file in `assets/voices`.
-        - If no `.pt` files exist, logs a warning.
-    - **Output Extraction**: Checks for `speech_outputs` attribute; falls back to `wav` or `audio` attributes if unavailable.
+    1. **Hardware Detection**: Selects `cuda` if `torch.cuda.is_available()` is True; else `cpu`.
+    2. **Voice Path Discovery**: Searches parent directories for `assets/voices`. If the preferred `.pt` file is missing, it attempts to grab the first available `.pt` file in that directory.
+    3. **Inference Fallback**: Returns a zero-filled array if the model is not loaded or text is empty.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `os`, `copy`, `pathlib.Path`
-- **Internal Modules**: `modules.voice.base_module.BaseVoiceModule`, `functions`
-- **External Packages**: `torch`, `numpy`, `vibevoice` (specifically `VibeVoiceStreamingForConditionalGenerationInference` and `VibeVoiceStreamingProcessor`)
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `sample_rate`: 24000
-    - `cfg_scale`: 1.5
-    - `ddpm_inference_steps`: 5
-    - `model_id`: "microsoft/VibeVoice-Realtime-0.5B"
-- **Environment Lookups**: 
-    - Hardware availability via `torch.cuda.is_available()`.
-    - File system traversal via `Path(__file__).resolve()` to locate `assets/voices`.
+## 5. Resource Dependencies
+- **Standard Libraries**: `os`, `copy`, `pathlib`
+- **Internal Modules**: 
+    - [base_module.md](modules/voice/base_module.md)
+    - [functions.md](functions.md)
+- **External Packages**: `torch`, `numpy`, `vibevoice` (Official Microsoft package)

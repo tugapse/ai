@@ -1,35 +1,38 @@
 ## 1. Architectural Role
-Acts as an abstract base class that defines a standardized lifecycle and state management protocol for all pluggable JARVIS modules.
+Serves as the abstract base class (ABC) defining the structural contract and lifecycle management for all pluggable components within the JARVIS ecosystem. It enforces standardized initialization, state tracking, and teardown procedures, ensuring that concrete implementations (e.g., [modules/voice/base_module.md](modules/voice/base_module.md) or [modules/memory/vector_memory_module.md](modules/memory/vector_memory_module.md)) maintain a predictable interface for the system orchestrators.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- No environment lookups identified.
+
+**Hardcoded Constants:**
+- No hardcoded constants identified.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `BaseModule` | Class | Provides the foundational structure, state tracking, and lifecycle methods for module subclasses. |
-| `__init__` | Method | Initializes module identity, stores arbitrary configuration via `kwargs`, and sets default null/false states. |
-| `initialize` | Method | Orchestrates the transition to an initialized state and provides a hook for subclass-specific setup logic. |
-| `get_instance` | Method | Retrieves the internal engine/instance, performing a state validation check prior to return. |
-| `is_active` | Property | Computes a boolean status based on the intersection of initialization state and instance existence. |
-| `shutdown` | Method | Executes teardown by nullifying the internal instance and resetting the initialization flag. |
+| `BaseModule` | Class | Abstract blueprint for modular component lifecycles. |
+| `__init__` | Method | Initializes module metadata and internal state containers. |
+| `initialize` | Method | Orchestrates startup logic; prevents redundant initializations via state checking. |
+| `get_instance` | Method | Provides access to the managed internal engine/instance; performs safety checks. |
+| `is_active` | Property | Boolean check verifying both initialization state and instance presence. |
+| `shutdown` | Method | Executes cleanup by resetting the instance and initialization flags. |
 
-## 3. Execution Logic & Flow
+## 4. Execution Logic & Flow
 - **Initialization**: 
-    1. `BaseModule` is instantiated with `module_name`.
-    2. `kwargs` are assigned to `self.kwargs` (Note: code contains a typo `kwargs`).
-    3. `self._instance` is set to `None`.
-    4. `self._is_initialized` is set to `False`.
+    - Sets `module_name` and `kwargs` (Note: contains a typo `kwaargs` in source).
+    - Sets `_instance` to `None` and `_is_initialized` to `False`.
 - **Data Path**: 
-    1. **Input**: `module_name` and `**kwargs` passed to constructor.
-    2. **Processing**: `initialize()` updates `_is_initialized` to `True` and (in subclasses) populates `_instance`.
-    3. **Output**: `get_instance()` returns the `_instance` object or triggers an error log if state is invalid.
+    - **Input**: `module_name` (str) and `**kwargs` (dict) passed via constructor.
+    - **Processing**: State transitions from uninitialized $\rightarrow$ initialized via `initialize()` call.
+    - **Output**: Access to the internal `_instance` via `get_instance()`.
 - **Conditional Branching**:
-    - **In `initialize`**: Checks `self._is_initialized`; if `True`, logs a `WARN` and aborts execution.
-    - **In `get_instance`**: Checks `self._is_initialized`; if `False`, logs an `ERROR`.
-    - **In `is_active`**: Evaluates logical `AND` between `self._is_initialized` and `self._instance is not None`.
+    - **Initialization Guard**: If `_is_initialized` is `True`, `initialize()` aborts and logs a warning.
+    - **Access Guard**: If `get_instance()` is called while `_is_initialized` is `False`, an error is logged.
+    - **Activity Check**: `is_active` returns `True` only if `_is_initialized == True` AND `_instance is not None`.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `typing` (`Any`, `Optional`)
-- **Internal Modules**: `functions` (aliased as `func`)
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: None.
-- **Environment Lookups**: None.
+## 5. Resource Dependencies
+- **Standard Libraries**: `typing`
+- **Internal Modules**: 
+    - [functions](functions.md)
+- **External Packages**: None identified.

@@ -1,51 +1,52 @@
 ## 1. Architectural Role
-Provides a specialized implementation of `BaseModel` for executing inference using GGUF-formatted models via the `llama-cpp-python` engine, optimized for CPU-bound environments.
+`GGUFImageLLM` serves as a specialized inference engine designed for CPU-hardened execution of GGUF-formatted models via the `llama-cpp-python` binding. It implements the [base_llm.md](core/llms/base_llm.md) interface to provide streaming and synchronous chat capabilities, specifically handling reasoning content (e.g., DeepSeek/Gemma) and tool-call interception via a sentinel pattern. The class manages its own memory lifecycle, including model loading from the Hugging Face hub, thread-safe inference execution using a shared memory lock, and explicit resource unloading to prevent memory leaks in high-density environments.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- `model_repo_id` (via `__init__`)  Hugging Face repository identifier for model retrieval.
+- `gguf_filename` (via `__init__`)  Specific filename of the GGUF model to download/load.
+
+**Hardcoded Constants:**
+- `n_ctx` (Default: `4000`)  Maximum context window size.
+- `max_new_tokens` (Default: `2048`)  Limit for generated output tokens in `options`.
+- `temperature` (Default: `0.7`)  Sampling temperature for stochasticity.
+- `top_p` (Default: `0.95`)  Nucleus sampling threshold.
+- `stop` (Default: `["System Response:", "User:"]`)  Token sequences that trigger generation termination.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `GGUFImageLLM` | Class | Main engine managing model lifecycle, memory locking, and inference execution. |
-| `_null_log_callback` | Func | Provides a no-op callback to suppress `llama.cpp` C-level logging. |
-| `_load_llm_params` | Method | Handles local cache verification, remote downloading via `hf_hub_download`, and model instantiation. |
-| `_generate_in_thread` | Method | Internal worker for streaming inference, handling reasoning content and sentinel detection. |
-| `_update_token_metrics` | Method | Calculates and updates `token_info_count` based on prompt and output lengths. |
-| `get_message_tokens` | Method | Quantifies message list length using the `llama_model.tokenize` method. |
-| `chat` | Method | Primary entry point for synchronous or asynchronous (streaming) text/image-based inference. |
-| `list` | Method | Returns model metadata for registry identification. |
-| `request_shutdown` | Method | Triggers controlled engine termination. |
-| `unload` | Method | Releases `llama_model` memory, joins threads, and triggers garbage collection/CUDA cache clearing. |
+| `GGUFImageLLM` | Class | Primary implementation of the GGUF-based LLM interface. |
+| `_load_llm_params` | Method | Handles local cache checks and remote downloading of GGUF files. |
+| `_generate_in_thread` | Method | Orchestrates background streaming, reasoning extraction, and sentinel detection. |
+| `get_message_tokens` | Method | Calculates token count of the message history using the llama model tokenizer. |
+| `chat` | Method | Entry point for user queries; supports both streaming (generator) and synchronous (return value) modes. |
+| `list` | Method | Returns model metadata for registry purposes. |
+| `request_shutdown` | Method | Triggers the orchestrated teardown of the model instance. |
+| `unload` | Method | Performs manual memory cleanup, including thread joining and `gc.collect()`. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: 
-    1. Sets up C-level log suppression via `ctypes`.
-    2. Initializes `_shared_mem_lock` and `error_queue`.
-    3. Configures `token_info_count.max_context_window`.
-    4. Invokes `_load_llm_params` to fetch/load the GGUF file.
-    5. Instantiates the `Llama` object within a thread-safe lock.
-- **Data Path**: 
-    1. **Input**: `messages` (List[Dict]) + `images` (List) + `options` (Dict).
-    2. **Preprocessing**: Deep copies messages $\rightarrow$ Integrates image content into user messages $\rightarrow$ Refreshes system prompt context $\rightarrow$ Estimates prompt token count.
-    3. **Processing**: 
-        - *Streaming*: Spawns `_generation_thread` $\rightarrow$ Iterates `llama_model.create_chat_completion` $\rightarrow$ Extracts `content` or `reasoning_content` $\rightarrow$ Passes content through `handle_sentinel`.
-        - *Sync*: Executes `llama_model.create_chat_completion` $\rightarrow$ Parses tags via `parse_manual_tags`.
-    4. **Output**: Yields tokens/dicts via `queue.Queue` or returns final text/action.
+## 4. Execution Logic & Flow
+- **Initialization**:
+    1. Calls `super().__init__` to establish base properties.
+    2. Configures `token_info_count` via [llm_params_configurator.md](core/llms/llm_params_configurator.md).
+    3. Executes `_load_llm_params` to acquire the model file and initialize the `Llama` object under a `_shared_mem_lock`.
+- **Data Path (Streaming)**:
+    1. **Input**: `messages` (List[Dict]), `options` (dict).
+    2. **Preprocessing**: Deep copies messages, appends image data if present, and refreshes system prompts.
+    3. **Processing**: Spawns `_generation_thread` $\rightarrow$ calls `llama_model.create_chat_completion(stream=True)`.
+    4. **Transformation**: Iterates through chunks $\rightarrow$ extracts `reasoning_content` (formatted via `color.md`) and `content` $\rightarrow$ runs `handle_sentinel` to detect tool calls.
+    5. **Output**: Yields tokens/dictionaries to the caller via a `queue.Queue`.
 - **Conditional Branching**:
-    1. **Model Availability**: Checks `self.llama_model` before chat; errors if `None`.
-    2. **Local vs Remote**: `hf_hub_download` attempts `local_files_only=True` before falling back to `False`.
-    3. **Inference Mode**: Branches between `stream=True` (thread-based queue) and `stream=False` (direct return).
-    4. **Sentinel Detection**: `handle_sentinel` determines if the stream must terminate due to tool detection.
-    5. **Reasoning Content**: Checks for `reasoning_content` key to route "thinking" text separately from standard content.
+    1. `if stream`: Diverts logic to a background thread and queue-based consumer loop.
+    2. `if reasoning`: Intercepts reasoning tokens to provide specialized "Thinking" UI feedback.
+    3. `if isinstance(out, dict)`: Validates if the output is a tool call to trigger `tool_detected` events.
+    4. `if self.stop_generation_event.is_set()`: Allows external interruption of the generation loop.
 
-## 4. Resource Dependencies
+## 5. Resource Dependencies
 - **Standard Libraries**: `os`, `threading`, `queue`, `gc`, `ctypes`, `json`, `typing`.
-- **Internal Modules**: `core.llms.base_llm`, `functions`, `color`.
-- **External Packages**: `huggingface_hub`, `llama_cpp`.
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `n_ctx` default: `4000`
-    - `max_new_tokens` default: `2048`
-    - `temperature` default: `0.7`
-    - `top_p` default: `0.95`
-    - `stop` sequences: `["System Response:", "User:"]`
-- **Environment Lookups**: None explicitly via `os.getenv`; relies on `hf_hub_download` internal logic for cache locations.
+- **Internal Modules**: 
+    - [base_llm.md](core/llms/base_llm.md)
+    - [llm_params_configurator.md](core/llms/llm_params_configurator.md)
+    - [functions.md](functions.md)
+    - [color.md](color.md)
+- **External Packages**: `huggingface_hub`, `llama_cpp`, `torch` (optional, for CUDA cache clearing).

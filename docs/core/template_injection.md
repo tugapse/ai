@@ -1,38 +1,35 @@
 ## 1. Architectural Role
-Manages the dynamic substitution of placeholders within system prompt templates by injecting content loaded from external Markdown files based on centralized configuration.
+The [template_injection.py](src/ai/core/template_injection.py) module serves as a dynamic content augmentation engine responsible for modifying system prompt templates. It facilitates the injection of external markdown-based content into predefined placeholders within a base system template, allowing for modular and configurable prompt construction based on runtime configuration settings.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- `INJECT_TEMPPLATES` (via `ProgramConfig.current.config.get`)  Retrieves a list of key-value pairs defining which placeholders to replace and which template files to load.
+- `PATHS_INJECT_TEMPPLATES` (via `ProgramConfig.current.get`)  Retrieves the filesystem directory path where injection markdown files are stored.
+
+**Hardcoded Constants:**
+- `.md` (Default: `.md`)  String suffix used to enforce markdown file extensions during template loading.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `TemplateInjection` | Class | Orchestrates the lifecycle of template loading and string replacement. |
-| `__init__` | Method | Initializes the instance with base system and task templates. |
-| `replace_system_template` | Method | Iterates through configured injections to perform string substitution on the system template. |
-| `_load_injection_template` | Method | Resolves file paths and reads Markdown content from the filesystem. |
+| `TemplateInjection` | Class | Manages the lifecycle of template substitution and file-based injection. |
+| `__init__` | Method | Initializes the instance with `system_template`, an optional `task_template`, and an optional `program` instance. |
+| `replace_system_template` | Method | Iterates through configured injections to perform string replacement on the `system_template`. |
+| `_load_injection_template` | Method | Handles filesystem I/O to read template content from the designated injection directory. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: 
-    1. `system_template` is assigned (defaults to empty string if falsy).
-    2. `task_template` is assigned.
-    3. `program` instance is stored in state.
+## 4. Execution Logic & Flow
+- **Initialization**: Stores the `system_template` and `task_template`. The state is prepared for subsequent string manipulation.
 - **Data Path**: 
-    1. **Input**: `self.system_template` (string) and `ProgramConfig.current.config["INJECT_TEMPLETES"]` (list of dicts).
-    2. **Processing**: 
-        - Loop through each injection dictionary.
-        - Extract `key` (placeholder) and `value` (filename).
-        - Call `_load_injection_template` to resolve `value` to a file path.
-        - Use `functions.read_file` to fetch file content.
-        - Execute `str.replace(key, content)` on the accumulator string.
-    3. **Output**: A fully populated `replaced_text` string.
-- **Conditional Branching**: 
-    - Inside `_load_injection_template`: Checks `os.path.exists(filepath)`. If true, returns file content; if false, returns an empty string.
+    1. **Input**: `system_template` (string) + `INJECT_TEMPPLATES` config list.
+    2. **Processing**: `replace_system_template` loops through the config; for each entry, `_load_injection_template` performs a path join and filesystem read.
+    3. **Output**: A fully concatenated `replaced_text` string where placeholders are swapped with file contents.
+- **Conditional Branching**:
+    - `os.path.exists(filepath)`: If the constructed path exists, the file is read via `functions.read_file`; otherwise, an empty string is returned to prevent injection failure.
 
-## 4. Resource Dependencies
+## 5. Resource Dependencies
 - **Standard Libraries**: `os`
-- **Internal Modules**: `config` (`ProgramConfig`, `ProgramSetting`), `functions`
-- **External Packages**: None
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: `".md"` (extension suffix/replacement logic).
-- **Environment Lookups**: 
-    - `ProgramConfig.current.config["INJECT_TEMPLETES"]`
-    - `ProgramConfig.current.get(ProgramSetting.PATHS_INJECT_TEMPLETES)`
+- **Internal Modules**: 
+    - [config](config.md)
+    - [functions](functions.md)
+    - [program](program.md)
+- **External Packages**: None identified.

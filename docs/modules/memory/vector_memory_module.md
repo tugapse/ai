@@ -1,32 +1,41 @@
 ## 1. Architectural Role
-Acts as a lifecycle manager and registry-compatible wrapper for the `VectorMemory` instance, facilitating session-specific initialization and controlled access within the module system.
+The `VectorMemoryModule` serves as a lifecycle management wrapper for the [vector_memory](modules/memory/vector_memory.md) system. It acts as a bridge between the [base_module](modules/base_module.md) orchestration layer and the specialized vector storage implementation, ensuring that the memory instance is lazily initialized with session-specific context (such as a unique `session_id` and a specific [base_llm](core/llms/base_llm.md) instance) only when required by the active session.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- No environment lookups identified.
+
+**Hardcoded Constants:**
+- `module_name` (Default: `"vector_memory"`)  Identifier used for registration within the module registry.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `VectorMemoryModule` | Class | Manages the instantiation, state, and lifecycle of a `VectorMemory` instance. |
-| `__init__` | Method | Stores database path and configuration arguments; prepares the module for registration. |
-| `initialize` | Method | Performs late-binding instantiation of `VectorMemory` using a provided `session_id` and `llm`. |
-| `get_instance` | Method | Provides access to the active `VectorMemory` object or logs an error if uninitialized. |
-| `shutdown` | Method | Clears the active `VectorMemory` instance to facilitate cleanup. |
+| `VectorMemoryModule` | Class | Manages the lifecycle (init, instantiation, shutdown) of the vector memory component. |
+| `__init__` | Method | Captures database paths and configuration arguments for deferred instantiation. |
+| `initialize` | Method | Performs the heavy instantiation of the [VectorMemory](modules/memory/vector_memory.md) object using session-specific parameters. |
+| `get_instance` | Method | Provides access to the active `VectorMemory` instance, performing error logging if uninitialized. |
+| `shutdown` | Method | Cleans up the module by nullifying the internal instance reference. |
 
-## 3. Execution Logic & Flow
+## 4. Execution Logic & Flow
 - **Initialization**: 
-    1. `__init__` is called with `db_path` and `**kwargs`.
-    2. `db_path` and `kwargs` are stored as instance attributes.
-    3. `super().__init__` is invoked to register the module under the name `"vector_memory"`.
-- **Data Path**: 
-    - **Configuration Phase**: `db_path` + `kwargs` $\rightarrow$ `self.db_path` / `self.kwargs`.
-    - **Instantiation Phase**: `session_id` + `llm` + `self.db_path` + `self.kwargs` $\rightarrow$ `VectorMemory` instance $\rightarrow$ `self._instance`.
-    - **Access Phase**: `self._instance` $\rightarrow$ Caller.
+    - Receives `db_path` and `kwargs`.
+    - Stores configuration in `self.db_path` and `self.kwargs`.
+    - Calls `super().__init__` to register the module name.
+- **Data Path (Instantiation)**:
+    - `initialize(session_id, llm)` is invoked.
+    - Checks `self._instance` to prevent redundant initializations.
+    - Spawns `VectorMemory` using stored `db_path`, `kwargs`, and provided `session_id`/`llm`.
+    - Sets `_is_initialized` to `True`.
 - **Conditional Branching**:
-    - **`initialize`**: Checks `if self._instance` exists; if true, logs a `WARN` and aborts to prevent re-initialization.
-    - **`get_instance`**: Checks `if not self._instance`; if true, logs an `ERROR` before returning `None`.
+    - `initialize`: If `_instance` exists $\rightarrow$ Log "WARN" and return.
+    - `get_instance`: If `_instance` is `None` $\rightarrow$ Log "ERROR" and return `None`.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `typing` (`Any`, `Optional`)
-- **Internal Modules**: `functions` (aliased as `func`), `modules.base_module.BaseModule`, `core.llms.base_llm.BaseModel`, `.vector_memory.VectorMemory`
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: `module_name="vector_memory"` (passed to `BaseModule`).
-- **Environment Lookups**: None.
+## 5. Resource Dependencies
+- **Standard Libraries**: `typing`
+- **Internal Modules**: 
+    - [functions](functions.md)
+    - [base_module](modules/base_module.md)
+    - [base_llm](core/llms/base_llm.md)
+    - [vector_memory](modules/memory/vector_memory.md)
+- **External Packages**: None identified.

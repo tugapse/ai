@@ -1,51 +1,60 @@
 ## 1. Architectural Role
-Acts as the central execution engine that manages multi-agent lifecycles, routes LLM-generated actions, maintains state persistence via session hydration, and enforces context constraints.
+The `MessageOrchestrator` acts as the central nervous system for multi-agent workflows, managing the lifecycle of agentic execution, routing, and state persistence. It coordinates between the [llm_connector](agents/llm_connector.md) for LLM interaction, the [memory_manager](agents/memory_manager.md) for agent-specific context, and the [context_sentinel](agents/context_sentinel.md) for token limit enforcement. By integrating the [session_vault](agents/session_vault.md), it enables seamless session hydration and state re-inflation, allowing complex, multi-step tasks to persist across execution boundaries while managing tool authorization via a gatekeeper mechanism.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- `ProgramConfig.current` (via `ProgramConfig`)  Retrieves global runtime settings including agent thought visibility.
+- `ProgramSetting.AGENT_THOUGHT` (via `ProgramConfig`)  Boolean flag to enable/disable thought process logging.
+
+**Hardcoded Constants:**
+- `MAX_ITERATIONS` (Default: `100`)  Maximum loop cycles allowed per execution.
+- `MANAGER_AGENT_ROLE` (Default: `"management"`)  Identifier for agents acting as high-level orchestrators.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `MessageOrchestrator` | Class | Primary controller for agent orchestration, tool routing, and session state management. |
-| `run_loop` | Method | Orchestrates the iterative execution cycle, handling session hydration and agent transitions. |
-| `_capture_state` | Method | Serializes current memory, context plans, and tool authorization status for persistence. |
-| `_apply_state` | Method | Re-injects serialized state into memory and context managers during session resumption. |
-| `_assemble_agent_tools` | Method | Filters the global tool registry to provide a specific subset of tools to an agent. |
-| `_prepare_payload` | Method | Constructs the structured dictionary (objective, history, plan, context) for LLM requests. |
-| `_process_agent_response` | Method | Parses LLM output to execute tools, handle user interaction, or transition to new agents. |
-| `_handle_tool_execution` | Method | Manages specialist tool invocation, security gatekeeping, and registry execution. |
-| `_initialize_session_modules` | Method | Dynamically registers tools from all provided modules into the central registry. |
-| `_handle_format_error` | Method | Manages error recovery and loop termination when an agent fails to produce valid output. |
-| `_gatekeeper` | Method | Intercepts sensitive tool calls to request manual user authorization. |
-| `_validate_target` | Method | Ensures agent-to-agent transitions adhere to defined pipeline constraints. |
+| `MessageOrchestrator` | Class | Main controller for multi-agent routing, state hydration, and loop execution. |
+| `run_loop` | Method | The primary entry point that manages the iterative execution cycle and session recovery. |
+| `_capture_state` | Method | Serializes current agent, iteration, and memory states for persistence. |
+| `_apply_state` | Method | Re-injects serialized data from the `SessionVault` into active managers. |
+| `_assemble_agent_tools` | Method | Filters the `ToolRegistry` to provide an agent with only its permitted toolset. |
+| `_prepare_payload` | Method | Constructs the structured dictionary sent to the LLM, including history and context. |
+| `_process_agent_response` | Method | Parses LLM output to handle tool calls, user clarifications, or agent transitions. |
+| `_handle_tool_execution` | Method | Executes authorized tools via the registry and manages specialist overrides. |
+| `_initialize_session_modules`| Method | Dynamically registers tools from external modules into the central `ToolRegistry`. |
+| `_handle_format_error` | Method | Manages retry logic and error signaling when the LLM produces malformed output. |
+| `_gatekeeper` | Method | Provides a human-in-the-loop authorization prompt for sensitive tool usage. |
 
-## 3. Execution Logic & Flow
+## 4. Execution Logic & Flow
 - **Initialization**: 
-    1. Instantiates specialized managers (`SpecialistManager`, `ContextSentinel`).
-    2. Initializes `MemoryManager` with agent keys.
-    3. Sets up `auto_authorized_tools` and error counters.
-- **Data Path**: 
-    1. **Input**: `user_prompt` and `session_id` enter `run_loop`.
-    2. **Hydration**: `SessionVault` loads existing state; if empty, seeds initial memory with `user_prompt`.
-    3. **Payload Construction**: `_prepare_payload` aggregates memory, plans, and recent outcomes $\rightarrow$ `ContextSentinel` applies compression/distillation.
-    4. **LLM Request**: `connector.send_request` processes the payload $\rightarrow$ Returns `response`.
-    5. **Action Processing**: `_process_agent_response` extracts `action` $\rightarrow$ `_handle_tool_execution` executes tools $\rightarrow$ Results are recorded in `MemoryManager`.
-    6. **State Transition**: `_capture_state` serializes the new state $\rightarrow$ `SessionVault.commit` persists to disk.
-    7. **Output**: The loop repeats with the `next_agent` or terminates on `STOP`/`DONE`.
+    1. Instantiates managers: `SpecialistManager`, `ContextSentinel`, and `MemoryManager`.
+    2. Sets up empty state for `SessionVault` and `vector_memory`.
+- **Data Path**:
+    1. **Input**: `user_prompt` + `session_id`.
+    2. **Hydration**: `SessionVault` loads previous state $\rightarrow$ `_apply_state` updates managers.
+    3. **Loop Start**: Identify `current_agent` $\rightarrow$ `_assemble_agent_tools` $\rightarrow$ `_prepare_payload`.
+    4. **Refinement**: `ContextSentinel` distills payload if token limits are near.
+    5. **LLM Request**: `connector.send_request` $\rightarrow$ LLM Response.
+    6. **Parsing**: `_process_agent_response` extracts `action` (tool/target/message).
+    7. **Execution**: `_handle_tool_execution` $\rightarrow$ `ToolRegistry` $\rightarrow$ Memory Update.
+    8. **Output**: Transition to `next_agent` or `DONE`/`STOP`.
 - **Conditional Branching**:
-    - **Session Check**: If `vault.hydrate()` succeeds, resume state; else, start fresh.
-    - **Agent Validation**: If `current_agent` is not in `self.agents`, reset to `entry_point`.
-    - **Response Status**: If `response["status"] == "FAILED"`, trigger `_handle_format_error` logic.
-    - **Target Routing**: Branches based on `target` (e.g., `USER` triggers `input()`, `STOP` terminates, or valid agent transitions).
-    - **Security**: `_gatekeeper` branches based on user `y/n/all` input for tool execution.
+    - **Session Status**: If `vault.hydrate()` returns data, resume; else, start fresh with `entry_point`.
+    - **Format Integrity**: If LLM output is invalid, `_handle_format_error` triggers a system-level correction message to the agent.
+    - **Target Validation**: If `agent_target` is `USER`, pause for terminal input; if `STOP`, terminate loop.
+    - **Tool Authorization**: If tool is not in `auto_authorized_tools`, trigger `_gatekeeper` manual prompt.
 
-## 4. Resource Dependencies
+## 5. Resource Dependencies
 - **Standard Libraries**: `os`, `copy`, `json`, `typing`
-- **Internal Modules**: `config`, `functions`, `color`, `terminal_ui`, `agents.specialist_manager`, `agents.memory_manager`, `agents.context_sentinel`, `agents.session_vault`, `core.events`
-- **External Packages**: N/A (Relies on internal abstraction layers)
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `MAX_ITERATIONS = 100`
-    - `MANAGER_AGENT_ROLE = "management"`
-- **Environment Lookups**: 
-    - `ProgramConfig.current.get(ProgramSetting.AGENT_THOUGHT)` (Determines if agent reasoning is displayed).
-    - `pipeline_config` (Dict containing `agents`, `entry_point`, `max_iterations`).
+- **Internal Modules**: 
+    - `config.md`
+    - `functions.md`
+    - `color.md`
+    - `terminal_ui.md` (via `agents/terminal_ui.md`)
+    - `specialist_manager.md` (via `agents/specialist_manager.md`)
+    - `memory_manager.md` (via `agents/memory_manager.md`)
+    - `context_sentinel.md` (via `agents/context_sentinel.md`)
+    - `session_vault.md` (via `agents/session_vault.md`)
+    - `events.md` (via `core/events.md`)
+    - `vector_memory.md` (via `modules/memory/vector_memory.md`)
+- **External Packages**: None identified.

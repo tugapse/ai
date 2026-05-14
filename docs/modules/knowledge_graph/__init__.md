@@ -1,21 +1,25 @@
 ## 1. Architectural Role
-Acts as the package-level entry point for the knowledge graph module by exposing the `KnowledgeGraph` class to the external namespace.
+Acts as the package entry point for the knowledge graph subsystem, facilitating clean namespace exposure by elevating the core graph implementation from [graph.md](modules/knowledge_graph/graph.md) to the module level. This enables higher-level orchestrators to interface with the knowledge graph via a simplified import path.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+No environment lookups identified.
+
+**Hardcoded Constants:**
+No hardcoded constants identified.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `KnowledgeGraph` | Class | Primary interface for graph-based data structures and operations (imported from `.graph`). |
+| `KnowledgeGraph` | Class | The primary interface for graph operations, exported from [graph.md](modules/knowledge_graph/graph.md). |
 
-## 3. Execution Logic & Flow
+## 4. Execution Logic & Flow
 - **Initialization**: Direct exports only; no internal logic flow.
 - **Data Path**: Direct exports only; no internal logic flow.
 - **Conditional Branching**: Direct exports only; no internal logic flow.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: None
-- **Internal Modules**: `.graph`
-- **External Packages**: None
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: None
-- **Environment Lookups**: None
+## 5. Resource Dependencies
+- **Standard Libraries**: None identified.
+- **Internal Modules**: 
+    - [graph.md](modules/knowledge_graph/graph.md)
+- **External Packages**: None identified.

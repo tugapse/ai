@@ -1,39 +1,45 @@
 ## 1. Architectural Role
-Acts as the high-level orchestration layer for chat interactions, managing session-based memory routing, system prompt resolution, and the execution of both streaming and non-streaming LLM responses.
+`chat.py` serves as the high-level orchestration layer for chat completion requests, acting as the bridge between incoming API schemas and the underlying intelligence engine. It manages the lifecycle of a chat interaction by routing session-specific memory via [brain_hub.md](modules/server/brain_hub.md), resolving system prompts through [prompt_loader.md](services/prompt_loader.md), selecting the appropriate LLM via the orchestrator, and handling both real-time streaming and monolithic responses. It encapsulates session persistence logic, message formatting, and error handling to ensure consistent interaction patterns within the server module.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- `ACTIVE_SESSION` (via `ChatSessionRouter.build_session_path`)  Fallback session identifier if none provided in the request.
+
+**Hardcoded Constants:**
+- `503` (Default: `HTTPException` status)  Returned when the LLM is not initialized.
+- `500` (Default: `HTTPException` status)  Returned during inference failures.
+- `"data: [DONE]\n\n"` (Default: `str`)  SSE terminator for streaming responses.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `ChatSessionRouter` | Class | Manages session directory creation and routes memory to specific JSON files. |
-| `build_session_path` | Method | Generates the filesystem path for session directories and target JSON files. |
-| `route_memory` | Method | Triggers `BrainHub` to link the current session file to the active memory context. |
-| `ChatMessageFormatter` | Class | Transforms raw message objects into a standardized list of role/content dictionaries. |
-| `ChatResponseHandler` | Class | Executes the LLM inference and manages the lifecycle of streaming/non-streaming responses. |
-| `_ensure_llm_available` | Method | Validates that the `brain_hub.orchestrator.llm` is initialized before processing. |
-| `stream_response` | Method | Generates a `StreamingResponse` via an asynchronous event generator for real-time output. |
-| `non_stream_response` | Method | Executes a blocking LLM call and returns a complete dictionary response. |
-| `ChatService` | Class | The primary entry point that coordinates routing, prompt resolution, and response handling. |
-| `_resolve_system_prompt` | Method | Uses `PromptLoader` to convert prompt identifiers into actual text content. |
-| `_resolve_brain` | Method | Configures the `BrainHub` with the requested model and resolved system prompt. |
-| `chat_completion` | Method | The main asynchronous workflow for processing a `ChatCompletionRequest`. |
+| `ChatSessionRouter` | Class | Manages directory creation and maps `ChatCompletionRequest` to physical JSON session files. |
+| `ChatMessageFormatter` | Class | Transforms raw message objects into standard `{"role": "...", "content": "..."}` dictionaries. |
+| `ChatResponseHandler` | Class | Orchestrates the execution of LLM `chat` calls, managing both `StreamingResponse` generation and synchronous text extraction. |
+| `ChatService` | Class | The primary entry point; coordinates routing, prompt resolution, brain selection, and history updates. |
+| `chat_completion` | Async Method | The main execution workflow for processing a `ChatCompletionRequest`. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: 
-    - `ChatSessionRouter` is instantiated with a `session_root_dir` and a configuration dictionary.
-    - `ChatService` is instantiated, aggregating instances of `ChatSessionRouter`, `ChatMessageFormatter`, and `ChatResponseHandler`.
-- **Data Path**: 
-    - `ChatCompletionRequest` $\rightarrow$ `ChatSessionRouter.build_session_path` (Path Resolution) $\rightarrow$ `ChatSessionRouter.route_memory` (Memory Linking) $\rightarrow$ `ChatService._resolve_brain` (Model/Prompt Setup) $\rightarrow$ `ChatMessageFormatter.format_messages` (Data Normalization) $\rightarrow$ `BrainHub.add_history_message` (State Update) $\rightarrow$ `ChatResponseHandler` (LLM Inference) $\rightarrow$ `StreamingResponse` or `Dict` (Final Output).
+## 4. Execution Logic & Flow
+- **Initialization**: `ChatService` instantiates its sub-components (`ChatSessionRouter`, `ChatMessageFormatter`, `ChatResponseHandler`) using the provided `BrainHub`, session directory, and configuration.
+- **Data Path**:
+    1. **Input**: `ChatCompletionRequest` object received.
+    2. **Routing**: `ChatSessionRouter` resolves the directory and file path $\rightarrow$ `BrainHub` routes memory to the file.
+    3. **Brain Resolution**: `ChatService` resolves the system prompt (via `PromptLoader`) and selects the LLM model.
+    4. **Context Preparation**: Messages are formatted $\rightarrow$ User message is appended to `BrainHub` history.
+    5. **Inference**:
+        - **Stream Path**: `event_generator` iterates through LLM chunks $\rightarrow$ yields SSE formatted JSON $\rightarrow$ appends full response to history $\rightarrow$ signals `[DONE]`.
+        - **Non-Stream Path**: LLM returns full content $\rightarrow$ response is parsed/joined $\rightarrow$ response is appended to history.
+    6. **Output**: `StreamingResponse` or JSON dictionary.
 - **Conditional Branching**:
-    - **Stream Flag**: If `request.stream` is `True`, the logic enters `stream_response` (async generator); otherwise, it enters `non_stream_response`.
-    - **Prompt Resolution**: `_resolve_system_prompt` checks if a prompt is a file reference via `PromptLoader`; if resolution fails, it falls back to using the input as literal text.
-    - **LLM Availability**: `_ensure_llm_available` raises a 503 `HTTPException` if the LLM is `None`.
-    - **Response Type**: `non_stream_response` checks if `raw_output` is a `str` or an iterable to determine how to aggregate text.
+    - `getattr(request, "stream", False)`: Determines whether to trigger the asynchronous generator or the synchronous completion path.
+    - `isinstance(raw_output, str)`: Checks if the LLM returned a direct string or an iterable of chunks in non-streaming mode.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `pathlib.Path`, `os`, `json`, `typing`
-- **Internal Modules**: `..brain_hub.BrainHub`, `..schemas.ChatCompletionRequest`, `services.config_helper.ProgramSetting`, `services.prompt_loader.PromptLoader`, `functions`
-- **External Packages**: `fastapi.HTTPException`, `fastapi.responses.StreamingResponse`
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: `"default"` (fallback session ID), `"assistant"`/`"user"` (history roles), `"text/event-stream"` (media type), `"data: [DONE]\n\n"` (stream terminator).
-- **Environment Lookups**: `config.get("ACTIVE_SESSION")` (used for default session identification).
+## 5. Resource Dependencies
+- **Standard Libraries**: `pathlib`, `os`, `json`, `typing`
+- **Internal Modules**: 
+    - [brain_hub.md](modules/server/brain_hub.md)
+    - [schemas.md](modules/server/schemas.md)
+    - [config_helper.md](services/config_helper.md)
+    - [prompt_loader.md](services/prompt_loader.md)
+    - [functions.md](functions.md)
+- **External Packages**: `fastapi`

@@ -1,45 +1,42 @@
 ## 1. Architectural Role
-Acts as an ASGI middleware component that intercepts HTTP requests to inject appropriate `Content-Type` headers for specific static file extensions.
+This file implements an ASGI middleware layer designed to intercept HTTP traffic and enforce correct `Content-Type` headers for static assets. It acts as a preventative layer within the [modules/server/middleware.md](modules/server/middleware.md) stack to ensure that browsers correctly interpret and execute client-side resources (JavaScript, CSS, images) by injecting missing MIME type metadata into the ASGI scope before the request reaches the core application logic.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- No environment lookups identified.
+
+**Hardcoded Constants:**
+- `'.js', '.css', '.png', '.jpg', '.svg'` (Default: `tuple`)  Target file extensions for MIME sniffing.
+- `'application/javascript'` (Default: `str`)  MIME type for `.js` files.
+- `'text/css'` (Default: `str`)  MIME type for `.css` files.
+- `'image/png'` (Default: `str`)  MIME type for `.png` files.
+- `'image/jpeg'` (Default: `str`)  MIME type for `.jpg`/`.jpeg` files.
+- `'image/svg+xml'` (Default: `str`)  MIME type for `.svg` files.
+- `'application/octet-stream'` (Default: `str`)  Fallback MIME type for unrecognized extensions.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `MIMETypeFixerMiddleware` | Class | Orchestrates the interception of ASGI scopes to manage MIME type assignment. |
-| `__init__` | Method | Initializes the middleware with the wrapped application instance and logs status. |
-| `__call__` | Method | The asynchronous entry point for ASGI connection handling and header injection logic. |
+| `MIMETypeFixerMiddleware` | Class | Orchestrates the intercepting of ASGI scopes to inject header metadata. |
+| `__init__` | Method | Initializes the middleware with the wrapped application instance. |
+| `__call__` | Async Method | The primary entry point for ASGI requests; performs routing logic and header injection. |
 | `_determine_mime_type` | Method | Maps file path extensions to their corresponding string-based MIME type identifiers. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: 
-    1. Receives `app` instance.
-    2. Stores `app` in `self.app`.
-    3. Executes `func.debug` to log initialization.
+## 4. Execution Logic & Flow
+- **Initialization**: The class accepts an `app` instance (the next layer in the ASGI stack) and logs initialization via [functions.md](functions.md).
 - **Data Path**: 
-    1. **Input**: ASGI `scope` (containing `type`, `path`, and `headers`), `receive`, and `send`.
-    2. **Processing**: 
-        - Validate `scope['type'] == 'http'`.
-        - Validate `scope['path']` ends with specific extensions (`.js`, `.css`, `.png`, `.jpg`, `.svg`).
-        - Call `_determine_mime_type` based on `scope['path']`.
-        - Check `scope['headers']` for existing `b'content-type'`.
-        - If missing, append `(b'Content-Type', mime_type.encode('utf-8'))` to `scope['headers']`.
-    3. **Output**: Modified `scope` passed to `self.app(scope, receive, send)`.
+    1. **Intercept**: `__call__` receives `scope`, `receive`, and `send`.
+    2. **Filter**: Checks if `scope['type']` is `http` and if the `path` ends with a recognized static asset extension.
+    3. **Analyze**: If matched, calls `_determine_mime_type` to resolve the correct string identifier.
+    4. **Inject**: Checks the `scope['headers']` list for existing `b'content-type'`. If absent, appends the new header.
+    5. **Delegate**: Passes the modified (or original) `scope` to `self.app`.
 - **Conditional Branching**:
-    - **Path/Type Filter**: If the request is not HTTP or does not match the extension whitelist, bypasses all logic and calls `self.app` immediately.
-    - **Header Existence Check**: If `b'content-type'` is already present in `scope['headers']`, the middleware skips header injection to prevent duplicates.
-    - **MIME Mapping**: Uses extension-based branching; defaults to `application/octet-stream` if the extension is unrecognized.
+    - **Type Check**: If `scope['type'] != 'http'` or path does not match extension whitelist $\rightarrow$ Pass through immediately.
+    - **Header Check**: If `b'content-type'` is already present in `headers` $\rightarrow$ Log skip and pass through to avoid duplicate headers.
+    - **Extension Match**: If path matches an extension in `_determine_mime_type` $\rightarrow$ Return specific MIME; else $\rightarrow$ Return `application/octet-stream`.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `typing.List`, `typing.Tuple`
-- **Internal Modules**: `functions` (aliased as `func`)
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - Extension Whitelist: `('.js', '.css', '.png', '.jpg', '.svg')`
-    - MIME Mappings: 
-        - `.js` $\rightarrow$ `application/javascript`
-        - `.css` $\rightarrow$ `text/css`
-        - `.png` $\rightarrow$ `image/png`
-        - `.jpg`/`.jpeg` $\rightarrow$ `image/jpeg`
-        - `.svg` $\rightarrow$ `image/svg+xml`
-    - Fallback MIME: `application/octet-stream`
-- **Environment Lookups**: None
+## 5. Resource Dependencies
+- **Standard Libraries**: `typing`
+- **Internal Modules**: 
+    - [functions.md](functions.md)
+- **External Packages**: None identified.

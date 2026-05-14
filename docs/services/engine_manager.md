@@ -1,40 +1,58 @@
 ## 1. Architectural Role
-The `EngineManager` class serves as a centralized factory and configuration handler responsible for validating engine availability, managing JSON-based model configurations, and orchestrating the instantiation of specific LLM subclasses.
+The [engine_manager.py](src/ai/services/engine_manager.py) serves as the factory and lifecycle controller for Large Language Model (LLM) instances. It is responsible for verifying the presence of required backend engines via local configuration files, generating standardized model parameter templates, and performing the late-binding instantiation of specific model implementations from [core/llms/base_llm.md](core/llms/base_llm.md) subclasses. It acts as a critical bridge between static JSON configurations and active runtime model objects.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- `installed_engines.json` (via `is_engine_installed`)  Validates if the specific backend (e.g., Ollama, OpenAI, GGuf) is configured and installed on the host system.
+
+**Hardcoded Constants:**
+- `mapping` (Default: `dict`)  Maps [entities/model_enums.md](entities/model_enums.md) (`ModelType`, `EngineType`) to specific JSON keys for engine verification.
+- `max_new_tokens` (Default: `1024`)  Default generation limit in `generate_default_config`.
+- `temperature` (Default: `0.7` / `0.9`)  Default sampling randomness, adjusted for `SEQ2SEQ_LM`.
+- `top_p` (Default: `0.95` / `0.9`)  Default nucleus sampling threshold.
+- `top_k` (Default: `50`)  Default top-k sampling threshold.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `is_engine_installed` | Static Method | Validates if a specific `ModelType` or `EngineType` is marked as "installed" within the `installed_engines.json` configuration file. |
-| `generate_default_config` | Static Method | Constructs a standardized dictionary containing default hyperparameters and metadata for a new model configuration. |
-| `load_config` | Static Method | Reads and parses a JSON file from a provided path into a dictionary, including error handling for missing files or invalid JSON. |
-| `save_config` | Static Method | Serializes a configuration dictionary into a JSON file at the specified path. |
-| `load_model_instance` | Static Method | Performs the primary orchestration: validates engine status, parses parameters, and returns a concrete implementation of `BaseModel`. |
+| `EngineManager` | Class | Static utility container for model lifecycle operations. |
+| `is_engine_installed` | Static Method | Performs environment audits by checking `installed_engines.json`. |
+| `generate_default_config` | Static Method | Produces a structured dictionary for new model initialization. |
+| `load_config` | Static Method | Deserializes JSON configuration files with error handling. |
+| `save_config` | Static Method | Serializes configuration dictionaries to JSON files. |
+| `load_model_instance` | Static Method | The primary factory method; instantiates specific [core/llms/base_llm.md](core/llms/base_llm.md) implementations. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: No instance state is maintained; the class operates entirely through static methods.
+## 4. Execution Logic & Flow
+- **Initialization**: The class is stateless; logic is invoked via static methods.
 - **Data Path**: 
-    - **Config Path**: `filepath` (str) $\rightarrow$ `json.load` $\rightarrow$ `dict` (model_config).
-    - **Instantiation Path**: `model_config` (dict) $\rightarrow$ `ModelType` validation $\rightarrow$ `is_engine_installed` check $\rightarrow$ `ModelParams` conversion $\rightarrow$ Subclass-specific kwargs filtering $\rightarrow$ `BaseModel` instance.
+    1. **Input**: `model_config` (dict) + `system_prompt` (str) + `tool_registry` (obj).
+    2. **Processing**: 
+        - Validate existence of `model_name` and `model_type`.
+        - Cast `model_type` using [entities/model_enums.md](entities/model_enums.md).
+        - Verify backend engine status via `is_engine_installed`.
+        - Transform `model_properties` into `ModelParams` and filter `other_llm_kwargs`.
+        - Execute conditional lazy-imports for specific model classes.
+    3. **Output**: A concrete instance of a subclass of [core/llms/base_llm.md](core/llms/base_llm.md).
 - **Conditional Branching**:
-    - **Engine Validation**: Checks `mapping` dictionary; applies special logic for `ModelType.GEMINI` if `vertex` is in `module_name`.
-    - **Model Type Dispatch**: 
-        - `ModelType.CAUSAL_LM` $\rightarrow$ `HuggingFaceModel`.
-        - `ModelType.OLLAMA` $\rightarrow$ `OllamaModel`.
-        - `ModelType.GGUF` $\rightarrow$ `GGUFImageLLM` (includes `llama_cpp` logging override).
-        - `ModelType.GEMINI` $\rightarrow$ `GeminiAPIModel`.
-        - `ModelType.OPEN_AI` $\rightarrow$ `OpenAIAPIModel`.
-    - **Parameter Filtering**: Removes specific keys (`quantization_bits`, `n_ctx`, etc.) from `model_properties` before passing them as `**other_llm_kwargs`.
+    - **Engine Check**: If `is_engine_installed` returns `False`, raises `ValueError`.
+    - **Type Dispatch**: 
+        - `CAUSAL_LM` $\rightarrow$ [core/llms/huggingface_model.md](core/llms/huggingface_model.md)
+        - `OLLAMA` $\rightarrow$ [core/llms/ollama_model.md](core/llms/ollama_model.md)
+        - `GGUF` $\rightarrow$ [core/llms/gguf_model.md](core/llms/gguf_model.md) (includes `llama-cpp` logging override)
+        - `GEMINI` $\rightarrow$ [core/llms/gemini.md](core/llms/gemini.md)
+        - `OPEN_AI` $\rightarrow$ [core/llms/open_ai.md](core/llms/open_ai.md)
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `json`, `os`, `sys`, `typing` (Optional, Union), `ctypes`.
-- **Internal Modules**: `functions` (as `func`), `entities.model_enums` (`ModelType`, `EngineType`), `core.llms.base_llm` (`ModelParams`, `BaseModel`), `tools.tool_registry` (`ToolRegistry`).
-- **External Packages**: `llama_cpp`, `color`.
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `mapping` (Enum to JSON ID mapping).
-    - Default `model_properties` (max_new_tokens: 1024, temperature: 0.7, etc.).
-    - `root_dir` calculation via `os.path.join` (stepping up three levels from `src/ai/services/`).
-- **Environment Lookups**: 
-    - `installed_engines.json` (Project root level).
-    - `model_config` dictionary keys: `model_name`, `model_type`, `model_properties`, `gguf_filename`, `model_repo_id`, `n_ctx`, `n_gpu_layers`, `vertex_ai`.
+## 5. Resource Dependencies
+- **Standard Libraries**: `json`, `os`, `sys`, `typing`, `ctypes`
+- **Internal Modules**: 
+    - [functions.md](functions.md)
+    - [entities/model_enums.md](entities/model_enums.md)
+    - [core/llms/base_llm.md](core/llms/base_llm.md)
+    - [tools/tool_registry.md](tools/tool_registry.md)
+    - [core/llms/huggingface_model.md](core/llms/huggingface_model.md)
+    - [core/llms/ollama_model.md](core/llms/ollama_model.md)
+    - [core/llms/gguf_model.md](core/llms/gguf_model.md)
+    - [core/llms/gemini.md](core/llms/gemini.md)
+    - [core/llms/open_ai.md](core/llms/open_ai.md)
+    - [color.md](color.md)
+- **External Packages**: `llama_cpp`

@@ -1,40 +1,44 @@
 ## 1. Architectural Role
-Manages the real-time lifecycle of streaming LLM responses by synchronizing text sanitization, UI printing, voice synthesis, and tool-call extraction.
+[services/stream_orchestrator.py](src/ai/services/stream_orchestratator.py) acts as the central synchronization engine for real-time LLM response streams. It manages the complex lifecycle of incoming tokens, bifurcating data into three distinct channels: UI rendering via [extras/output_printer.py](src/extras/output_printer.py), auditory playback via [modules/voice/speech_bridge.py](src/modules/voice/speech_bridge.py), and logical execution of tool calls. It ensures conversational integrity by accumulating all tokens (including silent tool data) to prevent context window errors, while providing high-level interruption handling via `KeyboardInterrupt`.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- No environment lookups identified.
+
+**Hardcoded Constants:**
+- No hardcoded constants identified.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `StreamResult` | dataclass | Encapsulates the final state of a stream, including accumulated text, interruption status, and captured tool calls. |
-| `StreamOrchestrator` | Class | Orchestrates the flow of tokens from a generator to the printer, speech bridge, and tool handlers. |
-| `__init__` | Method | Initializes stateful buffers and injects dependencies for printing, handling, processing, and voice. |
-| `_sanitize` | Method | Normalizes Unicode and strips non-printable ASCII characters from incoming tokens. |
-| `run` | Method | The primary execution loop that consumes a `stream_generator` and manages the token lifecycle. |
-| `_display_and_relay` | Method | Triggers the visual output via the processor and feeds text to the speech bridge. |
+| `StreamResult` | Dataclass | Data container for the final state of a stream, including accumulated text, interruption status, and captured tool calls. |
+| `StreamOrchestrator` | Class | The primary controller for managing token flow, sanitization, and multi-modal output dispatching. |
+| `_sanitize` | Method | Normalizes Unicode characters (NFKC) and strips non-printable ASCII characters to ensure clean text processing. |
+| `run` | Method | The main execution loop that iterates through a generator, handles token categorization (Dict vs. String), and manages error states. |
+| `_display_and_relay` | Method | Orchestrates the simultaneous terminal output, token processing, and feeding of the speech buffer. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: Sets up internal buffers (`accumulated_text`, `tool_calls`), tracks `started_response` status, and instantiates a `SpeechBridge` using the provided `voice_module`.
+## 4. Execution Logic & Flow
+- **Initialization**: Sets up the `SpeechBridge`, `OutputPrinter`, `HandlerManager`, and `TokenProcessor`. Resets internal buffers (`accumulated_text`, `tool_calls`, `started_response`).
 - **Data Path**: 
-    1. **Input**: Receives a `stream_generator` yielding `raw_token` (either `dict` or `str`).
-    2. **Processing**: 
-        - If `dict`: Appends to `tool_calls` and `accumulated_text`.
-        - If `str`: Passes through `_sanitize` $\rightarrow$ `printer.process_token` $\rightarrow$ `handler.process_token_chain`.
-    3. **Output**: 
-        - If `is_tool_call`: Updates `tool_calls` and `accumulated_text` (silent).
-        - If `display_to_user`: Executes `_display_and_relay` (visual/audio output).
-    4. **Finalization**: Flushes `printer` and `speech_bridge`, then returns a `StreamResult`.
-- **Conditional Branching**:
-    - **Type Check**: Branches between dictionary-based native tool calls and string-based text tokens.
-    - **Token Validity**: Skips tokens that are empty after sanitization or return `None` from the printer.
-    - **Handler Logic**: Branches based on `is_tool_call` (silent accumulation) vs `display_to_user` (active relay).
-    - **Error Handling**: Catches `KeyboardInterrupt` to abort speech or generic `Exception` to flush buffers before re-raising.
+    1. **Input**: Receives a `stream_generator` yielding raw tokens (strings or dicts).
+    2. **Categorization**: 
+        - If **Dict**: Appended to `tool_calls` and `accumulated_text`; triggers `on_tool_call` callback.
+        - If **String**: Passed through `_sanitize` $\rightarrow$ `printer.process_token` $\rightarrow$ `handler.process_token_chain`.
+    3. **Routing**: 
+        - **Tool Content**: If `is_tool_call` is true, content is added to `tool_calls` and `accumulated_text` but bypassed from UI/Voice.
+        - **UI/Voice Content**: If `display_to_user` is true, content is passed to `_display_and_relay` for terminal printing and speech feeding.
+    4. **Output**: Returns a `StreamResult` object once the generator exhausts or is interrupted.
+- **Conditional Branching**: 
+    - **Interrupt Handling**: Catches `KeyboardInterrupt` to abort speech immediately.
+    - **Buffer Draining**: Executes a post-loop `flush()` on the printer to capture trailing fragments.
+    - **Sanitization Check**: Skips processing if the sanitized token results in an empty string.
 
-## 4. Resource Dependencies
+## 5. Resource Dependencies
 - **Standard Libraries**: `re`, `unicodedata`, `typing`, `dataclasses`
-- **Internal Modules**: `color` (`Color`, `format_text`), `functions` (`func`), `modules.voice.speech_bridge` (`SpeechBridge`), `extras.output_printer` (`OutputPrinter`)
-- **External Packages**: None explicitly imported (relies on internal abstractions for `voice_module` and `handler_manager`)
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `\x20-\x7E\n\t`: Regex range for printable ASCII/whitespace sanitization.
-    - `NFKC`: Unicode normalization form.
-- **Environment Lookups**: None.
+- **Internal Modules**: 
+    - [color.md](src/color.md)
+    - [functions.md](src/functions.md)
+    - [modules/voice/speech_bridge.md](src/modules/voice/speech_bridge.md)
+    - [extras/output_printer.md](src/extras/output_printer.md)
+    - [extras/handler_manager.md](src/extras/handler_manager.md)
+- **External Packages**: None identified.

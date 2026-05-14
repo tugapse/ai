@@ -1,45 +1,52 @@
 ## 1. Architectural Role
-Provides a concrete implementation of `BaseModel` for interfacing with Hugging Face Transformers, supporting multi-modal loading, quantization (AWQ/BNB), and threaded streaming generation.
+`HuggingFaceModel` serves as the specialized implementation of [base_llm.md](core/llms/base_llm.md) designed to interface with the Hugging Face ecosystem. It encapsulates the complexities of model loading (local vs. remote), multi-modal quantization strategies (BitsAndBytes 4/8-bit and AWQ), and high-performance inference optimizations such as Google TurboQuant for KV Cache compression. The class manages the lifecycle of the model and tokenizer, providing both synchronous and asynchronous streaming generation interfaces while handling specialized tokenization requirements like chat templates and sentinel-based tool detection.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- `BITSANDBYTES_NOWELCOME` (via `os.environ`)  Suppresses BitsAndBytes startup messages.
+- `PYTORCH_CUDA_ALLOC_CONF` (via `os.environ`)  Configures CUDA memory management with `expandable_segments:True`.
+- `TRANSFORMERS_VERBOSITY` (via `os.environ`)  Sets Hugging Face Transformers logging level to `error`.
+
+**Hardcoded Constants:**
+- `quantization_bits` (Default: `0`)  Determines the precision level for BNB quantization.
+- `use_turboquant` (Default: `True`)  Toggle for enabling 4-bit KV Cache compression via `turboquant`.
+- `device_map` (Default: `"auto"`)  Strategy for distributing model layers across available hardware.
+- `quantization_method` (Default: `"bitsandbytes"`)  Selection between `awq` or `bitsandbytes` logic.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `CustomStoppingCriteria` | Class | Implements `transformers.StoppingCriteria` to halt generation via a `threading.Event`. |
-| `HuggingFaceModel` | Class | Main controller for model lifecycle, quantization configuration, and inference. |
-| `__init__` | Method | Initializes model parameters, detects `turboquant` availability, and triggers model loading. |
-| `_load_llm_params` | Method | Configures `BitsAndBytesConfig`, handles `AutoTokenizer` and `AutoModelForCauasalLM` instantiation. |
-| `_ensure_alternating_roles` | Method | Sanitizes chat history to prevent consecutive identical roles. |
-| `_generate_in_thread` | Method | Executes `model.generate` within a separate thread to support non-blocking streaming. |
-| `join_generation_thread` | Method | Synchronizes the main thread with the active generation thread. |
-| `chat` | Method | Primary entry point; handles input preparation, device placement, and manages the streaming/sync loop. |
-| `_prepare_input` | Method | Converts message lists into model-ready tensors using `apply_chat_template` or manual formatting. |
-| `_generate_response` | Method | Executes synchronous, non-streaming inference. |
-| `list` | Method | Returns available model information (static info). |
-| `pull` | Method | Downloads/loads model files from the Hugging Face Hub. |
+| `CustomStoppingCriteria` | Class | Implements `transformers.StoppingCriteria` to halt generation when a `threading.Event` is triggered. |
+| `HuggingFaceModel` | Class | Primary interface for HF model lifecycle, quantization, and inference. |
+| `chat` | Method | Entry point for user interaction; supports streaming (`yield`) and handles message processing. |
+| `_load_llm_params` | Method | Private logic for configuring `BitsAndBytesConfig`, `AutoModel`, and `AutoTokenizer`. |
+| `_prepare_input` | Method | Transforms raw message lists into model-ready tensors using `apply_chat_template` or manual formatting. |
+| `_generate_in_thread` | Method | Executes the blocking `model.generate` call within a separate thread to enable non-blocking streaming. |
+| `join_generation_thread` | Method | Synchronizes the main execution flow with the background generation thread. |
+| `pull` | Method | Orchestrates the download and local caching of model weights and tokenizers. |
+| `list` | Method | Returns available model categories (stub). |
 
-## 3. Execution Logic & Flow
-- **Initialization**: 
-    1. Sets environment variables for `bitsandbytes` and `torch`.
-    2. Configures logging and warning filters.
-    3. Checks for `turboquant` library and CUDA availability.
-    4. Calls `_load_llm_params` to instantiate tokenizer and model (handling gated access and repository errors).
-- **Data Path**: 
-    1. `chat(messages)` $\rightarrow$ `check_system_prompt()` $\rightarrow$ `_prepare_input()`.
-    2. `_prepare_input()` $\rightarrow$ `tokenizer.apply_chat_template()` $\rightarrow$ `input_ids` (Tensors).
-    3. Tensors $\rightarrow$ `device_map` (CPU/GPU) $\rightarrow$ `model.generate()`.
-    4. `model.generate()` $\rightarrow$ `TextIteratorStreamer` $\rightarrow$ `yield` tokens/sentinels $\rightarrow$ Caller.
+## 4. Execution Logic & Flow
+- **Initialization**:
+    1. Sets environment variables for logging/quantization.
+    2. Checks for `turboquant` availability in the environment.
+    3. Invokes `_load_llm_params` to configure quantization settings (BNB/AWQ).
+    4. Attempts to load tokenizer/model from local cache; falls back to remote download if missing.
+- **Data Path**:
+    1. **Input**: `messages` list $\rightarrow$ `check_system_prompt` $\rightarrow$ `_prepare_input` (Chat Template/Manual) $\rightarrow$ `input_ids` (Tensor).
+    2. **Processing**: `inputs_on_device` $\rightarrow$ `model.generate` (within `_generate_in_thread` for streaming or sync path).
+    3. **Output**: `TextIteratorStreamer` $\rightarrow$ `handle_sentinel` (parsing tool calls/actions) $\rightarrow$ `yield` string/dict $\rightarrow$ `STREAMING_FINISHED_EVENT`.
 - **Conditional Branching**:
-    - **Quantization**: If `quantization_method` is "awq", skip BNB; if "bitsandbytes" and `quantization_bits` is 4/8, apply `BitsAndBytesConfig`.
-    - **Storage**: Attempt `local_files_only=True` first; if `Exception`, fallback to `local_files_only=False` (download).
-    - **Inference Mode**: If `stream=True`, spawn `_generation_thread` and iterate through `streamer`; else, execute `_generate_response` synchronously.
-    - **Optimization**: If `turboquant_available`, inject `TurboQuantCache` into `generation_kwargs`.
+    - **Quantization Logic**: If `awq`, skip BNB config; if `4/8-bit`, construct `BitsAndBytesConfig`.
+    - **Cache Logic**: If `local_files_only=True` fails, trigger `local_files_only=False` for network download.
+    - **Inference Path**: If `stream=True`, spawn `threading.Thread` and use `TextIteratorStreamer`; else, execute `_generate_response` synchronously.
+    - **TurboQuant**: If `turboquant_available`, inject `TurboQuantCache(bits=4)` into `past_key_values`.
 
-## 4. Resource Dependencies
+## 5. Resource Dependencies
 - **Standard Libraries**: `logging`, `os`, `threading`, `sys`, `queue`, `gc`, `warnings`.
-- **Internal Modules**: `core.llms.base_llm`, `core.events`, `functions`.
-- **External Packages**: `torch`, `transformers`, `huggingface_hub`, `requests`, `bitsandbytes`, `turboquant`, `color`.
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: `BITSANDBYTES_NOWELCOME='1'`, `PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"`, `TRANSFORMERS_VERBOSITY="error"`.
-- **Environment Lookups**: `os.environ` for `BITSANDBYTES_NOWELCOME`, `PYTORCH_CUDA_ALLOC_CONF`, `TRANSFORMERS_VERBOSITY`.
-- **Logic Keys**: `quantization_method`, `device_map`, `tokenizer_kwargs`, `use_turboquant`, `max_new_tokens`, `do_sample`, `temperature`.
+- **Internal Modules**: 
+    - [base_llm.md](core/llms/base_llm.md)
+    - [events.md](core/events.md)
+    - [color.md](color.md)
+    - [functions.md](functions.md)
+- **External Packages**: `torch`, `transformers`, `huggingface_hub`, `bitsandbytes`, `requests`, `turboquant` (optional).

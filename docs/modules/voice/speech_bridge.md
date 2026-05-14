@@ -1,44 +1,43 @@
 ## 1. Architectural Role
-Acts as a text-to-speech intermediary that sanitizes, filters, and segments raw text streams into natural-sounding phonetic chunks while suppressing code block content.
+`SpeechBridge` acts as a text-to-speech preprocessing intermediary designed to sanitize and transform raw LLM string outputs into natural-sounding spoken language. It intercepts text streams to filter out non-verbal markdown artifacts (headers, bolding, lists), detects code blocks to trigger contextual voice announcements, and performs regex-based transformations on file paths to ensure phonetic clarity. It serves as the linguistic bridge between the textual reasoning logic and the [modules/voice/vibe_module.md](modules/voice/vibe_module.md) processing layer.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- No environment lookups identified.
+
+**Hardcoded Constants:**
+- `code_announcements` (Default: List of strings)  Predefined natural language phrases used to notify the user when the system is displaying code or technical data.
+- `sentence_regex` (Default: `r'[.?!]+["\']*(?=\s|\n|$)'`)  Pattern used to identify sentence boundaries for chunked voice synthesis.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `SpeechBridge` | Class | Manages the lifecycle of text processing, buffering, and voice dispatching. |
-| `__init__` | Method | Initializes the voice module, debug state, text buffer, and regex patterns. |
-| `feed` | Method | Ingests raw text, detects code block boundaries, and triggers processing or announcements. |
-| `_replace_path_for_voice` | Method | Transforms file paths (e.g., `/path/to/file`) into spoken-friendly formats (`, path to file`). |
-| `_process_text_chunk` | Method | Cleans Markdown/formatting, transforms paths, and buffers text until a sentence boundary is met. |
-| `flush` | Method | Forces the immediate dispatch of any remaining text in the buffer to the voice module. |
-| `_send_to_voice` | Method | Performs final cleanup of backticks and routes the string to the `voice_module.process_token` method. |
-| `abort` | Method | Clears the internal buffer, resets code block state, and signals the voice module to stop. |
+| `SpeechBridge` | Class | Orchestrates text cleaning, code block detection, and buffered sentence delivery to the voice module. |
+| `__init__` | Method | Initializes the bridge with a voice module, debug mode, and internal buffers. |
+| `feed` | Method | Entry point for raw text; handles code block toggling and routes content to the processor. |
+| `_replace_path_for_voice` | Method | Regex callback that converts directory slashes to spaces for better pronunciation. |
+| `_process_text_chunk` | Method | Performs markdown stripping (headers, bold, lists) and path transformation on text segments. |
+| `flush` | Method | Forces the remaining contents of the buffer to be sent to the voice module. |
+| `_send_to_voice` | Method | Final sanitization of text (removing backticks) and dispatch to `voice.process_token`. |
+| `abort` | Method | Clears buffers and signals the voice module to stop current playback. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: 
-    1. Assigns `voice_module` and `debug` flag.
-    2. Initializes `buffer` as an empty string.
-    3. Sets `in_code_block` to `False`.
-    4. Pre-compiles `sentence_regex` for punctuation-based splitting.
-- **Data Path**: 
-    1. **Input**: `feed(text)` receives a raw string.
-    2. **Segmentation**: If ` ``` ` is detected, the string is split; text within blocks is ignored for speech, while the transition triggers a `code_announcements` selection.
-    3. **Sanitization**: `_process_text_chunk` removes headers (`#`), bold/italic markers (`*`), and list markers (`1.`, `-`).
-    4. **Transformation**: `re.sub` identifies paths and uses `_replace_path_for_voice` to swap `/` with spaces.
-    5. **Buffering**: Text is appended to `self.buffer` until `sentence_regex` identifies a terminal punctuation mark.
-    6. **Output**: `_send_to_voice` strips backticks and calls `self.voice.process_token(cleaned_text)`.
+## 4. Execution Logic & Flow
+- **Initialization**: Sets up the `voice` target, an empty `buffer` string, a `in_code_block` boolean flag, and pre-compiles the `sentence_regex`.
+- **Data Path**:
+    1. **Input**: Raw text is passed via `feed()`.
+    2. **Code Detection**: If ` ``` ` is detected, `in_code_block` toggles. If entering a block, a random `code_announcements` string is sent to the voice module.
+    3. **Sanitization**: Text (outside code blocks) is passed to `_process_text_chunk()`, where regex removes `#`, `*`, and list markers, and transforms `/path/to/file` into `path to file`.
+    4. **Buffering**: Cleaned text is appended to `self.buffer`.
+    5. **Sentence Splitting**: The system checks if the buffer contains a completed sentence via `sentence_regex`.
+    6. **Output**: Completed sentences are stripped of backticks and sent to `voice.process_token()`.
 - **Conditional Branching**:
-    - `if " ``` " in text`: Determines if the input requires code-block logic or standard processing.
-    - `if self.in_code_block`: Decides whether to process text for speech or treat it as technical data to be ignored.
-    - `if matches`: Determines if the current buffer contains a complete sentence ready for dispatch.
-    - `if self.debug`: Controls whether to output processed text to the console via `func.out`.
+    - `if "```" in text`: Switches between content processing and code-announcement mode.
+    - `if matches`: Determines if a chunk is complete enough for immediate synthesis or if it must remain in the buffer.
+    - `if self.debug`: Controls whether cleaned text is printed to the console via [functions.md](functions.md).
 
-## 4. Resource Dependencies
+## 5. Resource Dependencies
 - **Standard Libraries**: `re`, `random`, `typing`
-- **Internal Modules**: `color` (Color, format_text), `functions` (func)
-- **External Packages**: None explicitly listed (relies on `voice_module` injection)
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `code_announcements`: List of strings used to notify the user of code displays.
-    - `sentence_regex`: Pattern `[.?!]+["\']*(\s|\n|$)`.
-- **Environment Lookups**: None.
+- **Internal Modules**: 
+    - [color.md](color.md)
+    - [functions.md](functions.md)
+- **External Packages**: None identified.

@@ -1,21 +1,23 @@
 ## 1. Architectural Role
-Serves as a package-level entry point that enforces lazy-loading of model implementations to prevent CUDA context collisions caused by premature PyTorch initialization.
+Acts as a structural boundary and documentation marker for the LLM sub-package. Its primary responsibility is to prevent eager importation of heavy model dependencies (such as PyTorch-based frameworks) to avoid CUDA context collisions during system initialization. It delegates the responsibility of model instantiation to the [ModelManager](model_config_manager.md) via a lazy-loading pattern, ensuring that specific model drivers like [gguf_model.md](core/llms/gguf_model.md), [huggingface_model.md](core/llms/huggingface_model.md), or [t5_model.md](core/llms/t5_model.md) are only loaded when explicitly required by the runtime environment.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- No environment lookups identified.
+
+**Hardcoded Constants:**
+- No hardcoded constants identified.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `__init__.py` | Module | Provides a null-import boundary to prevent eager loading of heavy dependencies. |
+| `__init__` | Module | Provides a namespace for the `ai.core.llms` package while enforcing lazy-loading constraints. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: No modules are imported upon package initialization to maintain a clean memory state and avoid hardware driver conflicts.
-- **Data Path**: Direct exports only; no internal logic flow.
-- **Conditional Branching**: Direct exports only; no internal logic flow.
+## 4. Execution Logic & Flow
+- **Initialization**: Direct exports only; no internal logic flow.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: None
-- **Internal Modules**: None
-- **External Packages**: None
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: None
-- **Environment Lookups**: None
+## 5. Resource Dependencies
+- **Standard Libraries**: None identified.
+- **Internal Modules**: 
+    - None (This file serves as a preventative barrier against importing internal modules).
+- **External Packages**: None identified (Note: The file exists specifically to prevent the side-effects of importing `torch` or `transformers` at this level).

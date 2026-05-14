@@ -1,33 +1,33 @@
 ## 1. Architectural Role
-Provides session lifecycle management by generating, persisting, and resuming unique session identifiers and associated filesystem directory structures for logs and workspaces.
+The `SessionManager` provides a stateful lifecycle management service responsible for the deterministic generation and persistence of session identifiers. It implements a "warm start" mechanism to maintain continuity across rapid sequential executions by monitoring the modification time of a session pointer. It orchestrates the creation of the physical directory structure and file paths required for chat histories, LLM "thinking" logs, and sandboxed workspaces, ensuring all session-specific IO targets are initialized and valid via [services/config_helper.md](services/config_helper.md).
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- `ProgramSetting.PATHS_LOGS` (via `config.get`)  Base directory for all system logging and session pointers.
+- `ProgramSetting.PATHS_CHAT_LOG` (via `config.get`)  Directory for storing JSON-formatted chat histories.
+- `ProgramSetting.PATHS_WORKSPACES` (via `config.get`)  Directory for session-specific file generation/sandboxing.
+
+**Hardcoded Constants:**
+- `300` (Default: `300`)  The "warm session" threshold in seconds (5 minutes) used to determine if a previous session should be resumed.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `SessionManager` | Class | Container for static methods managing session state and pathing. |
-| `initialize_session_paths` | Static Method | Orchestrates the creation of session IDs, directory structures, and file path mappings. |
+| `SessionManager` | Class | Encapsulates static methods for session lifecycle and path resolution. |
+| `initialize_session_paths` | Static Method | Orchestrates session ID determination, directory creation, and returns a mapping of session-specific file paths. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: No instance state is maintained; the class acts as a stateless utility provider via static methods.
-- **Data Path**: `ProgramConfig` object $\rightarrow$ Session ID resolution (Persistence Check $\rightarrow$ New Generation) $\rightarrow$ Path concatenation/Directory creation $\rightarrow$ `Dict[str, str]` containing session metadata and file paths.
+## 4. Execution Logic & Flow
+- **Initialization**: Receives a `ProgramConfig` object; identifies the `session_id_pointer` file location within the logs directory.
+- **Data Path**: `ProgramConfig` $\rightarrow$ Session ID Resolution (Warm vs. New) $\rightarrow$ Directory/File Path Generation $\rightarrow$ Filesystem Provisioning $\rightarrow$ `Dict[str, str]` (Path Map).
 - **Conditional Branching**:
-    - **Session Persistence**: Checks if `last_session.id` exists and if the file modification time is $< 300$ seconds to determine if a "warm" session should be resumed.
-    - **New Session Trigger**: If no warm session is found, generates a new `session_timestamp` using `datetime.now()`.
-    - **Path Configuration**: Checks for existence of `PATHS_CHAT_LOG` and `PATHS_WORKSPACEs` to determine if custom paths are used or if defaults (via `func.get_root_directory()`) are applied.
-    - **Log Directory Safety**: Validates the existence of the `logs/` subdirectory before attempting to assign `SESSION_LOG_FILENAME`.
+    - **Session Persistence Check**: If `last_session.id` exists AND (Current Time - File MTime) < 300s $\rightarrow$ Reuse `last_id`.
+    - **New Session Creation**: If no warm session found $\rightarrow$ Generate timestamped ID $\rightarrow$ Write to `last_session.id`.
+    - **Path Configuration Check**: If `chat_log_folder` is null $\rightarrow$ Log WARNING and skip chat log path assignment.
+    - **Workspace Fallback**: If `PATHS_WORKSPACES` is null $\rightarrow$ Default to `func.get_root_directory() + "/workspaces"`.
 
-## 4. Resource Dependencies
+## 5. Resource Dependencies
 - **Standard Libraries**: `os`, `time`, `datetime`, `typing`
-- **Internal Modules**: `functions` (as `func`), `services.config_helper` (`ProgramConfig`, `ProgramSetting`)
-- **External Packages**: None
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `300` (Seconds threshold for "warm" session persistence)
-    - `"last_session.id"` (Pointer filename)
-    - `"thinking"` (Subdirectory for LLM logs)
-    - `"workspaces"` (Default fallback directory name)
-- **Environment Lookups**: 
-    - `ProgramSetting.PATHS_LOGS`
-    - `ProgramSetting.PATHS_CHAT_LOG`
-    - `ProgramSetting.PATHS_WORKSPACES`
+- **Internal Modules**: 
+    - [functions](functions.md)
+    - [services/config_helper.md](services/config_helper.md)
+- **External Packages**: None identified.

@@ -1,29 +1,31 @@
 ## 1. Architectural Role
-Acts as a centralized namespace aggregator that exposes the public API for the `extras` sub-package by re-exporting components from specialized utility modules.
+Acts as the package-level namespace aggregator for the `extras` subsystem. It facilitates a flattened API surface by re-exporting all members from specialized utility modulesspecifically for terminal interaction, output formatting, thought-process parsing, and event handlingallowing external consumers to access these utilities via a single entry point without navigating the sub-module hierarchy.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- No environment lookups identified.
+
+**Hardcoded Constants:**
+- No hardcoded constants identified.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `console` | Module | Provides console-related utilities and interface components. |
-| `output_printer` | Module | Handles the formatting and rendering of output data. |
-| `think_parser` | Module | Manages the parsing of internal "thinking" or reasoning processes. |
-| `thinking_log_manager` | Module | Orchestrates the logging and lifecycle of thought-process data. |
-| `HandlerManager` | Class | Manages the registration and execution of specific event or data handlers. |
+| `*` (from `console`) | Module Export | Re-exports terminal and console manipulation utilities from [extras/console.md](extras/console.md). |
+| `*` (from `output_printer`) | Module Export | Re-exports visual formatting and stream printing logic from [extras/output_printer.md](extras/output_printer.md). |
+| `*` (from `think_parser`) | Module Export | Re-exports logic for parsing LLM "thinking" blocks from [extras/think_parser.md](extras/think_parser.md). |
+| `*` (from `thinking_log_manager`) | Module Export | Re-exports state management for thinking process logs from [extras/thinking_log_manager.md](extras/thinking_log_manager.md). |
+| `HandlerManager` | Class | Explicitly exports the orchestration class for managing specialized handlers from [extras/handler_manager.md](extras/handler_manager.md). |
 
-## 3. Execution Logic & Flow
-- **Initialization**: Upon package import, the module executes a series of wildcard imports (`from .module import *`) to populate its local namespace with the exported members of its sub-modules.
-- **Data Path**: Direct exports only; no internal logic flow.
-- **Conditional Branching**: Direct exports only; no internal logic flow.
+## 4. Execution Logic & Flow
+- **Initialization**: Direct exports only; no internal logic flow.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: None
+## 5. Resource Dependencies
+- **Standard Libraries**: None identified.
 - **Internal Modules**: 
-    - `.console`
-    - `.output_printer`
-    - `.think_parser`
-    - `.thinking_log_manager`
-- **External Packages**: None
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: None
-- **Environment Lookups**: None
+    - [extras/console.md](extras/console.md)
+    - [extras/output_printer.md](extras/output_printer.md)
+    - [extras/think_parser.md](extras/think_parser.md)
+    - [extras/thinking_log_manager.md](extras/thinking_log_manager.md)
+    - [extras/handler_manager.md](extras/handler_manager.md)
+- **External Packages**: None identified.

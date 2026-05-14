@@ -1,36 +1,43 @@
 ## 1. Architectural Role
-Acts as a high-level facade and event-driven entry point that orchestrates the agentic lifecycle by integrating LLM connectivity, tool registries, and message orchestration via a configurable pipeline.
+This file serves as the high-level Facade for the agentic system, implementing the [agent.py](src/ai/agents/agent.py) class. It encapsulates the complexity of the agentic loop by orchestrating the interaction between the [message_orchestrator.md](src/ai/agents/message_orchestrator.md), the [llm_connector.md](src/ai/agents/llm_connector.md), and the [tool_registry.md](tools/tool_registry.md). Its primary responsibility is to manage the lifecycle of an agent session, load pipeline configurations, and propagate system-wide events via the [events.md](core/events.md) mechanism.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- `ProgramSetting.ROOT_DIRECTORY` (via `prog.config.get`)  Locates the base directory for resolving relative file paths.
+
+**Hardcoded Constants:**
+- `pipelines/default.json` (Default: `"pipelines/default.json"`)  The fallback path for the agent pipeline configuration.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `load_pipeline_config` | Func | Parses JSON pipeline configurations and validates the existence of associated prompt files relative to the root directory. |
-| `Agent` | Class | Encapsulates the agentic loop, managing the lifecycle of the orchestrator and propagating system events. |
-| `Agent.__init__` | Method | Initializes core components: `ToolRegistry`, `LLMConnector`, and `MessageOrchestrator`, while binding event listeners. |
-| `Agent.run` | Method | Executes the agentic turn by triggering lifecycle events and delegating the execution loop to the orchestrator. |
+| `load_pipeline_config` | Func | Parses JSON pipeline configs and validates that associated prompt files exist on disk. |
+| `Agent` | Class | The primary entry point for agent execution; inherits from [events.md](core/events.md). |
+| `Agent.__init__` | Method | Bootstraps core components: `ToolRegistry`, `LLMConnector`, and `MessageOrchestrator`. |
+| `Agent.run` | Method | Executes the agentic loop for a specific `user_prompt`, managing session ID generation and event triggering. |
 
-## 3. Execution Logic & Flow
+## 4. Execution Logic & Flow
 - **Initialization**: 
-    1. `Agent` instance is created with a `prog` object and a `pipeline_file` path.
-    2. `load_pipeline_config` is invoked to resolve absolute paths for the pipeline and all referenced `prompt_file` entries.
-    3. `ToolRegistry` is instantiated as a singleton.
-    4. `LLMConnector` is initialized using `prog.llm`.
-    5. `MessageOrchestrator` is instantiated with the connector, registry, pipeline config, and `prog.modules`.
-    6. Event listeners are bound to bridge `EVENT_BEFORE_LLM_REQUEST` and `EVENT_AFTER_LLM_REQUEST` from the orchestrator to the `Agent` instance.
+    1. Inherits event-triggering capabilities from [events.md](core/events.md).
+    2. Executes `load_pipeline_config` to resolve absolute paths for the pipeline and its required prompt files.
+    3. Instantiates `ToolRegistry` (Singleton).
+    4. Initializes `LLMConnector` using the provided `prog.llm`.
+    5. Initializes `MessageOrchestrator` with the connector, registry, config, and `prog.modules`.
+    6. Binds orchestration events (`EVENT_BEFORE_LLM_REQUEST`, `EVENT_AFTER_LLM_REQUEST`) to the Agent's local event trigger.
 - **Data Path**: 
-    `user_prompt` (str) $\rightarrow$ `Agent.run()` $\rightarrow$ `self.trigger("before_agent_turn")` $\rightarrow$ `self.orchestrator.run_loop(user_prompt, session_id)` $\rightarrow$ `self.trigger("after_agent_turn")`.
-- **Conditional Branching**:
-    - **Pipeline Loading**: If `pipeline_file` does not exist or JSON parsing fails, returns an empty dict and raises `ValueError` in `Agent.__init__`.
-    - **Prompt Validation**: If an agent's `prompt_file` is missing from the filesystem, the loading process aborts and returns an empty dict.
-    - **Session Management**: If `session_id` is `None` during `run()`, a new `uuid4` string is generated; otherwise, the provided ID is used.
+    - `user_prompt` (str) $\rightarrow$ `Agent.run()` $\rightarrow$ `orchestrator.run_loop()` $\rightarrow$ `LLM Request/Response Cycle`.
+- **Conditional Branching**: 
+    - If `session_id` is `None`, a new `uuid4` string is generated.
+    - If `pipeline_file` path is not absolute, it is joined with `ROOT_DIRECTORY`.
+    - If any prompt file specified in the config is missing, the configuration loading fails and returns an empty dict.
 
-## 4. Resource Dependencies
+## 5. Resource Dependencies
 - **Standard Libraries**: `os`, `sys`, `json`, `uuid`
-- **Internal Modules**: `functions` (as `func`), `config.ProgramSetting`, `tools.tool_registry.ToolRegistry`, `.llm_connector.LLMConnector`, `.message_orchestrator.MessageOrchestrator`, `core.events.Events`
-- **External Packages**: None explicitly imported (relies on internal `prog` object for LLM/Module access)
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: `pipelines/default.json` (default `pipeline_file` argument).
-- **Environment Lookups**: 
-    - `prog.config.get(ProgramSetting.ROOT_DIRECTORY)` (used for path resolution).
-    - `agent_data.get("prompt_file")` (retrieved from pipeline JSON).
+- **Internal Modules**: 
+    - [functions.md](functions.md)
+    - [config.md](config.md)
+    - [tools/tool_registry.md](tools/tool_registry.md)
+    - [agents/llm_connector.md](agents/llm_connector.md)
+    - [agents/message_orchestrator.md](agents/message_orchestrator.md)
+    - [core/events.md](core/events.md)
+- **External Packages**: None identified.

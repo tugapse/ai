@@ -1,49 +1,57 @@
 ## 1. Architectural Role
-Provides a standardized, OpenAI-compatible API interface that implements the Sentinel Protocol by flattening tool calls and results into pure text to ensure provider-agnostic reasoning and tool execution.
+`OpenAIAPIModel` serves as the OpenAI-compatible gateway within the LLM abstraction layer, providing a standardized interface for interacting with OpenAI, Azure AI Foundry, and other provider-agnostic endpoints (e.g., vLLM, Ollama). It is responsible for translating internal conversation histories into the OpenAI message schema, enforcing the "Sentinel Protocol" by intercepting text-based tool calls to bypass native API tool-calling constraints, and managing real-time telemetry for token usage and context window tracking. This implementation inherits core logic from [base_llm](src/ai/core/llms/base_llm.md) to ensure consistent event triggering and prompt formatting across the JARVIS ecosystem.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- `AI_MODEL_NAME`  Determines the target model or Azure deployment name.
+- `AI_API_KEY`  Authentication credential for the provider.
+- `AI_API_VERSION`  Specifies the API version for Azure-based requests.
+- `AI_AZURE_ENDPOINT`  The base URL for Azure AI services.
+
+**Hardcoded Constants:**
+- `gpt-4o` (Default: `model_name`)  Default model fallback.
+- `2024-05-01-preview` (Default: `api_version`)  Default Azure API version.
+- `2048` (Default: `max_new_tokens`)  Default token limit for generation.
+- `0.5` (Default: `temperature`)  Default sampling temperature.
+- `0.95` (Default: `top_p`)  Default nucleus sampling parameter.
+- `0.0` (Default: `presence_penalty`/`frequency_penalty`)  Default penalty settings.
+- `BaseModel.CONTEXT_WINDOW_128K` (Default: `n_ctx`)  Default context window fallback.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `OpenAIAPIModel` | Class | Manages connection, request formatting, and stream interception for OpenAI/Azure/Compatible APIs. |
-| `__init__` | Method | Initializes client (OpenAI or AzureOpenAI), configures model parameters, and sets telemetry bounds. |
-| `_convert_messages` | Method | Transforms internal message history into OpenAI schema, flattening tool/function roles into text-based Sentinel tags. |
-| `chat` | Method | Primary entry point for synchronous or streaming chat completions; handles dynamic system prompt injection. |
-| `_run_streaming_chat` | Method | Manages the generator loop for streaming responses, including telemetry updates and Sentinel tag interception. |
-| `_update_token_metrics` | Method | Synchronizes API usage data (prompt, completion, total tokens) with internal telemetry counters. |
+| `OpenAIAPIModel` | Class | Manages OpenAI-compatible API connections and Sentinel protocol interception. |
+| `__init__` | Method | Initializes clients (OpenAI/Azure), sets model parameters, and configures telemetry. |
+| `_convert_messages` | Method | Transforms internal message dicts into OpenAI-compliant roles, flattening tool calls/results into text. |
+| `chat` | Method | Primary entry point for synchronous or asynchronous chat completions. |
+| `_run_streaming_chat` | Method | Generator-based method for handling real-time token streaming and Sentinel tag detection. |
+| `_update_token_metrics` | Method | Updates internal `token_info_count` object with usage data from API responses. |
 | `clean_cache` | Method | Triggers manual garbage collection to release memory buffers. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: 
-    1. Resolves `model_name`, `api_key`, and `system_prompt` from arguments or environment variables.
-    2. Instantiates `OpenAI` or `AzureOpenAI` client based on the presence of `azure_endpoint`.
-    3. Configures `options` dictionary: uses `max_completion_tokens` for reasoning models (o1/nano) or `max_tokens` + sampling parameters for standard models.
-    4. Sets telemetry bounds for `token_info_count`.
-- **Data Path**: 
-    1. **Input**: `messages` (List[Dict]), `tools` (Optional), `stream` (bool), `options` (Optional).
-    2. **Processing**: 
-        - `_convert_messages` maps roles: `tool`/`function` $\rightarrow$ `user` (with system prefix); `assistant` (with tool calls) $\rightarrow$ `assistant` (with `____@tool` prefix).
-        - `chat` passes formatted messages to `client.chat.completions.create`.
-        - If streaming: `_run_streaming_chat` iterates through chunks, accumulating `full_content` and passing fragments to `handle_sentinel`.
-    3. **Output**: Returns a `str` (sync), `Dict` (action), or `Generator` (stream).
+## 4. Execution Logic & Flow
+- **Initialization**:
+    1. Resolve `model_name`, `api_key`, and `azure_endpoint` via arguments or environment variables.
+    2. Instantiate either `OpenAI` or `AzureOpenAI` client.
+    3. Detect "reasoning" models (e.g., `o1`) to toggle between `max_tokens` and `max_completion_tokens`.
+    4. Initialize telemetry tracking for tokens and context.
+- **Data Path (Chat Request)**:
+    1. **Input**: `messages` (List[Dict]), `tools` (Optional), `stream` (Bool).
+    2. **Processing**: `_convert_messages` flattens tool roles into `user` messages and `assistant` tool calls into `____@tool` text strings.
+    3. **Execution**:
+        - *Sync Path*: Single request via `client.chat.completions.create`, parses for manual tags via `parse_manual_tags`, returns text or action.
+        - *Stream Path*: Iterative chunk processing; checks for `stop_generation_event`.
+    4. **Interception**: `handle_sentinel` monitors content for the `@tool` protocol; if detected, it yields a structured dictionary and halts text stream.
+    5. **Output**: `str` (text content), `Dict` (tool call), or `Generator` (streamed tokens/actions).
 - **Conditional Branching**:
-    - **Client Routing**: `if self.azure_endpoint` selects `AzureOpenAI` vs `OpenAI`.
-    - **Model Capability**: `if is_reasoning_model` toggles parameter keys (`max_completion_tokens` vs `max_tokens`).
-    - **Execution Mode**: `if stream` routes to `_run_streaming_chat` or executes synchronous completion.
-    - **Interception**: `if action` (via `parse_manual_tags` or `handle_sentinel`) triggers tool execution logic instead of returning raw text.
+    - **Azure vs. Standard**: Routing logic based on presence of `azure_endpoint`.
+    - **Reasoning vs. Standard**: Parameter switching (`max_completion_tokens` vs `max_tokens`).
+    - **Stream vs. Sync**: Divergent execution paths in the `chat` method.
+    - **Sentinel Detection**: Interruption of standard text flow if a tool call protocol is identified in the stream.
 
-## 4. Resource Dependencies
+## 5. Resource Dependencies
 - **Standard Libraries**: `os`, `threading`, `gc`, `json`, `typing`
-- **Internal Modules**: `.base_llm` (`BaseModel`), `functions` (`func`), `color` (`Color`)
+- **Internal Modules**: 
+    - [base_llm](src/ai/core/llms/base_llm.md)
+    - [functions](functions.md)
+    - [color](color.md)
 - **External Packages**: `openai`
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `BaseModel.CONTEXT_WINDOW_128K` (Default context size)
-    - `BaseModel.STREAMING_FINISHED_EVENT` (Event trigger)
-    - `"2024-05-01-preview"` (Default Azure API version)
-    - `"____@tool call:"` (Sentinel protocol prefix)
-- **Environment Lookups**: 
-    - `AI_MODEL_NAME`
-    - `AI_API_KEY`
-    - `AI_API_VERSION`
-    - `AI_AZURE_ENDPOINT`

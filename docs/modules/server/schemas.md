@@ -1,29 +1,35 @@
 ## 1. Architectural Role
-Defines the structural data contracts and validation schemas for API requests and responses related to chat completions, session management, and prompt manipulation.
+This file serves as the structural definition layer for the server's communication protocols, utilizing Pydantic models to enforce strict type validation for incoming API requests and outgoing data structures. It defines the data contracts for chat completions, session management, and prompt orchestration, ensuring that the [modules/server/server_module.md](modules/server/server_module.md) and associated services like [modules/server/services/prompt_manager.md](modules/server/services/prompt_manager.md) and [modules/server/services/session_manager.md](modules/server/services/session_manager.md) operate on predictable, validated schemas.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- No environment lookups identified.
+
+**Hardcoded Constants:**
+- `temperature` (Default: `0.7`)  Default sampling randomness for LLM completions.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `ChatMessage` | Class | Represents a single unit of dialogue containing a role and text content. |
-| `ChatCompletionRequest` | Class | Defines the payload for initiating a chat interaction, including messages, model parameters, and session metadata. |
-| `UpdateSessionRequest` | Class | Defines the payload for modifying existing session attributes like titles or message history. |
-| `Prompt` | Class | Represents the metadata for a prompt file, tracking its location and modification timestamp. |
-| `PromptData` | Class | Extends `Prompt` to include the actual string content of the prompt. |
-| `PromptUpdateRequest` | Class | Defines the payload for modifying the text content of an existing prompt. |
-| `PromptCreateRequest` | Class | Defines the payload required to initialize a new prompt file with a specific path and content. |
+| `ChatMessage` | Class | Represents a single unit of dialogue containing a `role` and `content`. |
+| `ChatCompletionRequest` | Class | Schema for LLM interaction, including message history, model parameters, and session metadata. |
+| `UpdateSessionRequest` | Class | Schema for modifying existing session metadata or history. |
+| `Prompt` | Class | Base metadata for a prompt file, tracking `filename` and `last_updated` timestamp. |
+| `PromptData` | Class | Extended prompt schema including the actual string `content`. |
+| `PromptUpdateRequest` | Class | Schema for submitting new content for an existing prompt. |
+| `PromptCreateRequest` | Class | Schema for initializing a new prompt via a file path. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: No runtime logic; the module defines static data structures via `pydantic.BaseModel` inheritance.
-- **Data Path**: Input (Raw Dictionary/JSON) $\rightarrow$ Pydantic Validation $\rightarrow$ Typed Class Instance.
-- **Conditional Branching**: None; logic is strictly limited to type enforcement and schema definition.
+## 4. Execution Logic & Flow
+- **Initialization**: Models are instantiated as Pydantic objects, validating that input types match the specified type hints (e.g., ensuring `messages` is a `List` of `ChatMessage`).
+- **Data Path**: 
+    - **Input**: Raw JSON payload from a network request.
+    - **Processing**: Pydantic parsing/coercion (e.g., converting a string to a float for `temperature` or a float to a timestamp for `last_updated`).
+    - **Output**: A validated Python object instance used by downstream services.
+- **Conditional Branching**: 
+    - `Optional` fields allow for partial payloads (e.g., `system_prompt` or `stream` may be omitted, defaulting to `None` or `False` respectively).
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `typing` (`List`, `Optional`, `Dict`, `Any`)
-- **Internal Modules**: None
-- **External Packages**: `pydantic` (Note: Code contains a typo `pydantic` as `pydantic` in import, but refers to `BaseModel`)
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `ChatCompletionRequest.stream`: `False`
-    - `ChatCompletionRequest.temperature`: `0.7`
-- **Environment Lookups**: None
+## 5. Resource Dependencies
+- **Standard Libraries**: `typing`
+- **Internal Modules**: 
+    - None.
+- **External Packages**: `pydantic` (Note: Code references `pydantic` as `pydantic` despite a likely typo `pydantic` in the source import `pydantic` vs `pydantic`).

@@ -1,46 +1,66 @@
 ## 1. Architectural Role
-The `Program` class serves as the central orchestrator for the JARVIS system, managing the lifecycle of LLM sessions, tool registry integration, module coordination, and the autonomous agent execution loop.
+The `Program` class acts as the central nervous system and primary orchestrator for the JARVIS ecosystem. It manages the lifecycle of all major subsystems, including the [ModelOrchestrator](services/model_orchestrator.md) for LLM management, the [ModuleRegistry](services/module_registry.md) for hardware/software components, and the [StreamOrchestrator](services/stream_orchestrator.md) for handling real-time inference and tool execution. It bridges the gap between user input via [Chat](chat/chat.md), persistent storage through [HistoryManager](services/history_manager.md), and agentic reasoning via [Agent](agents/agent.md), ensuring that tool calls, memory injection into [VectorMemory](modules/memory/vector_memory.md), and UI updates are synchronized.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- `args` (via `load_config`)  CLI arguments passed to initialize the system state.
+- `args.modules` (via `init_config`)  List of specific modules to enable via CLI.
+
+**Hardcoded Constants:**
+- `MAX_STEP_BEFORE_WARNING` (Default: `5`)  Threshold for injecting sentinel warnings into the autonomous agent loop.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `Program` | Class | Main entry point and system coordinator. |
-| `__init__` | Method | Initializes core state variables and empty service containers. |
-| `load_config` | Method | Instantiates `ProgramConfig`, `ModelOrchestrator`, `HistoryManager`, `ModuleRegistry`, and `UIOrchestrator`. |
-| `init_config` | Method | Applies CLI arguments to configuration and triggers module loading. |
-| `init_program` | Method | Sets up session paths, history, UI, and tool registries. |
-| `load_tool_registry` | Method | Populates `ToolRegistry` with system, user, and vector memory tools. |
-| `start_chat` | Method | Initiates the LLM interaction loop for a specific user input. |
-| `_run_agent_loop` | Method | Executes the iterative "Thought-Action" cycle (Inference  Action  Completion). |
-| `_process_tool_call` | Method | Executes tools via `tool_registry` with optional Human-In-The-Loop (HIL) gating. |
-| `run` | Method | Activates the main execution loop and binds core system events. |
-| `shutdown` | Method | Performs aggressive cleanup of LLM instances and memory. |
-| `route_session` | Method | Switches the active `HistoryManager` session to a specific file. |
-| `llm` | Property | Lazy-loader for the active `BaseModel` instance. |
-| `model_params` | Property | Retrieves operational parameters from the loaded model. |
+| `Program` | Class | The main entry point and orchestrator for the entire application. |
+| `load_config` | Method | Loads the [ProgramConfig](config.md) and initializes core service managers. |
+| `init_config` | Method | Applies CLI overrides to the configuration and triggers module loading. |
+| `init_program` | Method | Sets up session paths, history, UI, and the tool registry. |
+| `load_tool_registry` | Method | Populates the [ToolRegistry](tools/tool_registry.md) with system, user, and memory-derived tools. |
+| `start_chat` | Method | The primary entry point for a single interaction turn, managing the agent loop. |
+| `_run_agent_loop` | Method | Manages the iterative "Thought-Action-Observation" cycle of the LLM. |
+| `_process_tool_call` | Method | Executes requested tools and enforces Human-In-The-Loop (HIL) permissions. |
+| `run` | Method | Starts the main [Chat](chat/chat.md) loop and binds core events via [EventBinder](services/event_binder.md). |
+| `shutdown` | Method | Performs a graceful, aggressive cleanup of LLM instances and modules. |
+| `route_session` | Method | Switches the active history session to a different file path. |
 
-## 3. Execution Logic & Flow
+## 4. Execution Logic & Flow
 - **Initialization**: 
-    1. `__init__` sets default state (e.g., `llm_initialized = False`, `allow_tools = False`).
-    2. `load_config` builds the service layer (`models`, `history`, `modules`, `ui`).
-    3. `init_program` establishes filesystem persistence and tool availability.
-- **Data Path**: 
-    `User Input` $\rightarrow$ `history.add_message` $\rightarrow$ `llm.chat` (Stream) $\rightarrow$ `StreamOrchestrator.run` $\rightarrow$ `stream_result` $\rightarrow$ (If Tool Call) $\rightarrow$ `tool_registry.execute_tool` $\rightarrow$ `history.add_message` (Tool Result) $\rightarrow$ `llm.chat` (Loop) $\rightarrow$ `stream_result.accumulated_text` $\rightarrow$ `history.add_message` (Final Response) $\rightarrow$ `vector_memory.add_memory`.
+    1. `load_config` creates service instances ([ModelOrchestrator](services/model_orchestrator.md), [HistoryManager](services/history_manager.md), etc.).
+    2. `init_config` applies CLI arguments to the [ProgramConfig](config.md).
+    3. `init_program` sets up [SessionManager](services/session_manager.md) paths and [UIOrchestrator](services/ui_orchestrator.md).
+    4. `load_tool_registry` pulls tools from [AVAILABLE_TOOLS](tools/agent_tools.md), user directories, and [VectorMemoryModule](modules/memory/vector_memory_module.md).
+- **Data Path**:
+    1. `User Input` $\rightarrow$ `Chat.add_message` $\rightarrow$ `llm.chat(stream=True)`.
+    2. `Stream` $\rightarrow$ `StreamOrchestrator.run()` $\rightarrow$ `stream_result`.
+    3. If `tool_calls` present $\rightarrow$ `_process_tool_call` $\rightarrow$ `ToolRegistry.execute_tool` $\rightarrow$ `Chat.messages` (updated with tool result).
+    4. If `accumulated_text` present $\rightarrow$ `HistoryManager.add_message` $\rightarrow$ `VectorMemory.add_memory`.
 - **Conditional Branching**:
-    - **Tool Execution**: Checks if tool name exists in `llm.HIL_TOOLS`; if true, triggers `_request_human_permission` (blocking input).
-    - **Agent Loop Termination**: Continues while `stream_result.tool_calls` is populated; breaks when `stream_result.accumulated_text` is present or `stream_result.interrupted` is true.
-    - **Sentinel Warning**: If `step_count` exceeds `MAX_STEPS_BEFORE_WARNING` (5), injects a system prompt warning into the chat history.
-    - **LLM Loading**: Uses `llm_initialized` flag to decide between lazy-loading a new `ModelOrchestrator` or updating the existing `system_prompt`.
+    - **HIL Gatekeeper**: If a tool name is in `llm.HI_TOOLS`, execution halts for `_request_human_permission`.
+    - **Agent Loop Termination**: The loop breaks if the LLM produces `accumulated_text` (Completion) or if the user interrupts the stream.
+    - **Sentinel Warning**: If `step_count > MAX_STEPS_BEFORE_WARNING`, a system message is injected into the chat history to redirect the LLM.
 
-## 4. Resource Dependencies
+## 5. Resource Dependencies
 - **Standard Libraries**: `os`, `traceback`, `gc`, `json`, `typing`
-- **Internal Modules**: `chat.chat`, `core.llms.base_llm`, `config`, `color`, `agents.agent`, `modules.memory.vector_memory_module`, `modules.memory.vector_memory`, `tools.tool_registry`, `tools.agent_tools`, `tools.tool_loader`, `services.session_manager`, `services.prompt_loader`, `services.config_helper`, `services.event_binder`, `services.model_orchestrator`, `services.history_manager`, `services.module_registry`, `services.ui_orchestrator`, `services.stream_orchestrator`, `functions`
-- **External Packages**: N/A (Relies on internal implementations of `Color` and `func`)
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `MAX_STEPS_BEFORE_WARNING = 5`
-- **Environment Lookups**: 
-    - `ProgramSetting.SYSTEM_PROMPT_FILE` (via `config`)
-    - `ProgramSetting.MODEL_CONFIG_NAME` (via `config`)
-    - `func.get_root_directory()` (used for tool path resolution)
+- **Internal Modules**: 
+    - [chat/chat.md](chat/chat.md)
+    - [core/llms/base_llm.md](core/llms/base_llm.md)
+    - [config.md](config.md)
+    - [color.md](color.md)
+    - [agents/agent.md](agents/agent.md)
+    - [modules/memory/vector_memory_module.md](modules/memory/vector_memory_module.md)
+    - [modules/memory/vector_memory.md](modules/memory/vector_memory.md)
+    - [tools/tool_registry.md](tools/tool_registry.md)
+    - [tools/agent_tools.md](tools/agent_tools.md)
+    - [tools/tool_loader.md](tools/tool_loader.md)
+    - [services/session_manager.md](services/session_manager.md)
+    - [services/prompt_loader.md](services/prompt_loader.md)
+    - [services/config_helper.md](services/config_helper.md)
+    - [services/event_binder.md](services/event_binder.md)
+    - [services/model_orchestrator.md](services/model_orchestrator.md)
+    - [services/history_manager.md](services/history_manager.md)
+    - [services/module_registry.md](services/module_registry.md)
+    - [services/ui_orchestrator.md](services/ui_orchestrator.md)
+    - [services/stream_orchestrator.md](services/stream_orchestrator.md)
+    - [functions.md](functions.md)
+- **External Packages**: None identified in imports (standard library usage only).

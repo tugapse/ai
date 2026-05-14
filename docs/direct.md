@@ -1,38 +1,44 @@
 ## 1. Architectural Role
-Orchestrates a single-turn LLM request by managing UI initialization, token streaming, real-time terminal rendering, and optional file persistence.
+[direct.md](src/ai/direct.py) serves as the high-level execution orchestrator for single-turn LLM interactions. It encapsulates the lifecycle of a "Direct Task," managing the transition from user input to streaming LLM response, while simultaneously handling UI feedback via [ui_orchestrator.md](services/ui_orchestrator.md), real-time token sanitization, and optional persistent file logging. It acts as the bridge between the low-level [base_llm.md](core/llms/base_llm.md) streaming interface and the user-facing terminal output.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- `ProgramConfig.current` (via `config.py`)  Retrieves the active application configuration instance.
+
+**Hardcoded Constants:**
+- `ThinkingAnimationHandler.THINKING_PREFIX` (Default: `"Processing request"`)  The text displayed during the thinking phase.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `_sanitize_token` | Func | Normalizes input tokens using NFKC and strips non-printable ASCII characters. |
-| `ask` | Func | Executes the primary workflow: UI setup, message preparation, LLM streaming, and output handling. |
+| `_sanitize_token` | Func | Normalizes Unicode (NFKC) and strips non-printable ASCII characters from raw tokens. |
+| `ask` | Func | The primary entry point; orchestrates LLM streaming, UI updates, and file writing. |
 
-## 3. Execution Logic & Flow
+## 4. Execution Logic & Flow
 - **Initialization**: 
-    1. Captures `start_time`.
-    2. Loads/instantiates `ProgramConfig`.
-    3. Initializes `UIOrchestrator` and sets `ThinkingAnimationHandler.THINKING_PREFIX`.
-    4. Initializes UI components (`printer`, `handler`) and configures thinking animation visibility.
+    - Loads/initializes `ProgramConfig`.
+    - Instantiates `UIOrchestrator` to obtain `printer` and `handler` components.
+    - Configures `ThinkingAnimationHandler` prefix and visibility.
 - **Data Path**: 
-    1. **Input**: `input_message` (str or List[Dict]) is converted into a standard message format via `BaseModel.create_message`.
-    2. **Processing**: `llm.chat` generates a stream of `raw_token` values.
-    3. **Transformation**: `raw_token` $\rightarrow$ `_sanitize_token` $\rightarrow$ `handler.process_token_chain` $\rightarrow$ `content` (displayable string).
-    4. **Output**: `content` is routed to `printer.process_and_print` (terminal) and `func.write_to_file` (disk).
+    - **Input**: Accepts `input_message` (String or List of Dicts) $\rightarrow$ Formats into `ChatRoles` message structure via [base_llm.md](core/llms/base_llm.md).
+    - **Processing**: Iterates through `llm.chat` generator $\rightarrow$ Passes raw token to `_sanitize_token` $\rightarrow$ Passes sanitized token to `handler.process_token_chain`.
+    - **Output**: 
+        1. **UI**: `printer.process_and_print` for terminal display.
+        2. **Persistence**: If `write_to_file` is True, `func.write_to_file` appends content to the target path.
 - **Conditional Branching**:
-    - If `input_message` is `str`, wrap in `ChatRoles.USER`.
-    - If `write_to_file` and `output_filename` are provided, initialize/truncate the target file.
-    - If `display_to_user` is true, trigger terminal printing.
-    - If `write_to_file` and `content` exists, append content to disk using `func.FILE_MODE_APPEND`.
-    - If `KeyboardInterrupt` occurs, abort the task and log the interruption.
+    - **Input Type**: Checks if `input_message` is `str` to wrap in a user role message.
+    - **File Setup**: Checks `write_to_file` and `output_filename` presence to ensure directory existence and file initialization.
+    - **Token Filtering**: Skips processing if `_sanitize_token` returns an empty string.
+    - **Error Handling**: Catches `KeyboardInterrupt` to abort gracefully and logs execution latency in the `finally` block.
 
-## 4. Resource Dependencies
+## 5. Resource Dependencies
 - **Standard Libraries**: `os`, `re`, `unicodedata`, `time`, `typing`
-- **Internal Modules**: `functions`, `color`, `core.llms.base_llm`, `chat.chat`, `config`, `services.ui_orchestrator`, `extras.think_parser`
-- **External Packages**: None explicitly imported (relies on internal abstractions)
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `ThinkingAnimationHandler.THINKING_PREFIX = "Processing request"`
-    - `func.FILE_MODE_APPEND` (used for file writing)
-- **Environment Lookups**: 
-    - `ProgramConfig.current` or `ProgramConfig.load()` (loads system configuration)
+- **Internal Modules**: 
+    - [functions.md](functions.md)
+    - [color.md](color.md)
+    - [base_llm.md](core/llms/base_llm.md)
+    - [chat.md](chat/chat.md)
+    - [config.md](config.md)
+    - [ui_orchestrator.md](services/ui_orchestrator.md)
+    - [think_parser.md](extras/think_parser.md)
+- **External Packages**: None identified.

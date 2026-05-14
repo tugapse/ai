@@ -1,51 +1,54 @@
 ## 1. Architectural Role
-Provides a terminal-based interactive REPL interface that manages user input, file attachment staging, command execution, and asynchronous event triggering for chat and agent-based interactions.
+This file serves as the primary interactive terminal interface and input orchestration engine for the user. It implements a sophisticated REPL (Read-Eval-Print Loop) that manages user input via `prompt_toolkit`, handles multi-line text entry, facilitates file attachments through a staged "pending" mechanism, and manages command/agent mode transitions. It acts as a bridge between raw user keystrokes and the system's event-driven architecture by triggering lifecycle events in [core/events.md](core/events.md) and structuring messages according to [core/llms/base_llm.md](core/llms/base_llm.md).
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- No environment lookups identified.
+
+**Hardcoded Constants:**
+- `ChatRoles.USER` (Default: `"user"`)  Role identifier for user messages.
+- `ChatRoles.ASSISTANT` (Default: `"assistant"`)  Role identifier for AI responses.
+- `ChatRoles.SYSTEM` (Default: `"system"`)  Role identifier for system instructions.
+- `ChatRoles.CONTROL` (Default: `"control"`)  Role identifier for control messages.
+- `ChatRoles.TOOL` (Default: `"tool"`)  Role identifier for tool outputs.
+- `max_chat_log` (Default: `50`)  Maximum number of messages to retain in memory.
+- `terminate_tokens` (Default: `["quit", "q"]`)  Strings that trigger chat termination.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `ChatRoles` | Class | Provides constant string identifiers for message roles (`USER`, `ASSISTANT`, `SYSTEM`, `CONTROL`, `TOOL`). |
-| `PrefixCompleter` | Class | Implements `prompt_toolkit.completion.Completer` for slash-command (`/`) and file-path (`@`) autocompletion. |
-| `Chat` | Class | The primary controller managing the input loop, message history, state transitions, and event dispatching. |
-| `update_suggestions` | Method | Dynamically updates the internal lists of available commands and agents. |
-| `loop` | Method | Executes the continuous blocking execution cycle of the chat interface. |
-| `process_loop_frame` | Method | Orchestrates a single iteration of the input lifecycle: prompt rendering, input capture, and routing. |
-| `_handle_file_attachment` | Method | Reads file contents from disk and stages them in `pending_files` for inclusion in the next message. |
-| `send_chat` | Method | Dispatches a user message to the system and triggers `EVENT_CHAT_SENT`. |
-| `run_command` | Method | Routes string inputs to specific internal handlers like `/clear` or `/agent`. |
-| `chat_finished` | Method | Finalizes an assistant response, updates message history, and resets the current message state. |
+| `ChatRoles` | Class | Provides constant string identifiers for message roles. |
+| `PrefixCompleter` | Class | Custom `prompt_toolkit` completion engine for `/` commands and `@` file paths. |
+| `Chat` | Class | The core engine managing the input loop, state, and event dispatching. |
+| `update_suggestions` | Method | Dynamically updates available command and agent lists. |
+| `loop` | Method | Executes the continuous blocking input cycle. |
+| `process_loop_frame` | Method | Handles the logic for a single input event (parsing commands, files, or chat). |
+| `_handle_file_attachment`| Method | Reads file content from disk and stages it in `pending_files`. |
+| `send_chat` | Method | Wraps content into a `BaseModel` message and triggers the chat event. |
+| `run_command` | Method | Routes user input to specific command handlers like `/clear` or `/agent`. |
+| `chat_finished` | Method | Finalizes the current turn and updates the message history. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: 
-    1. Inherits event dispatching capabilities from `Events`.
-    2. Initializes state: `terminate=False`, `messages=[]`, `pending_files={}`, `agent_mode_active=False`, `multiline_mode=False`.
-    3. Configures `PromptSession` with `InMemoryHistory`.
-    4. Instantiates `PrefixCompleter` with provided commands.
-    5. Sets up `KeyBindings` for toggling `multiline_mode` via `escape` or `enter`.
+## 4. Execution Logic & Flow
+- **Initialization**: Instantiates `PromptSession` with `InMemoryHistory`, sets up `KeyBindings` for multi-line toggling, and initializes empty state for `messages`, `pending_files`, and `agent_mode_active`.
 - **Data Path**: 
-    1. **Input Capture**: `prompt_session.prompt` captures raw string from `stdin`.
-    2. **Pre-processing**: Strips whitespace; checks for `@` prefix (file attachment) or `/` prefix (command).
-    3. **Context Aggregation**: If `pending_files` contains data, it is serialized into a formatted string block and prepended to the user's text.
-    4. **Dispatch**: 
-        - If `agent_mode_active`: Triggers `EVENT_AGENT_RUN_REQUESTED`.
-        - If command: Triggers `EVENT_COMMAND_STARTED`.
-        - If standard text: Triggers `EVENT_CHAT_SENT`.
-    5. **Output**: `BaseModel.create_message` wraps the text into a structured dictionary for the `messages` list.
+    1. **Capture**: `prompt_session.prompt()` captures user input.
+    2. **Classification**: 
+        - If starts with `@`: Triggers `_handle_file_attachment` $\rightarrow$ Updates `pending_files`.
+        - If starts with `/`: Triggers `run_command` $\rightarrow$ Executes internal command.
+        - If `agent_mode_active`: Combines `pending_files` with input $\rightarrow$ Triggers `EVENT_AGENT_RUN_REQUESTED`.
+        - Otherwise: Combines `pending_files` with input $\rightarrow$ Triggers `EVENT_CHAT_SENT`.
+    3. **Transformation**: Text is wrapped into `BaseModel.create_message` objects.
+    4. **Output**: Results are dispatched via events to be handled by external listeners.
 - **Conditional Branching**:
-    - **Mode Check**: If `agent_mode_active` is `True`, input is treated as a task rather than a standard chat message.
-    - **Attachment Check**: If input starts with `@`, execution halts to perform file I/O and updates `pending_files`.
-    - **Command Check**: If input starts with `/`, the logic routes to `run_command` instead of `send_chat`.
-    - **Multiline Check**: `multiline_mode` determines if the prompt accepts single-line or multi-line input via `prompt_toolkit` filters.
+    - `multiline_mode`: Determines if `prompt_toolkit` allows line breaks.
+    - `agent_mode_active`: Changes input interpretation from standard chat to a single task execution.
+    - `waiting_for_response` / `running_command`: Controls the UI state (toolbar and prompt prefix) and prevents overlapping input cycles.
 
-## 4. Resource Dependencies
+## 5. Resource Dependencies
 - **Standard Libraries**: `os`, `datetime`
-- **Internal Modules**: `core.events.Events`, `core.llms.base_llm.BaseModel`, `functions` (as `func`)
-- **External Packages**: `prompt_toolkit`, `color` (internal module/package)
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `max_chat_log = 50`
-    - `terminate_tokens = ["quit", "q"]`
-    - `user_prompt = "\nUser: "`
-    - `assistant_prompt = "Assistant: "`
-- **Environment Lookups**: None.
+- **Internal Modules**: 
+    - [core/events.md](core/events.md)
+    - [color.md](color.md)
+    - [core/llms/base_llm.md](core/llms/base_llm.md)
+    - [functions.md](functions.md)
+- **External Packages**: `prompt_toolkit`

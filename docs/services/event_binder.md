@@ -1,26 +1,33 @@
 ## 1. Architectural Role
-Acts as a static orchestration utility responsible for registering callback listeners to specific event triggers within `Chat` and `BaseModel` instances.
+The `EventBinder` acts as a static orchestration utility responsible for the decoupling of core application logic from specific event implementations. It serves as the central wiring mechanism that connects lifecycle events from the [chat](chat/chat.md) system and the [base_llm](core/llms/base_llm.md) engine to external callback functions, ensuring that message transmission, output requests, and stream completions are properly routed within the application lifecycle.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+No environment lookups identified.
+
+**Hardcoded Constants:**
+No hardcoded constants identified.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `EventBinder` | Class | Provides a namespace for static methods to manage event subscriptions. |
-| `bind_core_events` | Static Method | Orchestrates the attachment of four distinct callbacks to `Chat` and `BaseModel` event systems. |
+| `EventBinder` | Class | Provides static methods for attaching event listeners to core modules. |
+| `bind_core_events` | Static Method | Orchestrates the attachment of specific callbacks to `Chat` and `BaseModel` event registries. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: No instance state is maintained; the class is used via static access.
+## 4. Execution Logic & Flow
+- **Initialization**: The class is stateless and accessed via static method calls; no instance state is maintained.
 - **Data Path**: 
-    1. **Input**: Receives `chat` (Chat instance), `llm` (BaseModel instance), and four `Callable` objects.
-    2. **Processing**: Executes sequential calls to `.add_event()` on the provided objects.
-    3. **Output**: Side-effect driven; modifies the internal listener registries of the passed `chat` and `llm` objects.
+    1. Receives instances of [chat](chat/chat.md) and [base_llm](core/llms/base_llm.md) along with four `Callable` arguments.
+    2. Accesses the event registry of the provided `chat` object.
+    3. Accesses the event registry of the provided `llm` object.
+    4. Registers the provided callbacks to the internal event dispatchers of the target objects.
 - **Conditional Branching**: 
-    - Checks if `llm` is truthy before attempting to register the `BaseModel.STREA_MING_FINISHED_EVENT` listener to prevent null pointer exceptions.
+    - Performs a null-check on the `llm` parameter; if the LLM instance is provided, it proceeds to bind the `STRTEAING_FINISHED_EVENT`; if `None`, it skips LLM event binding to prevent attribute errors.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `typing` (Callable)
-- **Internal Modules**: `core.llms.base_llm` (BaseModel), `chat.chat` (Chat)
-- **External Packages**: None
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: None.
-- **Environment Lookups**: None.
+## 5. Resource Dependencies
+- **Standard Libraries**: 
+    - `typing` (for `Callable`)
+- **Internal Modules**: 
+    - [core/llms/base_llm.md](core/llms/base_llm.md)
+    - [chat/chat.md](chat/chat.md)
+- **External Packages**: None identified.

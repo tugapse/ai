@@ -1,39 +1,41 @@
 ## 1. Architectural Role
-Manages the persistence, retrieval, and synchronization of chat message history between volatile RAM (`Chat` object) and non-volatile disk storage (JSON files).
+The `HistoryManager` class serves as the persistence layer for conversational state, responsible for the lifecycle of chat logs and thinking traces. It facilitates session resumption by synchronizing in-memory message lists within [chat/chat.md](chat/chat.md) with disk-based JSON storage, implements deduplication logic to prevent redundant message injection, and manages the hot-swapping of active memory contexts during session transitions.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- `session_chat_filepath` (via `initialize_session`)  Path to the JSON file containing conversation history.
+- `session_thinking_log_filepath` (via `initialize_session`)  Path to the file recording model reasoning/thinking processes.
+- `session_workspace_path` (via `initialize_session`)  The root directory for the current active workspace.
+
+**Hardcoded Constants:**
+- `indent=4` (Default: `4`)  Formatting for JSON serialization in `save`.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `HistoryManager` | Class | Orchestrates session state, history loading, message buffering, and disk serialization. |
-| `initialize_session` | Method | Configures file paths for chat, thinking logs, and workspace, then triggers `load_history`. |
-| `switch_active_session` | Method | Performs a hot-swap of the active file by clearing current RAM context and reloading the new target. |
-| `load_history` | Method | Reads JSON from disk and appends messages to `self.chat.messages` while filtering for existing content to prevent duplicates. |
-| `add_message` | Method | Formats raw input via `BaseModel.create_message` and appends it to the active session if not a duplicate of the last message. |
-| `save` | Method | Serializes the current `self.chat.messages` list to the configured `chat_filepath` as a JSON file. |
-| `get_log_path` | Method | Returns the configured thinking log path or a default path derived from `func.get_root_directory()`. |
+| `HistoryManager` | Class | Orchestrates loading, saving, and switching of chat history files. |
+| `initialize_session` | Method | Configures file paths and triggers initial history load. |
+| `switch_active_session` | Method | Clears current RAM context and re-routes to a new file path. |
+| `load_history` | Method | Deserializes JSON from disk and appends non-duplicate messages to the chat object. |
+| `add_message` | Method | Validates and encapsulates new messages using `BaseModel` before appending to session. |
+| `save` | Method | Serializes the current message list to the active chat filepath. |
+| `get_log_path` | Method | Returns the thinking log path or a default path in the root logs directory. |
 
-## 3. Execution Logic & Flow
-- **Initialization**:
-    1. `__init__` accepts a `Chat` instance.
-    2. Internal state is initialized with `chat_filepath`, `thinking_log_filepath`, and `workspace_path` set to `None`.
-- **Data Path**:
-    - **Input (Load)**: Disk (JSON) $\rightarrow$ `json.load` $\rightarrow$ Content deduplication check $\rightarrow$ `self.chat.messages` (RAM).
-    - **Input (Add)**: Raw `role`/`content` $\rightarrow$ `BaseModel.create_message` $\rightarrow$ Duplicate check $\rightarrow$ `self.chat.messages` (RAM).
-    - **Output (Save)**: `self.chat.messages` (RAM) $\rightarrow$ `json.dump` $\rightarrow$ Disk (JSON).
+## 4. Execution Logic & Flow
+- **Initialization**: Sets `chat_filepath`, `thinking_log_filepath`, and `workspace_path` to `None`.
+- **Data Path (Load)**: Disk (JSON) $\rightarrow$ `json.load()` $\rightarrow$ Content Deduplication $\rightarrow$ `chat.messages` (Memory).
+- **Data Path (Add)**: Input (Role/Content) $\rightarrow$ `BaseModel.create_message` $\rightarrow$ Duplication Check $\rightarrow$ `chat.messages` (Memory).
+- **Data Path (Save)**: `chat.messages` (Memory) $\rightarrow$ `json.dump()` $\rightarrow$ Disk (JSON).
 - **Conditional Branching**:
-    - `switch_active_session`: If `new_chat_filepath` matches current `chat_filepath`, execution halts.
-    - `load_history`: If `chat_filepath` is null or file does not exist, execution halts.
-    - `load_history`: Iterates through `saved_messages`; if `msg.get("content")` exists in `existing_contents`, the message is skipped.
-    - `add_message`: If `content` is empty/whitespace or matches the content of the last message in `self.chat.messages`, execution halts.
-    - `save`: If `chat_filepath` is null, execution halts.
+    - `switch_active_session`: If `new_chat_filepath` matches current, abort to prevent redundant reloading.
+    - `load_history`: If file does not exist or is empty, abort.
+    - `load_history`: Iterates through `saved_messages`; skips if `content` matches an entry already in `existing_contents`.
+    - `add_message`: Skips if content is empty/whitespace or if the content is identical to the last message in the list.
 
-## 4. Resource Dependencies
+## 5. Resource Dependencies
 - **Standard Libraries**: `os`, `json`, `typing`
-- **Internal Modules**: `chat.chat.Chat`, `chat.chat.ChatRoles`, `core.llms.base_llm.BaseModel`, `functions` (as `func`)
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `"/logs/active_thinking.log"` (Default fallback path in `get_log_path`).
-    - `indent=4` (JSON serialization format).
-- **Environment Lookups**: 
-    - `func.get_root_directory()` (Used for default log path resolution).
+- **Internal Modules**: 
+    - [chat/chat.md](chat/chat.md)
+    - [core/llms/base_llm.md](core/llms/base_llm.md)
+    - [functions.md](functions.md)
+- **External Packages**: None identified.

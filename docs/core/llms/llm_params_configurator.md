@@ -1,38 +1,40 @@
 ## 1. Architectural Role
-Acts as a translation layer that normalizes user-provided generation parameters into ecosystem-specific key-value pairs for different LLM backends.
+`LLMParamsConfigurator` serves as a translation and validation layer designed to normalize heterogeneous LLM generation parameters into library-specific formats. It acts as a middleware component that intercepts generic user-defined configurations and maps them to the expected schemas of specific backends, such as Hugging Face Transformers or GGUF loaders, ensuring compatibility across different model implementations like [huggingface_model.md](core/llms/huggingface_model.md) and [gguf_model.md](core/llms/gguf_model.md).
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+No environment lookups identified.
+
+**Hardcoded Constants:**
+- `available_properties` (Default: `dict`)  The master schema of supported LLM generation keys and their default values (e.g., `temperature: 1.0`, `top_p: 1.0`).
+- `model_param_compatibility` (Default: `dict`)  A nested mapping defining how internal keys translate to specific target library keys for `huggingface` and `gguf` ecosystems.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `LLMParamsConfigurator` | Class | Manages parameter availability definitions and backend-specific mapping logic. |
-| `__init__` | Method | Initializes the internal registry of available properties and model-specific compatibility maps. |
-| `prepare_llm_params` | Method | Transforms a raw dictionary of user parameters into a filtered, renamed dictionary compatible with a target `model_type`. |
+| `LLMParamsConfigurator` | Class | Manages the lifecycle of parameter mapping and validation. |
+| `prepare_llm_params` | Method | Transforms a `user_params` dictionary into a model-specific dictionary by filtering against `available_properties` and renaming keys via `model_param_compatibility`. |
 
-## 3. Execution Logic & Flow
+## 4. Execution Logic & Flow
 - **Initialization**: 
-    1. Sets `self.available_properties` with a hardcoded dictionary of valid LLM generation keys and default values.
-    2. Sets `self.model_param_compatibility` containing nested dictionaries that map internal property names to `huggingface` or `gguf` specific keys.
+    1. Populates `available_properties` with a baseline set of generation hyper-parameters.
+    2. Populates `model_param_compatibility` with translation maps for `huggingface` and `gguf`.
 - **Data Path**: 
-    1. **Input**: `model_type` (string) and `user_params` (dictionary).
-    2. **Validation**: Checks if `model_type` exists within `self.model_param_compatibility`.
-    3. **Iteration**: Loops through each key-value pair in `user_params`.
-    4. **Filtering/Mapping**: 
-        - Verifies key exists in `self.available_properties`.
-        - Verifies key exists in the selected `model_type` map.
-        - Renames key to `target_param_name` if both conditions are met.
-    5. **Output**: A new dictionary `prepared_params` containing only the mapped and valid parameters.
+    1. **Input**: `model_type` (str) and `user_params` (dict).
+    2. **Validation**: Check if `model_type` exists in `model_param_compatibility`.
+    3. **Iteration**: Loop through each key-value pair in `user_params`.
+    4. **Verification**: 
+        - Check if key exists in `available_properties`.
+        - Check if key is explicitly mapped for the target `model_type`.
+    5. **Transformation**: If valid, rename the key based on the compatibility map and assign the value.
+    6. **Output**: A dictionary containing only the mapped, valid parameters.
 - **Conditional Branching**:
-    - `if model_type not in self.model_param_compatibility`: Raises `ValueError` if the backend is unknown.
-    - `if user_param_name in self.available_properties`: Determines if the parameter is a recognized global property.
-    - `if user_param_name in param_map`: Determines if the recognized property is supported by the specific target backend.
+    - `model_type` not in `model_param_compatibility` $\rightarrow$ Raise `ValueError`.
+    - `user_param_name` not in `available_properties` $\rightarrow$ Print warning and ignore.
+    - `user_param_name` not in `param_map` $\rightarrow$ Print warning and ignore.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: None
-- **Internal Modules**: None
-- **External Packages**: None
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `available_properties`: Dictionary containing `temperature`, `top_p`, `top_k`, `presence_penalty`, `frequency_penalty`, `max_tokens`, `do_sample`, `num_beams`, `no_repeat_ngram_size`, `stop_sequences`, `early_stopping`, `length_penalty`, `num_return_sequences`, `bad_words_ids`, `eos_token_id`, `min_length`.
-    - `model_param_compatibility`: Mapping schemas for `huggingface` and `gguf`.
-- **Environment Lookups**: None
+## 5. Resource Dependencies
+- **Standard Libraries**: None identified.
+- **Internal Modules**: 
+    - None identified.
+- **External Packages**: None identified.

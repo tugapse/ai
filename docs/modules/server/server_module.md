@@ -1,36 +1,43 @@
 ## 1. Architectural Role
-Acts as a lifecycle-managed wrapper that encapsulates the `BrainHub` logic and a `FastAPI` application, hosting them within a non-blocking `uvicorn` server thread.
+`JarvisServerModule` acts as the lifecycle orchestrator for the JARVIS Brain Server, serving as a bridge between the modular system architecture and a network-accessible FastAPI interface. It encapsulates the instantiation of the [brain_hub](modules/server/brain_hub.md), manages the asynchronous execution of the [uvicorn](https://pypi.org/project/uvicorn/) server in a background thread, and ensures graceful resource deallocation (VRAM release) via the [base_module](modules/base_module.md) lifecycle protocols.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- `host` (via `__init__`)  IP address to bind the server.
+- `port` (via `__init__`)  Port for the API listener.
+
+**Hardcoded Constants:**
+- `host` (Default: `"0.0.0.0"`)  Default binding address.
+- `port` (Default: `8000`)  Default API port.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `JarvisServerModule` | Class | Manages the lifecycle (init, start, shutdown) of the neural server component. |
-| `__init__` | Method | Sets network parameters (`host`, `port`) and initializes internal state holders. |
-| `initialize` | Method | Instantiates `BrainHub`, links the `orchestrator`, and constructs the `FastAPI` app via `create_app`. |
-| `start` | Method | Spawns a daemon `threading.Thread` to execute the `uvicorn.Server.run` loop. |
-| `get_instance` | Method | Provides access to the active `BrainHub` instance. |
-| `shutdown` | Method | Signals the `uvicorn.Server` to exit and triggers `BrainHub.unload_brain()` to release VRAM. |
+| `JarvisServerModule` | Class | Manages the lifecycle (init, start, shutdown) of the server module. |
+| `initialize` | Method | Configures the [brain_hub](modules/server/brain_hub.md), creates the FastAPI app via [app](modules/server/app.md), and prepares the Uvicorn server. |
+| `start` | Method | Spawns a daemon thread to execute the Uvicorn server loop. |
+| `get_instance` | Method | Exposes the active [brain_hub](modules/server/brain_hub.md) instance to the caller. |
+| `shutdown` | Method | Signals the Uvicorn server to exit and triggers `unload_brain` on the [brain_hub](modules/server/brain_hub.md). |
 
-## 3. Execution Logic & Flow
+## 4. Execution Logic & Flow
 - **Initialization**: 
-    1. `__init__` assigns `host` and `port` and sets `_brain_hub`, `_fastapi_app`, `_server_thread`, and `_uvicorn_server` to `None`.
-    2. `initialize` performs dependency injection by creating `BrainHub(config)`, assigning the `orchestrator`, and calling `create_app`.
-    3. `initialize` configures the `uvicorn.Config` and instantiates the `uvicorn.Server` object.
+    1. Receives `config`, `orchestrator`, and `history_manager`.
+    2. Instantiates `BrainHub` and injects the `orchestrator`.
+    3. Calls `create_app` from [app](modules/server/app.md) to build the FastAPI instance.
+    4. Wraps the app in a `uvicorn.Config` and `uvicorn.Server` object.
 - **Data Path**: 
-    - **Configuration Input** (`config`, `orchestrator`) $\rightarrow$ **Internal State** (`BrainHub`, `FastAPI` app) $\rightarrow$ **Network Interface** (`uvicorn.Server` on `host:port`).
-- **Conditional Branching**:
-    - `initialize`: If `self._brain_hub` is already present, it logs a warning and aborts.
-    - `start`: If `self._uvicorn_server` is not initialized, it logs an error and aborts.
-    - `shutdown`: Checks for existence of `_uvicorn_server` and `_brain_hub` before attempting to signal exit or unload resources.
+    1. `start()` is called $\rightarrow$ `threading.Thread` targets `self._uvicorn_server.run` $\rightarrow$ Thread enters `join()` $\rightarrow$ Server listens on `host:port`.
+- **Conditional Branching**: 
+    - `initialize`: If `self._brain_hub` is already present, logs a warning and aborts.
+    - `start`: If `self._uvicorn_server` is not initialized, logs an error and aborts.
+    - `shutdown`: Checks for existence of `_uvicorn_server` and `_brain_hub` before attempting teardown.
 
-## 4. Resource Dependencies
+## 5. Resource Dependencies
 - **Standard Libraries**: `threading`, `typing`
-- **Internal Modules**: `functions` (as `func`), `services.history_manager`, `modules.base_module`, `.brain_hub`, `.app`
+- **Internal Modules**: 
+    - [functions](functions.md)
+    - [services/history_manager.md](services/history_manager.md)
+    - [modules/base_module.md](modules/base_module.md)
+    - [modules/server/brain_hub.md](modules/server/brain_hub.md)
+    - [modules/server/app.md](modules/server/app.md)
 - **External Packages**: `uvicorn`, `fastapi`
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - Default `host`: `"0.0.0.0"`
-    - Default `port`: `8000`
-    - `log_level`: `"info"`
-- **Environment Lookups**: None (parameters are passed via `__init__` or `initialize`).

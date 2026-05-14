@@ -1,36 +1,40 @@
 ## 1. Architectural Role
-Provides a buffered streaming mechanism to control the granularity and frequency of LLM token output to the console based on specific formatting strategies.
+The `OutputPrinter` class acts as a stream-processing middleware responsible for controlling the temporal granularity of LLM token output displayed to the user. It manages internal buffers to implement various printing strategiesranging from raw token streaming to line-buffered or frequency-based chunkingensuring that the console output remains readable and synchronized with other system components like [modules/voice/vibe_module.md](modules/voice/vibe_module.md) via its final state capture mechanism.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- No environment lookups identified.
+
+**Hardcoded Constants:**
+- `print_mode` (Default: `"token"`)  Determines the buffering logic strategy.
+- `tokens_per_print` (Default: `5`)  Sets the threshold for chunk-based output in `every_x_tokens` or `line_or_x_tokens` modes.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `OutputPrinter` | Class | Manages stateful buffers and logic for conditional token printing. |
-| `__init__` | Method | Initializes print mode, token thresholds, and string/count buffers. |
-| `process_and_print` | Method | Orchestrates the transformation of a token and immediate execution of `func.out`. |
-| `flush_buffers` | Method | Force-prints all remaining content in buffers to the console. |
-| `process_token` | Method | Evaluates a token against the `print_mode` logic to determine if a string should be returned. |
-| `flush` | Method | Returns remaining buffered content as a string for external capture (e.g., Voice Module) without printing. |
+| `OutputPrinter` | Class | Orchestrates token buffering and conditional printing logic. |
+| `process_and_print` | Method | Executes the transformation of a token and immediately triggers the output via [functions.md](functions.md). |
+| `flush_buffers` | Method | Forces the immediate printing of all remaining content in current buffers. |
+| `process_token` | Method | The core logic engine; calculates whether a token (or group of tokens) meets the criteria for display based on `print_mode`. |
+| `flush` | Method | Captures and returns buffered content as a string for external consumption (e.g., Voice Modules). |
 
-## 3. Execution Logic & Flow
-- **Initialization**: Sets `print_mode` (string), `tokens_per_print` (integer, minimum 1), `line_buffer` (empty string), `token_buffer` (empty string), and `buffered_token_count` (0).
+## 4. Execution Logic & Flow
+- **Initialization**: Sets the `print_mode` and `tokens_per_print` constraints; initializes `line_buffer`, `token_buffer`, and `buffered_token_count` to zero/empty states.
 - **Data Path**: 
-    1. **Input**: Single `token_to_display` string passed to `process_and_print`.
-    2. **Processing**: `process_token` appends the token to `line_buffer` or `token_buffer` and checks for exit conditions (newline character or `tokens_per_print` threshold).
-    3. **Output**: If conditions are met, a substring is returned to `process_and_print`, which calls `func.out` with `flush=True`.
+    1. `process_and_print` receives `token_to_display`.
+    2. `process_token` appends the token to the appropriate internal buffer (`line_buffer` or `token_buffer`).
+    3. Logic evaluates if a delimiter (`\n`) is present or if `buffered_token_count` meets the threshold.
+    4. If criteria are met, a substring is returned; otherwise, `None` is returned.
+    5. If a string is returned, `func.out` is called to write to the console.
 - **Conditional Branching**:
-    - `print_mode == "token"`: Immediate return of input.
-    - `print_mode == "line"`: Buffers until `\n` is detected; returns all content preceding the last newline.
-    - `print_mode == "every_x_tokens"`: Buffers until `buffered_token_count` reaches `tokens_per_print`.
-    - `print_mode == "line_or_x_tokens"`: Prioritizes newline detection (resets count); falls back to token count threshold if no newline is present.
-    - `else` (Unknown Mode): Logs warning via `func.log` and defaults to immediate token return.
+    - `token`: Zero buffering; immediate return.
+    - `line`: Buffers until `\n` is detected; returns all content preceding the newline.
+    - `every_x_tokens`: Buffers until `buffered_token_count` reaches `tokens_per_print`.
+    - `line_or_x_tokens`: Prioritizes newline detection; if no newline, falls back to the token count threshold.
+    - `Unknown mode`: Logs a warning via `func.log` and reverts to `token` mode.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: None.
-- **Internal Modules**: `functions` (aliased as `func`).
-- **External Packages**: None.
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - Default `tokens_per_print`: `5`.
-    - Minimum `tokens_per_print` enforcement: `max(1, tokens_per_print)`.
-- **Environment Lookups**: None.
+## 5. Resource Dependencies
+- **Standard Libraries**: None identified.
+- **Internal Modules**: 
+    - [functions.md](functions.md)
+- **External Packages**: None identified.

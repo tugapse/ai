@@ -1,41 +1,43 @@
 ## 1. Architectural Role
-Provides an abstract and asynchronous framework for executing command strings via callback-driven lifecycle management.
+This module provides a command execution framework designed to decouple command invocation from execution timing. It establishes an abstract base class, `CommandExecutor`, to define a standard interface for command processing and output requirements, and provides a concrete `AsyncExecutor` implementation that leverages threading to run tasks in the background. This architecture enables non-blocking command execution, allowing the system to continue processing while long-running operations complete and notify the caller via a callback mechanism. This file is part of the [chat/command_executor.md](src/ai/chat/command_executor.py) component.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- No environment lookups identified.
+
+**Hardcoded Constants:**
+- `thread_name` (Default: `"Async Executor"`)  The identifier assigned to the background thread created by `AsyncExecutor`.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `ExecutorResult` | Class | Data container for command outcomes, encapsulating `result` and `error`. |
-| `CommandExecutor` | Class | Abstract base class defining the interface for command execution and callback triggering. |
-| `CommandExecutor.__init__` | Method | Initializes the executor with a `command` string and a `finish_callback`. |
-| `CommandExecutor._trigger_callback` | Method | Wraps `result` and `error` into an `ExecutorResult` and invokes `finished_callback`. |
-| `CommandExecutor.run` | Method | Abstract method intended to execute the command; raises `NotImplementedError`. |
-| `CommandExecutor.output_requested` | Method | Abstract method to check if output is required; raises `NotImplementedError`. |
-| `AsyncExecutor` | Class | Concrete implementation of `CommandExecutor` that offloads execution to a background thread. |
-| `AsyncExecutor.__init__` | Method | Initializes `AsyncExecutor` with base parameters and sets `thread_name` to "Async Executor". |
-| `AsyncExecutor.run` | Method | Spawns a `Thread` targeting `_run_thread`; supports `auto_start` and `wait` (join) logic. |
-| `AsyncExecutor._run_thread` | Method | Internal thread target; simulates command execution and handles exception catching for the callback. |
-| `AsyncExecutor.terminate` | Method | Nullifies the `thread` reference. |
+| `ExecutorResult` | Class | Data container for the outcome of an execution, encapsulating the `result` and any potential `error`. |
+| `CommandExecutor` | Class | Abstract base class defining the contract for command execution and output status checks. |
+| `_trigger_callback` | Method | Internal utility to wrap results/errors in an `ExecutorResult` and invoke the `finished_callback`. |
+| `run` | Method | Abstract method to initiate execution; must be implemented by subclasses. |
+| `output_requested` | Method | Abstract method to determine if the command requires output monitoring; must be implemented by subclasses. |
+| `AsyncExecutor` | Class | Concrete implementation of `CommandExecutor` that utilizes `threading.Thread` for asynchronous task processing. |
+| `run` (Async) | Method | Spawns or manages a thread to execute `_run_thread`, with options to `auto_start` or `wait` (join). |
+| `_run_thread` | Method | The internal worker loop that simulates command execution and handles exception catching for the thread. |
+| `terminate` | Method | Nullifies the thread reference. |
 
-## 3. Execution Logic & Flow
+## 4. Execution Logic & Flow
 - **Initialization**: 
-    - `CommandExecutor` instance is created with a specific command string and a callback function.
-    - `AsyncExecutor` instance extends this by initializing a `thread_name` and a `thread` pointer set to `None`.
+    - `CommandExecutor` stores the target `command` and a `finish_callback`.
+    - `AsyncExecutor` initializes with a default thread name `"Async Executor"` and sets the thread reference to `None`.
 - **Data Path**: 
-    - **Input**: A command string is passed during instantiation.
-    - **Processing**: `AsyncExecutor.run` instantiates a `threading.Thread`. The `_run_thread` method executes, simulating a result string based on `self._command_string`.
-    - **Output**: The resulting string (or an `Exception`) is encapsulated in an `ExecutorResult` object and passed to `self.finished_callback`.
+    - **Input**: Command string $\rightarrow$ `run()` $\rightarrow$ `_run_thread()`.
+    - **Processing**: `_run_thread()` executes logic (currently a simulated success string) inside a `try-except` block.
+    - **Output**: `_trigger_callback()` $\rightarrow$ `ExecutorResult(result, error)` $\rightarrow$ `finished_callback(result_obj)`.
 - **Conditional Branching**:
-    - **`AsyncExecutor.run`**: 
-        - If `auto_start` is `False`, the method returns immediately without spawning a thread.
-        - If `wait` is `True`, the calling thread blocks on `self.thread.join()`.
-    - **`AsyncExecutor._run_thread`**: 
-        - `try` block: Executes successful simulation and triggers callback with `result`.
-        - `except` block: Catches any `Exception` and triggers callback with `None` and the `error` object.
+    - In `AsyncExecutor.run()`: If `auto_start` is `False`, the method returns immediately without spawning a thread.
+    - In `AsyncExecutor.run()`: If `wait` is `True`, the main thread blocks on `self.thread.join()` until the worker completes.
+    - In `AsyncExecutor._run_thread()`: If an exception occurs, the `error` payload is sent to the callback instead of the `result`.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `threading.Thread`
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `thread_name = "Async Executor"`
-    - Simulated success message format: `"Successfully executed: {self._command_string}"`
+## 5. Resource Dependencies
+- **Standard Libraries**: 
+    - `threading.Thread`
+- **Internal Modules**: 
+    - No internal imports identified within this file.
+- **External Packages**: 
+    - No external packages identified.

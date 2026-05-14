@@ -1,46 +1,48 @@
 ## 1. Architectural Role
-Provides a secure, file-system-based CRUD interface for managing Markdown-formatted prompt templates within a restricted root directory.
+The `PromptManager` serves as the specialized filesystem abstraction layer within [modules/server/services/prompt_manager.md](modules/server/services/prompt_manager.md), responsible for the secure lifecycle management of Markdown-based prompt templates. It enforces strict directory traversal prevention to ensure all I/O operations remain encapsulated within a designated root directory, providing a standardized interface for listing, loading, saving, and deleting prompt assets used by the broader server architecture.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- No environment lookups identified.
+
+**Hardcoded Constants:**
+- `.md` (Default: `suffix`)  Enforced file extension for all prompt operations.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `PromptError` | Class | Base exception for all prompt-related failures. |
-| `PromptNotFoundError` | Class | Exception for missing prompt files. |
-| `InvalidPathError` | Class | Exception for directory traversal or out-of-bounds path attempts. |
-| `PromptAccessError` | Class | Exception for I/O or permission failures. |
-| `PromptManager` | Class | Primary controller for prompt lifecycle and filesystem interaction. |
-| `PromptManager.__init__` | Method | Sets the absolute `root_dir` and optional `logger`. |
-| `PromptManager._log` | Method | Internal utility for safe, non-breaking execution of the `logger` callback. |
-| `PromptManager._resolve_prompt_path` | Method | Validates and transforms relative strings into absolute `.md` paths while preventing directory traversal. |
-| `PromptManager.list_prompts` | Method | Recursively scans the `root_dir` for `.md` files, returning metadata dictionaries. |
-| `PromptManager.load_prompt` | Method | Reads and returns the string content of a specific `.md` file. |
-| `PromptManager.save_prompt` | Method | Writes string content to a `.md` file, creating parent directories if necessary. |
-| `PromptManager.read_prompt` | Method | Alias for `load_prompt`. |
-| `PromptManager.create_prompt` | Method | Alias for `save_prompt`; returns success message. |
-| `PromptManager.update_prompt` | Method | Alias for `save_prompt`; returns success message. |
-| `PromptManager.delete_prompt` | Method | Removes a specific `.md` file from the filesystem. |
+| `PromptError` | Class | Base exception for all prompt-related domain errors. |
+| `PromptNotFoundError` | Class | Exception raised when a file is missing from the filesystem. |
+| `InvalidPathError` | Class | Exception raised when a path violates security constraints (traversal). |
+| `PromptAccessError` | Class | Exception raised for low-level OS/IO failures. |
+| `PromptManager` | Class | Primary orchestrator for prompt filesystem operations. |
+| `_resolve_prompt_path` | Method | Internal security validator that resolves and sanitizes relative paths. |
+| `list_prompts` | Method | Scans the root directory (or sub-folders) for `.md` files and returns metadata. |
+| `load_prompt` | Method | Reads and returns the string content of a specific prompt file. |
+| `save_prompt` | Method | Writes string content to a file, creating parent directories if necessary. |
+| `read_prompt` | Method | Alias for `load_prompt`. |
+| `create_prompt` | Method | Alias for `save_prompt`; returns success message. |
+| `update_prompt` | Method | Alias for `save_prompt`; returns success message. |
+| `delete_prompt` | Method | Removes a prompt file from the filesystem. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: 
-    1. Receives `root_dir` and `logger`.
-    2. Resolves `root_dir` to an absolute path using `.resolve()`.
-    3. Stores the path and logger in the instance state.
+## 4. Execution Logic & Flow
+- **Initialization**: Sets the `root_dir` as an absolute, resolved `Path` and assigns an optional logger.
 - **Data Path**:
-    - **Read Flow**: `prompt_path` (str) $\rightarrow$ `_resolve_prompt_path` (Path validation/suffixing) $\rightarrow$ `open()` $\rightarrow$ `content` (str).
-    - **Write Flow**: `prompt_path` (str) + `content` (str) $\rightarrow$ `_resolve_prompt_path` $\rightarrow$ `mkdir(parents=True)` $\rightarrow$ `open(w)` $\rightarrow$ filesystem write.
-    - **List Flow**: `sub_folder` (str) $\rightarrow$ `rglob("*.md")` $\rightarrow$ `relative_to(root_dir)` $\rightarrow$ `Dict` metadata collection $\rightarrow$ sorted `List[Dict]`.
+    - **Input**: A relative string path (e.g., `"templates/persona"`).
+    - **Processing**: 
+        1. Check for `..` components to block traversal.
+        2. Append `.md` suffix.
+        3. Resolve to absolute path.
+        4. Verify the resolved path starts with the `root_dir` prefix.
+    - **Output**: A validated absolute `Path` object or a `PromptError` exception.
 - **Conditional Branching**:
-    - **Path Security**: Checks if `".."` exists in the path string; checks if the resolved path's prefix matches `root_dir`.
-    - **Existence Checks**: Verifies `exists()` and `is_file()` before reading or deleting.
-    - **Error Handling**: Wraps I/O operations in `try/except` blocks to re-raise specific `PromptError` subtypes.
+    - **Path Validation**: If `..` is detected in path components, `InvalidPathError` is raised.
+    - **Root Escape Check**: If `resolved.startswith(root_dir)` is false, `InvalidPathError` is raised.
+    - **File Existence**: If `path.exists()` is false during load/delete, `PromptNotFoundError` is raised.
+    - **Logger Check**: If `self.logger` is not `callable`, logging is skipped.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `pathlib.Path`, `typing` (`List`, `Dict`, `Optional`, `Any`, `Tuple`), `os`.
-- **Internal Modules**: None.
-- **External Packages**: None.
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `.md`: Forced file extension for all prompt operations.
-    - `utf-8`: Default encoding for all file I/O.
-- **Environment Lookups**: None.
+## 5. Resource Dependencies
+- **Standard Libraries**: `pathlib`, `typing`, `os`
+- **Internal Modules**: 
+    - No internal module imports identified (logic is self-contained within the file).
+- **External Packages**: None identified.

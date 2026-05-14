@@ -1,47 +1,47 @@
 ## 1. Architectural Role
-Centralizes and persists the stateful memory of individual agents and the global orchestration context to facilitate continuity and loop detection.
+The `memory_manager.py` file serves as the centralized state synchronization engine for the orchestration pipeline. It provides a structured mechanism to maintain both global orchestration context via `OrchestratorContext` and individual agent-specific cognitive states via `AgentMemory`. Its primary responsibility is to facilitate state persistence (serialization/hydration), track tool execution histories to prevent infinite loops through stagnation detection, and manage the lifecycle of message queues and historical logs for all active agents within the system.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+No environment lookups identified.
+
+**Hardcoded Constants:**
+- `notes` (Default: `"System initialized."`)  Initial state for a new agent's internal observations.
+- `current_task` (Default: `"Waiting for tasks..."`)  Initial state for an agent's active objective.
+- `occurrences_threshold` (Implicit: `3`)  Number of identical tool calls required to trigger stagnation detection.
+- `history_window_size` (Implicit: `5`)  Maximum number of fingerprints kept in `action_history_fp` to detect loops.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `AgentMemory` | Class | Data structure for storing an agent's notes, message queues, history, current task, and manifest. |
-| `OrchestratorContext` | Class | Data structure for storing global orchestration state including tool results, tasks, plans, and action history. |
-| `MemoryManager` | Class | Primary controller for managing agent/context lifecycles, serialization, and state updates. |
-| `__init__` | Method | Instantiates `OrchestratorContext` and a dictionary of `AgentMemory` objects based on provided names. |
-| `serialize` | Method | Converts the entire live state into a dictionary format for persistence. |
-| `hydrate` | Method | Restores state from a dictionary, mapping keys to existing attributes to ensure compatibility. |
-| `get_agent_memory` | Method | Retrieves the `AgentMemory` instance associated with a specific agent name. |
-| `add_message_to_agent` | Method | Appends a payload to an agent's `messages_received` list, creating the agent if missing. |
-| `record_tool_result` | Method | Logs tool execution to global context, increments step index on success, and notifies the agent. |
-| `update_agent_history_and_notes` | Method | Flushes `messages_received` into `history`, updates `notes` and `manifest`, and appends the agent's own thought/response. |
-| `check_stagnation` | Method | Generates a fingerprint of tool calls to detect repeated patterns (>= 3 occurrences in last 5 calls). |
-| `clear` | Method | Resets an agent's specific memory fields and clears the global `tool_results`. |
+| `AgentMemory` | Class | Dataclass representing the localized state, history, and manifest of a single agent. |
+| `OrchestratorContext` | Class | Dataclass representing the global pipeline state, including tool results and task progress. |
+| `MemoryManager` | Class | The primary controller for managing, persisting, and updating agent and orchestrator states. |
+| `serialize` | Method | Transforms the live memory objects into a dictionary for JSON/persistence operations. |
+| `hydrate` | Method | Restores state from a dictionary, safely mapping keys to existing attributes. |
+| `get_agent_memory` | Method | Retrieves the `AgentMemory` object for a specific agent identifier. |
+| `add_message_to_agent` | Method | Appends a payload to an agent's `messages_received` queue; initializes memory if missing. |
+| `record_tool_result` | Method | Logs tool outputs to global context and agent messages; increments `current_step_index` on success. |
+| `update_agent_history_and_notes` | Method | Transitions received messages to permanent history and updates agent thoughts/manifests. |
+| `check_stagnation` | Method | Detects repetitive tool-parameter patterns to prevent architectural loops. |
+| `clear` | Method | Resets an agent's memory and wipes the global tool result context. |
 
-## 3. Execution Logic & Flow
+## 4. Execution Logic & Flow
 - **Initialization**: 
-    1. `MemoryManager` is instantiated with a list of `agent_names`.
-    2. An `OrchestratorContext` is created with default empty lists/strings.
-    3. A dictionary `self.agents` is populated with `AgentMemory` instances for every name in the input list.
-- **Data Path**:
-    - **Input (External/System)** $\rightarrow$ `record_tool_result` or `add_message_to_agent` $\rightarrow$ Updates `context.tool_results` or `agent.messages_received`.
-    - **Input (Agent Response)** $\rightarrow$ `update_agent_history_and_notes` $\rightarrow$ `messages_received` is moved to `history` $\rightarrow$ `notes`/`manifest` are updated $\rightarrow$ `messages_received` is cleared.
-    - **Input (State Dump)** $\rightarrow$ `serialize` $\rightarrow$ Dictionary output.
-    - **Input (State Load)** $\rightarrow$ `hydrate` $\rightarrow$ Attribute-by-attribute update of existing objects.
+    - Instantiates `OrchestratorContext`.
+    - Maps `agent_names` to individual `AgentMemory` instances.
+- **Data Path (Message Processing)**:
+    - `add_message_to_agent` $\rightarrow$ `messages_received` queue.
+    - `update_agent_history_and_notes` $\rightarrow$ moves `messages_received` to `history` $\rightarrow$ appends `SELF` thought/response $\rightarrow$ clears `messages_received`.
+- **Data Path (Tool Execution)**:
+    - `record_tool_result` $\rightarrow$ updates `context.tool_results` $\rightarrow$ checks `status == "SUCCESS"` $\rightarrow$ increments `current_step_index`.
 - **Conditional Branching**:
-    - `hydrate`: Checks if `data` exists; iterates through keys only if `hasattr` returns true to prevent injection of undefined attributes.
-    - `record_tool_result`: Checks if `result.get("status") == "SUCCESS"` to decide whether to increment `context.current_step_index`.
-    - `update_agent_history_and_notes`: Checks if `memory` exists for the requested `agent_name` before attempting updates.
-    - `check_stagnation`: Compares `occurrences` of the current tool fingerprint against a threshold of 3; manages a sliding window of the last 5 actions.
+    - `hydrate`: Checks `if not data` and `if hasattr` to ensure safe attribute assignment during state restoration.
+    - `update_agent_history_and_notes`: Validates existence of memory via `if not memory`.
+    - `check_stagnation`: Generates a fingerprint $\rightarrow$ checks if `occurrences >= 3` $\rightarrow$ returns `True` (loop detected) or `False`.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `json`, `dataclasses` (`dataclass`, `field`, `asdict`), `typing` (`Dict`, `Any`, `Optional`, `List`).
-- **Internal Modules**: None.
-- **External Packages**: None.
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `AgentMemory.notes` default: `"System initialized."`
-    - `AgentMemory.current_task` default: `"Waiting for tasks..."`
-    - `check_stagnation` window size: `5`
-    - `check_stagnation` threshold: `3`
-- **Environment Lookups**: None.
+## 5. Resource Dependencies
+- **Standard Libraries**: `json`, `dataclasses`, `typing`
+- **Internal Modules**: 
+    - [agents/memory_manager.md](agents/memory_manager.md)
+- **External Packages**: None identified.

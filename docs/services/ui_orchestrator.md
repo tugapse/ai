@@ -1,44 +1,44 @@
 ## 1. Architectural Role
-Acts as the central coordinator for visual feedback systems, managing the lifecycle of thinking logs, token-buffered console output, and UI state transitions.
+The `UIOrchestrator` class serves as the central management layer for the assistant's visual feedback systems. It orchestrates the interaction between thought process visualization, token-buffered output streaming, and console formatting. By aggregating the [extras/thinking_log_manager.md](extras/thinking_log_manager.md), [extras/output_printer.md](extras/output_printer.md), [extras/handler_manager.md](extras/handler_manager.md), and [extras/console.md](extras/console.md) components, it provides a unified interface for the [services/stream_orchestrator.md](services/stream_orchestrator.md) to manage the user's terminal experience.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- `PRINT_MODE` (via `config.get`)  Determines the text streaming strategy (e.g., "line_or_x_tokens").
+- `TOKEN_PER_PRINT` (via `config.get`)  Sets the chunk size for token buffering.
+- `THINKING_MODE` (via `config.get`)  Defines the visual style for thought processes (e.g., "progressbar").
+- `ENABLE_THINKING_DISPLAY` (via `config.get`)  Boolean flag to toggle visibility of internal reasoning.
+
+**Hardcoded Constants:**
+- `tokens_per_print` (Default: `50`)  Default buffer size if not specified in config.
+- `show_thinking_animation` (Default: `True`)  Forces animation of thinking states.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `UIOrchestrator` | Class | Orchestrates the lifecycle and interaction of UI-related sub-components. |
-| `__init__` | Method | Initializes the orchestrator with a `ProgramConfig` and sets up empty component placeholders. |
-| `initialize` | Method | Instantiates and configures `ThinkingLogManager`, `OutputPrinter`, and `HandlerManager` using provided configuration. |
-| `reset_turn` | Method | Resets the `ConsoleTokenFormatter` buffer and flushes the `OutputPrinter` buffers. |
-| `get_components` | Method | Returns a dictionary containing the active `printer`, `handler`, and `formatter` instances. |
+| `UIOrchestrator` | Class | Orchestrates the lifecycle of UI/UX feedback components. |
+| `initialize` | Method | Instantiates and configures the log manager, printer, and handler manager using `ProgramConfig`. |
+| `reset_turn` | Method | Flushes buffers and clears token formatting to prepare for a new interaction. |
+| `get_components` | Method | Returns a dictionary containing the `printer`, `handler`, and `formatter` for external consumption. |
 
-## 3. Execution Logic & Flow
-- **Initialization**:
-    1. `__init__` is called with a `ProgramConfig` object.
-    2. Core component attributes (`log_manager`, `printer`, `handler`) are set to `None`.
-    3. `formatter` is instantiated as a `ConsoleTokenFormatter`.
+## 4. Execution Logic & Flow
+- **Initialization**: 
+    1. `__init__` sets core components (`log_manager`, `printer`, `handler`, `formatter`) to `None` or default instances.
+    2. `initialize` executes the setup sequence:
+        - Creates `ThinkingLogManager` with the provided `log_filepath`.
+        - Creates `OutputPrinter` using configured print modes and token thresholds.
+        - Creates `HandlerManager` to link logs with progress bar animations.
 - **Data Path**:
-    1. **Input**: `ProgramConfig` settings and `log_filepath` string.
-    2. **Processing**: `initialize` maps config keys (`PRINT_MODE`, `TOKENS_PER_PRINT`, `THINKING_MODE`, `ENABLE_THINKING_DISPLAY`) to specific component constructors.
-    3. **Output**: A dictionary of functional UI components via `get_components`.
+    - **Input**: `ProgramConfig` settings $\rightarrow$ **Processing**: Component instantiation via `initialize()` $\rightarrow$ **Output**: A dictionary of active UI tools via `get_components()`.
 - **Conditional Branching**:
-    - **Component Availability**: `reset_turn` performs a null-check on `self.printer` before attempting to call `flush_buffers()`.
-    - **Configuration Defaults**: `initialize` uses `.get()` with fallback values for all `ProgramSetting` lookups (e.g., defaulting `print_mode` to `"line_or_x_tokens"` and `tokens_per_print` to `50`).
+    - `reset_turn` checks if `self.printer` is instantiated before attempting to call `flush_buffers()`.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `typing.Optional`
+## 5. Resource Dependencies
+- **Standard Libraries**: `typing`
 - **Internal Modules**: 
-    - `services.config_helper` (`ProgramConfig`, `ProgramSetting`)
-    - `extras.thinking_log_manager` (`ThinkingLogManager`)
-    - `extras.output_printer` (`OutputPrinter`)
-    - `extras.HandlerManager` (`HandlerManager`)
-    - `extras.ConsoleTokenFormatter` (`ConsoleTokenFormatter`)
-    - `functions` (`func`)
-- **External Packages**: None
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `show_thinking_animation=True` (passed to `HandlerManager`)
-- **Environment Lookups**:
-    - `ProgramSetting.PRINT_MODE`
-    - `ProgramSetting.TOKENS_PER_PRINT`
-    - `ProgramSetting.THINKING_MODE`
-    - `ProgramSetting.ENABLE_THINKING_DISPLAY`
+    - [services/config_helper.md](services/config_helper.md)
+    - [extras/thinking_log_manager.md](extras/thinking_log_manager.md)
+    - [extras/output_printer.md](extras/output_printer.md)
+    - [extras/handler_manager.md](extras/handler_manager.md)
+    - [extras/console.md](extras/console.md)
+    - [functions.md](functions.md)
+- **External Packages**: None identified.

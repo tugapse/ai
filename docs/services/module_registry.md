@@ -1,49 +1,57 @@
 ## 1. Architectural Role
-Acts as a dynamic plugin manager responsible for the lifecycle orchestration, conditional instantiation, and dictionary-style access of JARVIS system modules.
+The `ModuleRegistry` class serves as the centralized plugin orchestrator for the JARVIS ecosystem. It manages the lifecycleincluding discovery, conditional instantiation, and graceful teardownof specialized functional modules. By utilizing a manifest-driven loading pattern, it decouples the core system from specific module implementations, providing a dictionary-style interface for other services to access active components like [modules/voice/vibe_module.md](modules/voice/vibe_module.md), [modules/memory/vector_memory_module.md](modules/memory/vector_memory_module.md), and [modules/knowledge_graph/__init__.md](modules/knowledge_graph/__init__.md).
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- `VOICE_ENABLED` (via `config.get`)  Boolean flag to trigger [modules/voice/vibe_module.md](modules/voice/vibe_module.md) loading.
+- `VECTOR_MEMORY_ENABLED` (via `config.get`)  Boolean flag to trigger [modules/memory/vector_memory_module.md](modules/memory/vector_memory_module.md) loading.
+- `KNOWLEDGE_GRAPH_ENABLED` (via `config.get`)  Boolean flag to trigger [modules/knowledge_graph/__init__.md](modules/knowledge_graph/__init__.md) loading.
+- `VOICE_FILE` (via `ProgramSetting.VOICE_FILE`)  Path to audio assets for the voice engine.
+- `VECTOR_DB_PATH` (via `config.get`)  Filesystem path for the vector database.
+- `VECTOR_RECENCY_WEIGHT` (via `config.get`)  Weighting factor for recency in vector retrieval.
+- `VECTOR_IMPORTANCE_WEIGHT` (via `config.get`)  Weighting factor for importance in vector retrieval.
+- `VECTOR_RELEVANCE_WEIGHT` (via `config.get`)  Weighting factor for relevance in vector retrieval.
+
+**Hardcoded Constants:**
+- `volume` (Default: `1.5`)  Audio output gain for `VibeVoiceModule`.
+- `timeout` (Default: `2.0`)  Seconds to wait for module threads to join during unloading.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `ModuleRegistry` | Class | Manages the loading, storage, and unloading of system modules. |
-| `__init__` | Method | Initializes the registry with a `ProgramConfig` and defines the module manifest. |
-| `__getitem__` | Method | Provides dictionary-style access to active modules via string keys. |
-| `items` | Method | Returns an iterator of the currently active modules and their instances. |
-| `load_all` | Method | Iterates through the manifest and boots modules if enabled in configuration. |
-| `_load_voice_logic` | Method | Validates `EngineType.VOICE_ENGINE` and instantiates `VibeVoiceModule`. |
-| `_load_vector_memory_logic` | Method | Validates `EngineType.VECTOR_MEMORY` and instantiates `VectorMemoryModule` with weighted parameters. |
-| `_load_knowledge_graph_logic` | Method | Instantiates `KnowledgeGraph` and attempts auto-wiring via `register_with_orchestrator`. |
-| `unload_module` | Method | Executes `unload` or `shutdown` on a specific module and joins its thread if applicable. |
-| `unload_all` | Method | Sequentially triggers the unloading process for all active modules. |
-| `shutdown` | Method | Provides a compatibility alias for `unload_all`. |
+| `ModuleRegistry` | Class | Manages the lifecycle and access of all system modules. |
+| `__getitem__` | Method | Provides dictionary-like access to active modules (e.g., `registry['voice']`). |
+| `items` | Method | Returns a view of all currently active modules and their instances. |
+| `load_all` | Method | Iterates through the internal manifest and boots enabled modules. |
+| `unload_module` | Method | Executes shutdown/unload logic and cleans up resources for a specific module. |
+| `unload_all` | Method | Performs a bulk shutdown of all active modules in the registry. |
+| `shutdown` | Method | Alias for `unload_all` to ensure compatibility. |
 
-## 3. Execution Logic & Flow
+## 4. Execution Logic & Flow
 - **Initialization**: 
     1. Receives `ProgramConfig` instance.
-    2. Initializes `_active_modules` as an empty dictionary.
-    3. Populates `_manifest` with mapping of module keys to internal loader methods.
-- **Data Path**: 
-    1. **Input**: Configuration keys (e.g., `VOICE_ENABLED`, `VECTOR_DB_PATH`).
-    2. **Processing**: `load_all` checks configuration $\rightarrow$ calls specific `_load_*_logic` $\rightarrow$ validates engine installation via `EngineManager` $\rightarrow$ instantiates module class.
-    3. **Output**: Populated `_active_modules` dictionary containing live module instances.
+    2. Initializes `_active_modules` dictionary.
+    3. Maps module identifiers to internal loader functions via `_manifest`.
+- **Data Path (Loading)**: 
+    1. `load_all()` iterates over `_manifest`.
+    2. Checks `config` for `{MODULE}_ENABLED` status.
+    3. If `True`, calls specific `_load_{name}_logic` method.
+    4. Logic method validates engine installation via [services/engine_manager.md](services/engine_manager.md).
+    5. Logic method performs dynamic import of module class.
+    6. Instance is stored in `_active_modules`.
 - **Conditional Branching**:
-    - **Module Activation**: Checks `bool(config.get(f"{mod_name.upper()}_ENABLED"))` to decide whether to execute loader.
-    - **Engine Validation**: Checks `EngineManager.is_engine_installed()` before attempting module instantiation.
-    - **Module Teardown**: Checks for existence of `unload` vs `shutdown` methods and checks if `instance.thread.is_alive()` before joining.
-    - **KG Integration**: Attempts `kg.register_with_orchestrator()`; if missing, attempts module-level `register_with_orchestrator()`.
+    - **Engine Check**: If `EngineManager.is_engine_installed` returns `False`, loading for that module aborts with an error.
+    - **Module Unloading**: Checks for `unload()` vs `shutdown()` methods to ensure compatibility with various module implementations.
+    - **Thread Cleanup**: If a module has a `thread` attribute, it attempts a timed `join(2.0)`.
 
-## 4. Resource Dependencies
+## 5. Resource Dependencies
 - **Standard Libraries**: `typing`
-- **Internal Modules**: `entities.model_enums`, `services.engine_manager`, `services.config_helper`, `functions` (as `func`), `modules.voice.vibe_module`, `modules.memory.vector_memory_module`, `modules.knowledge_graph`
-- **External Packages**: None explicitly imported (relies on internal abstractions)
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `volume=1.5` (Voice module)
-    - `timeout=2.0` (Thread join timeout)
-- **Environment Lookups**:
-    - `{MOD_NAME}_ENABLED` (e.g., `VOICE_ENABLED`, `VECTOR_MEMORY_ENABLED`, `KNOWLEDGE_GRAPH_ENABLED`)
-    - `ProgramSetting.VOICE_FILE`
-    - `VECTOR_DB_PATH`
-    - `VECTOR_RECENCY_WEIGHT`
-    - `VECTOR_IMPORTANCE_WEIGHT`
-    - `VECTOR_RELEVANCE_WEIGHT`
+- **Internal Modules**: 
+    - [entities/model_enums.md](entities/model_enums.md)
+    - [services/engine_manager.md](services/engine_manager.md)
+    - [services/config_helper.md](services/config_helper.md)
+    - [functions.md](functions.md)
+    - [modules/voice/vibe_module.md](modules/voice/vibe_module.md)
+    - [modules/memory/vector_memory_module.md](modules/memory/vector_memory_module.md)
+    - [modules/knowledge_graph/__init__.md](modules/knowledge_graph/__init__.md)
+- **External Packages**: None identified.

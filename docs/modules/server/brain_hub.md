@@ -1,41 +1,49 @@
 ## 1. Architectural Role
-Acts as the central intelligence controller responsible for managing LLM lifecycle (loading/unloading), orchestrating model swaps to optimize VRAM, and maintaining conversational state through JSON-based history persistence.
+[brain_hub.py](src/ai/modules/server/brain_hub.py) acts as the central intelligence controller and state manager for the server module. It orchestrates the lifecycle of Large Language Models (LLMs) via [model_orchestrator.md](services/model_orchestrator.md), manages conversational continuity by interfacing with [history_manager.md](services/history_manager.md), and handles the hot-swapping of model weights and system prompts to optimize VRAM utilization. It serves as the bridge between high-level API requests and the low-level model execution layer.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- `PATHS_MODEL_CONFIGS` (via `list_available_models` $\rightarrow$ `ProgramConfig`)  Locates the directory containing JSON model definitions.
+
+**Hardcoded Constants:**
+- `"default"` (Default: `"default"`)  Fallback session ID during initialization.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `BrainHub` | Class | Primary controller for model orchestration and session memory. |
-| `new_history` | Method | Generates a standardized dictionary structure for new chat sessions. |
-| `route_memory` | Method | Re-routes the active session by updating file paths and reloading JSON state. |
-| `add_history_message` | Method | Appends a role/content pair to the current history and triggers a disk save. |
-| `load_history_from_json` | Method | Deserializes session data from disk with schema validation and error recovery. |
-| `save_history_to_json` | Method | Serializes the current `self.history` dictionary to a physical JSON file. |
-| `get_timestamp` | Method | Returns the current system time in ISO 8601 format. |
-| `get_brain` | Method | Retrieves the active LLM instance, performing hot-swaps or system prompt updates if necessary. |
-| `unload_brain` | Method | Explicitly releases GPU/VRAM resources by invoking the model's unload sequence. |
-| `list_available_models` | Method | Scans the configured model directory to return a list of available model IDs. |
-| `get_stats` | Method | Aggregates token usage, context window, and capacity metrics from the active model. |
+| `BrainHub` | Class | Central coordinator for LLM lifecycle and session history. |
+| `new_history` | Func | Generates a standardized dictionary schema for new chat sessions. |
+| `route_memory` | Func | Updates active session file path and reloads history state. |
+| `add_history_message` | Func | Appends a role/content pair to history and triggers a JSON save. |
+| `load_history_from_json` | Func | Deserializes session data from disk with schema validation. |
+| `save_history_to_json` | Func | Serializes current history dictionary to a physical JSON file. |
+| `get_timestamp` | Func | Generates ISO-format strings for temporal tracking. |
+| `get_brain` | Func | Manages model switching, prompt updates, and VRAM unloading. |
+| `unload_brain` | Func | Explicitly releases LLM resources via the orchestrator. |
+| `list_available_models` | Func | Returns a list of model identifiers available in the config path. |
+| `get_stats` | Func | Aggregates token usage and context window telemetry. |
 
-## 3. Execution Logic & Flow
-- **Initialization**: 
-    1. Receives `ProgramConfig`.
-    2. Instantiates `ModelOrchestrator`.
-    3. Initializes `self.history` with a default structure via `new_history`.
-    4. Sets `self.current_model_id` to `None`.
-- **Data Path (Memory Management)**: 
-    `session_filepath` (Input) $\rightarrow$ `route_memory` $\rightarrow$ `load_history_from_json` $\rightarrow$ `self.history` (Internal State) $\rightarrow$ `add_history_message` $\rightarrow$ `save_history_to_json` (Output).
-- **Data Path (Inference Request)**: 
-    `model_id` + `system_prompt` (Input) $\rightarrow$ `get_brain` $\rightarrow$ Check `current_model_id` $\rightarrow$ (If mismatch) `unload_brain` $\rightarrow$ `orchestrator.load` $\rightarrow$ `self.orchestrator.llm` (Output).
-- **Conditional Branching**:
-    - **Model Swap**: In `get_brain`, if `current_model_id` exists and differs from requested `model_id`, `unload_brain` is executed.
-    - **Prompt Update**: In `get_brain`, if the model is already loaded but the `system_prompt` differs, the attribute is updated in-place.
-    - **JSON Validation**: In `load_history_from_json`, checks if the file exists, is valid JSON, and contains the required `messages` list; failures trigger a "fresh start" state reset.
+## 4. Execution Logic & Flow
+- **Initialization**: Sets up `ModelOrchestrator`, initializes a default empty history object, and prepares the configuration context.
+- **Data Path (Memory Management)**:
+    1. `route_memory` receives path/metadata $\rightarrow$ 2. `new_history` resets local dict $\rightarrow$ 3. `load_history_from_json` reads disk $\rightarrow$ 4. `history` state updated.
+- **Data Path (Message Persistence)**:
+    1. `add_history_message` receives role/content $\rightarrow$ 2. Dict appended $\rightarrow$ 3. `get_timestamp` generates time $\rightarrow$ 4. `save_history_to_json` writes to disk.
+- **Conditional Branching (Model Swapping)**:
+    - **IF** `current_model_id` exists AND $\neq$ requested `model_id`:
+        - Trigger `unload_brain()` to clear VRAM.
+    - **IF** `orchestrator.llm` is already loaded with the correct ID:
+        - **IF** `system_prompt` differs: Update `llm.system_prompt`.
+        - Return active `llm`.
+    - **ELSE**:
+        - Execute `orchestratator.load(model_id, system_prompt)`.
+        - Update `current_model_id`.
 
-## 4. Resource Dependencies
-- **Standard Libraries**: `os`, `typing.Optional`, `json`, `datetime.datetime`
-- **Internal Modules**: `functions` (as `func`), `config` (`ProgramConfig`, `ProgramSetting`), `services.history_manager` (`HistoryManager`), `services.model_orchestrator` (`ModelOrchestrator`)
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: None.
-- **Environment Lookups**: 
-    - `self.config.get(ProgramSetting.PATHS_MODEL_CONFIGS)`: Used to locate the directory for available model JSONs.
+## 5. Resource Dependencies
+- **Standard Libraries**: `os`, `json`, `typing`, `datetime`
+- **Internal Modules**: 
+    - [functions.md](functions.md)
+    - [config.md](config.md)
+    - [history_manager.md](services/history_manager.md)
+    - [model_orchestrator.md](services/model_orchestrator.md)
+- **External Packages**: None identified.

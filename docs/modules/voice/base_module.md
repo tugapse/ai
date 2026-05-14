@@ -1,39 +1,42 @@
 ## 1. Architectural Role
-Acts as an abstract base class and multi-threaded orchestrator for managing asynchronous text-to-audio generation and synchronized hardware playback.
+Acts as the abstract foundational orchestrator for all voice-based modules within the system. It establishes a multi-threaded pipeline designed to decouple text-to-audio inference from real-time audio playback, managing hardware initialization, sample rate resampling, and volume normalization. It provides the lifecycle management (start, abort, collect, shutdown) required by concrete implementations like [vibes_module](modules/voice/vibes_module.md) or [speech_bridge](modules/voice/speech_bridge.md) to ensure seamless, non-blocking audio streaming and buffer drainage.
 
-## 2. Interface & API Surface
+## 2. Environment & Configuration
+**Environment Lookups:**
+- `device_index` (via `__init__`)  Specifies the physical audio output device index.
+
+**Hardcoded Constants:**
+- `sample_rate` (Default: `24000`)  Target frequency for audio processing.
+- `rates` (Default: `[24000, 44100, 48000]`)  Fallback list for hardware sample rate negotiation.
+- `frames_per_buffer` (Default: `1024`)  PyAudio buffer size for stream stability.
+- `tail_sleep_duration` (Default: `2`)  Time in seconds to wait for hardware buffer drainage during `collect_audio`.
+
+## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `BaseVoiceModule` | Class | Abstract base class providing threading, queue management, and audio hardware interfacing. |
-| `_run_inference` | Method | Abstract hook for subclasses to implement specific text-to-audio model logic. |
-| `process_token` | Method | Public entry point to inject text strings into the generation pipeline. |
-| `abort` | Method | Interrupts current processing by clearing queues and resetting the abort signal. |
-| `collect_audio` | Method | Synchronous blocking call that waits for queue depletion and hardware buffer drainage. |
-| `shutdown` | Method | Gracefully terminates threads, stops audio streams, and releases hardware resources. |
+| `BaseVoiceModule` | Class | Abstract base class providing threading, queuing, and playback logic. |
+| `_run_inference` | Abstract Method | Subclass-specific implementation for converting text to `np.ndarray` audio. |
+| `process_token` | Method | Entry point to ingest text strings into the generation queue. |
+| `abort` | Method | Immediate clearing of text/audio queues and resetting of the abort signal. |
+| `collect_audio` | Method | Synchronous blocking call that waits for queues to empty and hardware buffers to drain. |
+| `shutdown` | Method | Graceful termination of threads and release of PortAudio resources. |
 
-## 3. Execution Logic & Flow
+## 4. Execution Logic & Flow
 - **Initialization**: 
-    1. Sets `sample_rate`, `device_index`, and sanitizes `volume`.
-    2. Initializes `_text_queue` and `_audio_queue`.
-    3. Spawns `_gen_thread` (`_generation_loop`) and `_play_thread` (`_playback_loop`) as daemons.
+    - Sets up thread-safe `Queue` objects for text and audio.
+    - Spawns `_gen_thread` (Inference) and `_play_thread` (Playback) as daemons.
+    - Initializes `_abort_signal` (Event) to manage interruptions.
 - **Data Path**: 
     1. `process_token(text)` $\rightarrow$ `_text_queue`.
-    2. `_generation_loop` $\rightarrow$ `_run_inference(text)` $\rightarrow$ `audio_chunk` $\rightarrow$ `_audio_queue`.
-    3. `_playback_loop` $\rightarrow$ Resampling (if `active_sample_rate` $\neq$ `sample_rate`) $\rightarrow$ Volume scaling $\rightarrow$ `stream.write()`.
+    2. `_generation_loop` $\rightarrow$ calls `_run_inference(text)` $\rightarrow$ produces `np.ndarray` $\rightarrow$ `_audio_queue`.
+    3. `_playback_loop` $\rightarrow$ pulls `np.ndarray` $\rightarrow$ performs Resampling $\rightarrow$ applies `volume` scaling $\rightarrow$ `stream.write()`.
 - **Conditional Branching**:
-    - **Hardware Init**: `_init_audio_hardware` iterates through a priority list of sample rates (`sample_rate`, 44100, 48000) until a successful `pa.open` occurs.
-    - **Resampling**: `_playback_loop` checks if `active_sample_rate` matches target `sample_rate` before applying `np.interp`.
-    - **Abort Logic**: Both loops check `_abort_signal.is_set()` before processing queue items.
-    - **Error Recovery**: `_playback_loop` catches exceptions during `stream.write` and sets `self.stream = None` to trigger re-initialization.
+    - **Hardware Init**: If `stream` is `None`, attempt to open hardware using a prioritized list of sample rates.
+    - **Resampling**: If `active_sample_rate != sample_rate`, use linear interpolation (`np.interp`) to match hardware requirements.
+    - **Abort Logic**: If `_abort_signal` is set, skip inference/playback and flush queues.
 
-## 4. Resource Dependencies
+## 5. Resource Dependencies
 - **Standard Libraries**: `os`, `time`, `threading`, `queue`, `contextlib`, `sys`, `abc`, `typing`.
-- **Internal Modules**: `functions` (as `func`).
-- **External Packages**: `numpy` (as `np`), `pyaudio`.
-
-## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - `rates`: `[int(self.sample_rate), 44100, 48000]`
-    - `frames_per_buffer`: `1024`
-    - `collect_audio` tail sleep: `2` seconds.
-- **Environment Lookups**: None.
+- **Internal Modules**: 
+    - [functions](functions.md)
+- **External Packages**: `numpy`, `pyaudio`
