@@ -22,7 +22,7 @@ class RemoteBrainConnector(BaseModel):
     def chat(self, messages: list, images: list = None, stream: bool = False, options: dict = {}):
         messages = self.check_system_prompt(messages)
         
-        endpoint = f"{self.url}/v1/chat/completions"
+        endpoint = f"{self.url}/api/v1/chat/completions"
         payload = {
             "model": self.model_id,
             "messages": messages,
