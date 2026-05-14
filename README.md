@@ -1,6 +1,6 @@
 # AI Assistant
 
-![Version](https://img.shields.io/badge/version-3.1.1-orange)
+![Version](https://img.shields.io/badge/version-3.1.3-orange)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
