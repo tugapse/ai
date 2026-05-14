@@ -1,28 +1,36 @@
 ## 1. Architectural Role
-Provides a managed wrapper for loading and storing the text content of a specific filesystem path into memory for use as system context.
+Provides a structured abstraction for loading and managing the textual content of a file within the system context.
 
 ## 2. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `ContextFile` | Class | Manages the lifecycle of a single file's content, from path definition to memory loading. |
-| `ContextFile.__init__` | Method | Initializes state, sets the target filename, and configures error handling behavior. |
-| `ContextFile.load` | Method | Executes the filesystem read operation and updates the `content` and `loaded` status. |
+| `THROW_ERROR_ON_LOAD_CONTEXT_FILE_NOT_EXIST` | Constant | Global default for error handling behavior during file loading. |
+| `ContextFile` | Class | Encapsulates file path, content state, and loading logic. |
+| `__init__` | Method | Initializes instance state including filename, error policy, and logger. |
+| `load` | Method | Executes file system I/O to populate `content` and update `loaded` status. |
 
 ## 3. Execution Logic & Flow
 - **Initialization**: 
-    1. Assigns `filename` and `throw_error_on_load` (defaulting to `THROW_ERROR_ON_LOAD_CONTEXT_FILE_NOT_EXIST`).
-    2. Sets `content` to `None` and `loaded` to `False`.
-    3. Instantiates a `logging.Logger` tied to the current file.
-- **Data Path**: `filename` (string) $\rightarrow$ `Path` object $\rightarrow$ `read_text()` $\rightarrow$ `self.content` (string).
+    1. Receives `filename` and `throw_error_on_load` (defaults to `THROW_ERROR_ON_LOAD_CONTEXT_FILE_NOT_EXIST`).
+    2. Sets `self.content` to `None`.
+    3. Sets `self.loaded` to `False`.
+    4. Instantiates a `logging.Logger` instance.
+- **Data Path**: 
+    1. **Input**: `self.filename` (string path).
+    2. **Processing**: `Path(self.filename).exists()` check $\rightarrow$ `Path(self.filename).read_text()`.
+    3. **Output**: `self.content` (string) and `self.loaded` (boolean).
 - **Conditional Branching**:
-    - **File Existence Check**: If `Path(self.filename).exists()` is `False`:
-        - Log error.
-        - If `self.throw_error_on_load` is `True` $\rightarrow$ Raise `FileNotFoundError`.
-        - If `self.throw_error_on_load` is `False` $\rightarrow$ Set `self.loaded = False` and terminate.
-    - **File Existence Success**: If `True` $\rightarrow$ Read text and set `self.loaded = True`.
+    - **File Existence Check**:
+        - **If file does not exist**:
+            - Log error via `self._logger`.
+            - If `self.throw_error_on_load` is `True`: Raise `FileNotFoundError`.
+            - Else: Set `self.loaded = False`.
+        - **If file exists**:
+            - Read file content into `self.content`.
+            - Set `self.loaded = True`.
 
 ## 4. Resource Dependencies
-- **Standard Libraries**: `logging`, `os.path` (exists), `pathlib` (Path)
+- **Standard Libraries**: `logging`, `os.path`, `pathlib.Path`
 - **Internal Modules**: None
 - **External Packages**: None
 

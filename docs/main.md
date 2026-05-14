@@ -1,39 +1,45 @@
 ## 1. Architectural Role
-Acts as the system entry point and bootstrapper, responsible for dependency validation, CLI argument parsing, environment configuration, and the lifecycle management of the `Program` instance.
+Serves as the primary entry point and orchestration bootstrap for the JARVIS ecosystem, managing dependency validation, CLI argument parsing, and the lifecycle transition from system initialization to either a maintenance mode, a server instance, or an interactive agentic session.
 
 ## 2. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `check_dependencies` | Func | Validates presence of required third-party modules; exits if missing. |
-| `hack_warnings` | Func | Suppresses library logs and environment-level warnings for cleaner output. |
-| `load_args` | Func | Defines the `argparse` schema for distributed architecture, model config, and task execution. |
-| `print_chat_header` | Func | Renders the visual start-up banner using the active model's chat name. |
-| `run` | Func | Orchestrates the boot sequence: deps $\rightarrow$ warnings $\rightarrow$ config $\rightarrow$ program init $\rightarrow$ execution. |
+| `check_dependencies` | Func | Validates presence of required Python packages across OS platforms. |
+| `hack_warnings` | Func | Configures environment variables and logging levels to suppress library noise. |
+| `JarvisHelpFormatter` | Class | Custom `argparse` formatter for high-width, aligned help descriptions. |
+| `load_args` | Func | Constructs the `argparse.ArgumentParser` and defines all command-line flag groups. |
+| `print_chat_header` | Func | Renders the visual terminal header once a neural link is established. |
+| `run` | Func | Executes the main application lifecycle: dependency check $\rightarrow$ config load $\rightarrow$ mode selection $\rightarrow$ execution. |
 
 ## 3. Execution Logic & Flow
 - **Initialization**: 
-    1. Appends current directory to `sys.path`.
-    2. Executes `check_dependencies()` to verify `colorama`, `dotenv`, `huggingface-hub`, `prompt_toolkit`, `requests`, and platform-specific `triton`/`pyreadline3`.
-    3. Executes `hack_warnings()` to set `TQDM_DISABLE`, `BITSANDBYTES_NOWELCOME`, and `TRANSFORMERS_VERBOSITY`.
+    - Sets `sys.path` to include the local directory.
+    - Defines global `__version__` and `__logo` constants.
+    - Sets up signal handlers (`SIGINT`, `SIGTERM`) to trigger `prog.shutdown()` and garbage collection.
 - **Data Path**: 
-    `CLI Arguments` $\rightarrow$ `load_args()` $\rightarrow$ `prog.load_config()` $\rightarrow$ `CliArgs.parse_args()` $\rightarrow$ `prog.run()`.
+    - **Input**: Command-line arguments via `sys.argv`.
+    - **Processing**: 
+        1. `check_dependencies` scans `importlib.util.find_spec`.
+        2. `load_args` parses raw strings into a `Namespace` object.
+        3. `prog.load_config` and `prog.init_config` map arguments to `ProgramSetting` values.
+        4. `CliArgs.parse_args` processes high-level logic based on parsed flags.
+    - **Output**: Either a terminal-based interactive chat, a persistent Brain Server, or a maintenance execution (e.g., `--install`).
 - **Conditional Branching**:
-    - **Dependency Check**: If `missing` list is not empty $\rightarrow$ print error and `sys.exit(1)`.
-    - **Debug Mode**: If `args.debug_console` is True $\rightarrow$ disable console clearing and enable `PRINT_LOG`/`PRINT_DEBUG`.
-    - **Maintenance Mode**: If `install`, `generate_config`, `server`, `print_chat`, or `list_models` are present $\rightarrow$ execute `cli_args_processor.parse_args` and exit (unless `is_server` is True, then enter infinite sleep loop).
-    - **Server Mode**: If `args.server` is True $\rightarrow$ bypasses standard `prog.run()` and remains active in a `while True` loop.
-    - **Error Handling**: `KeyboardInterrupt` triggers graceful shutdown; other `Exception` types trigger `traceback` (if debug) or a red error message.
+    - **Platform Check**: Branches dependency list based on `sys.platform == "win32"`.
+    - **Maintenance Mode**: If `maintenance_keys` (e.g., `install`, `server`) are present in `args`, the system executes the specific task and exits via `sys.exit(0)`.
+    - **Server Mode**: If `args.server` is true, enters an infinite `while True` loop to keep the thread alive.
+    - **Debug Mode**: If `args.debug_console` is true, disables `func.ALLOW_CLEAR_CONSOLE` and forces verbose logging.
 
 ## 4. Resource Dependencies
-- **Standard Libraries**: `os`, `sys`, `importlib.util`, `argparse`, `warnings`, `logging`, `traceback`, `time`
-- **Internal Modules**: `program.Program`, `config.ProgramSetting`, `entities.model_enums.ModelType`, `functions`, `color.Color`, `cli_args.CliArgs`
-- **External Packages**: `colorama`, `python-dotenv`, `huggingface-hub`, `prompt_toolkit`, `requests`, `pyreadline3` (Win), `triton` (Linux/Win)
+- **Standard Libraries**: `os`, `sys`, `importlib.util`, `argparse`, `warnings`, `logging`, `traceback`, `time`, `signal`, `gc`, `typing`.
+- **Internal Modules**: `program.Program`, `config.ProgramSetting`, `entities.model_enums.ModelType`, `functions` (as `func`), `color.Color`, `cli_args.CliArgs`.
+- **External Packages**: `colorama`, `python-dotenv`, `huggingface-hub`, `prompt_toolkit`, `requests`.
 
 ## 5. Configuration & Environment
 - **Hardcoded Constants**: 
-    - `__version__ = "2.3.2"`
-    - `RED_B = "\033[91;1m"`, `YLW_B = "\033[93;1m"`, `WHITE = "\033[0m"`
-- **Environment Lookups**: 
-    - `os.environ['TQDM_DISABLE'] = '1'`
-    - `os.environ['BITSANDBYTES_NOWELCOME'] = '1'`
-    - `os.environ["TRANSFORMERS_VERBOSITY"] = "error"`
+    - `__version__ = "3.1.1"`
+    - `maintenance_keys = ['install', 'generate_config', 'server', 'print_chat', 'list_models', 'create_tool']`
+- **Environment Lookups**:
+    - `os.environ['TQDM_DISABLE']`
+    - `os.environ['BITSANDBYTES_NOWELCOME']`
+    - `os.environ["TRANSFORMERS_VERBOSITY"]`

@@ -1,24 +1,36 @@
 ## 1. Architectural Role
-Provides a utility function to resolve, validate, and load JSON-based pipeline configurations and their associated agent prompt files from the filesystem.
+Acts as a high-level facade and event-driven entry point that orchestrates the agentic lifecycle by integrating LLM connectivity, tool registries, and message orchestration via a configurable pipeline.
 
 ## 2. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `load_pipeline_config` | Function | Parses a pipeline JSON file and verifies the existence of all referenced prompt files, returning a dictionary of the configuration. |
+| `load_pipeline_config` | Func | Parses JSON pipeline configurations and validates the existence of associated prompt files relative to the root directory. |
+| `Agent` | Class | Encapsulates the agentic loop, managing the lifecycle of the orchestrator and propagating system events. |
+| `Agent.__init__` | Method | Initializes core components: `ToolRegistry`, `LLMConnector`, and `MessageOrchestrator`, while binding event listeners. |
+| `Agent.run` | Method | Executes the agentic turn by triggering lifecycle events and delegating the execution loop to the orchestrator. |
 
 ## 3. Execution Logic & Flow
-- **Initialization**: Appends the current file's directory to `sys.path` to ensure local module resolution.
-- **Data Path**: `pipeline_file` (path) $\rightarrow$ `json.load()` $\rightarrow$ Prompt path validation $\rightarrow$ `config` (dict).
+- **Initialization**: 
+    1. `Agent` instance is created with a `prog` object and a `pipeline_file` path.
+    2. `load_pipeline_config` is invoked to resolve absolute paths for the pipeline and all referenced `prompt_file` entries.
+    3. `ToolRegistry` is instantiated as a singleton.
+    4. `LLMConnector` is initialized using `prog.llm`.
+    5. `MessageOrchestrator` is instantiated with the connector, registry, pipeline config, and `prog.modules`.
+    6. Event listeners are bound to bridge `EVENT_BEFORE_LLM_REQUEST` and `EVENT_AFTER_LLM_REQUEST` from the orchestrator to the `Agent` instance.
+- **Data Path**: 
+    `user_prompt` (str) $\rightarrow$ `Agent.run()` $\rightarrow$ `self.trigger("before_agent_turn")` $\rightarrow$ `self.orchestrator.run_loop(user_prompt, session_id)` $\rightarrow$ `self.trigger("after_agent_turn")`.
 - **Conditional Branching**:
-    1. **Path Resolution**: Checks if `pipeline_file` is absolute; if not, joins it with the `ROOT_DIRECTORY` from `prog.config`.
-    2. **Existence Check**: If the resolved `pipeline_path` does not exist, logs an error via `func.error` and returns an empty dictionary.
-    3. **Prompt Validation**: Iterates through `agents` in the config; if a `prompt_file` is defined, it resolves the path and checks for existence. If any prompt file is missing, logs an error and returns an empty dictionary.
-    4. **Exception Handling**: Wraps the parsing process in a try-except block to catch JSON or IO errors, returning an empty dictionary on failure.
+    - **Pipeline Loading**: If `pipeline_file` does not exist or JSON parsing fails, returns an empty dict and raises `ValueError` in `Agent.__init__`.
+    - **Prompt Validation**: If an agent's `prompt_file` is missing from the filesystem, the loading process aborts and returns an empty dict.
+    - **Session Management**: If `session_id` is `None` during `run()`, a new `uuid4` string is generated; otherwise, the provided ID is used.
 
 ## 4. Resource Dependencies
-- **Standard Libraries**: `os`, `sys`, `json`
-- **Internal Modules**: `functions` (as `func`), `config.ProgramSetting`, `.tool_registry.ToolRegistry`, `.llm_connector.LLMConnector`, `.message_orchestrator.MessageOrchestrator`
+- **Standard Libraries**: `os`, `sys`, `json`, `uuid`
+- **Internal Modules**: `functions` (as `func`), `config.ProgramSetting`, `tools.tool_registry.ToolRegistry`, `.llm_connector.LLMConnector`, `.message_orchestrator.MessageOrchestrator`, `core.events.Events`
+- **External Packages**: None explicitly imported (relies on internal `prog` object for LLM/Module access)
 
 ## 5. Configuration & Environment
-- **Hardcoded Constants**: None.
-- **Environment Lookups**: `ProgramSetting.ROOT_DIRECTORY` (accessed via the `prog` object).
+- **Hardcoded Constants**: `pipelines/default.json` (default `pipeline_file` argument).
+- **Environment Lookups**: 
+    - `prog.config.get(ProgramSetting.ROOT_DIRECTORY)` (used for path resolution).
+    - `agent_data.get("prompt_file")` (retrieved from pipeline JSON).

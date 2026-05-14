@@ -1,39 +1,40 @@
 ## 1. Architectural Role
-Provides a console-based reader and formatter to load JSON chat histories and render them to the terminal with role-based coloring and inline code block highlighting.
+Provides a mechanism for reading JSON-formatted chat histories from disk and rendering them to the terminal with role-based color coding and token-level syntax highlighting for code blocks.
 
 ## 2. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `ConsoleChatReader` | Class | Manages the loading of chat JSON files and coordinates the printing of messages to the console. |
-| `ConsoleTokenFormatter` | Class | Tracks and applies ANSI color codes to tokens to highlight text enclosed in double backticks (``). |
-| `ConsoleChatReader.load` | Method | Reads a JSON file, parses the list of messages, and triggers the print sequence. |
-| `ConsoleChatReader._print_chat` | Method | Filters system messages and applies role-specific colors and labels to the output. |
-| `ConsoleChatReader.color_text` | Method | Splits message content into tokens and passes them through the `ConsoleTokenFormatter`. |
-| `ConsoleTokenFormatter.process_token` | Method | Toggles the `printing_block` state and appends `Color.YELLOW` or `Color.RESET` when encountering ``. |
-| `ConsoleTokenFormatter.clear_process_token` | Method | Resets the `printing_block` state to `False`. |
+| `ConsoleChatReader` | Class | Orchestrates the loading, parsing, and terminal output of chat history files. |
+| `__init__` | Method | Initializes the reader with a target filename and a `ConsoleTokenFormatter` instance. |
+| `load` | Method | Validates file existence, parses JSON content, and iterates through messages for printing. |
+| `_print_chat` | Method | Determines role-based colors/labels and triggers the colorization and output process. |
+| `color_text` | Method | Splits raw text into tokens and applies formatting via the token processor. |
+| `ConsoleTokenFormatter` | Class | Maintains stateful formatting logic for detecting and highlighting code blocks. |
+| `__init__` | Method | Initializes the `token_states` dictionary with `printing_block` set to `False`. |
+| `process_token` | Method | Toggles color states when encountering `` `` `` and returns the formatted string. |
+| `clear_process_token` | Method | Resets the `printing_block` state to `False`. |
 
 ## 3. Execution Logic & Flow
 - **Initialization**: 
-    - `ConsoleChatReader` initializes with a `filename`, creates a `Path` object, and instantiates a `ConsoleTokenFormatter`.
-    - `ConsoleTokenFormatter` initializes a `token_states` dictionary with `printing_block` set to `False`.
+    - `ConsoleChatReader` captures the `filename` and converts it to a `Path` object, instantiating a `ConsoleTokenFormatter`.
+    - `ConsoleTokenFormatter` initializes its internal `token_states` dictionary.
 - **Data Path**: 
-    - `load()` $\rightarrow$ `Path.read_text()` $\rightarrow$ `json.loads()` $\rightarrow$ Loop through messages $\rightarrow$ `_print_chat()`.
-    - `_print_chat()` $\rightarrow$ `color_text()` $\rightarrow$ `process_token()` $\rightarrow$ `func.out()`.
+    - `Path(filename)` $\rightarrow$ `json.loads()` $\rightarrow$ `list[dict]` $\rightarrow$ `_print_chat()` $\rightarrow$ `color_text()` $\rightarrow$ `process_token()` $\rightarrow$ `func.out()`.
 - **Conditional Branching**:
-    - **Role Filter**: In `_print_chat`, if `chat_message['role'] == ChatRoles.SYSTEM`, the message is skipped.
-    - **Role Styling**: If `role == ChatRoles.USER`, color is `Color.BLUE` and label is "User :"; otherwise, color is `Color.YELLOW` and label is "Assistant".
-    - **Token Highlighting**: In `process_token`, if ` `` ` is detected:
-        - If `printing_block` is `False`: Append `Color.YELLOW` and set `printing_block` to `True`.
-        - If `printing_block` is `True`: Append `Color.RESET` and set `printing_block` to `False`.
+    - **File Check**: `load` checks `path_file.exists()`; raises `FileNotFoundError` if missing.
+    - **Role Filtering**: `_print_chat` skips processing if `chat_message['role']` is `ChatRoles.SYSTEM`.
+    - **Color Assignment**: `_print_chat` selects `Color.BLUE` for `ChatRoles.USER` and `Color.YELLOW` otherwise.
+    - **Syntax Toggling**: `process_token` checks for `` `` `` in a token; if `printing_block` is `False`, it appends `Color.YELLOW` and sets state to `True`; if `True`, it appends `Color.RESET` and sets state to `False`.
 
 ## 4. Resource Dependencies
 - **Standard Libraries**: `json`, `pathlib.Path`
-- **Internal Modules**: `color.Color`, `core.ChatRoles`, `functions` (aliased as `func`)
-- **External Packages**: None
+- **Internal Modules**: `chat.chat.ChatRoles`, `color.Color`, `functions` (as `func`)
+- **External Packages**: None specified (relies on internal `color` and `functions` modules)
 
 ## 5. Configuration & Environment
 - **Hardcoded Constants**: 
-    - `Color.BLUE`: Assigned to `ChatRoles.USER`.
-    - `Color.YELLOW`: Assigned to Assistant role and inline code blocks.
-    - `Color.RESET`: Used to clear formatting.
+    - `ChatRoles.SYSTEM` (Filter criteria)
+    - `ChatRoles.USER` (Color/Label criteria)
+    - `` `` `` (Code block delimiter)
+    - `"User :"` and `"Assistant"` (Label strings)
 - **Environment Lookups**: None

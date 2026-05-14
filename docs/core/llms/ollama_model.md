@@ -1,34 +1,38 @@
 ## 1. Architectural Role
-`OllamaModel` serves as a concrete implementation of `BaseModel` that interfaces with the Ollama API to manage local LLM lifecycle, model pulling, and text/image generation.
+Implements a concrete LLM provider interface using the `ollama` library to facilitate model pulling, chat interactions (streaming and non-streaming), and lifecycle management for Ollama-hosted models.
 
 ## 2. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `OllamaModel` | Class | Orchestrates communication with the Ollama server for model management and inference. |
-| `__init__` | Method | Initializes the Ollama client, sets server IP, configures model parameters, and ensures the target model is pulled. |
-| `join_generation_thread` | Method | Resets the `stop_generation_event` (synchronous placeholder for the base class interface). |
-| `chat` | Method | Handles message exchange with the LLM, supporting both streaming and non-streaming modes and image inputs. |
-| `list` | Method | Retrieves a list of available models from the Ollama server. |
-| `pull` | Method | Checks if a model exists locally; if not, triggers the `__pull_model` download process. |
-| `__pull_model` | Method | Manages the streaming download of a model with real-time progress tracking via `tqdm`. |
+| `OllamaModel` | Class | Orchestrates connection, model availability, and inference via the Ollama API. |
+| `join_generation_thread` | Method | Clears the `stop_generation_event` to simulate thread joining for synchronous streaming. |
+| `chat` | Method | Executes model inference; handles message preparation, image loading, and stream/non-stream response logic. |
+| `list` | Method | Returns a list of available models from the Ollama server. |
+| `pull` | Method | Checks for model existence and triggers a download if the model is missing. |
+| `__pull_model` | Method | Private; manages the iterative download process with `tqdm` progress bars per digest. |
 
 ## 3. Execution Logic & Flow
 - **Initialization**: 
-    1. Calls `super().__init__` to set basic model identity.
-    2. Instantiates `ollama.Client` using `host` (default: "127.0.0.1").
-    3. Executes `pull()` to ensure the specified `model_name` is available.
-    4. Sets `keep_alive` status and initializes `options` from `ModelParams`.
-- **Data Path (Chat)**: 
-    1. **Input**: `messages` (list), `images` (list), `stream` (bool), `options` (dict).
-    2. **Preprocessing**: Merges `self.options` with provided `options` $\rightarrow$ applies `check_system_prompt` $\rightarrow$ appends images via `load_images`.
-    3. **Execution**: 
-        - If `stream=True`: Iterates through `self.model.chat` generator $\rightarrow$ yields content $\rightarrow$ monitors `stop_generation_event` to break loop.
-        - If `stream=False`: Calls `self.model.chat` $\rightarrow$ returns final content string.
-    4. **Output**: Stream of content chunks or a single response string.
+    1. Calls `super().__init__` with `model_name` and `system_prompt`.
+    2. Sets `server_ip` (defaults to `127.0.0.1`).
+    3. Instantiates `ollama.Client`.
+    4. Executes `self.pull(self.model_name)` to ensure local availability.
+    5. Stores `keep_alive` state and `options` (derived from `ModelParams`).
+- **Data Path**:
+    - **Input**: `messages` (list), `images` (list of strings), `stream` (bool), `options` (dict).
+    - **Processing**: 
+        1. Merges provided `options` with `self.options`.
+        2. Passes `messages` through `check_system_prompt`.
+        3. Appends processed images via `super().load_images`.
+        4. Dispatches request to `self.model.chat`.
+    - **Output**: 
+        - If `stream=True`: Yields string chunks of content.
+        - If `stream=False`: Returns a single string of content.
 - **Conditional Branching**:
-    - **Model Pulling**: If `model_name` lacks a tag, `:latest` is appended; if the model is already in `self.model.list()`, the download is skipped.
-    - **Streaming Logic**: Diverges between a `yield` loop (with interruption checks) and a direct return based on the `stream` flag.
-    - **Error Handling**: Catches `KeyboardInterrupt` for stream closure and generic `Exception` for critical failures (triggering `sys.exit(1)`).
+    - **Streaming vs. Non-Streaming**: `chat` branches based on the `stream` boolean to either yield chunks or return a direct response.
+    - **Model Existence**: `pull` checks if `model_name` contains a colon (tag); if not, appends `:latest`.
+    - **Digest Tracking**: `__pull_model` compares `current_digest` to existing `bars` to manage multiple concurrent download progress bars.
+    - **Interruption Check**: During streaming, the loop checks `self.stop_generation_event.is_set()` to terminate the generator.
 
 ## 4. Resource Dependencies
 - **Standard Libraries**: `sys`, `threading`
@@ -37,6 +41,6 @@
 
 ## 5. Configuration & Environment
 - **Hardcoded Constants**: 
-    - Default Host: `"127.0.0.1"`
-    - Default Model Tag: `":latest"`
-- **Environment Lookups**: None.
+    - `127.0.0.1` (Default `server_ip`)
+    - `:latest` (Default model tag suffix)
+- **Environment Lookups**: None identified.

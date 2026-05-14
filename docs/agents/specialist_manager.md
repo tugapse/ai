@@ -1,37 +1,42 @@
 ## 1. Architectural Role
-Coordinates the delegation of high-complexity generation tasks to specialized LLM workers by resolving file contexts and managing raw text output streams.
+Acts as a specialized orchestration layer that delegates high-complexity generation tasks to specific LLM workers by mapping tool names to unique role descriptions and providing them with file-state context.
 
 ## 2. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `SpecialistManager` | Class | Orchestrates the lifecycle and invocation of specialist LLM workers. |
-| `SpecialistManager.__init__` | Method | Initializes the manager with a connector and a mapping of tool names to role descriptions. |
-| `SpecialistManager.is_specialist_tool` | Method | Validates if a given `tool_name` is registered in the specialist configuration. |
-| `SpecialistManager.invoke` | Method | Processes tool parameters, retrieves file state, and executes a raw request via the connector. |
+| `SpecialistManager` | Class | Manages the lifecycle and invocation of specialist LLM workers. |
+| `__init__` | Method | Initializes the manager with an LLM connector and a tool-to-role mapping configuration. |
+| `is_specialist_tool` | Method | Validates if a given tool name exists within the provided specialist configuration. |
+| `invoke` | Method | Executes a specialist request by constructing a task context (target path, file content, and goal) and streaming the raw text response. |
 
 ## 3. Execution Logic & Flow
-- **Initialization**: 
-    1. Receives `connector` (LLM interface) and `specialist_config` (Role mapping).
+- **Initialization**:
+    1. Receives `connector` (LLM interface) and `specialist_config` (mapping dict).
     2. Stores these as `self.connector` and `self.config`.
-- **Data Path**: 
-    1. **Input**: `tool_name` and `params` (containing instructions/content/replace and path).
-    2. **Context Retrieval**: 
+- **Data Path**:
+    1. **Input**: `tool_name` (str) and `params` (Dict containing `instructions`/`content`/`replace` and `path`).
+    2. **Context Assembly**: 
+        - Retrieves `role_description` from `self.config`.
+        - Extracts `goal` from `params` via prioritized key lookup.
         - Resolves `path` via `_resolve_path`.
-        - Checks if file exists; if so, reads the first 3000 characters.
-    3. **Payload Construction**: Combines `path`, `current_state`, and `goal` into `task_context`.
-    4. **Execution**: Sends `worker_payload` and `role_description` to `self.connector.send_raw_request`.
-    5. **Output**: Aggregates the raw output stream into a single stripped string.
+        - Reads up to 3000 characters of the existing file at `resolved_path` to establish `current_state`.
+    3. **Payload Construction**: Builds `worker_payload` containing `task_context` (Path + State + Goal) and a strict `instruction` for raw text output.
+    4. **Processing**: Passes payload and `role_description` to `self.connector.send_raw_request`.
+    5. **Output**: Aggregates the `raw_output_stream` into a single string and applies `.strip()`.
 - **Conditional Branching**:
-    - **Goal Selection**: Prioritizes `instructions` $\rightarrow$ `content` $\rightarrow$ `replace` $\rightarrow$ default "Complete task."
-    - **File Access**: If `_resolve_path` fails or file is missing, `current_state` defaults to "File does not exist yet or is empty."
+    - `is_specialist_tool`: Returns `True` if `tool_name` is a key in `self.config`, otherwise `False`.
+    - `invoke` (File Access): If `os.path.exists(resolved_path)` is true, reads file; otherwise, defaults `current_state` to "File does not exist yet or is empty."
+    - `invoke` (Goal Extraction): Cascades through `instructions` $\rightarrow$ `content` $\rightarrow$ `replace` $\rightarrow$ "Complete task."
 
 ## 4. Resource Dependencies
 - **Standard Libraries**: `os`, `typing`
-- **Internal Modules**: `agents.agent_tools` (`_resolve_path`)
-- **External Packages**: None
+- **Internal Modules**: `tools.agent_tools._resolve_path`
 
 ## 5. Configuration & Environment
 - **Hardcoded Constants**: 
-    - `3000`: Maximum character limit for reading the current state of a file.
-    - `"Output raw text only. Do not use markdown blocks or explanations."`: Static instruction sent to all specialist workers.
-- **Environment Lookups**: None
+    - `3000`: Maximum character limit for file state context.
+    - `"unknown"`: Default value for missing path.
+    - `"Complete task."`: Default fallback for missing instructions.
+    - `"File does not exist yet or is empty."`: Default fallback for missing file content.
+    - `"Output raw text only. Do not use markdown blocks or explanations."`: Hardcoded instruction to the LLM.
+- **Environment Lookups**: None.

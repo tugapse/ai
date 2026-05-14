@@ -1,33 +1,33 @@
 ## 1. Architectural Role
-The `SessionManager` provides a centralized mechanism for establishing and persisting session-specific identifiers and filesystem paths to ensure data continuity across rapid sequential executions.
+Provides session lifecycle management by generating, persisting, and resuming unique session identifiers and associated filesystem directory structures for logs and workspaces.
 
 ## 2. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `SessionManager` | Class | Container for session lifecycle and path management logic. |
-| `initialize_session_paths` | Static Method | Resolves the current `session_timestamp` and generates a dictionary of absolute paths for logs, chat history, and workspaces. |
+| `SessionManager` | Class | Container for static methods managing session state and pathing. |
+| `initialize_session_paths` | Static Method | Orchestrates the creation of session IDs, directory structures, and file path mappings. |
 
 ## 3. Execution Logic & Flow
-- **Initialization**: No instance state; the class operates via a static method called during program startup.
-- **Data Path**: `ProgramConfig` $\rightarrow$ `session_id_pointer` check $\rightarrow$ `session_timestamp` resolution $\rightarrow$ Path concatenation $\rightarrow$ `Dict[str, str]` output.
+- **Initialization**: No instance state is maintained; the class acts as a stateless utility provider via static methods.
+- **Data Path**: `ProgramConfig` object $\rightarrow$ Session ID resolution (Persistence Check $\rightarrow$ New Generation) $\rightarrow$ Path concatenation/Directory creation $\rightarrow$ `Dict[str, str]` containing session metadata and file paths.
 - **Conditional Branching**:
-    1. **Session Persistence**: If `last_session.id` exists AND the file modification time is $< 300$ seconds, reuse the existing ID; otherwise, generate a new `datetime` string.
-    2. **Chat Log Setup**: If `ProgramSetting.PATHS_CHAT_LOG` is configured, generate the `.json` filepath; otherwise, log a warning.
-    3. **Workspace Setup**: If `ProgramSetting.PATHS_WORKSPACES` is missing, default to a `workspaces` folder in the root directory.
-    4. **Log Finalization**: Ensure the directory for `func.SESSION_LOG_FILENAME` exists before returning.
+    - **Session Persistence**: Checks if `last_session.id` exists and if the file modification time is $< 300$ seconds to determine if a "warm" session should be resumed.
+    - **New Session Trigger**: If no warm session is found, generates a new `session_timestamp` using `datetime.now()`.
+    - **Path Configuration**: Checks for existence of `PATHS_CHAT_LOG` and `PATHS_WORKSPACEs` to determine if custom paths are used or if defaults (via `func.get_root_directory()`) are applied.
+    - **Log Directory Safety**: Validates the existence of the `logs/` subdirectory before attempting to assign `SESSION_LOG_FILENAME`.
 
 ## 4. Resource Dependencies
 - **Standard Libraries**: `os`, `time`, `datetime`, `typing`
-- **Internal Modules**: `functions` (aliased as `func`), `config` (`ProgramConfig`, `ProgramSetting`)
+- **Internal Modules**: `functions` (as `func`), `services.config_helper` (`ProgramConfig`, `ProgramSetting`)
 - **External Packages**: None
 
 ## 5. Configuration & Environment
 - **Hardcoded Constants**: 
-    - `300`: Warm session threshold in seconds.
-    - `"last_session.id"`: Filename for session ID persistence.
-    - `"thinking"`: Subdirectory for thinking logs.
-    - `"workspaces"`: Default fallback directory name.
-- **Environment Lookups**:
+    - `300` (Seconds threshold for "warm" session persistence)
+    - `"last_session.id"` (Pointer filename)
+    - `"thinking"` (Subdirectory for LLM logs)
+    - `"workspaces"` (Default fallback directory name)
+- **Environment Lookups**: 
     - `ProgramSetting.PATHS_LOGS`
     - `ProgramSetting.PATHS_CHAT_LOG`
     - `ProgramSetting.PATHS_WORKSPACES`

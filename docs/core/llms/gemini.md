@@ -1,47 +1,56 @@
 ## 1. Architectural Role
-Provides a unified interface for interacting with Google's Gemini models via either the Vertex AI enterprise platform or the Google GenAI SDK.
+Provides a specialized implementation of `BaseModel` that interfaces with Google's Gemini API via either Vertex AI (Google Cloud) or the `google.genai` client, utilizing a "Pure Text Protocol" to flatten tool calls and results into text-based sequences for model processing.
 
 ## 2. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `GeminiAPIModel` | Class | Orchestrates model initialization, message conversion, image processing, and synchronous/streaming generation. |
-| `__init__` | Method | Configures authentication, initializes the SDK/Vertex client, and maps model parameters. |
-| `chat` | Method | Primary entry point for processing messages and images to generate a response. |
-| `load_images` | Method | Converts image paths or objects into API-compatible byte parts. |
-| `_convert_messages_to_api` | Method | Transforms internal message lists into `Content` objects required by the Google SDKs. |
-| `_generate_response_sync` | Method | Executes a non-streaming request and extracts the final text or function call. |
-| `_stream_generator` | Method | Executes a streaming request, yielding tokens or a function call. |
-| `_extract_response_content` | Method | Parses API response objects to distinguish between text and `function_call` payloads. |
-| `_check_gcp_auth` | Method | Validates Google Cloud authentication via environment variables or local config files. |
+| `GeminiAPIModel` | Class | Manages the lifecycle, authentication, and communication with Gemini models. |
+| `__init__` | Method | Configures model parameters, initializes Vertex AI or GenAI client, and sets up generation configs. |
+| `_convert_messages_to_api` | Method | Transforms internal message history into Vertex AI `Content` objects, flattening tool calls/results into text. |
+| `chat` | Method | Entry point for inference; handles system prompt injection, history conversion, and image appending. |
+| `_stream_generator` | Method | Orchestrates asynchronous token streaming and intercepts sentinel tags for tool detection. |
+| `_generate_response_sync` | Method | Executes synchronous, single-shot text generation. |
+| `_check_gcp_auth` | Method | Validates Google Cloud authentication via environment variables, local JSON paths, or `gcloud` CLI. |
+| `load_images` | Method | Converts raw image data or paths into `Part` objects compatible with Vertex AI. |
+| `_append_images_to_history` | Method | Injects processed image parts into the most recent `user` role message in the history. |
+| `is_gpu_available` | Method | Returns `False` (hardcoded). |
+| `clean_cache` | Method | Triggers garbage collection. |
 
 ## 3. Execution Logic & Flow
-- **Initialization**: 
-    1. Filters Vertex AI deprecation warnings.
-    2. Checks `use_vertex` flag.
-    3. If `use_vertex` is True: Validates GCP auth via `_check_gcp_auth`, initializes `vertexai` with `project_id` and `location`.
-    4. If `use_vertex` is False: Initializes `google.genai.Client` using `api_key`.
-    5. Maps `model_params` (temperature, max_new_tokens, top_p, top_k) to API-specific keys.
-- **Data Path**: 
-    `messages` + `images` $\rightarrow$ `_convert_messages_to_api` $\rightarrow$ `_append_images_to_history` $\rightarrow$ `chat` $\rightarrow$ (`_stream_generator` OR `_generate_response_sync`) $\rightarrow$ `_extract_response_content` $\rightarrow$ Final String or Function Call Dict.
+- **Initialization**:
+    1. Calls `super().__init__`.
+    2. Determines authentication mode (`use_vertex`).
+    3. If `use_vertex`: Validates GCP credentials via `_check_gcp_auth`, initializes `vertexai`, and maps `GenerationConfig` and `Part` classes.
+    4. If not `use_vertex`: Initializes `genai.Client` using the provided `api_key` or `GEMINI_API_KEY`.
+    5. Maps `model_params` (temperature, top_p, etc.) to `self.config_kwargs`.
+- **Data Path**:
+    1. **Input**: `messages` (list of dicts), `images` (list), `stream` (bool), `options` (dict).
+    2. **Preprocessing**:
+        - Extracts/constructs `dynamic_system_prompt`.
+        - `_convert_messages_to_api` transforms roles: `tool`/`function` $\rightarrow$ `user` text; `assistant` + `tool_calls` $\rightarrow$ `model` text; consecutive roles $\rightarrow$ merged `parts`.
+        - `_append_images_to_history` attaches image `Part` objects to the last `user` message.
+    3. **Processing**:
+        - `model.generate_content` is called with the processed history and configuration.
+        - In streaming mode, the generator iterates through response chunks.
+        - `handle_sentinel` intercepts specific text patterns to detect function calls.
+    4. **Output**: Yields/returns text strings or parsed dictionary objects (for tool calls).
 - **Conditional Branching**:
-    - **Auth Path**: Checks `GOOGLE_APPLICATION_CREDENTIALS` $\rightarrow$ Local JSON config $\rightarrow$ `gcloud` CLI check.
-    - **Execution Mode**: `stream=True` triggers the generator; `stream=False` triggers the synchronous call.
-    - **Response Type**: `_extract_response_content` branches based on whether the model returned a standard text response or a `function_call`.
-    - **SDK Path**: Logic diverges throughout the class based on `self.use_vertex` to handle differences between `vertexai` and `google.genai` libraries.
+    - **Auth Path**: `use_vertex` determines whether to use `vertexai` or `google.genai`.
+    - **Inference Path**: `stream=True` triggers `_stream_generator`; `stream=False` triggers `_generate_response_sync`.
+    - **Role Flattening**: `_convert_messages_to_api` branches logic based on whether a message role is `system`, `tool`, `function`, `assistant`, or `user`.
 
 ## 4. Resource Dependencies
-- **Standard Libraries**: `os`, `threading`, `io`, `gc`, `time`, `re`, `subprocess`, `warnings`
-- **Internal Modules**: `.base_llm` (`BaseModel`, `ModelParams`), `functions` (`func`), `color` (`Color`)
-- **External Packages**: `vertexai` (optional), `google.genai` (optional), `PIL.Image` (optional)
+- **Standard Libraries**: `os`, `threading`, `io`, `gc`, `time`, `re`, `subprocess`, `warnings`, `json`.
+- **Internal Modules**: `.base_llm` (`BaseModel`, `ModelParams`), `functions` (`func`), `color` (`Color`).
+- **External Packages**: `vertexai` (`GenerativeModel`, `Part`, `GenerationConfig`, `Content`), `google.genai` (`Client`), `PIL.Image`.
 
 ## 5. Configuration & Environment
-- **Hardcoded Constants**: 
-    - Default model: `"gemini-2.5-flash"`
-    - Default location: `"us-central1"`
-    - Default project: `"project-02da1a39-478c-49eb-a3e"`
-- **Environment Lookups**: 
+- **Hardcoded Constants**:
+    - `model_name` default: `"gemini-2.5-flash"`.
+    - `use_vertex` default: `True`.
+    - `CONTEXT_WINDO_1M` (referenced via `self.token_info_count`).
+- **Environment Lookups**:
     - `GOOGLE_CLOUD_PROJECT`
     - `GEMINI_API_KEY`
-    - `GOOGLE_JARVIS_API_KEY`
     - `GOOGLE_APPLICATION_CREDENTIALS`
-    - `APPDATA` (Windows specific)
+    - `APPDATA` (for Windows pathing)

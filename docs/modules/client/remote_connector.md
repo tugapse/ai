@@ -1,43 +1,52 @@
 ## 1. Architectural Role
-Acts as a network proxy that implements the `BaseModel` interface to delegate LLM inference and system control to a remote server via REST API.
+Acts as a network-based implementation of the `BaseModel` interface that proxies LLM inference requests to a remote API endpoint via HTTP.
 
 ## 2. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `RemoteBrainConnector` | Class | Manages the connection, request dispatching, and response streaming from a remote inference backend. |
-| `__init__` | Method | Initializes connection parameters (`url`, `model_id`) and sets the `inference_device` to `GPU_CUDA`. |
-| `check_system_prompt` | Method | Pass-through validator for message structures. |
-| `chat` | Method | Dispatches chat payloads to `/v1/chat/completions` and handles both synchronous and SSE (Server-Sent Events) streaming responses. |
-| `request_shutdown` | Method | Signals the remote server to terminate via the `/v1/shutdown` endpoint. |
-| `list` | Method | Queries the `/health` endpoint to retrieve the active remote model name. |
+| `RemoteBrainConnector` | Class | Manages remote LLM connectivity, request payload construction, and response streaming/parsing. |
+| `check_system_prompt` | Method | Validates or transforms the input message structure before transmission. |
+| `chat` | Method | Executes the primary inference loop, supporting both synchronous JSON responses and asynchronous SSE streaming. |
+| `request_shutdown` | Method | Signals the remote server to terminate via a POST request and manages local stop events. |
+| `list` | Method | Performs a health check on the remote endpoint to retrieve available model identifiers. |
 
 ## 3. Execution Logic & Flow
 - **Initialization**: 
-    1. Calls `BaseModel` constructor.
-    2. Strips trailing slashes from `url`.
-    3. Assigns `model_id` and hardcodes `inference_device` to `InferenceBackend.GPU_CUDA`.
-- **Data Path (Chat)**: 
-    1. **Input**: Receives `messages`, `images`, `stream` flag, and `options`.
-    2. **Payload Construction**: Wraps inputs into a JSON object including `temperature`, `system_prompt`, and `model_params`.
-    3. **Transmission**: Executes a `requests.post` to the `/v1/chat/completions` endpoint.
-    4. **Processing (Streaming)**: If `stream=True`, iterates over `response.iter_lines()`, strips `data: ` prefixes, parses JSON chunks, and yields `content` from the `delta` object.
-    5. **Processing (Non-Streaming)**: If `stream=False`, parses the full JSON response and yields the `content` from the first choice.
-    6. **Output**: Yields text strings (or error messages) to the caller.
+    1. Calls `super().__init__` to establish base model properties.
+    2. Normalizes `url` by stripping trailing slashes.
+    3. Sets `model_id` and defaults `inference_device` to `InferenceBackend.GPU_CUDA`.
+- **Data Path**: 
+    1. **Input**: `messages` (list), `images` (list), `stream` (bool), and `options` (dict).
+    2. **Processing**: 
+        - `messages` are passed through `check_system_prompt`.
+        - A JSON `payload` is constructed containing `model`, `messages`, `stream`, `temperature`, `system_prompt`, and `model_params`.
+        - An HTTP POST request is dispatched to `{url}/v1/chat/completions`.
+    3. **Output**: A generator yielding string fragments (stream mode) or a single string (non-stream mode).
 - **Conditional Branching**:
-    - **Stream vs. Non-Stream**: Determines whether to use `iter_lines()` for real-time chunks or `response.json()` for a single block.
-    - **SSE Parsing**: Checks for `[DONE]` signal or `error` keys within the stream to terminate the generator.
-    - **Type Validation**: In non-streaming mode, checks if `content` is a string or an empty list to provide fallback error text.
+    - **Stream Mode (`stream=True`)**: 
+        - Iterates through `response.iter_lines()`.
+        - Filters for lines starting with `data: `.
+        - Checks for `[DONE]` signal to break loop.
+        - Parses JSON chunks to extract `choices[0].delta.content`.
+        - Yields content or error messages.
+    - **Non-Stream Mode (`stream=False`)**: 
+        - Parses full JSON response.
+        - Extracts `choices[0].message.content`.
+        - Performs type validation/conversion on content.
+        - Yields final string.
+    - **Error Handling**: Catches exceptions during request or parsing to yield error strings prefixed with `[LINK ERROR: ...]` or `[Brain Error: ...]`.
 
 ## 4. Resource Dependencies
-- **Standard Libraries**: `json`, `requests`, `typing.Any`
-- **Internal Modules**: `functions` (as `func`), `core.llms.base_llm.BaseModel`, `entities.model_enums.InferenceBackend`
+- **Standard Libraries**: `json`, `requests`, `typing`
+- **Internal Modules**: `functions` (as `func`), `core.llms.base_llm` (`BaseModel`), `entities.model_enums` (`InferenceBackend`)
 - **External Packages**: `requests`
 
 ## 5. Configuration & Environment
 - **Hardcoded Constants**: 
-    - `endpoint` suffix: `/v1/chat/completions`
-    - `shutdown` endpoint: `/v1/shutdown`
-    - `health` endpoint: `/health`
-    - `timeout`: 120 seconds (chat), 5 seconds (shutdown)
-    - `default_temperature`: 0.7
-    - `inference_device`: `InferenceBackend.GPU_CUDA`
+    - `InferenceBackend.GPU_CUDA` (Default device)
+    - `/v1/chat/completions` (Chat endpoint)
+    - `/v1/shutdown` (Shutdown endpoint)
+    - `/health` (Health endpoint)
+    - `120` (Request timeout in seconds)
+    - `0.7` (Default temperature)
+- **Environment Lookups**: None detected.

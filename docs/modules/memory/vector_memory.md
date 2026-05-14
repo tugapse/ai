@@ -1,43 +1,47 @@
 ## 1. Architectural Role
-Provides a long-term memory system that integrates vector embeddings for retrieval, a vector database for persistence, and LLM-driven reflection for synthesizing raw memories into high-level insights.
+Provides a long-term memory subsystem utilizing vector embeddings and LLM-driven reflection to store, retrieve, and synthesize information via a ChromaDB backend.
 
 ## 2. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `EmbeddingProvider` | Class | Abstract base for text-to-vector conversion. |
-| `LanguageModelProvider` | Class | Abstract base for importance rating and memory reflection. |
-| `VectorDBProvider` | Class | Abstract base for vector storage and similarity querying. |
-| `SentenceTransformerEmbeddingProvider` | Class | Implementation of `EmbeddingProvider` using `sentence-transformers`. |
-| `LLMProvider` | Class | Implementation of `LanguageModelProvider` using a provided connector. |
-| `ChromaDBProvider` | Class | Implementation of `VectorDBProvider` using `chromadb` with session-based collection hashing. |
-| `VectorMemory` | Class | Orchestrator for memory lifecycle: adding, retrieving, and reflecting on memories. |
-| `VectorMemory.add_memory` | Method | Processes content via LLM importance rating and embedding, then persists to DB. |
-| `VectorMemory.retrieve_memories` | Method | Fetches and ranks memories using a weighted score of relevance, recency, and importance. |
-| `VectorMemory.trigger_reflection` | Method | Extracts key patterns from recent memories and archives them as "reflection" type memories. |
+| `EmbeddingProvider` | Class (ABC) | Abstract interface for generating vector embeddings from text. |
+| `LanguageModelProvider` | Class (ABC) | Abstract interface for importance rating and memory synthesis. |
+| `VectorDBProvider` | Class (ABC) | Abstract interface for vector database upsert and query operations. |
+| `SentenceTransformerEmbeddingProvider` | Class | Concrete implementation using `SentenceTransformer` for text embedding. |
+| `LLMProvider` | Class | Concrete implementation using a `BaseModel` to rate importance and summarize memories. |
+| `ChromaDBProvider` | Class | Concrete implementation managing `chromadb` persistent storage and similarity queries. |
+| `VectorMemory` | Class | Orchestrator managing the lifecycle of memory addition, retrieval, and reflection. |
+| `add_memory` | Method | Encapsulates text into a vector, assigns metadata/importance, and upserts to DB. |
+| `retrieve_memories` | Method | Performs vector similarity search and applies weighted scoring (recency, importance, relevance). |
+| `trigger_reflection` | Method | Synthesizes recent memories into high-level insights via LLM to optimize context. |
+| `_calculate_recency_score` | Method | Computes temporal decay based on the time elapsed since last access. |
 
 ## 3. Execution Logic & Flow
 - **Initialization**: 
-    1. `ChromaDBProvider` initializes a persistent client and creates/gets a collection based on an MD5 hash of the `session_id`.
-    2. `SentenceTransformerEmbeddingProvider` loads the specified transformer model into memory.
-    3. `VectorMemory` instantiates the DB provider, embedder, and optionally an `LLMProvider`, then initializes `MemoryTools`.
-- **Data Path (Memory Addition)**: 
-    `content` $\rightarrow$ `LLMProvider.rate_importance` $\rightarrow$ `SentenceTransformerEmbeddingProvider.embed` $\rightarrow$ SHA-256 Hash (ID generation) $\rightarrow$ `ChromaDBProvider.upsert`.
-- **Data Path (Memory Retrieval)**: 
-    `query` $\rightarrow$ `SentenceTransformerEmbeddingProvider.embed` $\rightarrow$ `ChromaDBProvider.query` $\rightarrow$ Composite Scoring (Recency $\times$ Weight + Importance $\times$ Weight + Relevance $\times$ Weight) $\rightarrow$ Sorted List of `content`.
+    1. `VectorMemory` instantiates `ChromaDBProvider` (creating/accessing a collection via MD5 hashed `session_id`).
+    2. `SentenceTransformerEmbeddingProvider` loads a transformer model (default: `all-MiniLM-L6-v2`).
+    3. `LLMProvider` wraps the provided `BaseModel`.
+    4. `MemoryTools` is initialized with the `VectorMemory` instance.
+- **Data Path (Memory Ingestion)**: 
+    `content` (str) $\rightarrow$ `LLMProvider.rate_importance` (int) $\rightarrow$ `SentenceTransformerEmbeddingProvider.embed` (List[float]) $\rightarrow$ `ChromaDBProvider.upsert` (Metadata + Vector) $\rightarrow$ Persistent Storage.
+- **Data Path (Retrieval)**: 
+    `query` (str) $\rightarrow$ `embedder.embed` (vector) $\rightarrow$ `db.query` (raw results) $\rightarrow$ `_calculate_recency_score` + `importance` + `relevance` weighting $\rightarrow$ Sorted `ranked_results` $\rightarrow$ `top_k` content strings.
 - **Conditional Branching**:
-    - **Dependency Check**: If `sentence-transformers` or `chromadb` are missing, imports are set to `None` and `ImportError` is raised during provider instantiation.
-    - **LLM Availability**: `add_memory` and `trigger_reflection` check if `self.llm` is initialized before attempting importance rating or synthesis.
-    - **Query Validation**: `retrieve_memories` returns an empty list immediately if the query string is empty.
+    - **Dependency Check**: If `sentence-transformers` or `chromadb` are missing, `func.error` is called and providers are set to `None`.
+    - **LLM Availability**: `add_memory` defaults importance to `5` if `self.llm` is `None`.
+    - **Reflection Threshold**: `trigger_reflection` aborts if the retrieved memory count is $< 5$.
+    - **LLM Error Handling**: `_execute_llm_call` catches exceptions and returns an empty string if the `ask` call fails.
 
 ## 4. Resource Dependencies
-- **Standard Libraries**: `time`, `re`, `hashlib`, `typing`, `abc`
-- **Internal Modules**: `functions`, `.memory_tools`
-- **External Packages**: `sentence-transformers`, `chromadb`
+- **Standard Libraries**: `os`, `time`, `re`, `hashlib`, `typing`, `abc`
+- **Internal Modules**: `functions` (as `func`), `chat.chat` (`ChatRoles`), `core.llms.base_llm` (`BaseModel`), `direct` (`ask`), `.memory_tools` (`MemoryTools`)
+- **External Packages**: `sentence_transformers` (`SentenceTransformer`), `chromadb`
 
 ## 5. Configuration & Environment
 - **Hardcoded Constants**: 
-    - `all-MiniLM-L6-v2`: Default embedding model.
-    - `5`: Default importance rating if LLM fails or is absent.
-    - `0.99`: Default `decay_factor` for recency calculation.
-    - `./agent_ltm_db`: Default database storage path.
-    - `1.0`: Default weights for recency, importance, and relevance.
+    - `model_name`: `'all-MiniLM-L6-v2'`
+    - `decay_factor`: `0.99`
+    - `default_importance`: `5`
+    - `output_filename`: `{root}/logs/memory_output_active.md`
+- **Environment Lookups**: 
+    - `func.get_root_directory()` is used to locate the log directory.

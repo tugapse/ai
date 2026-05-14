@@ -1,35 +1,36 @@
 ## 1. Architectural Role
-The `JarvisServerModule` acts as a lifecycle wrapper that encapsulates a FastAPI application and Uvicorn server to expose the system's `orchestrator` via a network API.
+Acts as a lifecycle-managed wrapper that encapsulates the `BrainHub` logic and a `FastAPI` application, hosting them within a non-blocking `uvicorn` server thread.
 
 ## 2. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `JarvisServerModule` | Class | Manages the initialization, execution, and shutdown of the API server. |
-| `__init__` | Method | Sets network binding parameters (`host`, `port`) and initializes state placeholders. |
-| `initialize` | Method | Configures `BrainHub`, instantiates the FastAPI app via `create_app`, and prepares the `uvicorn.Server`. |
-| `start` | Method | Spawns a daemon thread to execute the Uvicorn server run loop. |
+| `JarvisServerModule` | Class | Manages the lifecycle (init, start, shutdown) of the neural server component. |
+| `__init__` | Method | Sets network parameters (`host`, `port`) and initializes internal state holders. |
+| `initialize` | Method | Instantiates `BrainHub`, links the `orchestrator`, and constructs the `FastAPI` app via `create_app`. |
+| `start` | Method | Spawns a daemon `threading.Thread` to execute the `uvicorn.Server.run` loop. |
 | `get_instance` | Method | Provides access to the active `BrainHub` instance. |
-| `shutdown` | Method | Signals the Uvicorn server to exit and triggers `BrainHub.unload_brain()`. |
+| `shutdown` | Method | Signals the `uvicorn.Server` to exit and triggers `BrainHub.unload_brain()` to release VRAM. |
 
 ## 3. Execution Logic & Flow
 - **Initialization**: 
-    1. `__init__` assigns `host` and `port` and initializes `_brain_hub`, `_fastapi_app`, `_server_thread`, and `_uvicorn_server` as `None`.
-    2. `initialize` checks for existing initialization; if none, it instantiates `BrainHub(config)`, assigns the `orchestrator` to the hub, calls `create_app(orchestrator)` to generate the FastAPI instance, and configures the `uvicorn.Server` object.
+    1. `__init__` assigns `host` and `port` and sets `_brain_hub`, `_fastapi_app`, `_server_thread`, and `_uvicorn_server` to `None`.
+    2. `initialize` performs dependency injection by creating `BrainHub(config)`, assigning the `orchestrator`, and calling `create_app`.
+    3. `initialize` configures the `uvicorn.Config` and instantiates the `uvicorn.Server` object.
 - **Data Path**: 
-    `orchestrator` (Input) $\rightarrow$ `create_app` $\rightarrow$ `_fastapi_app` $\rightarrow$ `uvicorn.Server` $\rightarrow$ Network Interface (Output).
+    - **Configuration Input** (`config`, `orchestrator`) $\rightarrow$ **Internal State** (`BrainHub`, `FastAPI` app) $\rightarrow$ **Network Interface** (`uvicorn.Server` on `host:port`).
 - **Conditional Branching**:
-    - **Initialization Guard**: If `self._brain_hub` is already set, `initialize` logs a warning and returns early.
-    - **Start Guard**: If `self._uvicorn_server` is `None`, `start` logs an error and aborts.
-    - **Shutdown Sequence**: Checks for existence of `_uvicorn_server` (sets `should_exit = True`) and `_brain_hub` (calls `unload_brain()`) before nullifying references.
+    - `initialize`: If `self._brain_hub` is already present, it logs a warning and aborts.
+    - `start`: If `self._uvicorn_server` is not initialized, it logs an error and aborts.
+    - `shutdown`: Checks for existence of `_uvicorn_server` and `_brain_hub` before attempting to signal exit or unload resources.
 
 ## 4. Resource Dependencies
-- **Standard Libraries**: `threading`
-- **Internal Modules**: `modules.base_module.BaseModule`, `functions`, `.brain_hub.BrainHub`, `.app.create_app`
+- **Standard Libraries**: `threading`, `typing`
+- **Internal Modules**: `functions` (as `func`), `services.history_manager`, `modules.base_module`, `.brain_hub`, `.app`
 - **External Packages**: `uvicorn`, `fastapi`
 
 ## 5. Configuration & Environment
 - **Hardcoded Constants**: 
     - Default `host`: `"0.0.0.0"`
     - Default `port`: `8000`
-    - Uvicorn `log_level`: `"info"`
-- **Environment Lookups**: None (relies on `config` object passed during `initialize`).
+    - `log_level`: `"info"`
+- **Environment Lookups**: None (parameters are passed via `__init__` or `initialize`).

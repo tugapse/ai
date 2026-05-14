@@ -1,43 +1,51 @@
 ## 1. Architectural Role
-The `MessageOrchestrator` manages the multi-agent execution lifecycle, routing tasks between agents, enforcing context window limits, and coordinating tool execution via a centralized memory and registry system.
+Acts as the central execution engine that manages multi-agent lifecycles, routes LLM-generated actions, maintains state persistence via session hydration, and enforces context constraints.
 
 ## 2. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `MessageOrchestrator` | Class | Main controller for agent routing, state management, and LLM interaction loops. |
-| `run_loop` | Method | Executes the primary iterative cycle of agent transitions until a termination state is reached. |
-| `_assemble_agent_tools` | Method | Filters the global tool registry to provide an agent with only its authorized tools. |
-| `_prepare_payload` | Method | Constructs the structured data object (objective, history, plan, memory) sent to the LLM. |
-| `_process_agent_response` | Method | Parses LLM output to handle tool calls, user interactions, and agent-to-agent routing. |
-| `_handle_tool_execution` | Method | Validates tool authorization and executes logic via `SpecialistManager` or `registry`. |
-| `_initialize_session_modules` | Method | Connects the `vector_memory` instance from the `module_registry` to the orchestrator. |
-| `_format_recent_outcomes` | Method | Truncates large tool results to prevent context window overflow. |
-| `_handle_format_error` | Method | Manages retry logic and user abort prompts when LLM output fails parsing. |
-| `_gatekeeper` | Method | Intercepts high-risk system tools to request manual user authorization. |
-| `_validate_target` | Method | Ensures agent transitions adhere to the `allowed_targets` defined in the agent configuration. |
+| `MessageOrchestrator` | Class | Primary controller for agent orchestration, tool routing, and session state management. |
+| `run_loop` | Method | Orchestrates the iterative execution cycle, handling session hydration and agent transitions. |
+| `_capture_state` | Method | Serializes current memory, context plans, and tool authorization status for persistence. |
+| `_apply_state` | Method | Re-injects serialized state into memory and context managers during session resumption. |
+| `_assemble_agent_tools` | Method | Filters the global tool registry to provide a specific subset of tools to an agent. |
+| `_prepare_payload` | Method | Constructs the structured dictionary (objective, history, plan, context) for LLM requests. |
+| `_process_agent_response` | Method | Parses LLM output to execute tools, handle user interaction, or transition to new agents. |
+| `_handle_tool_execution` | Method | Manages specialist tool invocation, security gatekeeping, and registry execution. |
+| `_initialize_session_modules` | Method | Dynamically registers tools from all provided modules into the central registry. |
+| `_handle_format_error` | Method | Manages error recovery and loop termination when an agent fails to produce valid output. |
+| `_gatekeeper` | Method | Intercepts sensitive tool calls to request manual user authorization. |
+| `_validate_target` | Method | Ensures agent-to-agent transitions adhere to defined pipeline constraints. |
 
 ## 3. Execution Logic & Flow
 - **Initialization**: 
-    1. Stores `connector`, `registry`, `pipeline_config`, and `module_registry`.
-    2. Instantiates `SpecialistManager` with a predefined mapping of high-level roles.
-    3. Instantiates `ContextSentinel` for token limit enforcement.
-    4. Initializes `MemoryManager` using the list of agents from the config.
+    1. Instantiates specialized managers (`SpecialistManager`, `ContextSentinel`).
+    2. Initializes `MemoryManager` with agent keys.
+    3. Sets up `auto_authorized_tools` and error counters.
 - **Data Path**: 
-    `user_prompt` $\rightarrow$ `run_loop` $\rightarrow$ `_prepare_payload` (Context + Memory) $\rightarrow$ `ContextSentinel` (Compression) $\rightarrow$ `connector.send_request` $\rightarrow$ `_process_agent_response` $\rightarrow$ `_handle_tool_execution` $\rightarrow$ `MemoryManager` (Update) $\rightarrow$ `Next Agent`.
+    1. **Input**: `user_prompt` and `session_id` enter `run_loop`.
+    2. **Hydration**: `SessionVault` loads existing state; if empty, seeds initial memory with `user_prompt`.
+    3. **Payload Construction**: `_prepare_payload` aggregates memory, plans, and recent outcomes $\rightarrow$ `ContextSentinel` applies compression/distillation.
+    4. **LLM Request**: `connector.send_request` processes the payload $\rightarrow$ Returns `response`.
+    5. **Action Processing**: `_process_agent_response` extracts `action` $\rightarrow$ `_handle_tool_execution` executes tools $\rightarrow$ Results are recorded in `MemoryManager`.
+    6. **State Transition**: `_capture_state` serializes the new state $\rightarrow$ `SessionVault.commit` persists to disk.
+    7. **Output**: The loop repeats with the `next_agent` or terminates on `STOP`/`DONE`.
 - **Conditional Branching**:
-    - **Format Error**: If `response["status"] == "FAILED"`, increment `format_error_count`; if $\ge 3$, prompt user to quit.
-    - **Target Routing**: If `target == "USER"`, pause for `input()`; if `target == "DONE"`, clear memory and return to `MASTER`; if `target == "STOP"`, terminate loop.
-    - **Tool Authorization**: If tool is in `["execute_command", "patch_file", "write_file"]` and not in `auto_authorized_tools`, trigger `_gatekeeper` for manual approval.
-    - **Specialist Routing**: If `specialist_manager.is_specialist_tool(tool_name)` is true, delegate content generation to the specialist before final tool execution.
+    - **Session Check**: If `vault.hydrate()` succeeds, resume state; else, start fresh.
+    - **Agent Validation**: If `current_agent` is not in `self.agents`, reset to `entry_point`.
+    - **Response Status**: If `response["status"] == "FAILED"`, trigger `_handle_format_error` logic.
+    - **Target Routing**: Branches based on `target` (e.g., `USER` triggers `input()`, `STOP` terminates, or valid agent transitions).
+    - **Security**: `_gatekeeper` branches based on user `y/n/all` input for tool execution.
 
 ## 4. Resource Dependencies
-- **Standard Libraries**: `os`, `copy`, `json`
-- **Internal Modules**: `functions`, `color`, `terminal_ui`, `.specialist_manager`, `.memory_manager`, `.context_sentinel`
+- **Standard Libraries**: `os`, `copy`, `json`, `typing`
+- **Internal Modules**: `config`, `functions`, `color`, `terminal_ui`, `agents.specialist_manager`, `agents.memory_manager`, `agents.context_sentinel`, `agents.session_vault`, `core.events`
+- **External Packages**: N/A (Relies on internal abstraction layers)
 
 ## 5. Configuration & Environment
 - **Hardcoded Constants**: 
     - `MAX_ITERATIONS = 100`
     - `MANAGER_AGENT_ROLE = "management"`
-    - `ContextSentinel` threshold: `0.6`, max_tokens: `600000`
-    - `_format_recent_outcomes` length: `3000`
-- **Environment Lookups**: None. (Relies on `pipeline_config` and `module_registry` passed during instantiation).
+- **Environment Lookups**: 
+    - `ProgramConfig.current.get(ProgramSetting.AGENT_THOUGHT)` (Determines if agent reasoning is displayed).
+    - `pipeline_config` (Dict containing `agents`, `entry_point`, `max_iterations`).

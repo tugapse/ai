@@ -1,39 +1,39 @@
 ## 1. Architectural Role
-The `ContextSentinel` manages LLM context window pressure by distilling voluminous tool outputs into technical summaries and pruning conversation history to prevent token overflow.
+Manages context window pressure by distilling heavy tool outputs into technical fact sheets, archiving them to Long-Term Memory (LTM), and pruning conversation history to maintain operational stability.
 
 ## 2. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
 | `ContextSentinel` | Class | Orchestrates context monitoring, data distillation, and memory pruning. |
-| `__init__` | Method | Initializes the sentinel with a connector, pressure threshold, and token limit. |
-| `enforce_limits` | Method | Evaluates context pressure and executes memory surgery (distillation/pruning) if thresholds are exceeded. |
-| `_summarize_data` | Method | Performs a blocking LLM request to convert raw data into a dense technical fact sheet. |
+| `__init__` | Method | Initializes thresholds, token limits, and safety buffers. |
+| `enforce_limits` | Method | Calculates context pressure and executes memory surgery if the threshold is exceeded. |
+| `_summarize_data` | Method | Performs a blocking LLM request to transform raw data into a dense technical summary. |
 
 ## 3. Execution Logic & Flow
-- **Initialization**: Sets `self.connector` (LLM interface), `self.threshold` (trigger percentage), and `self.max_tokens` (hardware limit).
+- **Initialization**: An instance is created with a `connector` (LLM interface), a `threshold` (trigger percentage), `max_tokens` (hardware limit), and a `buffer` (safety margin).
 - **Data Path**: 
-    1. **Pressure Calculation**: `payload` $\rightarrow$ `json.dumps` $\rightarrow$ character count $\div$ 3.2 $\rightarrow$ `est_tokens` $\div$ `max_tokens` $\rightarrow$ `pressure`.
-    2. **Evaluation**: If `pressure < self.threshold`, return `payload` unchanged.
-    3. **Distillation**: If `pressure \ge self.threshold`, iterate through `agent_memory.messages_received`.
-    4. **Filtering**: Identify `SYSTEM` messages containing `result` keys where the JSON string length exceeds 2000 characters.
-    5. **Transformation**: `raw_result` $\rightarrow$ `_summarize_data` (LLM call) $\rightarrow$ `distilled` summary.
-    6. **Archiving**: If `vector_memory` is present, save `distilled` content as `distilled_observation`.
-    7. **Replacement**: Replace raw `result` in `agent_memory` with a summary object containing `status`, `summary`, and `metadata`.
-    8. **Pruning**: Slice `agent_memory.history` to retain only the last 3 entries.
-    9. **Reconstruction**: Update `payload` with the pruned `recent_outcomes`, `messages_received`, and `conversation_history`.
+    1. `enforce_limits` receives a `payload` (current state) and `agent_memory`.
+    2. `est_tokens` is calculated via JSON serialization of the payload.
+    3. If `pressure` > `threshold`, `_summarize_data` is invoked.
+    4. `_summarize_data` sends a structured prompt to `self.connector.send_raw_request`.
+    5. The resulting `distilled` string is sent to `vector_memory.add_memory`.
+    6. The original `agent_memory.messages_received` entry is replaced with a summary object.
+    7. `agent_memory.history` is sliced to the last 3 turns.
+    8. A new `payload` is reconstructed from the pruned memory and returned.
 - **Conditional Branching**:
-    - **Pressure Check**: Determines if any memory surgery is required.
-    - **Payload Size Check**: Determines if a specific tool output is "heavy" enough to require distillation.
-    - **Vector Memory Availability**: Determines if the distilled summary is archived to long-term memory.
+    - **Pressure Check**: If `pressure < self.threshold`, the original `payload` is returned immediately with `False`.
+    - **Content Heavy Check**: Inside the message loop, distillation only triggers if a `SYSTEM` message contains a `result` key with a JSON string length > 2000.
+    - **Vector Memory Check**: Distillation results are only archived to `vector_memory` if the `vector_memory` argument is not `None`.
 
 ## 4. Resource Dependencies
 - **Standard Libraries**: `json`, `typing`
 - **Internal Modules**: `functions` (as `func`), `color` (as `Color`)
-- **External Packages**: None
+- **External Packages**: None explicitly imported (relies on passed `connector` and `memory_manager` interfaces)
 
 ## 5. Configuration & Environment
 - **Hardcoded Constants**: 
     - `3.2`: Token estimation divisor (characters per token).
-    - `2000`: Character threshold for triggering distillation of a specific message.
-    - `3`: Maximum number of history turns retained after pruning.
-- **Environment Lookups**: None
+    - `2000`: Minimum character length for tool output distillation.
+    - `3`: Number of conversation history turns retained after pruning.
+    - `"SENTINEL_{agent_name}"`: Source identifier for vector memory.
+- **Environment Lookups**: None.

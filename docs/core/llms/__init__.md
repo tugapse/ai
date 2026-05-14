@@ -1,13 +1,15 @@
 ## 1. Architectural Role
-Acts as a package initializer that intentionally avoids eager imports of LLM model classes to prevent CUDA context collisions between PyTorch and GGUF backends.
+Serves as a package-level entry point that enforces lazy-loading of model implementations to prevent CUDA context collisions caused by premature PyTorch initialization.
 
 ## 2. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `__init__.py` | Module | Package marker; contains documentation regarding lazy-loading strategy. |
+| `__init__.py` | Module | Provides a null-import boundary to prevent eager loading of heavy dependencies. |
 
 ## 3. Execution Logic & Flow
-Direct exports only; no internal logic flow.
+- **Initialization**: No modules are imported upon package initialization to maintain a clean memory state and avoid hardware driver conflicts.
+- **Data Path**: Direct exports only; no internal logic flow.
+- **Conditional Branching**: Direct exports only; no internal logic flow.
 
 ## 4. Resource Dependencies
 - **Standard Libraries**: None

@@ -1,13 +1,15 @@
 ## 1. Architectural Role
-Acts as the package initializer for the `entities` module, facilitating the public exposure of all members from `model_enums`.
+Acts as a namespace aggregator that exposes all members of the `model_enums` module to the `entities` package level for centralized access.
 
 ## 2. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `model_enums` | Module | Exported via wildcard import to provide entity-level enumerations to the rest of the system. |
+| `*` | Wildcard Export | Re-exports all classes, functions, and variables defined in `.model_enums`. |
 
 ## 3. Execution Logic & Flow
-Direct exports only; no internal logic flow.
+- **Initialization**: Upon module import, the Python interpreter executes the `from .model_enums import *` statement, populating the `entities` namespace with the contents of `model_enums`.
+- **Data Path**: Direct exports only; no internal logic flow.
+- **Conditional Branching**: Direct exports only; no internal logic flow.
 
 ## 4. Resource Dependencies
 - **Standard Libraries**: None

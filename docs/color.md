@@ -1,20 +1,20 @@
 ## 1. Architectural Role
-Provides a centralized repository of ANSI escape sequences and utility functions for applying terminal text styling and colorization.
+Provides a centralized registry of ANSI escape sequences and utility functions for applying text formatting and colorization to terminal output.
 
 ## 2. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `Color` | Class | Static container for ANSI escape codes (Foreground, Background, and Text Effects). |
-| `format_text` | Func | Concatenates style codes with text and appends a reset sequence to return a formatted string. |
-| `pformat_text` | Func | Wraps `format_text` logic to directly print the styled output to the console. |
+| `Color` | Class | Acts as a static container for ANSI foreground, background, and text effect constants. |
+| `format_text` | Func | Returns a string wrapped in provided ANSI codes and terminated with a reset sequence. |
+| `pformat_text` | Func | Prints a string wrapped in provided ANSI codes and terminated with a reset sequence to stdout. |
 
 ## 3. Execution Logic & Flow
-- **Initialization**: The `Color` class is loaded into memory, initializing a set of static string constants representing ANSI escape codes.
+- **Initialization**: The `Color` class is loaded into memory, initializing a static set of string constants representing ANSI escape sequences.
 - **Data Path**: 
-    1. **Input**: A string (`text`) and a variable number of style constants (`*colors_and_effects`) are passed to `format_text` or `pformat_text`.
-    2. **Processing**: The `colors_and_effects` tuple is joined into a single prefix string.
-    3. **Output**: The prefix, the original text, and `Color.RESET` are concatenated into a final ANSI-encoded string.
-- **Conditional Branching**: No conditional branching logic is implemented; the flow is linear and deterministic.
+    1. **Input**: A target string (`text`) and a variable number of ANSI constants (`*colors_and_effects`).
+    2. **Processing**: The `*colors_and_effects` tuple is concatenated into a single string (`applied_codes`).
+    3. **Output**: The `applied_codes` are prepended to the `text`, followed by the `Color.RESET` constant, returning a formatted string or printing it to the console.
+- **Conditional Branching**: No internal conditional logic; execution follows a linear concatenation and return/print path.
 
 ## 4. Resource Dependencies
 - **Standard Libraries**: None.
@@ -23,8 +23,6 @@ Provides a centralized repository of ANSI escape sequences and utility functions
 
 ## 5. Configuration & Environment
 - **Hardcoded Constants**: 
-    - Foreground colors (e.g., `RED = '\033[91m'`, `NORMAL_BLUE = '\033[34m'`).
-    - Background colors (e.g., `BG_BLACK = '\033[40m'`, `BG_BRIGHT_WHITE = '\033[107m'`).
-    - Text effects (e.g., `BOLD = '\033[1m'`, `UNDERLINE = '\033[4m'`).
-    - Reset code (`RESET = '\033[0m'`).
+    - ANSI Escape Sequences (e.g., `\033[0m`, `\033[91m`, `\033[40m`, etc.).
+    - Text Effect codes (e.g., `\033[1m`, `\033[22m`).
 - **Environment Lookups**: None.

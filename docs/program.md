@@ -1,51 +1,46 @@
 ## 1. Architectural Role
-The `Program` class serves as the central system orchestrator, coordinating the lifecycle of LLM instances, session persistence, hardware module registration, and the execution flow between user input and UI feedback.
+The `Program` class serves as the central orchestrator for the JARVIS system, managing the lifecycle of LLM sessions, tool registry integration, module coordination, and the autonomous agent execution loop.
 
 ## 2. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `Program` | Class | Main coordinator for JARVIS services and state. |
-| `llm` | Property | Lazy-loader and setter for the active LLM instance. |
-| `model_params` | Property | Retrieves current LLM parameters after ensuring initialization. |
-| `load_config` | Method | Instantiates core service managers (`ModelOrchestrator`, `HistoryManager`, etc.). |
-| `init_program` | Method | Applies CLI arguments, initializes session paths, and loads modules. |
-| `_ensure_llm_loaded` | Method | Internal trigger to load the LLM and system prompt from config. |
-| `_handle_tool_call` | Method | Processes tool execution confirmation and restarts the chat loop. |
-| `start_chat` | Method | Manages a single interaction turn: input processing $\rightarrow$ streaming $\rightarrow$ history update. |
-| `run` | Method | Binds core events and enters the main `chat.loop()`. |
-| `shutdown` | Method | Performs safety cleanup and requests LLM shutdown. |
+| `Program` | Class | Main entry point and system coordinator. |
+| `__init__` | Method | Initializes core state variables and empty service containers. |
+| `load_config` | Method | Instantiates `ProgramConfig`, `ModelOrchestrator`, `HistoryManager`, `ModuleRegistry`, and `UIOrchestrator`. |
+| `init_config` | Method | Applies CLI arguments to configuration and triggers module loading. |
+| `init_program` | Method | Sets up session paths, history, UI, and tool registries. |
+| `load_tool_registry` | Method | Populates `ToolRegistry` with system, user, and vector memory tools. |
+| `start_chat` | Method | Initiates the LLM interaction loop for a specific user input. |
+| `_run_agent_loop` | Method | Executes the iterative "Thought-Action" cycle (Inference  Action  Completion). |
+| `_process_tool_call` | Method | Executes tools via `tool_registry` with optional Human-In-The-Loop (HIL) gating. |
+| `run` | Method | Activates the main execution loop and binds core system events. |
+| `shutdown` | Method | Performs aggressive cleanup of LLM instances and memory. |
+| `route_session` | Method | Switches the active `HistoryManager` session to a specific file. |
+| `llm` | Property | Lazy-loader for the active `BaseModel` instance. |
+| `model_params` | Property | Retrieves operational parameters from the loaded model. |
 
 ## 3. Execution Logic & Flow
 - **Initialization**: 
-    1. `__init__` sets initial state flags (`llm_initialized = False`) and initializes an empty `Chat` object.
-    2. `load_config` creates service instances based on `ProgramConfig`.
-    3. `init_program` modifies config via `ConfigApplier`, sets up `SessionManager` paths, and triggers `ModuleRegistry.load_all()`.
+    1. `__init__` sets default state (e.g., `llm_initialized = False`, `allow_tools = False`).
+    2. `load_config` builds the service layer (`models`, `history`, `modules`, `ui`).
+    3. `init_program` establishes filesystem persistence and tool availability.
 - **Data Path**: 
-    `user_input` $\rightarrow$ `HistoryManager` (add message) $\rightarrow$ `ModelOrchestrator` (via `llm` property) $\rightarrow$ `StreamOrchestrator` (processing stream) $\rightarrow$ `UIOrchestrator` (printing/formatting) $\rightarrow$ `HistoryManager` (save result).
+    `User Input` $\rightarrow$ `history.add_message` $\rightarrow$ `llm.chat` (Stream) $\rightarrow$ `StreamOrchestrator.run` $\rightarrow$ `stream_result` $\rightarrow$ (If Tool Call) $\rightarrow$ `tool_registry.execute_tool` $\rightarrow$ `history.add_message` (Tool Result) $\rightarrow$ `llm.chat` (Loop) $\rightarrow$ `stream_result.accumulated_text` $\rightarrow$ `history.add_message` (Final Response) $\rightarrow$ `vector_memory.add_memory`.
 - **Conditional Branching**:
-    - **Lazy Loading**: Accessing `self.llm` or `self.model_params` triggers `_ensure_llm_loaded` if `llm_initialized` is `False`.
-    - **Stream Interruption**: If `stream_result.interrupted` is true, the system calls `llm.request_shutdown()` and logs a user interruption.
-    - **Client Mode**: The `llm.setter` allows external injection of a remote LLM, bypassing local loading.
+    - **Tool Execution**: Checks if tool name exists in `llm.HIL_TOOLS`; if true, triggers `_request_human_permission` (blocking input).
+    - **Agent Loop Termination**: Continues while `stream_result.tool_calls` is populated; breaks when `stream_result.accumulated_text` is present or `stream_result.interrupted` is true.
+    - **Sentinel Warning**: If `step_count` exceeds `MAX_STEPS_BEFORE_WARNING` (5), injects a system prompt warning into the chat history.
+    - **LLM Loading**: Uses `llm_initialized` flag to decide between lazy-loading a new `ModelOrchestrator` or updating the existing `system_prompt`.
 
 ## 4. Resource Dependencies
-- **Standard Libraries**: `os`, `sys`, `traceback`, `typing.Optional`
-- **Internal Modules**: 
-    - `core.chat.Chat`, `core.chat.ChatRoles`
-    - `core.llms.base_llm.BaseModel`
-    - `config.ProgramConfig`, `config.ProgramSetting`
-    - `services.session_manager.SessionManager`
-    - `services.prompt_loader.PromptLoader`
-    - `services.config_applier.ConfigApplier`
-    - `services.event_binder.EventBinder`
-    - `services.model_orchestrator.ModelOrchestrator`
-    - `services.history_manager.HistoryManager`
-    - `services.module_registry.ModuleRegistry`
-    - `services.ui_orchestrator.UIOrchestrator`
-    - `services.stream_orchestrator.StreamOrchestrator`
-    - `functions` (aliased as `func`)
+- **Standard Libraries**: `os`, `traceback`, `gc`, `json`, `typing`
+- **Internal Modules**: `chat.chat`, `core.llms.base_llm`, `config`, `color`, `agents.agent`, `modules.memory.vector_memory_module`, `modules.memory.vector_memory`, `tools.tool_registry`, `tools.agent_tools`, `tools.tool_loader`, `services.session_manager`, `services.prompt_loader`, `services.config_helper`, `services.event_binder`, `services.model_orchestrator`, `services.history_manager`, `services.module_registry`, `services.ui_orchestrator`, `services.stream_orchestrator`, `functions`
+- **External Packages**: N/A (Relies on internal implementations of `Color` and `func`)
 
 ## 5. Configuration & Environment
-- **Hardcoded Constants**: None.
+- **Hardcoded Constants**: 
+    - `MAX_STEPS_BEFORE_WARNING = 5`
 - **Environment Lookups**: 
-    - `ProgramSetting.SYSTEM_PROMPT_FILE`: Used to locate the system prompt file.
-    - `ProgramSetting.MODEL_CONFIG_NAME`: Used to identify which model configuration to load.
+    - `ProgramSetting.SYSTEM_PROMPT_FILE` (via `config`)
+    - `ProgramSetting.MODEL_CONFIG_NAME` (via `config`)
+    - `func.get_root_directory()` (used for tool path resolution)
