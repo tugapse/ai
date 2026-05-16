@@ -87,7 +87,7 @@ def execute_command(**kwargs) -> Dict[str, Any]:
         intent (str): Clear reasoning of why this tool is being called and the expected outcome. Required.
         command (str): The raw shell command to execute. Required.
         path (str): The directory path to run the command in. Defaults to '@ROOT'.
-        timeout (int): Maximum execution time in seconds. Defaults to 60.
+        timeout (int): Maximum execution time in seconds. Defaults to 180.
     """
     command = kwargs.get("command")
     if not command:
@@ -97,7 +97,7 @@ def execute_command(**kwargs) -> Dict[str, Any]:
     command = command.replace("@ROOT/", actual_root + "/").replace("@ROOT", actual_root)
 
     cwd_path = _resolve_path(kwargs)
-    timeout = kwargs.get("timeout", 60)
+    timeout = kwargs.get("timeout", 180)
 
     try:
         process = subprocess.run(
