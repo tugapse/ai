@@ -113,7 +113,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
   {Color.CYAN}[ SYSTEM READY ] --------------------------------------------------------------------------{Color.RESET}
 """
     parser = argparse.ArgumentParser(
-        description=f"{__logo}{description}",
+        description=description,
         formatter_class=JarvisHelpFormatter,
         usage=f"{Color.CYAN}ai{Color.RESET} [OPTIONS]",
         add_help=False,
@@ -154,6 +154,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
 
     # 5. System Debug & Maintenance
     sys_group = parser.add_argument_group(f'{Color.CYAN}SYSTEM DEBUG & MAINTENANCE{Color.RESET}')
+    sys_group.add_argument("--show-logo", action="store_true", help="Display the JARVIS startup logo")
     sys_group.add_argument("--print-chat", "-p", type=str, help="Output session history")
     sys_group.add_argument("--print-log", "-pl", action="store_true", help="Enable system telemetry logs")
     sys_group.add_argument("--print-debug", "-pdb", action="store_true", help="Enable verbose debug stream")
@@ -168,6 +169,9 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     config_group = parser.add_argument_group(f'{Color.CYAN}MODEL CONFIG GENERATION{Color.RESET}')
     config_group.add_argument('--generate-config', metavar='FILENAME', type=str, help="Generate new model manifest")
     config_group.add_argument('--model-type', type=str, choices=[t.value for t in ModelType], help="Target architecture for manifest")
+
+    if '-h' in sys.argv or '--help' in sys.argv:
+        func.log(f"\n{__logo}", start_line="")
 
     return parser, parser.parse_args()
 
@@ -197,7 +201,8 @@ def run():
 
     signal.signal(signal.SIGINT, shutdown_handler)
     signal.signal(signal.SIGTERM, shutdown_handler)
-    func.log(f"\n{__logo}" , start_line="")
+    if args.show_logo:
+        func.log(f"\n{__logo}", start_line="")
 
     try:
         prog.load_config(args=args) 
