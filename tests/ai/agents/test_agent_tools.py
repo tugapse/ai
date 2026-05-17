@@ -11,7 +11,7 @@ mock_func = MagicMock()
 sys.modules["functions"] = mock_func
 sys.modules["ai.functions"] = mock_func
 
-from tools.agent_tools import (
+from ai.tools.agent_tools import (
     write_file, read_file, read_dir, 
     patch_file, smart_search, execute_command, 
     _resolve_path, AVAILABLE_TOOLS
@@ -22,13 +22,13 @@ class TestAgentToolsExtensive(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.sandbox_dir = os.path.abspath(tempfile.mkdtemp())
-        import tools.agent_tools as tools_module
+        import ai.tools.agent_tools as tools_module
         cls.original_root = tools_module.PROJECT_ROOT
         tools_module.PROJECT_ROOT = cls.sandbox_dir
 
     @classmethod
     def tearDownClass(cls):
-        import tools.agent_tools as tools_module
+        import ai.tools.agent_tools as tools_module
         tools_module.PROJECT_ROOT = cls.original_root
         shutil.rmtree(cls.sandbox_dir)
 

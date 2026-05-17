@@ -13,23 +13,23 @@ import re
 from typing import Optional
 
 # Configuration and Enums
-from modules.server.brain_hub import BrainHub
-from model_config_manager import ModelConfigManager
-from config import ProgramConfig, ProgramSetting 
-from entities.model_enums import ModelType
+from ai.modules.server.brain_hub import BrainHub
+from ai.model_config_manager import ModelConfigManager
+from ai.config import ProgramConfig, ProgramSetting 
+from ai.entities.model_enums import ModelType
 
 # Core logic
-from chat.chat import ChatRoles
-from core.llms.base_llm import BaseModel
-from color import Color, format_text
-from direct import ask
+from ai.chat.chat import ChatRoles
+from ai.core.llms.base_llm import BaseModel
+from ai.color import Color, format_text
+from ai.direct import ask
 
 # Agent logic
-from agents.agent import MessageOrchestrator, LLMConnector, ToolRegistry, load_pipeline_config
-from tools.tool_loader import load_and_register_user_tools
-import tools.agent_tools as agent_tools
+from ai.agents.agent import MessageOrchestrator, LLMConnector, ToolRegistry, load_pipeline_config
+from ai.tools.tool_loader import load_and_register_user_tools
+import ai.tools.agent_tools as agent_tools
 
-import functions as func
+import ai.functions as func
 
 class CliArgs:
     """

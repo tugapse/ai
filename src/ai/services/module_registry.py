@@ -2,7 +2,7 @@ from typing import Dict, Any, Optional
 from entities.model_enums import EngineType
 from services.engine_manager import EngineManager
 from services.config_helper import ProgramConfig, ProgramSetting
-import functions as func
+import ai.functions as func
 
 class ModuleRegistry:
     """

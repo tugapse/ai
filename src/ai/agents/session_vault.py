@@ -5,7 +5,7 @@ import base64
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 
-import functions as func
+import ai.functions as func
 
 class SessionVault:
     """

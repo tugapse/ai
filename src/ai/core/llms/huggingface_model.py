@@ -19,10 +19,10 @@ from transformers import TextIteratorStreamer, StoppingCriteriaList
 from huggingface_hub.errors import RepositoryNotFoundError, GatedRepoError
 import requests.exceptions
 
-from core.llms.base_llm import BaseModel, ModelParams
-from core.events import Events
-from color import Color
-import functions
+import ai.functions as func
+from ai.core.llms.base_llm import BaseModel, ModelParams
+from ai.core.events import Events
+from ai.color import Color
 
 
 class CustomStoppingCriteria:
@@ -44,8 +44,8 @@ class HuggingFaceModel(BaseModel):
     Defaults to Google TurboQuant for KV Cache compression if the environment supports it.
     """
 
-    def __init__(self, model_name: str, system_prompt=None, quantization_bits: int = 0, use_turboquant: bool = True, model_params=None, **kargs):
-        functions.debug(f"HuggingFaceModel __init__ called for model: {model_name}")
+    def __init__(self, model_name: str, system_prompt="", quantization_bits: int = 0, use_turboquant: bool = True, model_params=None, **kargs):
+        func.debug(f"HuggingFaceModel __init__ called for model: {model_name}")
         super().__init__(model_name, system_prompt, **kargs)
 
         self.tokenizer = None
@@ -64,31 +64,31 @@ class HuggingFaceModel(BaseModel):
                 import turboquant
                 if torch.cuda.is_available():
                     self.turboquant_available = True
-                    functions.log("TurboQuant: Valid environment detected. 4-bit KV Cache enabled by default.")
+                    func.log("TurboQuant: Valid environment detected. 4-bit KV Cache enabled by default.")
                 else:
-                    functions.log("TurboQuant: Library found, but no CUDA device detected. Defaulting to standard cache.")
+                    func.log("TurboQuant: Library found, but no CUDA device detected. Defaulting to standard cache.")
             except ImportError:
-                functions.log("TurboQuant: Module not found. To enable, pip install turboquant. Defaulting to standard cache.")
+                func.log("TurboQuant: Module not found. To enable, pip install turboquant. Defaulting to standard cache.")
 
         try:
             self._load_llm_params()
         except GatedRepoError as e:
-            functions.error(f"ERROR: Failed to load gated model '{self.model_name}'. Access denied or not authenticated. Details: {e}")
+            func.error(f"ERROR: Failed to load gated model '{self.model_name}'. Access denied or not authenticated. Details: {e}")
             self.model = None
             self.tokenizer = None
             sys.exit(1)
         except RepositoryNotFoundError:
-            functions.error(f"ERROR: Model '{self.model_name}' not found on Hugging Face Hub. Check spelling.")
+            func.error(f"ERROR: Model '{self.model_name}' not found on Hugging Face Hub. Check spelling.")
             self.model = None
             self.tokenizer = None
             sys.exit(1)
         except requests.exceptions.HTTPError as e:
-            functions.error(f"ERROR: Could not download model files for '{self.model_name}'. Check network, disk space, or proxy settings. Details: {e}")
+            func.error(f"ERROR: Could not download model files for '{self.model_name}'. Check network, disk space, or proxy settings. Details: {e}")
             self.model = None
             self.tokenizer = None
             sys.exit(1)
         except Exception as e:
-            functions.error(f"CRITICAL ERROR: Model initialization failed for {self.model_name}: {e}")
+            func.error(f"CRITICAL ERROR: Model initialization failed for {self.model_name}: {e}")
             import traceback
             traceback.print_exc()
             self.model = None
@@ -101,7 +101,7 @@ class HuggingFaceModel(BaseModel):
         self.torch_lib = torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
-        functions.log(f"Preparing to load model: {self.model_name}...")
+        func.log(f"Preparing to load model: {self.model_name}...")
 
         load_kwargs = {"trust_remote_code": True}
         
@@ -109,13 +109,13 @@ class HuggingFaceModel(BaseModel):
         overrides = self.options.get("tokenizer_kwargs", {})
         if overrides:
             tokenizer_kwargs.update(overrides)
-            functions.debug(f"Applied tokenizer_kwargs from config: {overrides}")
+            func.debug(f"Applied tokenizer_kwargs from config: {overrides}")
 
         quant_method = self.quantization_method.lower()
         quantization_config = None
 
         if quant_method == "awq":
-            functions.log("AWQ method selected from config. Expecting a pre-quantized AWQ model repository.")
+            func.log("AWQ method selected from config. Expecting a pre-quantized AWQ model repository.")
         else:
             if self.quantization_bits in [4, 8]:
                 try:
@@ -137,37 +137,37 @@ class HuggingFaceModel(BaseModel):
                             bnb_4bit_use_double_quant=True,
                             llm_int8_enable_fp32_cpu_offload=True
                         )
-                        functions.log("Configured for 4-bit quantization using BitsAndBytesConfig.")
+                        func.log("Configured for 4-bit quantization using BitsAndBytesConfig.")
                     elif self.quantization_bits == 8:
                         quantization_config = BitsAndBytesConfig(
                             load_in_8bit=True, 
                             llm_int8_enable_fp32_cpu_offload=True
                         )
-                        functions.log("Configured for 8-bit quantization using BitsAndBytesConfig.")
+                        func.log("Configured for 8-bit quantization using BitsAndBytesConfig.")
 
                 except ImportError:
-                    functions.log("WARNING: bitsandbytes not found. Falling back to non-quantized loading.")
+                    func.log("WARNING: bitsandbytes not found. Falling back to non-quantized loading.")
                     self.quantization_bits = 0
                 except Exception as e:
-                    functions.log(f"ERROR: Could not create BitsAndBytesConfig for {self.quantization_bits}-bit quantization: {e}. Falling back to non-quantized loading.")
+                    func.log(f"ERROR: Could not create BitsAndBytesConfig for {self.quantization_bits}-bit quantization: {e}. Falling back to non-quantized loading.")
                     self.quantization_bits = 0
 
         if quantization_config:
             load_kwargs["quantization_config"] = quantization_config
             if self.is_gpu_available():
                 load_kwargs["device_map"] = self.device_map
-            functions.log(f"Attempting to load model: {self.model_name} with {self.quantization_bits}-bit BNB config.")
+            func.log(f"Attempting to load model: {self.model_name} with {self.quantization_bits}-bit BNB config.")
         else:
             if quant_method == "awq":
-                functions.log("Loading AWQ model natively without BNB config.")
+                func.log("Loading AWQ model natively without BNB config.")
             else:
-                functions.log("Loading model without quantization.")
+                func.log("Loading model without quantization.")
             if self.is_gpu_available():
                 load_kwargs["torch_dtype"] = torch.bfloat16
                 load_kwargs["device_map"] = self.device_map
 
         try:
-            functions.debug(f"Checking local cache for model {self.model_name}...")
+            func.debug(f"Checking local cache for model {self.model_name}...")
             
             self.tokenizer = AutoTokenizer.from_pretrained(
                 self.model_name,
@@ -186,10 +186,10 @@ class HuggingFaceModel(BaseModel):
                 **load_kwargs
 
             )
-            functions.log(f"Found model in local cache. Loaded: {self.model_name}")
+            func.log(f"Found model in local cache. Loaded: {self.model_name}")
 
         except Exception:
-            functions.log(f"Model not found locally (or cache is incomplete). Downloading from HuggingFace...")
+            func.log(f"Model not found locally (or cache is incomplete). Downloading from HuggingFace...")
             
             self.tokenizer = AutoTokenizer.from_pretrained(
                 self.model_name,
@@ -204,7 +204,7 @@ class HuggingFaceModel(BaseModel):
                 local_files_only=False,
                 **load_kwargs
             )
-            functions.log(f"Successfully downloaded and loaded model: {self.model_name}")
+            func.log(f"Successfully downloaded and loaded model: {self.model_name}")
 
     def _ensure_alternating_roles(self, messages: list) -> list:
         if not messages:
@@ -236,20 +236,20 @@ class HuggingFaceModel(BaseModel):
         cleaned_messages.append(current_message)
 
         if len(cleaned_messages) < len(messages):
-            functions.log(f"WARNING: Chat history was cleaned to ensure alternating roles. Original length: {len(messages)}, Cleaned length: {len(cleaned_messages)}. Consider adjusting upstream history management.")
+            func.log(f"WARNING: Chat history was cleaned to ensure alternating roles. Original length: {len(messages)}, Cleaned length: {len(cleaned_messages)}. Consider adjusting upstream history management.")
 
         return cleaned_messages
 
     def _generate_in_thread(self, model, tokenizer, generation_kwargs, error_queue, streamer, stop_event: threading.Event):
-        functions.debug("_generate_in_thread started.")
+        func.debug("_generate_in_thread started.")
         try:
             generation_kwargs["stopping_criteria"] = StoppingCriteriaList(
                 [CustomStoppingCriteria(stop_event)]
             )
 
-            functions.debug(f"_generate_in_thread calling model.generate with kwargs keys: {generation_kwargs.keys()}")
+            func.debug(f"_generate_in_thread calling model.generate with kwargs keys: {generation_kwargs.keys()}")
             model.generate(**generation_kwargs)
-            functions.debug(f"_generate_in_thread model.generate completed (Streaming).")
+            func.debug(f"_generate_in_thread model.generate completed (Streaming).")
 
         except RuntimeError as e:
             error_message = (
@@ -257,29 +257,29 @@ class HuggingFaceModel(BaseModel):
                 f"\nDetails: {e}"
                 f"\nSuggestion: Try reducing 'temperature', disable sampling (`do_sample=False`), or ensure bitsandbytes is correctly installed."
             )
-            functions.error(error_message)
+            func.error(error_message)
             error_queue.put(error_message)
         except Exception as e:
             import traceback
             error_message = f"CRITICAL ERROR: An unexpected error occurred during model generation: {e}\nTraceback:\n{traceback.format_exc()}"
-            functions.error(error_message)
+            func.error(error_message)
             error_queue.put(error_message)
         finally:
-            functions.debug("_generate_in_thread finally block executed. Clearing stop event. Calling streamer.end().")
+            func.debug("_generate_in_thread finally block executed. Clearing stop event. Calling streamer.end().")
             if streamer:
                 streamer.end()
             stop_event.clear()
 
     def join_generation_thread(self, timeout: float = None):
         if self._generation_thread and self._generation_thread.is_alive():
-            functions.log("Waiting for HuggingFace LLM generation thread to finish...")
+            func.log("Waiting for HuggingFace LLM generation thread to finish...")
             self._generation_thread.join(timeout=timeout)
             if self._generation_thread.is_alive():
-                functions.log("WARNING: HuggingFace LLM generation thread did not terminate within timeout.")
+                func.log("WARNING: HuggingFace LLM generation thread did not terminate within timeout.")
         self.stop_generation_event.clear()
 
     def chat(self, messages: list, images: list[str] = None, stream: bool = True, options: object = {}):
-        functions.debug(f"HuggingFaceModel chat() called. Stream: {stream}")
+        func.debug(f"HuggingFaceModel chat() called. Stream: {stream}")
 
         if self.model is None or self.tokenizer is None:
             yield "Model loading failed during initialization. Check logs for details."
@@ -290,21 +290,21 @@ class HuggingFaceModel(BaseModel):
         while not self.error_queue.empty():
             self.error_queue.get()
 
-        functions.debug("Chat method initialized, queues cleared.")
+        func.debug("Chat method initialized, queues cleared.")
 
         safe_messages = [m.copy() for m in messages]
         processed_messages = self.check_system_prompt(safe_messages)
 
         processed_messages_log = processed_messages[-1]["content"][:50].replace("\n", "\\n") if processed_messages else "[No messages to process]"
-        functions.debug(f"Processed messages. Input for LLM will be based on: '{processed_messages_log}'...")
+        func.debug(f"Processed messages. Input for LLM will be based on: '{processed_messages_log}'...")
 
         if self.is_gpu_available():
-            functions.debug("Clearing CUDA cache before generation...")
+            func.debug("Clearing CUDA cache before generation...")
             torch.cuda.empty_cache()
             gc.collect()
 
         input_data = self._prepare_input(processed_messages)
-        functions.debug(f"Input data prepared. Input IDs shape: {input_data['input_ids'].shape}")
+        func.debug(f"Input data prepared. Input IDs shape: {input_data['input_ids'].shape}")
 
         if self.is_gpu_available() and self.device_map == "cuda":
             inputs_on_device = {k: v.to("cuda") for k, v in input_data.items()}
@@ -324,11 +324,11 @@ class HuggingFaceModel(BaseModel):
         if eos_token_id is None and hasattr(self.tokenizer, "pad_token_id"):
             eos_token_id = self.tokenizer.pad_token_id
         elif eos_token_id is None:
-            functions.log("WARNING: No EOS or PAD token ID found for tokenizer. Model generation might not terminate cleanly.")
+            func.log("WARNING: No EOS or PAD token ID found for tokenizer. Model generation might not terminate cleanly.")
             eos_token_id = -1
             
         text = f"Generation options: max_new_tokens={max_new_tokens}, do_sample={do_sample}, top_k={top_k}, top_p={top_p}, temperature={temperature}, eos_token_id={eos_token_id}"
-        functions.debug(Color.GREEN + text)
+        func.debug(Color.GREEN + text)
 
         streamer = None
         if stream:

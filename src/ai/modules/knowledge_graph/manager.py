@@ -1,13 +1,11 @@
 # src/knowledge_graph_module/manager.py
 
-import os
 import json
 from typing import Any, List, Dict, Tuple
-from uuid import UUID
 
-from .ast_parser import get_parser
-from .prompts import CODE_EXTRACTION_PROMPT
-from .models import (
+from ai.modules.knowledge_graph.ast_parser import get_parser
+from ai.modules.knowledge_graph.prompts import CODE_EXTRACTION_PROMPT
+from ai.modules.knowledge_graph.models import (
     AnalysisReport,
     AmbiguityFlag,
     RefinementReport,

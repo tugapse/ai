@@ -1,8 +1,8 @@
 import re
 import random
 from typing import Any
-from color import Color, format_text
-import functions as func
+import ai.functions as func
+from ai.color import Color, format_text
 
 class SpeechBridge:
     def __init__(self, voice_module: Any, debug: bool = False):

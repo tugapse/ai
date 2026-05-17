@@ -1,9 +1,9 @@
 import os
 import json
 from typing import Optional, Dict, List
-from chat.chat import Chat, ChatRoles
-from core.llms.base_llm import BaseModel
-import functions as func
+from ai.chat.chat import Chat, ChatRoles
+from ai.core.llms.base_llm import BaseModel
+import ai.functions as func
 
 class HistoryManager:
     """

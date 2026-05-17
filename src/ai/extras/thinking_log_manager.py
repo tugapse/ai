@@ -3,10 +3,7 @@ import time
 import errno
 import datetime
 
-from config import (
-    ProgramConfig,
-    ProgramSetting,
-)
+from ai.config import ProgramConfig,ProgramSetting
 
 class ThinkingLogManager:
     """

@@ -1,9 +1,10 @@
 import json
 import requests
 from typing import Any
-import functions as func
-from core.llms.base_llm import BaseModel
-from entities.model_enums import InferenceBackend
+
+import ai.functions as func
+from ai.core.llms.base_llm import BaseModel
+from ai.entities.model_enums import InferenceBackend
 
 class RemoteBrainConnector(BaseModel):
     """

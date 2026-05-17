@@ -1,9 +1,8 @@
 import os
 import sys
 import importlib.util
-import inspect
 from typing import TYPE_CHECKING
-import functions as func
+import ai.functions as func
 
 if TYPE_CHECKING:
     from .tool_registry import ToolRegistry

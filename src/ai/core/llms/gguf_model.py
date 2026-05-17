@@ -1,17 +1,15 @@
-import os
 import threading
 import queue
 import gc
 import ctypes
-import json
 from typing import List, Dict, Any
 from huggingface_hub import hf_hub_download
 from llama_cpp import Llama, llama_log_set
 
-from core.llms.base_llm import BaseModel, ModelParams
-import functions
-from color import Color
-from tools.tool_registry import ToolRegistry
+import ai.functions as func
+from ai.core.llms.base_llm import BaseModel, ModelParams
+from ai.color import Color
+from ai.tools.tool_registry import ToolRegistry
 
 def _null_log_callback(level, message, user_data):
     pass
@@ -36,7 +34,7 @@ class GGUFImageLLM(BaseModel):
         **kwargs,
     ):
         super().__init__(model_name, system_prompt=system_prompt, **kwargs)
-        functions.log(f"Initializing Hardened GGUF: {model_name}")
+        func.log(f"Initializing Hardened GGUF: {model_name}")
         
         self.model_repo_id = model_repo_id
         self.gguf_filename = gguf_filename
@@ -50,7 +48,7 @@ class GGUFImageLLM(BaseModel):
             "temperature": 0.7
         }
 
-        functions.debug(f"[GGUF Engine] Config loaded. Base max_new_tokens: {self.options.get('max_new_tokens')}, Context window (n_ctx): {self._n_ctx}")
+        func.debug(f"[GGUF Engine] Config loaded. Base max_new_tokens: {self.options.get('max_new_tokens')}, Context window (n_ctx): {self._n_ctx}")
     
         self._load_llm_params(**kwargs)
 
@@ -59,7 +57,7 @@ class GGUFImageLLM(BaseModel):
         kwargs.pop('print_timings', None)
         
         try:
-            functions.debug(f"[GGUF Engine] Checking local cache for model...")
+            func.debug(f"[GGUF Engine] Checking local cache for model...")
             
             try:
                 model_path = hf_hub_download(
@@ -67,17 +65,17 @@ class GGUFImageLLM(BaseModel):
                     filename=self.gguf_filename,
                     local_files_only=True
                 )
-                functions.log(f"Found model in local cache: {model_path}")
+                func.log(f"Found model in local cache: {model_path}")
             except Exception:
-                functions.log(f"Model not found locally. Downloading {self.gguf_filename} from {self.model_repo_id}...")
+                func.log(f"Model not found locally. Downloading {self.gguf_filename} from {self.model_repo_id}...")
                 model_path = hf_hub_download(
                     repo_id=self.model_repo_id,
                     filename=self.gguf_filename,
                     local_files_only=False
                 )
-                functions.log(f"Download complete: {model_path}")
+                func.log(f"Download complete: {model_path}")
 
-            functions.debug(f"[GGUF Engine] Loading model into memory...")
+            func.debug(f"[GGUF Engine] Loading model into memory...")
             
             with GGUFImageLLM._shared_mem_lock:
                 self.llama_model = Llama(
@@ -86,13 +84,13 @@ class GGUFImageLLM(BaseModel):
                     verbose=False,
                     **kwargs
                 )
-            functions.log(f"GGUF model '{self.model_name}' ready.")
+            func.log(f"GGUF model '{self.model_name}' ready.")
             
         except Exception as e:
-            functions.error(f"Failed to load GGUF: {e}")
+            func.error(f"Failed to load GGUF: {e}")
 
     def _generate_in_thread(self, messages: List[Dict[str, str]], gen_options: dict, output_queue: queue.Queue):
-        functions.debug("[GGUF Engine] Stream thread started.")
+        func.debug("[GGUF Engine] Stream thread started.")
         output_token_count = 0
         sentinel_buffer = ""
         is_intercepting = False
@@ -135,7 +133,7 @@ class GGUFImageLLM(BaseModel):
                                 output_token_count += 1
                         
                         if should_stop:
-                            functions.debug("[SENTINEL] Tool detected. Terminating stream.")
+                            func.debug("[SENTINEL] Tool detected. Terminating stream.")
                             break
                         # ----------------------------
                         
@@ -150,7 +148,7 @@ class GGUFImageLLM(BaseModel):
             self.trigger(BaseModel.STREAMING_FINISHED_EVENT, full_response)
             
         except Exception as e:
-            functions.error(f"[GGUF Engine] Error: {e}")
+            func.error(f"[GGUF Engine] Error: {e}")
             output_queue.put(None)
         finally:
             self.stop_generation_event.clear()
@@ -161,7 +159,7 @@ class GGUFImageLLM(BaseModel):
         current_prompt_count = self.get_message_tokens(messages)
         self.token_info_count.prompt_count = current_prompt_count
         self.token_info_count.total_prompt_count = int(current_prompt_count) + int(self.token_info_count.printed_tokens_count)
-        functions.debug(f"[GGUF Engine] Metrics Updated: {self.token_info_count.get_log_string()}")
+        func.debug(f"[GGUF Engine] Metrics Updated: {self.token_info_count.get_log_string()}")
 
     def get_message_tokens(self, messages: List[Dict[str, str]]) -> int:
         try:
@@ -173,13 +171,13 @@ class GGUFImageLLM(BaseModel):
                 tokens = self.llama_model.tokenize(full_content.encode('utf-8'))
             return len(tokens)
         except Exception as e:
-            functions.debug(f"[GGUF Engine] Tokenization failed: {e}")
+            func.debug(f"[GGUF Engine] Tokenization failed: {e}")
             return sum(len(m['content']) for m in messages) // 4
     
     def chat(self, messages: list, images: list = None, stream: bool = True, options: dict = {}):
         with GGUFImageLLM._shared_mem_lock:
             if not self.llama_model:
-                functions.error("[GGUF Engine] Attempted to chat but model is not loaded.")
+                func.error("[GGUF Engine] Attempted to chat but model is not loaded.")
                 if stream: yield "Model not loaded."
                 return "Model not loaded."
 
@@ -212,7 +210,7 @@ class GGUFImageLLM(BaseModel):
         except Exception:
             est_prompt_tokens = "Unknown"
 
-        functions.debug(f"{Color.GREEN}[GGUF Engine] Starting chat | Max Tokens: {applied_max_new_tokens} | Est. Prompt Tokens: {est_prompt_tokens}")
+        func.debug(f"{Color.GREEN}[GGUF Engine] Starting chat | Max Tokens: {applied_max_new_tokens} | Est. Prompt Tokens: {est_prompt_tokens}")
 
         if stream:
             q = queue.Queue()
@@ -228,7 +226,7 @@ class GGUFImageLLM(BaseModel):
                     if token is None: break
                     
                     if isinstance(token, dict) and token.get("type") == "function_call":
-                        functions.log(f"{Color.CYAN}[SENTINEL]: ACTION DETECTED -> {token['name']}{Color.RESET}")
+                        func.log(f"{Color.CYAN}[SENTINEL]: ACTION DETECTED -> {token['name']}{Color.RESET}")
                         self.trigger("tool_detected", token["name"])
                         yield token
                         return 
@@ -237,7 +235,7 @@ class GGUFImageLLM(BaseModel):
                     if not self._generation_thread.is_alive(): break
                     continue
         else:
-            functions.debug("[GGUF Engine] Executing synchronous generation...")
+            func.debug("[GGUF Engine] Executing synchronous generation...")
             with GGUFImageLLM._shared_mem_lock:
                 output = self.llama_model.create_chat_completion(
                     messages=safe_messages,
@@ -252,7 +250,7 @@ class GGUFImageLLM(BaseModel):
             p_tokens = usage.get("prompt_tokens", "Unknown")
             c_tokens = usage.get("completion_tokens", "Unknown")
             
-            functions.debug(f"{Color.GREEN}[GGUF Engine] Sync Complete. Prompt: {p_tokens} | Output: {c_tokens}")
+            func.debug(f"{Color.GREEN}[GGUF Engine] Sync Complete. Prompt: {p_tokens} | Output: {c_tokens}")
             
             action = ToolRegistry.parse_manual_tags(text)
             self.trigger(BaseModel.STREAMING_FINISHED_EVENT, text)
@@ -264,29 +262,29 @@ class GGUFImageLLM(BaseModel):
         return []
 
     def request_shutdown(self):
-        functions.debug("[GGUF Engine] Full shutdown requested. Unloading model.")
+        func.debug("[GGUF Engine] Full shutdown requested. Unloading model.")
         super().request_shutdown()
         self.unload()
 
     def unload(self):
         if self.llama_model is None:
-            functions.debug("[GGUF Engine] Unload called but model is already None.")
+            func.debug("[GGUF Engine] Unload called but model is already None.")
             return
 
-        functions.log(f"BrainHub: Unloading {self.model_name}...")
+        func.log(f"BrainHub: Unloading {self.model_name}...")
         model_to_unload = None
 
         with GGUFImageLLM._shared_mem_lock:
             if self.llama_model is None:
-                functions.debug("[GGUF Engine] Model was unloaded by another thread.")
+                func.debug("[GGUF Engine] Model was unloaded by another thread.")
                 return
             
             self.stop_generation_event.set()
             if hasattr(self, '_generation_thread') and self._generation_thread.is_alive():
-                functions.debug(f"[GGUF Engine] Waiting for generation thread to finish...")
+                func.debug(f"[GGUF Engine] Waiting for generation thread to finish...")
                 self._generation_thread.join(timeout=5.0)
                 if self._generation_thread.is_alive():
-                    functions.error("[GGUF Engine] Generation thread did not terminate in time.")
+                    func.error("[GGUF Engine] Generation thread did not terminate in time.")
             
             model_to_unload = self.llama_model
             self.llama_model = None
@@ -294,23 +292,23 @@ class GGUFImageLLM(BaseModel):
             del self.llama_model
         
         if model_to_unload is not None:
-            functions.debug("[GGUF Engine] Deleting Llama model object reference...")
+            func.debug("[GGUF Engine] Deleting Llama model object reference...")
             del model_to_unload
-            functions.debug("[GGUF Engine] Triggering garbage collection...")
+            func.debug("[GGUF Engine] Triggering garbage collection...")
             gc.collect()
             try:
                 import torch
                 if torch.cuda.is_available():
-                    functions.debug("[GGUF Engine] Clearing CUDA cache...")
+                    func.debug("[GGUF Engine] Clearing CUDA cache...")
                     torch.cuda.empty_cache()
-                    functions.debug("[GGUF Engine] CUDA cache cleared.")
+                    func.debug("[GGUF Engine] CUDA cache cleared.")
             except ImportError:
-                functions.debug("[GGUF Engine] PyTorch not found, skipping CUDA cache clear.")
+                func.debug("[GGUF Engine] PyTorch not found, skipping CUDA cache clear.")
             except Exception as e:
-                functions.error(f"[GGUF Engine] Error clearing CUDA cache: {e}")
+                func.error(f"[GGUF Engine] Error clearing CUDA cache: {e}")
 
         self.stop_generation_event.clear()
-        functions.log(f"BrainHub: Resources cleared for {self.model_name}.")
+        func.log(f"BrainHub: Resources cleared for {self.model_name}.")
 
     def __del__(self):
         try:

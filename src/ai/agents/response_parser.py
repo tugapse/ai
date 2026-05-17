@@ -1,7 +1,7 @@
 import re
 import yaml
 from typing import Dict, Any
-import functions as func
+import ai.functions as func
 
 class ResponseParser:
     """

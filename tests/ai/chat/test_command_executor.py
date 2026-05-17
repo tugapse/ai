@@ -3,7 +3,7 @@ from unittest.mock import Mock, MagicMock
 import time
 from threading import Event
 
-from src.ai.chat.command_executor import ExecutorResult, CommandExecutor, AsyncExecutor
+from ai.chat.command_executor import ExecutorResult, CommandExecutor, AsyncExecutor
 
 # Test for ExecutorResult
 def test_executor_result_initialization():
@@ -99,7 +99,7 @@ class TestAsyncExecutor:
         """
         mock_thread = MagicMock()
         # When Thread is instantiated, return our mock, accepting any arguments
-        monkeypatch.setattr('src.ai.chat.command_executor.Thread', lambda **kwargs: mock_thread)
+        monkeypatch.setattr('ai.chat.command_executor.Thread', lambda **kwargs: mock_thread)
 
         mock_callback = Mock()
         executor = AsyncExecutor("async_test", mock_callback)
@@ -115,7 +115,7 @@ class TestAsyncExecutor:
         Tests that run() with wait=True calls join() on the thread.
         """
         mock_thread = MagicMock()
-        monkeypatch.setattr('src.ai.chat.command_executor.Thread', lambda **kwargs: mock_thread)
+        monkeypatch.setattr('ai.chat.command_executor.Thread', lambda **kwargs: mock_thread)
 
         mock_callback = Mock()
         executor = AsyncExecutor("async_test", mock_callback)
@@ -130,7 +130,7 @@ class TestAsyncExecutor:
         Tests that terminate() sets the thread to None.
         """
         mock_thread = MagicMock()
-        monkeypatch.setattr('src.ai.chat.command_executor.Thread', lambda **kwargs: mock_thread)
+        monkeypatch.setattr('ai.chat.command_executor.Thread', lambda **kwargs: mock_thread)
 
         executor = AsyncExecutor("test", Mock())
         # Simulate that a thread has been created
@@ -192,7 +192,7 @@ class TestAsyncExecutor:
         Tests that run(auto_start=False) creates a thread but does not start it.
         """
         mock_thread = MagicMock()
-        monkeypatch.setattr('src.ai.chat.command_executor.Thread', lambda **kwargs: mock_thread)
+        monkeypatch.setattr('ai.chat.command_executor.Thread', lambda **kwargs: mock_thread)
 
         mock_callback = Mock()
         executor = AsyncExecutor("async_test", mock_callback)
@@ -274,7 +274,7 @@ class TestAsyncExecutor:
             created_threads.append(mock)
             return mock
 
-        monkeypatch.setattr('src.ai.chat.command_executor.Thread', mock_thread_factory)
+        monkeypatch.setattr('ai.chat.command_executor.Thread', mock_thread_factory)
 
         executor = AsyncExecutor("test", Mock())
 

@@ -1,4 +1,4 @@
-import functions as func
+import ai.functions as func
 
 class OutputPrinter:
     """

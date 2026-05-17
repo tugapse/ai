@@ -1,8 +1,8 @@
 import pytest
 from unittest.mock import MagicMock, patch, call, ANY
 
-from chat.chat import Chat, ChatRoles, PrefixCompleter
-from core.llms.base_llm import BaseModel
+from ai.chat.chat import Chat, ChatRoles, PrefixCompleter
+from ai.core.llms.base_llm import BaseModel
 from prompt_toolkit.formatted_text import ANSI
 from prompt_toolkit.completion import Completion, CompleteEvent
 from prompt_toolkit.document import Document

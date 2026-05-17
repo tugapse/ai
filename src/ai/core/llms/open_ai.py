@@ -4,11 +4,11 @@ import gc
 import json
 from typing import Dict, List, Any, Optional, Union, Generator
 
-from tools.tool_registry import ToolRegistry
 
-from .base_llm import BaseModel
-import functions as func
-from color import Color
+import ai.functions as func
+from ai.tools.tool_registry import ToolRegistry
+from ai.core.llms.base_llm import BaseModel
+from ai.color import Color
 
 
 class OpenAIAPIModel(BaseModel):
@@ -20,7 +20,7 @@ class OpenAIAPIModel(BaseModel):
     (OpenAI, Azure AI Foundry, Mistral, Ollama, vLLM, etc.).
     """
 
-    def __init__(self, model_name: Optional[str] = None, system_prompt: Optional[str] = None, api_key: Optional[str] = None, **kargs: Any):
+    def __init__(self, model_name: Optional[str] = None, system_prompt: Optional[str] = "", api_key: Optional[str] = None, **kargs: Any):
         """
         Initializes the OpenAI API model interface.
 

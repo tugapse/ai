@@ -1,16 +1,17 @@
 import os
 from datetime import datetime
 from typing import Optional
-from core.events import Events
-from color import Color, format_text
-import functions as func
-from core.llms.base_llm import BaseModel
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.formatted_text import ANSI
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.completion import Completer, Completion
+
+import ai.functions as func
+from ai.core.events import Events
+from ai.color import Color, format_text
+from ai.core.llms.base_llm import BaseModel
 
 class ChatRoles:
     """

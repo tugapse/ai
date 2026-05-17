@@ -1,6 +1,6 @@
-import functions as func
 import re
-from extras.thinking_log_manager import ThinkingLogManager
+import ai.functions as func
+from ai.extras.thinking_log_manager import ThinkingLogManager
 
 class ThinkingAnimationHandler:
     """

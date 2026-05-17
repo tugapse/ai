@@ -1,7 +1,7 @@
 import json
 from typing import Dict, Any, Optional, Tuple
-import functions as func
-from color import Color
+import ai.functions as func
+from ai.color import Color
 
 class ContextSentinel:
     """

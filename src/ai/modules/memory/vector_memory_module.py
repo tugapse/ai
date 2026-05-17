@@ -1,8 +1,8 @@
 from typing import Any, Optional
 import functions as func
-from modules.base_module import BaseModule
-from core.llms.base_llm import BaseModel
-from .vector_memory import VectorMemory
+from ai.modules.base_module import BaseModule
+from ai.core.llms.base_llm import BaseModel
+from ai.modules.memory.vector_memory import VectorMemory
 
 class VectorMemoryModule(BaseModule):
     """

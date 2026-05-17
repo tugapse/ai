@@ -1,11 +1,8 @@
 import os
-import shutil
 import subprocess
-import requests
 import json
 import difflib
 from typing import Dict, Any, List, Optional
-import functions as func
 
 PROJECT_ROOT = os.getcwd()
 

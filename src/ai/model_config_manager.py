@@ -4,8 +4,8 @@ import sys
 import argparse
 
 from entities.model_enums import ModelType
-from color import Color, format_text 
-import functions as func 
+import ai.functions as func 
+from ai.color import Color, format_text 
 
 class ModelConfigManager:
     """

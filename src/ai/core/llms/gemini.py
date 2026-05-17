@@ -1,14 +1,10 @@
 import os
-import threading
 import io
 import gc
-import time
-import re
 import subprocess
 import warnings
 import json
 
-from tools.tool_registry import ToolRegistry
 
 # Silencia o aviso de depreciação do Vertex AI
 warnings.filterwarnings(
@@ -17,12 +13,13 @@ warnings.filterwarnings(
     category=UserWarning
 )
 
-from .base_llm import BaseModel, ModelParams 
-import functions as func
-from color import Color
+import ai.functions as func
+from ai.core.llms.base_llm import BaseModel, ModelParams 
+from ai.color import Color
+from ai.tools.tool_registry import ToolRegistry
 
 class GeminiAPIModel(BaseModel):
-    def __init__(self, model_name="gemini-2.5-flash", system_prompt=None, api_key=None, use_vertex=True, project_id=None, location="us-central1", **kargs):
+    def __init__(self, model_name="gemini-2.5-flash", system_prompt="", api_key=None, use_vertex=True, project_id=None, location="us-central1", **kargs):
         func.log(f"Initializing GeminiAPIModel for model: {model_name}")
         
         super().__init__(model_name, system_prompt, **kargs)

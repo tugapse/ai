@@ -1,5 +1,5 @@
 import pytest
-from src.ai.modules.knowledge_graph.graph import KnowledgeGraph
+from ai.modules.knowledge_graph.graph import KnowledgeGraph
 
 @pytest.fixture
 def empty_graph():

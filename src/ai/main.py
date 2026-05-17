@@ -13,12 +13,10 @@ import re
 from pathlib import Path
 
 # Core imports
-from program import Program
-from config import ProgramSetting
-from entities.model_enums import ModelType
-import functions as func
-from color import Color
-from cli_args import CliArgs
+from ai.config import ProgramConfig, ProgramSetting
+from ai.entities.model_enums import ModelType
+import ai.functions as func
+from ai.color import Color
 
 def get_project_version() -> str:
     """
@@ -175,7 +173,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
 
     return parser, parser.parse_args()
 
-def print_chat_header(prog: Program) -> None:
+def print_chat_header(prog) -> None:
     chat_name = prog.models.get_chat_name() 
     
     if func.ALLOW_CLEAR_CONSOLE:
@@ -185,12 +183,21 @@ def print_chat_header(prog: Program) -> None:
     func.out(f"{Color.CYAN} #{Color.PURPLE} Sentinel status: ACTIVE | Logic: INJECTED{Color.RESET}")
     func.out(f"{Color.CYAN} # {Color.RESET}-----------------------------------------------------------")
 
+
 def run():
     check_dependencies()
     hack_warnings()
     
-    prog = Program()
     parser, args = load_args()
+    
+    # Load configuration first, before any other imports that might rely on it
+    ProgramConfig.load(args=args)
+    
+    # Now that config is loaded, we can safely import the main Program class
+    from ai.program import Program
+
+    prog = Program()
+    prog.load_config(args=args) 
     is_server = getattr(args, 'server', False)
 
     def shutdown_handler(signum, frame):
@@ -205,8 +212,6 @@ def run():
         func.log(f"\n{__logo}", start_line="")
 
     try:
-        prog.load_config(args=args) 
-        
         if getattr(args, 'debug_console', False): 
             func.ALLOW_CLEAR_CONSOLE = False
             prog.config.set(ProgramSetting.PRINT_LOG, True)
@@ -214,6 +219,7 @@ def run():
         else:
             func.ALLOW_CLEAR_CONSOLE = (not getattr(args, 'print_log', False) and not getattr(args, 'print_debug', False))
         
+        from ai.cli_args import CliArgs
         cli_args_processor = CliArgs()
 
         maintenance_keys = ['install', 'generate_config', 'server', 'print_chat', 'list_models', 'create_tool']
@@ -221,16 +227,30 @@ def run():
             cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
             if is_server:
                 func.log(f"{Color.GREEN}[  ] Neural Hub is online. Press Ctrl+C to shut down.{Color.RESET}")
-                if prog.modules:prog.modules.load_all()
+                if prog.modules:
+                    prog.modules.load_all()
                 while True:
-                    time.sleep(1) # Keep the main thread alive, signal handler will exit
+                    time.sleep(1)
             
             sys.exit(0) 
         prog.init_config(args=args)
 
-        prog.init_program()         
+        prog.init_program()
+
+        # Define arguments that imply a one-shot command instead of an interactive session.
+        oneshot_args = [
+            'msg', 'file', 'image', 'load_folder', 'task', 'task_file', 'pipeline'
+        ]
+        # Check if any one-shot argument was explicitly passed by the user BEFORE CliArgs processing.
+        is_oneshot_command = any(getattr(args, arg, None) is not None for arg in oneshot_args)
+
         cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
         
+        # If a one-shot command was given, the program can now exit.
+        if is_oneshot_command:
+            sys.exit(0)
+        
+        # Otherwise, no one-shot command was given, so start the main interactive loop.
         if func.ALLOW_CLEAR_CONSOLE: 
             func.clear_console()
 
@@ -247,7 +267,6 @@ def run():
     finally:
         if not is_server:
             prog.shutdown()
-            os._exit(0)
 
 if __name__ == "__main__":
     sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))

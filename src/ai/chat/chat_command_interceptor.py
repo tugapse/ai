@@ -1,9 +1,10 @@
 import json
 import os
-from chat.chat import Chat
-from color import Color
-from extras import ConsoleChatReader
-import functions as func
+
+import ai.functions as func
+from ai.chat.chat import Chat
+from ai.color import Color
+from ai.extras import ConsoleChatReader
 
 
 class ChatCommandInterceptor:
@@ -26,6 +27,7 @@ class ChatCommandInterceptor:
         """
         self.chat = chat
         self.root_folder = root_folder
+        self.extra_commands = []
         self.chat.add_event(Chat.EVENT_COMMAND_STARTED, self.run)
 
     def run(self, command_text: str) -> None:
@@ -46,10 +48,15 @@ class ChatCommandInterceptor:
                 self.load_session(parts[1])
             elif command_text.startswith('/list'):
                 self.list_sessions()
+        elif command in self.extra_commands:
+            self.handle_extra_command(command_text)
         else:
             func.out("Invalid Command")
 
         self.chat.terminate_command()
+    
+    def handle_extra_command(self, command:str):
+        raise NotImplementedError(self.handle_extra_command)
 
     def save_session(self, filename: str) -> None:
         """

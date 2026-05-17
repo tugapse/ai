@@ -4,9 +4,9 @@ import os
 import argparse
 from typing import Optional
 
-import functions as func # Re-added import as func.debug/log is used
+import ai.functions as func # Re-added import as func.debug/log is used
 
-from program import ProgramConfig, ProgramSetting
+from ai.program import ProgramConfig, ProgramSetting
 
 class CliConfig:
     """

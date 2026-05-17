@@ -1,4 +1,4 @@
-from src.ai.modules.knowledge_graph import KnowledgeGraph
+from ai.modules.knowledge_graph import KnowledgeGraph
 
 def test_kg_integration_bootstrap_surface():
     """

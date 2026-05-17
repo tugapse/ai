@@ -1,11 +1,9 @@
 import ollama
 from tqdm import tqdm
 import sys
-import threading
 
-from core.events import Events
-from .base_llm import BaseModel, ModelParams
-import functions
+from ai.core.llms.base_llm import BaseModel, ModelParams
+import functions as func
 
 
 class OllamaModel(BaseModel):
@@ -13,7 +11,7 @@ class OllamaModel(BaseModel):
     This class implements an LLM bot using the Ollama library.
     """
 
-    def __init__(self, model_name, system_prompt=None, host=None, keep_alive=False,model_params=None,**kargs):
+    def __init__(self, model_name, system_prompt="", host=None, keep_alive=False,model_params=None,**kargs):
         super().__init__(model_name, system_prompt,**kargs)
         self.server_ip = host or "127.0.0.1"
         self.model = ollama.Client(self.server_ip)
@@ -21,13 +19,13 @@ class OllamaModel(BaseModel):
         self.keep_alive = keep_alive
         self.options = model_params or ModelParams().to_dict()
 
-    def join_generation_thread(self, timeout: float = None):
+    def join_generation_thread(self, timeout: float = 60.0):
         """
         Placeholder for joining the generation thread for OllamaModel.
         As Ollama's streaming is synchronous, there's no separate thread to join for generation.
         We just clear the stop event.
         """
-        functions.out("INFO: OllamaModel does not use a separate generation thread for generation. Clearing stop event.")
+        func.out("INFO: OllamaModel does not use a separate generation thread for generation. Clearing stop event.")
         self.stop_generation_event.clear()
 
 
@@ -51,20 +49,20 @@ class OllamaModel(BaseModel):
                 for chunks in response:
                     yield chunks['message']['content']
                     if self.stop_generation_event.is_set():
-                        functions.log("INFO: Ollama generation interrupted by stop event.")
+                        func.log("INFO: Ollama generation interrupted by stop event.")
                         response.close()
                         break
             except KeyboardInterrupt:
-                functions.error("\nINFO: Ctrl+C detected. Stopping Ollama generation...")
+                func.error("\nINFO: Ctrl+C detected. Stopping Ollama generation...")
                 if 'response' in locals() and hasattr(response, 'close'):
                     try:
                         response.close()
                     except Exception as e:
-                        functions.log(f"WARNING: Error closing Ollama stream: {e}")
+                        func.log(f"WARNING: Error closing Ollama stream: {e}")
             except Exception as e:
-                functions.error(f"\nCRITICAL ERROR: An unexpected error occurred during Ollama generation: {e}")
+                func.error(f"\nCRITICAL ERROR: An unexpected error occurred during Ollama generation: {e}")
                 import traceback
-                traceback.functions.out_exc()
+                traceback.func.out_exc()
                 sys.exit(1)
 
         else:
@@ -73,9 +71,9 @@ class OllamaModel(BaseModel):
                                            stream=False, options=gen_options)
                 return response['message']['content']
             except Exception as e:
-                functions.error(f"\nCRITICAL ERROR: An unexpected error occurred during Ollama (non-streaming) generation: {e}")
+                func.error(f"\nCRITICAL ERROR: An unexpected error occurred during Ollama (non-streaming) generation: {e}")
                 import traceback
-                traceback.functions.out_exc()
+                traceback.func.out_exc()
                 sys.exit(1)
 
 
@@ -100,7 +98,7 @@ class OllamaModel(BaseModel):
                 bars[current_digest].close()                                                                                                                                        
                                                                                                                                                                                     
             if not digest:                                                                                                                                                          
-                functions.log(progress.get('status'))
+                func.log(progress.get('status'))
                 continue                                                                                                                                                            
                                                                                                                                                                                     
             if digest not in bars and (total := progress.get('total')):                                                                                                               

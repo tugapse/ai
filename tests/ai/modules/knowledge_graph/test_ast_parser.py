@@ -1,7 +1,7 @@
 import pytest
 import ast
 
-from modules.knowledge_graph.ast_parser import PythonASTParser, get_parser
+from ai.modules.knowledge_graph.ast_parser import PythonASTParser, get_parser
 
 @pytest.fixture
 def parser():

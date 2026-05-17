@@ -3,15 +3,15 @@ import copy
 import json
 from typing import Callable, Dict, Any, Optional, List
 
-from config import ProgramConfig, ProgramSetting
-import functions as func
-from color import Color
-from terminal_ui import TerminalUI
-from .specialist_manager import SpecialistManager
-from .memory_manager import AgentMemory, MemoryManager
-from .context_sentinel import ContextSentinel
-from .session_vault import SessionVault
-from core.events import Events
+import ai.functions as func
+from ai.config import ProgramConfig, ProgramSetting
+from ai.color import Color
+from ai.agents.terminal_ui import TerminalUI
+from ai.agents.specialist_manager import SpecialistManager
+from ai.agents.memory_manager import AgentMemory, MemoryManager
+from ai.agents.context_sentinel import ContextSentinel
+from ai.agents.session_vault import SessionVault
+from ai.core.events import Events
 
 MAX_ITERATIONS = 100
 MANAGER_AGENT_ROLE = "management"

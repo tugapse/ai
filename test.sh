@@ -17,5 +17,6 @@ echo "Running tests..."
 source "$VENV_DIR/bin/activate"
 
 echo "Executing pytest..."
-PYTHONPATH=src:src/ai pytest
+export PYTHONPATH=$PYTHONPATH:./src
+pytest
 echo "Tests finished."

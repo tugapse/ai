@@ -5,31 +5,31 @@ import json
 from typing import Optional, Any, Dict
 
 # Core logic and message types
-from chat.chat import Chat, ChatRoles
-from core.llms.base_llm import BaseModel
-from config import ProgramConfig, ProgramSetting
-from color import Color
+from ai.chat.chat import Chat, ChatRoles
+from ai.core.llms.base_llm import BaseModel
+from ai.config import ProgramConfig, ProgramSetting
+from ai.color import Color
 
 # Agent & Tools
-from agents.agent import Agent
-from modules.memory.vector_memory_module import VectorMemoryModule
-from modules.memory.vector_memory import VectorMemory
-from tools.tool_registry import ToolRegistry
-from tools.agent_tools import AVAILABLE_TOOLS
-from tools.tool_loader import load_and_register_user_tools
+from ai.agents.agent import Agent
+from ai.modules.memory.vector_memory_module import VectorMemoryModule
+from ai.modules.memory.vector_memory import VectorMemory
+from ai.tools.tool_registry import ToolRegistry
+from ai.tools.agent_tools import AVAILABLE_TOOLS
+from ai.tools.tool_loader import load_and_register_user_tools
 
 # Services Orchestration
-from services.session_manager import SessionManager
-from services.prompt_loader import PromptLoader
-from services.config_helper import CliConfig
-from services.event_binder import EventBinder
-from services.model_orchestrator import ModelOrchestrator
-from services.history_manager import HistoryManager
-from services.module_registry import ModuleRegistry
-from services.ui_orchestrator import UIOrchestrator
-from services.stream_orchestrator import StreamOrchestrator
+from ai.services.session_manager import SessionManager
+from ai.services.prompt_loader import PromptLoader
+from ai.services.config_helper import CliConfig
+from ai.services.event_binder import EventBinder
+from ai.services.model_orchestrator import ModelOrchestrator
+from ai.services.history_manager import HistoryManager
+from ai.services.module_registry import ModuleRegistry
+from ai.services.ui_orchestrator import UIOrchestrator
+from ai.services.stream_orchestrator import StreamOrchestrator
 
-import functions as func
+import ai.functions as func
 
 class Program:
     """

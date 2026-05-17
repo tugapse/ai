@@ -3,7 +3,7 @@ import json
 from unittest.mock import patch, MagicMock
 from requests.exceptions import RequestException
 
-from modules.client.remote_connector import RemoteBrainConnector
+from ai.modules.client.remote_connector import RemoteBrainConnector
 
 class TestRemoteBrainConnector:
     def setup_method(self):

@@ -1,6 +1,6 @@
-from config import ProgramConfig, ProgramSetting
-import functions
 import os
+from ai.config import ProgramConfig, ProgramSetting
+import ai.functions as func
 
 class TemplateInjection():
     """
@@ -49,5 +49,5 @@ class TemplateInjection():
         inject_templates_dir = ProgramConfig.get_current().get(ProgramSetting.PATHS_INJECT_TEMPLATES)
         filepath: str = os.path.join(  inject_templates_dir, template_name.replace(".md","")+".md")            
         if os.path.exists(filepath): 
-            return functions.read_file(filepath)
+            return func.read_file(filepath)
         return ""

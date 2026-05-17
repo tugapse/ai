@@ -2,10 +2,10 @@ import os
 import gc
 import threading
 from typing import Callable, Optional, List, Dict, Any
-from config import ProgramConfig, ProgramSetting
-import functions
-from entities.model_enums import InferenceBackend
-from tools.tool_registry import ToolRegistry
+from ai.config import ProgramConfig, ProgramSetting
+from ai import functions
+from ai.entities.model_enums import InferenceBackend
+from ai.tools.tool_registry import ToolRegistry
 
 
 class TokenCountInfo:

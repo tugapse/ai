@@ -2,7 +2,7 @@ import pytest
 from uuid import UUID, uuid4
 from pydantic import ValidationError
 
-from src.ai.modules.knowledge_graph.models import (
+from ai.modules.knowledge_graph.models import (
     NodeTypes,
     RelationshipTypes,
     KGNode,

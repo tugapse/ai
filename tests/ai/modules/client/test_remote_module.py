@@ -1,20 +1,16 @@
 import pytest
 from unittest.mock import patch, MagicMock
-import sys
-
-
 try:
-    from modules.base_module import BaseModule
-    from modules.client.remote_connector import RemoteBrainConnector
+    # These imports are for type hinting and ensuring the real modules can be patched.
+    # The path is configured globally in `tests/conftest.py`.
+    from ai.modules.base_module import BaseModule
+    from ai.modules.client.remote_connector import RemoteBrainConnector
+    from ai.modules.client.remote_module import RemoteConnectorModule
 except ImportError as e:
     pytest.fail(f"Could not import the actual modules needed for patching: {e}")
 
-sys.modules['core'] = MagicMock()
-sys.modules['core.modules'] = MagicMock()
-sys.modules['core.llms'] = MagicMock()
 
-from modules.client.remote_module import RemoteConnectorModule
-
+# The patch targets below have been updated to reflect the new `ai.core` structure.
 @patch('ai.modules.client.remote_module.func')
 @patch('ai.modules.client.remote_module.RemoteBrainConnector')
 def test_remote_connector_module_lifecycle(mock_remote_connector_class, mock_func_log):

@@ -16,6 +16,7 @@ requires-python = ">=3.8, <3.13"
 dependencies = [
     "accelerate",
     "bitsandbytes",
+    "ansicolors",
     "colorama",
     "dotenv",
     "huggingface-hub",
@@ -37,8 +38,8 @@ ai = "ai.main:run"
 "Bug Tracker" = "https://github.com/tugapse/ai.git/issues"
 
 [tool.pytest.ini_options]
-pythonpath = ["src", "src/ai"]
+pythonpath = ["src", "tests"]
 testpaths = ["tests"]
 
 [tool.pyright]
-extraPaths = ["src/ai"]
+extraPaths = ["src"]

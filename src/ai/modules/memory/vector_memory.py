@@ -4,19 +4,15 @@ import re
 import hashlib
 from typing import Any, List, Optional, Dict
 from abc import ABC, abstractmethod
-import functions as func
-from chat.chat import ChatRoles
-from core.llms.base_llm import BaseModel
-from direct import ask
-from .memory_tools import MemoryTools
 
-try:
-    from sentence_transformers import SentenceTransformer
-    import chromadb
-except ImportError:
-    func.error("Missing dependencies: pip install sentence-transformers chromadb")
-    SentenceTransformer = None
-    chromadb = None
+import ai.functions as func
+from ai.chat.chat import ChatRoles
+from ai.core.llms.base_llm import BaseModel
+from ai.direct import ask
+from ai.modules.memory.memory_tools import MemoryTools
+
+SentenceTransformer = None
+chromadb = None
 
 class EmbeddingProvider(ABC):
     @abstractmethod
@@ -158,6 +154,14 @@ class VectorMemory:
         self.importance_weight = importance_weight
         self.relevance_weight = relevance_weight
         self.tools = MemoryTools(self)
+        try:
+            from sentence_transformers import SentenceTransformer
+            import chromadb
+            SentenceTransformer = SentenceTransformer
+            chromadb = chromadb
+        except ImportError:
+            func.error("Missing dependencies: pip install sentence-transformers chromadb")
+
 
     def add_memory(self, content: str, source: str, memory_type: str = "observation"):
         if not content: return

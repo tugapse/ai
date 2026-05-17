@@ -2,11 +2,11 @@ import os
 import sys
 from typing import Optional, Dict, Any
 
-from services.engine_manager import EngineManager
-from core.llms.base_llm import ModelParams, BaseModel
-from services.config_helper import ProgramConfig, ProgramSetting
-import functions as func
-from tools.tool_registry import ToolRegistry
+import ai.functions as func
+from ai.services.engine_manager import EngineManager
+from ai.core.llms.base_llm import ModelParams, BaseModel
+from ai.services.config_helper import ProgramConfig, ProgramSetting
+from ai.tools.tool_registry import ToolRegistry
 
 class ModelOrchestrator:
 
