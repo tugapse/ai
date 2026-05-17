@@ -27,7 +27,7 @@ class TemplateInjection():
             str: The modified system template.
         """
 
-        injections = ProgramConfig.current.config.get("INJECT_TEMPLATES",[])
+        injections = ProgramConfig.get_current().config.get("INJECT_TEMPLATES",[])
         replaced_text = self.system_template
         
         for inj in injections:
@@ -46,7 +46,7 @@ class TemplateInjection():
             str: The content of the template file.
         """
         
-        inject_templates_dir = ProgramConfig.current.get(ProgramSetting.PATHS_INJECT_TEMPLATES)
+        inject_templates_dir = ProgramConfig.get_current().get(ProgramSetting.PATHS_INJECT_TEMPLATES)
         filepath: str = os.path.join(  inject_templates_dir, template_name.replace(".md","")+".md")            
         if os.path.exists(filepath): 
             return functions.read_file(filepath)

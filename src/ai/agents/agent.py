@@ -63,7 +63,7 @@ class Agent(Events):
     """
     A high-level agent facade that encapsulates the full agentic loop.
     """
-    def __init__(self, prog, pipeline_file: str = "pipelines/default.json"):
+    def __init__(self, prog, pipeline_file: str = "default.json"):
         """
         Initializes the agent and its core components.
 
@@ -92,7 +92,7 @@ class Agent(Events):
         self.orchestrator.add_event(self.orchestrator.EVENT_BEFORE_LLM_REQUEST, lambda data: self.trigger(self.orchestrator.EVENT_BEFORE_LLM_REQUEST, data))
         self.orchestrator.add_event(self.orchestrator.EVENT_AFTER_LLM_REQUEST, lambda data: self.trigger(self.orchestrator.EVENT_AFTER_LLM_REQUEST, data))
 
-    def run(self, user_prompt: str, session_id: str = None):
+    def run(self, user_prompt: str, session_id: str = ""):
         """
         Starts the agent's execution loop with a given prompt.
 

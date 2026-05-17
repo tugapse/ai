@@ -38,8 +38,8 @@ class ThinkingLogManager:
 
         # Access ProgramConfig safely
         base_log_dir = None
-        if ProgramConfig.current:
-            base_log_dir = ProgramConfig.current.get(ProgramSetting.PATHS_LOGS)
+        if ProgramConfig.get_current():
+            base_log_dir = ProgramConfig.get_current().get(ProgramSetting.PATHS_LOGS)
             
         if base_log_dir:
             self.log_dir = os.path.join(base_log_dir, "thinking")

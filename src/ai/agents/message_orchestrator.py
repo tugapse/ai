@@ -8,7 +8,7 @@ import functions as func
 from color import Color
 from terminal_ui import TerminalUI
 from .specialist_manager import SpecialistManager
-from .memory_manager import MemoryManager
+from .memory_manager import AgentMemory, MemoryManager
 from .context_sentinel import ContextSentinel
 from .session_vault import SessionVault
 from core.events import Events
@@ -61,29 +61,8 @@ class MessageOrchestrator(Events):
         self.session_id = session_id
         self.vault = SessionVault(session_id)
         self._initialize_session_modules(session_id)
-        
-        # HYDRATION PHASE
-        hydrated_state = self.vault.hydrate()
-        if hydrated_state:
-            TerminalUI.header(f"Resuming Session: {session_id}", "Sentinel Architect")
-            self._apply_state(hydrated_state)
-            current_agent = hydrated_state.get("current_agent", self.pipeline_config.get("entry_point"))
-            start_iteration = hydrated_state.get("iteration", 0)
 
-            # State integrity check: If the hydrated agent isn't in the current pipeline, reset to entry point.
-            if current_agent not in self.agents and current_agent not in ["STOP", "USER", "DONE"]:
-                func.log(f"Stale agent '{current_agent}' in session. Resetting to entry point.", level="WARN")
-                current_agent = self.pipeline_config.get("entry_point")
-
-            func.log(f"Orchestrator: State re-inflated. Resuming as {current_agent} at iteration {start_iteration}")
-        else:
-            TerminalUI.header("Pipeline Execution Start", "Agent Orchestrator")
-            current_agent = self.pipeline_config.get("entry_point", "MASTER")
-            start_iteration = 0
-            # Seed initial objective only for new sessions
-            self.memory.add_message_to_agent(current_agent, {
-                "from": "USER", "message": user_prompt, "task": user_prompt
-            })
+        start_iteration, current_agent = self._start_hidration_state(session_id=session_id, user_prompt=user_prompt)
 
         max_iterations = self.pipeline_config.get("max_iterations", MAX_ITERATIONS)
 
@@ -148,6 +127,37 @@ class MessageOrchestrator(Events):
 
             current_agent = next_agent
 
+
+    def _start_hidration_state(self, session_id: str, user_prompt: str)->tuple[int, str]:
+
+        current_agent = "MASTER"
+        start_iteration = 0
+
+        if  self.vault:         
+            hydrated_state = self.vault.hydrate()
+            if hydrated_state:
+                TerminalUI.header(f"Resuming Session: {session_id}", "Sentinel Architect")
+                self._apply_state(hydrated_state)
+                current_agent = hydrated_state.get("current_agent", self.pipeline_config.get("entry_point"))
+                start_iteration = hydrated_state.get("iteration", 0)
+
+                # State integrity check: If the hydrated agent isn't in the current pipeline, reset to entry point.
+                if current_agent not in self.agents and current_agent not in ["STOP", "USER", "DONE"]:
+                    func.log(f"Stale agent '{current_agent}' in session. Resetting to entry point.", level="WARN")
+                    current_agent = self.pipeline_config.get("entry_point")
+
+                func.log(f"Orchestrator: State re-inflated. Resuming as {current_agent} at iteration {start_iteration}")
+            else:
+                TerminalUI.header("Pipeline Execution Start", "Agent Orchestrator")
+                current_agent = self.pipeline_config.get("entry_point", "MASTER")
+                start_iteration = 0
+                # Seed initial objective only for new sessions
+                self.memory.add_message_to_agent(current_agent, {
+                    "from": "USER", "message": user_prompt, "task": user_prompt
+                })
+
+        return start_iteration, current_agent or "MASTER"
+
     def _capture_state(self, next_agent: str, iteration: int) -> Dict[str, Any]:
         """Serializes current memory and orchestration metadata."""
         return {
@@ -173,12 +183,16 @@ class MessageOrchestrator(Events):
         return {n: f for n, f in tool_pool.items() if n in allowed}
 
     def _prepare_payload(self, user_prompt: str, agent: str) -> Dict[str, Any]:
+        
+        mem = self.memory.get_agent_memory(agent)
+        if not mem :
+            raise ValueError(f"Agent memory not found for {agent}")
+        
         known_files = [
             res["parameters"].get("path")
             for res in self.memory.context.tool_results
             if res["tool"] == "write_file" and res["result"].get("status") == "SUCCESS"
         ]
-        mem = self.memory.get_agent_memory(agent)
         is_mgr = self.agents.get(agent, {}).get("role") == MANAGER_AGENT_ROLE
         
         payload = {
@@ -203,7 +217,7 @@ class MessageOrchestrator(Events):
         target = str(action.get("agent_target", "")).strip().upper()
 
         if thought := response.get("thought"):
-            if ProgramConfig.current.get(ProgramSetting.AGENT_THOUGHT, False): 
+            if ProgramConfig.get_current().get(ProgramSetting.AGENT_THOUGHT, False): 
                 TerminalUI.message(agent, thought, Color.DIM)
 
         msg = response.get("response_to_user", "")

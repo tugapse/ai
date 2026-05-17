@@ -204,7 +204,7 @@ def {function_name}(argument: str) -> str:
             func.error("Agent mode requires a prompt. Use --msg, --task, or pipe input.")
             sys.exit(1)
 
-        pipeline_path = args.pipeline or "pipelines/pipeline.json"
+        pipeline_path = args.pipeline or "default.json"
         pipeline_config = load_pipeline_config(prog, pipeline_path)
 
         if not pipeline_config:

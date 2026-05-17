@@ -39,7 +39,7 @@ def ask(
     first_token_time = None
 
     # 1. UI Initialization
-    config = ProgramConfig.current or ProgramConfig.load()
+    config = ProgramConfig.get_current() or ProgramConfig.load()
     ui = UIOrchestrator(config)
     
     ThinkingAnimationHandler.THINKING_PREFIX = "Processing request"

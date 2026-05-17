@@ -10,14 +10,12 @@ T = TypeVar("T")
 
 
 class ProgramSetting:
-    # GENERAL SETTINGS
     MODEL_NAME = "MODEL_NAME"
     MODEL_CONFIG_NAME = "MODEL_CONFIG_NAME"
     ROOT_DIRECTORY = "ROOT_DIRECTORY"
     SYSTEM_PROMPT_FILE = "SYSTEM_PROMPT_FILE"
     SYSTEM_PROMPT_FOLDER = "SYSTEM_PROMPT_FOLDER"
 
-    # PATH SETTINGS
     PATHS_LOGS = "PATHS_LOGS"
     PATHS_CHAT_LOG = "PATHS_CHAT_LOG"
     PATHS_TASKS_TEMPLATES = "PATHS_TASKS_TEMPLATES"
@@ -27,25 +25,21 @@ class ProgramSetting:
     PATHS_MODEL_CONFIGS = "PATHS_MODEL_CONFIGS"
 
     OLLAMA_HOST = "OLLAMA_HOST"
-    # PRINTING/OUTPUT SETTINGS
+    
     PRINT_LOG = "PRINT_LOG"
     PRINT_DEBUG = "PRINT_DEBUG"
     PRINT_OUTPUT = "PRINT_OUTPUT"
 
-    # THINKING/RESPONSE STREAMING SETTINGS
     THINKING_MODE = "THINKING_MODE"
     PRINT_MODE = "PRINT_MODE"
     TOKENS_PER_PRINT = "TOKENS_PER_PRINT"
     ENABLE_THINKING_DISPLAY = "ENABLE_THINKING_DISPLAY"
 
-    # REMOTE SETTINGS
     REMOTE_MODE = "REMOTE_MODE"
     REMOTE_URL = "REMOTE_URL"
 
-    # AGENT SETTINGS
     AGENT_THOUGHT = "AGENT_THOUGHT"
 
-    # MODULES
     VOICE_ENABLED = "VOICE_ENABLED"
     VOICE_FILE = "VOICE_FILE"
     VECTOR_MEMORY_ENABLED = "VECTOR_MEMORY_ENABLED"
@@ -53,13 +47,17 @@ class ProgramSetting:
 
 
 class ProgramConfig(Generic[T]):
-    """Manages loading, accessing, and saving of program configuration settings."""
+    _current: Optional["ProgramConfig"] = None
 
-    current: Optional["ProgramConfig"] = None
-
-    def __init__(self, config: dict = {}) -> None:
+    def __init__(self, config: dict = None) -> None:
         self.config = config if config is not None else {}
         self.logger = logging.Logger(name="Config")
+
+    @classmethod
+    def get_current(cls) -> "ProgramConfig":
+        if cls._current is None:
+            raise RuntimeError("ProgramConfig not initialized. Call load() first.")
+        return cls._current
 
     def load_predefined_config(self, args):
         default_config = {}
@@ -88,7 +86,6 @@ class ProgramConfig(Generic[T]):
         self.set(ProgramSetting.ROOT_DIRECTORY, user_directory)
         self.set(ProgramSetting.PRINT_MODE, "token")
 
-        # Ensure Paths
         self._ensure_path(ProgramSetting.PATHS_MODEL_CONFIGS, "models")
         self._ensure_path(ProgramSetting.PATHS_LOGS, "logs")
         self._ensure_path(ProgramSetting.PATHS_WORKSPACES, "workspaces")
@@ -100,7 +97,6 @@ class ProgramConfig(Generic[T]):
             self.save(user_config_filename)
 
     def _ensure_user_settings(self):
-
         if self.config.get(ProgramSetting.MODEL_CONFIG_NAME) is None:
             self.set(ProgramSetting.MODEL_CONFIG_NAME, "default.json")
 
@@ -125,15 +121,10 @@ class ProgramConfig(Generic[T]):
             self.logger.error(f"Error saving configuration: {e}")
 
     def copy_templates_to_user_dir(self, user_dir: Optional[str] = None):
-        """
-        Copies the contents of the project's 'templates' directory to the user's AI assistant directory.
-        Removes the 'templates' folder level in the destination.
-        """
         if user_dir is None:
             self.logger.warning("User directory not specified for template copy.")
             return
 
-        # Use pathlib for more robust path handling and resolution
         project_root_templates_dir = (
             pathlib.Path(dirname(__file__)) / ".." / ".." / "assets" / "templates"
         ).resolve()
@@ -192,5 +183,5 @@ class ProgramConfig(Generic[T]):
     def load(cls, args=None):
         config = cls()
         config.load_predefined_config(args)
-        cls.current = config
+        cls._current = config
         return config

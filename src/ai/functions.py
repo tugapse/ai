@@ -184,8 +184,8 @@ def get_root_directory() -> str:
     Retrieves the configured root directory from ProgramConfig.
     Provides a fallback to (user home)/Ai if not configured.
     """
-    # ProgramConfig.current should be set by ProgramConfig.load() in main.py
-    config_instance = ProgramConfig.current
+    # ProgramConfig.get_current() should be set by ProgramConfig.load() in main.py
+    config_instance = ProgramConfig.get_current()
 
     if config_instance:
         root_path = config_instance.get(ProgramSetting.ROOT_DIRECTORY)
@@ -221,7 +221,7 @@ def ensure_directory_exists(path: str,silent=False):
             sys.exit(1)  # Exit on critical directory creation failure
 
 
-# --- Logging/Output Functions (Adapted to use ProgramConfig.current) ---
+# --- Logging/Output Functions (Adapted to use ProgramConfig.get_current()) ---
 
 def error(text, start_line="[ * ]", level="ERROR", **kargs):  # Added level for consistency
     """
