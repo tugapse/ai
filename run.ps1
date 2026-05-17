@@ -13,8 +13,10 @@ if (Test-Path $activationScript) {
     exit 1
 }
 
-# Set environment variable equivalent to 'export TQDM_DISABLE=1'
+# Set environment variable 
 $env:TQDM_DISABLE = "1"
+$env:PYTHONPATH = "$PSScriptRoot/src"
+
 
 # Construct the path to the main Python script
 $mainScript = Join-Path $PSScriptRoot "src/ai/main.py"
