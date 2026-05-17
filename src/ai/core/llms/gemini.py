@@ -8,6 +8,8 @@ import subprocess
 import warnings
 import json
 
+from tools.tool_registry import ToolRegistry
+
 # Silencia o aviso de depreciação do Vertex AI
 warnings.filterwarnings(
     "ignore", 
@@ -200,7 +202,7 @@ class GeminiAPIModel(BaseModel):
         except Exception:
             text = ""
             
-        action = self.parse_manual_tags(text)
+        action = ToolRegistry.parse_manual_tags(text)
         return action if action else text
 
     def _check_gcp_auth(self):

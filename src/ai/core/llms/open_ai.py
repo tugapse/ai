@@ -4,6 +4,8 @@ import gc
 import json
 from typing import Dict, List, Any, Optional, Union, Generator
 
+from tools.tool_registry import ToolRegistry
+
 from .base_llm import BaseModel
 import functions as func
 from color import Color
@@ -162,7 +164,7 @@ class OpenAIAPIModel(BaseModel):
                 final_text = choice.message.content or ""
                 
                 # Intercept synchronous text-based tool calls using the BaseModel parser
-                action = self.parse_manual_tags(final_text)
+                action = ToolRegistry.parse_manual_tags(final_text)
                 if action:
                     self.trigger(BaseModel.STREAMING_FINISHED_EVENT)
                     return action

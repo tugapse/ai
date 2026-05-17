@@ -39,6 +39,7 @@ class ProgramSetting:
     REMOTE_URL = "REMOTE_URL"
 
     AGENT_THOUGHT = "AGENT_THOUGHT"
+    HIL_TOOLS="HIL_TOOLS"
 
     VOICE_ENABLED = "VOICE_ENABLED"
     VOICE_FILE = "VOICE_FILE"
@@ -49,7 +50,7 @@ class ProgramSetting:
 class ProgramConfig(Generic[T]):
     _current: Optional["ProgramConfig"] = None
 
-    def __init__(self, config: dict = None) -> None:
+    def __init__(self, config: Optional[dict] = None) -> None:
         self.config = config if config is not None else {}
         self.logger = logging.Logger(name="Config")
 
@@ -111,6 +112,9 @@ class ProgramConfig(Generic[T]):
 
         if self.config.get(ProgramSetting.AGENT_THOUGHT) is None:
             self.set(ProgramSetting.AGENT_THOUGHT, False)
+        
+        if self.config.get(ProgramSetting.HIL_TOOLS) is None:
+            self.set(ProgramSetting.HIL_TOOLS, ["execute_command", "write_file", "patch_file", "delete_file"])
 
     def save(self, filename):
         try:

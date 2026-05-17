@@ -113,7 +113,7 @@ class Program:
         self._load_vector_memory()
         
         if self.models:
-            self._active_tools_system_prompt = BaseModel.format_tools_for_prompt(self.tool_registry)
+            self._active_tools_system_prompt = ToolRegistry.format_tools_for_prompt(self.tool_registry.get_all_tools())
             func.log(f"Program: Dynamic tool protocol injected into System Prompt. {self._active_tools_system_prompt}", level="DEBUG")
     
     def _load_vector_memory(self):

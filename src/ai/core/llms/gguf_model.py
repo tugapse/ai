@@ -11,6 +11,7 @@ from llama_cpp import Llama, llama_log_set
 from core.llms.base_llm import BaseModel, ModelParams
 import functions
 from color import Color
+from tools.tool_registry import ToolRegistry
 
 def _null_log_callback(level, message, user_data):
     pass
@@ -253,7 +254,7 @@ class GGUFImageLLM(BaseModel):
             
             functions.debug(f"{Color.GREEN}[GGUF Engine] Sync Complete. Prompt: {p_tokens} | Output: {c_tokens}")
             
-            action = self.parse_manual_tags(text)
+            action = ToolRegistry.parse_manual_tags(text)
             self.trigger(BaseModel.STREAMING_FINISHED_EVENT, text)
             return action if action else text
 

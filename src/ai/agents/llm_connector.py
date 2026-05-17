@@ -2,7 +2,7 @@ from color import Color
 from xml_response_parser import ResponseParser
 import re
 import xml.etree.ElementTree as ET
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import functions as func
 from core.llms.base_llm import BaseModel
 from chat.chat import ChatRoles
@@ -22,7 +22,7 @@ class LLMConnector:
     def get_max_tokens(self) -> int:
         return self.llm.token_info_count.max_output_tokens
 
-    def send_request(self, json_input: Dict[str, Any], system_prompt_path: str, agent_config: Dict[str, Any] = None) -> Dict[str, Any]:
+    def send_request(self, json_input: Dict[str, Any], system_prompt_path: str, agent_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Method for Structured Agentic XML communication."""
         func.debug(f"Loading system prompt: {system_prompt_path}")
         

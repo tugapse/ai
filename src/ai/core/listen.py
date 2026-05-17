@@ -113,11 +113,16 @@ class Microphone(AsyncExecutor):
             frames (list): A list of recorded audio frames.
         """
         self._is_running = False
-        self._stream.stop_stream()
-        self._stream.close()
-        self.audio.terminate()
+        
+        if self._stream:
+            self._stream.stop_stream()
+            self._stream.close()
+        if self.audio:
+        
+            self.audio.terminate()
         print(self.end_recording_text)  # Display the end recording text
         self._trigger_callback(self.frames)
+        
         return self.frames
 
     def save_as_wave(self, filename):
@@ -127,6 +132,9 @@ class Microphone(AsyncExecutor):
         Args:
             filename (str): The name of the output wave file.
         """
+        if not self.audio:
+            raise AttributeError(self.audio)
+        
         waveFile = wave.open(filename, 'wb')
         waveFile.setnchannels(CHANNELS)
         waveFile.setsampwidth(self.audio.get_sample_size(FORMAT))

@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from typing import Optional
 from core.events import Events
 from color import Color, format_text
 import functions as func
@@ -90,7 +91,7 @@ class Chat(Events):
     EVENT_MESSAGES_UPDATED = "messages_updated"
     EVENT_AGENT_RUN_REQUESTED = "agent_run_requested"
 
-    def __init__(self, commands: list[str] = None, agents: list[str] = None):
+    def __init__(self, commands: Optional[list[str]] = None, agents: Optional[list[str]] = None):
         super().__init__()
         self.terminate = False
         self.terminate_tokens = ["quit", "q"]
@@ -126,7 +127,7 @@ class Chat(Events):
         self._setup_key_bindings()
 
 
-    def update_suggestions(self, commands: list[str] = None, agents: list[str] = None):
+    def update_suggestions(self, commands: Optional[list[str]] = None, agents: Optional[list[str]] = None):
         """
         Updates the command and agent lists dynamically.
         """
@@ -148,10 +149,6 @@ class Chat(Events):
         if self.agent_mode_active:
             return ANSI(format_text(f"Agent Task{file_status}: ", Color.PURPLE) + format_text(self.current_message, Color.WHITE))
 
-        # Prepend the top bar display logic here, though prompt_toolkit usually handles this via custom UI components.
-        # For simplicity within the prompt text function, we'll just return the prompt, 
-        # but the top bar logic is now available via _get_top_bar_display().
-        
         if self.multiline_mode:
             return ANSI(format_text(f"User [Multiline]{file_status}: ", Color.BLUE) + format_text(self.current_message, Color.WHITE))
         return ANSI(format_text(f"{self.user_prompt}{file_status}", Color.BLUE) + format_text(self.current_message, Color.WHITE))

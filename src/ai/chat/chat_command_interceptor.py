@@ -27,7 +27,6 @@ class ChatCommandInterceptor:
         self.chat = chat
         self.root_folder = root_folder
         self.chat.add_event(Chat.EVENT_COMMAND_STARTED, self.run)
-        self.extra_commands = []
 
     def run(self, command_text: str) -> None:
         """
@@ -47,10 +46,6 @@ class ChatCommandInterceptor:
                 self.load_session(parts[1])
             elif command_text.startswith('/list'):
                 self.list_sessions()
-        elif command in self.extra_commands:
-            # Handle custom commands
-            if self.handled_extra_command(command_text):
-                return
         else:
             func.out("Invalid Command")
 

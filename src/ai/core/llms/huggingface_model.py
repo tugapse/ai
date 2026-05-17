@@ -6,6 +6,8 @@ import queue
 import gc
 import warnings
 
+from tools.tool_registry import ToolRegistry
+
 os.environ['BITSANDBYTES_NOWELCOME'] = '1'
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
@@ -423,7 +425,7 @@ class HuggingFaceModel(BaseModel):
                 response_text = self._generate_response(inputs_on_device, gen_options)
                 functions.debug(f"Synchronous generation complete. Output length: {len(response_text)}. Yielding...")
 
-                action = self.parse_manual_tags(response_text)
+                action = ToolRegistry.parse_manual_tags(response_text)
                 
                 if isinstance(self, Events):
                     functions.debug("Triggering STREAMING_FINISHED_EVENT (synchronous path).")

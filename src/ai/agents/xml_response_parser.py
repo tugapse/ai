@@ -1,7 +1,7 @@
 import xml.etree.ElementTree as ET
 import json
 import re
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import functions as func
 
 
@@ -9,7 +9,7 @@ class ResponseParser:
     def __init__(self, parameter_mode: str = "xml"):
         self.parameter_mode = parameter_mode
 
-    def _extract_params(self, element: ET.Element) -> Dict[str, Any]:
+    def _extract_params(self, element: Optional[ET.Element]) -> Dict[str, Any]:
         if element is None:
             return {}
 
@@ -68,7 +68,7 @@ class ResponseParser:
 
             manifest_node = root.find("manifest")
             manifest_data = {c.tag: (c.text or "").strip() for c in manifest_node} if manifest_node is not None else {}
-
+            
             return {
                 "status": "SUCCESS",
                 "thought": get_text("thought"),
