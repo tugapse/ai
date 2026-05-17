@@ -1,14 +1,10 @@
-from color import Color
-from xml_response_parser import ResponseParser
-import re
-import xml.etree.ElementTree as ET
-from typing import Dict, Any, List, Optional
-import functions as func
-from core.llms.base_llm import BaseModel
-from chat.chat import ChatRoles
-from direct import ask
-import uuid
 import os
+from typing import Dict, Any, List, Optional
+from xml_response_parser import ResponseParser
+import ai.functions as func
+from ai.core.llms.base_llm import BaseModel
+from ai.chat.chat import ChatRoles
+from ai.direct import ask
 
 class LLMConnector:
     def __init__(self, llm_instance: BaseModel, parameter_mode: str = "xml"):

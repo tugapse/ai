@@ -2,7 +2,7 @@ import xml.etree.ElementTree as ET
 import json
 import re
 from typing import Dict, Any, Optional
-import functions as func
+import ai.functions as func
 
 
 class ResponseParser:

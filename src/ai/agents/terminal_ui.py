@@ -1,7 +1,8 @@
 import os
 import re
-import functions as func
-from color import Color
+
+import ai.functions as func
+from ai.color import Color
 
 class TerminalUI:
     """
