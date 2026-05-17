@@ -1,6 +1,9 @@
 import pytest
 import os
 from unittest.mock import MagicMock, patch, call
+import sys
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
 # Adjust imports for PYTHONPATH=src
 from ai.services.prompt_loader import PromptLoader, DEFAULT_SYSTEM_PROMPT

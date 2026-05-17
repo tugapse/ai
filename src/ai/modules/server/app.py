@@ -4,28 +4,29 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Any, Dict, Optional
-import functions as func  # reuse your logging utilities
 
-from .schemas import (
+import ai.functions as func  # reuse your logging utilities
+
+from ai.modules.server.schemas import (
     ChatCompletionRequest,
     UpdateSessionRequest,
     PromptCreateRequest,
     PromptUpdateRequest,
 )
-from .middleware import MIMETypeFixerMiddleware
-from .services.session_manager import (
+from ai.modules.server.middleware import MIMETypeFixerMiddleware
+from ai.modules.server.services.session_manager import (
     InvalidPathError as SessionInvalidPathError,
     SessionManager,
     SessionNotFoundError,
 )
-from .services.prompt_manager import (
+from ai.modules.server.services.prompt_manager import (
     InvalidPathError as PromptInvalidPathError,
     PromptManager,
     PromptNotFoundError,
     PromptAccessError,
 )
-from .services.chat import ChatService
-from .brain_hub import BrainHub
+from ai.modules.server.services.chat import ChatService
+from ai.modules.server.brain_hub import BrainHub
 
 
 def create_app(brain_hub: BrainHub, config: Dict[str, Any]) -> FastAPI:

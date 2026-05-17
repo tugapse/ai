@@ -1,9 +1,9 @@
 import os
 from typing import Optional
-import functions as func
-from config import ProgramConfig, ProgramSetting
-from services.history_manager import HistoryManager
-from services.model_orchestrator import ModelOrchestrator
+import ai.functions as func
+from ai.config import ProgramConfig, ProgramSetting
+from ai.services.history_manager import HistoryManager
+from ai.services.model_orchestrator import ModelOrchestrator
 
 
 class BrainHub:

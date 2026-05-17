@@ -2,13 +2,13 @@ import os
 import sys
 import json
 import uuid
-import functions as func
+
 
 # Ensure project root is in path
 # sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+import ai.functions as func
 from ai.config import ProgramSetting
-
 from ai.tools.tool_registry import ToolRegistry
 from ai.agents.llm_connector import LLMConnector
 from ai.agents.message_orchestrator import MessageOrchestrator

@@ -1,10 +1,10 @@
 from typing import Optional
 
-from services.config_helper import ProgramConfig, ProgramSetting
-from extras.thinking_log_manager import ThinkingLogManager
-from extras.output_printer import OutputPrinter
-from extras import HandlerManager, ConsoleTokenFormatter
-import functions as func
+from ai.services.config_helper import ProgramConfig, ProgramSetting
+from ai.extras.thinking_log_manager import ThinkingLogManager
+from ai.extras.output_printer import OutputPrinter
+from ai.extras import HandlerManager, ConsoleTokenFormatter
+import ai.functions as func
 
 class UIOrchestrator:
     """

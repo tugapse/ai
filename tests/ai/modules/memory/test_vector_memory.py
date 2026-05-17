@@ -3,15 +3,9 @@ import time
 import hashlib
 from unittest.mock import MagicMock, patch
 
-from src.ai.modules.memory.vector_memory import VectorMemory
+from ai.modules.memory.vector_memory import VectorMemory
 
-# Mock external dependencies that are imported in the module
-@pytest.fixture(autouse=True)
-def mock_external_libs():
-    """Mock heavy external libraries for all tests in this file."""
-    with patch('src.ai.modules.memory.vector_memory.SentenceTransformer', MagicMock()) as mock_st, \
-         patch('src.ai.modules.memory.vector_memory.chromadb', MagicMock()) as mock_cdb:
-        yield mock_st, mock_cdb
+
 
 @pytest.fixture
 def mock_providers(mocker):
@@ -20,9 +14,9 @@ def mock_providers(mocker):
     mock_embedder_provider = MagicMock()
     mock_llm_provider = MagicMock()
 
-    mocker.patch('src.ai.modules.memory.vector_memory.ChromaDBProvider', return_value=mock_db_provider)
-    mocker.patch('src.ai.modules.memory.vector_memory.SentenceTransformerEmbeddingProvider', return_value=mock_embedder_provider)
-    mocker.patch('src.ai.modules.memory.vector_memory.LLMProvider', return_value=mock_llm_provider)
+    mocker.patch('ai.modules.memory.vector_memory.ChromaDBProvider', return_value=mock_db_provider)
+    mocker.patch('ai.modules.memory.vector_memory.SentenceTransformerEmbeddingProvider', return_value=mock_embedder_provider)
+    mocker.patch('ai.modules.memory.vector_memory.LLMProvider', return_value=mock_llm_provider)
     
     return mock_db_provider, mock_embedder_provider, mock_llm_provider
 
@@ -30,7 +24,7 @@ def mock_providers(mocker):
 def vector_memory_instance(mock_providers):
     """Provides a VectorMemory instance with mocked dependencies."""
     connector = MagicMock()
-    memory = VectorMemory(session_id="test_session", connector=connector)
+    memory = VectorMemory(session_id="test_session", llm=connector)
     return memory
 
 class TestVectorMemory:
@@ -131,15 +125,16 @@ class TestVectorMemory:
         db, embedder, llm = mock_providers
         
         # Mock methods that are part of the same class
-        vector_memory_instance.retrieve_memories = MagicMock(return_value=["memory 1", "memory 2"])
+        mock_memories = [f"memory {i+1}" for i in range(5)]
+        vector_memory_instance.retrieve_memories = MagicMock(return_value=mock_memories)
         vector_memory_instance.add_memory = MagicMock()
         
         llm.summarize_and_reflect.return_value = ["insight 1", "insight 2"]
         
         vector_memory_instance.trigger_reflection()
         
-        vector_memory_instance.retrieve_memories.assert_called_once_with("Identify key technical events and patterns.", top_k=25)
-        llm.summarize_and_reflect.assert_called_once_with(["memory 1", "memory 2"])
+        vector_memory_instance.retrieve_memories.assert_called_once_with("current context and recent interactions", top_k=30)
+        llm.summarize_and_reflect.assert_called_once_with(mock_memories)
         
         assert vector_memory_instance.add_memory.call_count == 2
         vector_memory_instance.add_memory.assert_any_call("insight 1", source="SELF_REFLECTION", memory_type="reflection")
@@ -148,7 +143,7 @@ class TestVectorMemory:
     def test_trigger_reflection_no_llm(self, mock_providers):
         """Test that reflection does not run if LLM is not available."""
         # Create a specific instance without a connector/LLM
-        memory = VectorMemory(session_id="test_session_no_llm", connector=None)
+        memory = VectorMemory(session_id="test_session_no_llm", llm=None)
         memory.retrieve_memories = MagicMock()
         
         memory.trigger_reflection()

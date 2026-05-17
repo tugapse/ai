@@ -2,48 +2,13 @@ import unittest
 from unittest.mock import Mock, patch, MagicMock
 import threading
 
-import sys
-import os
-
-# --- VIRTUAL MODULE PATCH ---
-# The module being tested and its dependencies have incorrect, non-relative
-# import paths in the original source (e.g., `from core...`, `from services...`).
-# We create virtual 'core' and 'services' packages in sys.modules to redirect
-# these imports to their correct `ai.core` and `ai.services` locations at runtime.
-
-# Ensure the source directory is in the path to find the real modules
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../src')))
-
-try:
-    # 1. Pre-emptively import the *actual* modules that the shims will point to.
-    import ai.core
-    import ai.services
-
-    # 2. Create shims in sys.modules to redirect the bad imports. This MUST be done
-    #    before importing the module under test, which contains the faulty imports.
-    sys.modules['core'] = sys.modules['ai.core']
-    sys.modules['services'] = sys.modules['ai.services']
-
-    # 3. Now we can safely import the module under test. Its child imports
-    #    (e.g., `from core...`) will be resolved by the shims we just created.
-    import ai.modules.server.server_module
-    from ai.modules.server.server_module import JarvisServerModule
-
-    # 4. Create a mock for the legacy top-level 'modules' package for compatibility.
-    sys.modules['modules'] = Mock()
-    sys.modules['modules.server'] = Mock()
-    sys.modules['modules.server.server_module'] = sys.modules['ai.modules.server.server_module']
-
-except ImportError as e:
-    raise ImportError(f"Could not import the actual JarvisServerModule for patching: {e}")
-# --- END VIRTUAL MODULE PATCH ---
+from ai.modules.server.server_module import JarvisServerModule
 
 
 class TestJarvisServerModule(unittest.TestCase):
 
     def setUp(self):
         """Set up a fresh environment and mocks before each test."""
-        # The module is now pre-imported by the patch, so we can reference it directly.
         # Patch the dependencies using the *correct* module path.
         self.patcher_uvicorn = patch('ai.modules.server.server_module.uvicorn', new_callable=MagicMock)
         self.patcher_create_app = patch('ai.modules.server.server_module.create_app', new_callable=MagicMock)

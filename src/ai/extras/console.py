@@ -1,9 +1,9 @@
 import json
 from pathlib import Path
-from chat.chat import ChatRoles
-from color import Color
+from ai.chat.chat import ChatRoles
+from ai.color import Color
 
-import functions as func
+import ai.functions as func
 
 class ConsoleChatReader:
 
@@ -24,7 +24,7 @@ class ConsoleChatReader:
     def _print_chat(self,chat_message):
         #dont process system messages
         if chat_message['role'] == ChatRoles.SYSTEM: return
-        color:Color = Color.BLUE if chat_message['role'] == ChatRoles.USER else Color.YELLOW
+        color:str = Color.BLUE if chat_message['role'] == ChatRoles.USER else Color.YELLOW
         text:str = "User :" if chat_message['role'] == ChatRoles.USER else "Assistant"
         
         content:str = chat_message.get("content")

@@ -6,7 +6,7 @@ without altering startup behavior. It exercises the public API surface exposed b
 src.ai.modules.knowledge_graph.KnowledgeGraph and its register_with_orchestrator hook.
 """
 
-from src.ai.modules.knowledge_graph import KnowledgeGraph
+from ai.modules.knowledge_graph import KnowledgeGraph
 
 
 def test_kg_integration_bridge_bootstrap():

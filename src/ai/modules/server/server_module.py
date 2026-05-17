@@ -3,12 +3,12 @@ from typing import Any, Optional
 import uvicorn
 from fastapi import FastAPI
 
-import functions as func
-from services.history_manager import HistoryManager
-from modules.base_module import BaseModule
+from ai import functions as func
+from ai.services.history_manager import HistoryManager
+from ai.modules.base_module import BaseModule
 
-from .brain_hub import BrainHub
-from .app import create_app  
+from ai.modules.server.brain_hub import BrainHub
+from ai.modules.server.app import create_app  
 
         
 class JarvisServerModule(BaseModule):

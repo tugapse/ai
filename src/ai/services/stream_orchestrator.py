@@ -2,12 +2,12 @@ import re
 import unicodedata
 from typing import Optional, Any, Callable, List
 from dataclasses import dataclass, field
-from color import Color, format_text
-import functions as func
+from ai.color import Color, format_text
+import ai.functions as func
 
 # We keep the SpeechBridge as it handles the "Sir, I've put the code on screen" logic
-from modules.voice.speech_bridge import SpeechBridge
-from extras.output_printer import OutputPrinter 
+from ai.modules.voice.speech_bridge import SpeechBridge
+from ai.extras.output_printer import OutputPrinter 
 
 @dataclass
 class StreamResult:

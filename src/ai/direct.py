@@ -5,13 +5,13 @@ from time import time
 from typing import Union, Optional, List, Dict
 
 # Core/Services
-import functions as func
-from color import Color
-from core.llms.base_llm import BaseModel
-from chat.chat import ChatRoles
-from config import ProgramConfig, ProgramSetting
-from services.ui_orchestrator import UIOrchestrator
-from extras.think_parser import ThinkingAnimationHandler
+import ai.functions as func
+from ai.color import Color
+from ai.core.llms.base_llm import BaseModel
+from ai.chat.chat import ChatRoles
+from ai.config import ProgramConfig, ProgramSetting
+from ai.services.ui_orchestrator import UIOrchestrator
+from ai.extras.think_parser import ThinkingAnimationHandler
 
 def _sanitize_token(token: str) -> str:
     """Cleans and normalizes tokens for clean file output."""

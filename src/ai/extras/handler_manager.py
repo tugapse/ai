@@ -1,8 +1,8 @@
 # handlers/manager.py
 
 from typing import Optional, Tuple
-from extras.think_parser import ThinkingAnimationHandler
-from extras.thinking_log_manager import ThinkingLogManager 
+from ai.extras.think_parser import ThinkingAnimationHandler
+from ai.extras.thinking_log_manager import ThinkingLogManager 
 
 class HandlerManager:
     """

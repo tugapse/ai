@@ -8,7 +8,7 @@ import contextlib
 import sys
 from abc import ABC, abstractmethod
 from typing import Optional
-import functions as func
+import ai.functions as func
 
 class BaseVoiceModule(ABC):
     """

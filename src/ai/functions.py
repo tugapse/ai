@@ -1,4 +1,4 @@
-from color import Color, pformat_text
+from ai.color import Color, pformat_text
 import os
 from pathlib import Path
 import sys
@@ -8,10 +8,9 @@ import socket
 import getpass
 import datetime
 
-from core.context_file import ContextFile
-from core.template_injection import TemplateInjection
-from colorama import Fore, Style
-from config import ProgramConfig, ProgramSetting  # Ensure these are correctly imported
+from ai.core.context_file import ContextFile
+from ai.core.template_injection import TemplateInjection
+from ai.config import ProgramConfig, ProgramSetting  # Ensure these are correctly imported
 
 FILE_MODE_APPEND = "a"
 FILE_MODE_CREATE = "w"

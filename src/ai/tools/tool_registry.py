@@ -1,7 +1,7 @@
 import json
 import re
 from typing import Dict, Any, Callable, Optional
-import functions as func
+import ai.functions as func
 
 class ToolRegistry:
     _instance = None

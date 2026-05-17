@@ -2,8 +2,8 @@ import os
 import torch
 import copy
 import numpy as np
-from modules.voice.base_module import BaseVoiceModule
-import functions as func
+from ai.modules.voice.base_module import BaseVoiceModule
+import ai.functions as func
 
 class VibeVoiceModule(BaseVoiceModule):
     """

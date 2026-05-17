@@ -4,9 +4,9 @@ import os
 from pathlib import Path
 from typing import Optional
 
-import functions as func 
-from services.config_helper import ProgramConfig, ProgramSetting
-from core.template_injection import TemplateInjection
+import ai.functions as func 
+from ai.services.config_helper import ProgramConfig, ProgramSetting
+from ai.core.template_injection import TemplateInjection
 
 DEFAULT_SYSTEM_PROMPT = "You are a helpful AI assistant."
 

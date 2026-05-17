@@ -3,8 +3,8 @@ import time
 from datetime import datetime
 from typing import Dict, Any
 
-import functions as func
-from services.config_helper import ProgramConfig, ProgramSetting
+import ai.functions as func
+from ai.services.config_helper import ProgramConfig, ProgramSetting
 
 class SessionManager:
     """

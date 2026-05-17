@@ -5,12 +5,12 @@ import os
 import sys
 from typing import Optional, Union 
 
-import functions as func 
+import ai.functions as func 
 
-from entities.model_enums import ModelType, EngineType
+from ai.entities.model_enums import ModelType, EngineType
 
-from core.llms.base_llm import ModelParams, BaseModel
-from tools.tool_registry import ToolRegistry
+from ai.core.llms.base_llm import ModelParams, BaseModel
+from ai.tools.tool_registry import ToolRegistry
 
 class EngineManager:
     """

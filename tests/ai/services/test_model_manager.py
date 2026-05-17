@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import MagicMock, patch, mock_open, ANY
 
 # Imports adjusted for PYTHONPATH=src
-from ai.services.model_manager import EngineManager
+from ai.services.engine_manager import EngineManager
 from ai.entities.model_enums import ModelType, EngineType
 from ai.core.llms.base_llm import ModelParams
 
@@ -29,7 +29,7 @@ class TestEngineManager:
         assert config["model_properties"]["max_new_tokens"] == 1024
 
 
-    @patch('ai.services.model_manager.func', func)
+    @patch('ai.services.engine_manager.func', func)
     def test_save_and_load_config(self, tmpdir):
         """Test saving a config and loading it back."""
         config = {"model_name": "test", "model_type": "causal_lm"}
@@ -43,14 +43,14 @@ class TestEngineManager:
         
         assert loaded_config == config
 
-    @patch('ai.services.model_manager.func', func)
+    @patch('ai.services.engine_manager.func', func)
     def test_load_config_not_found(self):
         """Test loading a non-existent config file."""
         with pytest.raises(FileNotFoundError):
             EngineManager.load_config("non_existent_file.json")
         func.error.assert_called_with("Model configuration file 'non_existent_file.json' not found.", level="ERROR")
 
-    @patch('ai.services.model_manager.func', func)
+    @patch('ai.services.engine_manager.func', func)
     def test_load_config_invalid_json(self, tmpdir):
         """Test loading a file with invalid JSON."""
         filepath = os.path.join(str(tmpdir), "invalid.json")
@@ -85,10 +85,7 @@ class TestEngineManager:
     def test_load_model_instance_missing_config_keys(self):
         """Test ValueError when model_name or model_type are missing."""
         with pytest.raises(ValueError, match="missing 'model_name' or 'model_type'"):
-            EngineManager.load_model_instance({"model_name": "test"}, "prompt")
+            EngineManager.load_model_instance({"model_name": "test"}, "prompt", None)
         
         with pytest.raises(ValueError, match="missing 'model_name' or 'model_type'"):
-            EngineManager.load_model_instance({"model_type": "ollama"}, "prompt")
-
-   
-    
+            EngineManager.load_model_instance({"model_type": "ollama"}, "prompt", None)

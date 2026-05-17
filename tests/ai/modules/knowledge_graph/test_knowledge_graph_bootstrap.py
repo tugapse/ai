@@ -1,4 +1,4 @@
-from src.ai.modules.knowledge_graph import KnowledgeGraph
+from ai.modules.knowledge_graph import KnowledgeGraph
 
 def test_knowledge_graph_bootstrap_bridge():
     kg = KnowledgeGraph()

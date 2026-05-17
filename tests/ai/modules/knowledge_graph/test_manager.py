@@ -1,8 +1,8 @@
 import pytest
 from unittest.mock import MagicMock, patch, mock_open
 
-from modules.knowledge_graph.manager import KnowledgeGraphManager
-from modules.knowledge_graph.models import AnalysisReport, KGNode, KGTriple, AmbiguityFlag, NodeTypes, RelationshipTypes
+from ai.modules.knowledge_graph.manager import KnowledgeGraphManager
+from ai.modules.knowledge_graph.models import AnalysisReport, KGNode, KGTriple, AmbiguityFlag, NodeTypes, RelationshipTypes
 
 class TestKnowledgeGraphManager:
     def setup_method(self):
@@ -19,7 +19,7 @@ class TestKnowledgeGraphManager:
         )
 
     @patch("builtins.open", new_callable=mock_open, read_data="def hello():\\n    print('world')")
-    @patch("modules.knowledge_graph.manager.KnowledgeGraphManager._generate_initial_triples_with_llm")
+    @patch("ai.modules.knowledge_graph.manager.KnowledgeGraphManager._generate_initial_triples_with_llm")
     def test_analyze_file_success(self, mock_generate_triples, mock_file_open):
         """
         Tests the successful analysis of a file.
@@ -69,7 +69,7 @@ class TestKnowledgeGraphManager:
         assert report.initial_triples == []
 
     @patch("builtins.open", new_callable=mock_open, read_data="invalid content")
-    @patch("modules.knowledge_graph.manager.KnowledgeGraphManager._generate_initial_triples_with_llm")
+    @patch("ai.modules.knowledge_graph.manager.KnowledgeGraphManager._generate_initial_triples_with_llm")
     def test_analyze_file_general_exception(self, mock_generate_triples, mock_file_open):
         """
         Tests that a general exception during analysis is caught and reported.

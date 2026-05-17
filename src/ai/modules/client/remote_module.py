@@ -1,7 +1,8 @@
 from typing import Optional, Any
-import functions as func
-from core.modules.base_module import BaseModule
-from core.llms.remote_connector import RemoteBrainConnector
+
+import ai.functions as func
+from ai.modules.base_module import BaseModule
+from ai.modules.client.remote_connector import RemoteBrainConnector
 
 class RemoteConnectorModule(BaseModule):
     """

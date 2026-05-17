@@ -7,9 +7,9 @@ import gc
 # DEFERRED IMPORTS
 # import torch
 # from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, BitsAndBytesConfig
-
-from core.llms.base_llm import BaseModel, ModelParams
-from core.events import Events
+import ai.functions as func
+from ai.core.llms.base_llm import BaseModel
+from ai.core.events import Events
 
 class T5Model(BaseModel):
     """
@@ -17,7 +17,7 @@ class T5Model(BaseModel):
     This model is typically used for tasks like summarization or translation,
     and handles chat by processing the full conversation context as a single input.
     """
-    def __init__(self, model_name: str, system_prompt=None, quantization_bits: int = 0, **kargs):
+    def __init__(self, model_name: str, system_prompt="", quantization_bits: int = 0, **kargs):
         """
         Initializes the T5Model instance.
 
@@ -36,30 +36,30 @@ class T5Model(BaseModel):
         try:
             self._load_llm_params()
         except GatedRepoError as e:
-            functions.error(f"\n--- MODEL LOADING FAILED: Gated Model Access Required ---")
-            functions.error(f"To use '{self.model_name}', you need to:")
-            functions.error(f"1. Request access on Hugging Face: {e.url.replace('/resolve/main/', '/')}")
-            functions.error(f"2. Log in to Hugging Face from your terminal: `huggingface-cli login`")
-            functions.error(f"   (Get your token from: https://huggingface.co/settings/tokens)")
-            functions.error(f"----------------------------------------------------\n")
+            func.error(f"\n--- MODEL LOADING FAILED: Gated Model Access Required ---")
+            func.error(f"To use '{self.model_name}', you need to:")
+            func.error(f"1. Request access on Hugging Face: {e.url.replace('/resolve/main/', '/')}")
+            func.error(f"2. Log in to Hugging Face from your terminal: `huggingface-cli login`")
+            func.error(f"   (Get your token from: https://huggingface.co/settings/tokens)")
+            func.error(f"----------------------------------------------------\n")
             self.model = None
             self.tokenizer = None
             sys.exit(1)
         except RepositoryNotFoundError:
-            functions.error(f"Error: Model '{self.model_name}' not found on Hugging Face Hub. Check spelling.")
+            func.error(f"Error: Model '{self.model_name}' not found on Hugging Face Hub. Check spelling.")
             self.model = None
             self.tokenizer = None
             sys.exit(1)
         except requests.exceptions.HTTPError as e:
-            functions.error(f"Error: Could not download model files for '{self.model_name}'. Check network, disk space, or proxy settings.")
-            functions.error(f"Details: {e}")
+            func.error(f"Error: Could not download model files for '{self.model_name}'. Check network, disk space, or proxy settings.")
+            func.error(f"Details: {e}")
             self.model = None
             self.tokenizer = None
             sys.exit(1)
         except Exception as e:
-            functions.error(f"CRITICAL ERROR: Model initialization failed for {self.model_name}: {e}")
+            func.error(f"CRITICAL ERROR: Model initialization failed for {self.model_name}: {e}")
             import traceback
-            traceback.functions.log_exc()
+            traceback.func.log_exc()
             self.model = None
             self.tokenizer = None
             sys.exit(1)
@@ -70,7 +70,7 @@ class T5Model(BaseModel):
         import torch
         from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, BitsAndBytesConfig
 
-        functions.log(f"Attempting to load model: {self.model_name}...")
+        func.log(f"Attempting to load model: {self.model_name}...")
 
         self.tokenizer = AutoTokenizer.from_pretrained(
             self.model_name,
@@ -92,26 +92,26 @@ class T5Model(BaseModel):
                         bnb_4bit_compute_dtype=torch.bfloat16,
                         bnb_4bit_use_double_quant=True,
                     )
-                    functions.log("INFO: Configured for 4-bit quantization using BitsAndBytesConfig.")
+                    func.log("INFO: Configured for 4-bit quantization using BitsAndBytesConfig.")
                 elif self.quantization_bits == 8:
                     quantization_config = BitsAndBytesConfig(load_in_8bit=True)
-                    functions.log("INFO: Configured for 8-bit quantization using BitsAndBytesConfig.")
+                    func.log("INFO: Configured for 8-bit quantization using BitsAndBytesConfig.")
             except ImportError:
-                functions.log("WARNING: bitsandbytes not found. Quantization requires `pip install bitsandbytes accelerate` and a compatible CUDA setup.")
-                functions.log("Falling back to non-quantized loading.")
+                func.log("WARNING: bitsandbytes not found. Quantization requires `pip install bitsandbytes accelerate` and a compatible CUDA setup.")
+                func.log("Falling back to non-quantized loading.")
                 self.quantization_bits = 0
             except Exception as e:
-                functions.error(f"ERROR: Could not create BitsAndBytesConfig for {self.quantization_bits}-bit quantization: {e}")
-                functions.log("Falling back to non-quantized loading.")
+                func.error(f"ERROR: Could not create BitsAndBytesConfig for {self.quantization_bits}-bit quantization: {e}")
+                func.log("Falling back to non-quantized loading.")
                 self.quantization_bits = 0
 
         if quantization_config:
             load_kwargs["quantization_config"] = quantization_config
             if self.is_gpu_available():
                 load_kwargs["device_map"] = "auto"
-            functions.log(f"Attempting to load model: {self.model_name} with {self.quantization_bits}-bit quantization config.")
+            func.log(f"Attempting to load model: {self.model_name} with {self.quantization_bits}-bit quantization config.")
         else:
-            functions.log("INFO: Loading model without quantization (either not requested or bitsandbytes not available/failed).")
+            func.log("INFO: Loading model without quantization (either not requested or bitsandbytes not available/failed).")
             if self.is_gpu_available():
                 load_kwargs["torch_dtype"] = torch.bfloat16
                 load_kwargs["device_map"] = "auto"
@@ -120,7 +120,7 @@ class T5Model(BaseModel):
             self.model_name,
             **load_kwargs,
         )
-        functions.log(f"Successfully loaded model: {self.model_name}")
+        func.log(f"Successfully loaded model: {self.model_name}")
 
     def chat(self, messages: list, images:list[str] = None, stream: bool = True, options: object = {}):
         """
@@ -135,7 +135,7 @@ class T5Model(BaseModel):
         context_string = self._prepare_input(messages)
 
         if self.is_gpu_available():
-            functions.log("INFO: Clearing CUDA cache before generation...")
+            func.log("INFO: Clearing CUDA cache before generation...")
             torch.cuda.empty_cache()
             gc.collect()
 
@@ -160,7 +160,7 @@ class T5Model(BaseModel):
         top_p = gen_options.get('top_p', 0.95)
         temperature = gen_options.get('temperature', 0.7)
         
-        functions.log("INFO: T5Model does not support token-by-token streaming directly for chat. Returning full response.")
+        func.log("INFO: T5Model does not support token-by-token streaming directly for chat. Returning full response.")
         
         try:
             response_text = self._generate_response(inputs_on_device, gen_options)
@@ -170,13 +170,13 @@ class T5Model(BaseModel):
             
             yield response_text
         except KeyboardInterrupt:
-            functions.error("\nINFO: Ctrl+C detected. Stopping T5Model generation...")
+            func.error("\nINFO: Ctrl+C detected. Stopping T5Model generation...")
             if isinstance(self, Events):
                 self.trigger(self.STREAMING_FINISHED_EVENT)
         except Exception as e:
-            functions.error(f"\nCRITICAL ERROR: An unexpected error occurred during T5Model generation: {e}")
+            func.error(f"\nCRITICAL ERROR: An unexpected error occurred during T5Model generation: {e}")
             import traceback
-            traceback.functions.log_exc()
+            traceback.func.log_exc()
             sys.exit(1)
 
 
@@ -231,25 +231,25 @@ class T5Model(BaseModel):
         return response_text
 
     def list(self):
-        """functions.logs info about Hugging Face models."""
-        functions.log("Hugging Face models are available on huggingface.co/models. You can search there for available models.")
+        """func.logs info about Hugging Face models."""
+        func.log("Hugging Face models are available on huggingface.co/models. You can search there for available models.")
         return []
 
     def pull(self, model_name, stream=True):
         """Simulates 'pulling' (downloading/loading) a Hugging Face model."""
-        functions.log(f"Attempting to 'pull' (download/load) Hugging Face model: {model_name}")
+        func.log(f"Attempting to 'pull' (download/load) Hugging Face model: {model_name}")
         try:
             _ = AutoTokenizer.from_pretrained(model_name)
             _ = AutoModelForSeq2SeqLM.from_pretrained(model_name)
             message = f"Model {model_name} 'pulled' (downloaded/loaded) successfully."
-            functions.log(message)
+            func.log(message)
             if stream:
                 yield message
             else:
                 return message
         except Exception as e:
             message = f"Error 'pulling' model {model_name}: {e}"
-            functions.error(message)
+            func.error(message)
             if stream:
                 yield message
             else:

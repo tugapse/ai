@@ -6,13 +6,11 @@ from typing import Any, Dict, List, Optional
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 
-# Import core interfaces from your existing codebase
-from ..brain_hub import BrainHub
-from ..schemas import ChatCompletionRequest
-from services.config_helper import ProgramSetting
-from services.prompt_loader import PromptLoader
+import ai.functions as func  
+from ai.modules.server.brain_hub import BrainHub
+from ai.modules.server.schemas import ChatCompletionRequest
+from ai.services.prompt_loader import PromptLoader
 
-import functions as func  # reuse your existing logging/debug utilities
 
 
 class ChatSessionRouter:

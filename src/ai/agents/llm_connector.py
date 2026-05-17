@@ -1,7 +1,8 @@
 import os
 from typing import Dict, Any, List, Optional
-from xml_response_parser import ResponseParser
+
 import ai.functions as func
+from ai.agents.xml_response_parser import ResponseParser
 from ai.core.llms.base_llm import BaseModel
 from ai.chat.chat import ChatRoles
 from ai.direct import ask
