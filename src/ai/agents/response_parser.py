@@ -11,7 +11,7 @@ class ResponseParser:
     """
     def __init__(self):
         # Regex to find any token starting with ____@
-        self.token_pattern = re.compile(r"(____@[A-Za-z_:]+)")
+        self.token_pattern = re.compile(r"(\s*____@[A-Za-z_:]+)")
 
     def _parse_key_value_block(self, text: str) -> Dict[str, str]:
         """Helper to parse simple KEY: VALUE lines (used for Manifest)."""
@@ -122,12 +122,6 @@ class ResponseParser:
             # 4. Handle the Tool Execution
             tool_token = next((k for k in data_map.keys() if k.startswith("____@tool:")), None)
             
-            action = {
-                "tool_name": "",
-                "tool_parameters": {},
-                "agent_target": agent_target
-            }
-
             action = {
                 "tool_name": "",
                 "tool_parameters": {},

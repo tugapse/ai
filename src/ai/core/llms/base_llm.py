@@ -73,7 +73,7 @@ class BaseModel:
     CONTEXT_WINDOW_2M = 2097152
 
     STREAMING_FINISHED_EVENT = "streaming_finished"
-    HIL_TOOLS = ProgramConfig.get_current().get(ProgramSetting.HIL_TOOLS)
+    HIL_TOOLS:list[str]
 
     def __init__(self, model_name: str, system_prompt: str = "", **kargs) -> None:
         self.model_name = model_name
@@ -90,6 +90,7 @@ class BaseModel:
         self.inference_device = InferenceBackend.CPU
         self.token_info_count = TokenCountInfo()
         self.tool_registry: Optional[ToolRegistry] = kargs.get("tool_registry")
+        self.HIL_TOOLS = ProgramConfig.get_current().get(ProgramSetting.HIL_TOOLS)
 
     def handle_sentinel(self, content: str, is_intercepting: bool, sentinel_buffer: str):
         """Monitors and intercepts streaming chunks matching syntax blocks to extract raw agent tool calls."""

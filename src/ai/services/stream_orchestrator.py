@@ -2,7 +2,6 @@ import re
 import unicodedata
 from typing import Optional, Any, Callable, List
 from dataclasses import dataclass, field
-from color import Color, format_text
 import functions as func
 
 # We keep the SpeechBridge as it handles the "Sir, I've put the code on screen" logic

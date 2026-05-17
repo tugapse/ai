@@ -4,8 +4,8 @@ import sys
 
 
 try:
-    from ai.modules.base_module import BaseModule
-    from ai.modules.client.remote_connector import RemoteBrainConnector
+    from modules.base_module import BaseModule
+    from modules.client.remote_connector import RemoteBrainConnector
 except ImportError as e:
     pytest.fail(f"Could not import the actual modules needed for patching: {e}")
 
@@ -13,11 +13,7 @@ sys.modules['core'] = MagicMock()
 sys.modules['core.modules'] = MagicMock()
 sys.modules['core.llms'] = MagicMock()
 
-sys.modules['core.modules.base_module'] = sys.modules['ai.modules.base_module']
-sys.modules['core.llms.remote_connector'] = sys.modules['ai.modules.client.remote_connector']
-
-
-from ai.modules.client.remote_module import RemoteConnectorModule
+from modules.client.remote_module import RemoteConnectorModule
 
 @patch('ai.modules.client.remote_module.func')
 @patch('ai.modules.client.remote_module.RemoteBrainConnector')

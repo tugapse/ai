@@ -3,8 +3,8 @@ import os
 from unittest.mock import MagicMock, patch, call
 
 # Adjust imports for PYTHONPATH=src
-from ai.services.prompt_loader import PromptLoader, DEFAULT_SYSTEM_PROMPT
-from ai.services.config_helper import ProgramSetting
+from services.prompt_loader import PromptLoader, DEFAULT_SYSTEM_PROMPT
+from services.config_helper import ProgramSetting
 
 # Since ProgramConfig is a dependency, we can create a mock version of it for tests.
 class MockProgramConfig:

@@ -134,10 +134,10 @@ class Program:
             if user_input and user_input.strip():
                 self.history.add_message(ChatRoles.USER, user_input)
 
-            orchestrator = self._setup_orchestrator()
+            stream_orchestrator = self._setup_orchestrator()
             options = self.model_params.copy() if self.model_params else {}
             
-            self._run_agent_loop(orchestrator, options)
+            self._run_agent_loop(stream_orchestrator, options)
 
         except Exception as e:
             func.log(f"Program: Chat Error: {e}", level="CRITICAL")
@@ -146,7 +146,7 @@ class Program:
         finally:
             self._cleanup_after_turn()
 
-    def _run_agent_loop(self, orchestrator: StreamOrchestrator, options: dict):
+    def _run_agent_loop(self, stream_orchestrator: StreamOrchestrator, options: dict):
         """Handles the continuous 'Thought-Action' cycle until completion."""
         step_count = 0
         MAX_STEPS_BEFORE_WARNING = 5
@@ -161,7 +161,7 @@ class Program:
 
             # --- INFERENCE ---
             stream = self.llm.chat(self.chat.messages, stream=True, options=options)
-            stream_result = orchestrator.run(stream)
+            stream_result = stream_orchestrator.run(stream)
 
             if stream_result.interrupted:
                 func.log("\nProgram: LLM stream interrupted by user. Signaling stop.", level="INFO")

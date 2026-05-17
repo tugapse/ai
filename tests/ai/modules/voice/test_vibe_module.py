@@ -39,24 +39,22 @@ sys.modules['numpy'] = mock_numpy
 
 try:
     # 1. Patch the deepest dependency first: `modules.base_module` -> `ai.modules.base_module`
-    from ai.modules.base_module import BaseModule
+    from modules.base_module import BaseModule
     sys.modules['modules'] = MagicMock()
-    sys.modules['modules.base_module'] = sys.modules['ai.modules.base_module']
-
+   
     # 2. Now we can import the next level up, which depends on the first patch
-    from ai.modules.voice.base_module import BaseVoiceModule
+    from modules.voice.base_module import BaseVoiceModule
 
     # 3. Now add the patch for the module we just imported
     sys.modules['modules.voice'] = MagicMock()
-    sys.modules['modules.voice.base_module'] = sys.modules['ai.modules.voice.base_module']
-
+ 
 except ImportError as e:
     # Provide a helpful error if the underlying structure changes.
     raise ImportError(f"Could not import the actual modules needed for patching: {e}")
 # --- END VIRTUAL MODULE PATCH ---
 
 # Now that the virtual `modules` module is in place, we can import the module under test using its REAL path
-from ai.modules.voice.vibe_module import VibeVoiceModule
+from modules.voice.vibe_module import VibeVoiceModule
 
 class TestVibeVoiceModule(unittest.TestCase):
 

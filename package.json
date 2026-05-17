@@ -1,0 +1,8 @@
+{
+  "name": "test-project",
+  "version": "1.0.0",
+  "description": "Initial dummy project.",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

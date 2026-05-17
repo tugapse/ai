@@ -4,9 +4,9 @@ import pytest
 from unittest.mock import MagicMock, patch, mock_open, ANY
 
 # Imports adjusted for PYTHONPATH=src
-from ai.services.model_manager import EngineManager
-from ai.entities.model_enums import ModelType, EngineType
-from ai.core.llms.base_llm import ModelParams
+from services.model_orchestrator import EngineManager
+from entities.model_enums import ModelType, EngineType
+from core.llms.base_llm import ModelParams
 
 # Mock the 'functions' module
 func = MagicMock()
@@ -85,10 +85,10 @@ class TestEngineManager:
     def test_load_model_instance_missing_config_keys(self):
         """Test ValueError when model_name or model_type are missing."""
         with pytest.raises(ValueError, match="missing 'model_name' or 'model_type'"):
-            EngineManager.load_model_instance({"model_name": "test"}, "prompt")
+            EngineManager.load_model_instance({"model_name": "test"}, "prompt",None)
         
         with pytest.raises(ValueError, match="missing 'model_name' or 'model_type'"):
-            EngineManager.load_model_instance({"model_type": "ollama"}, "prompt")
+            EngineManager.load_model_instance({"model_type": "ollama"}, "prompt",None)
 
    
     

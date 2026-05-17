@@ -11,18 +11,17 @@ from unittest.mock import MagicMock
 
 try:
     # This import reflects the actual file structure.
-    from ai.modules.base_module import BaseModule
+    from modules.base_module import BaseModule
 except ImportError as e:
     # Provide a helpful error if the underlying structure changes.
     raise ImportError(f"Could not import the actual BaseModule needed for patching: {e}")
 
 # Create a mock 'modules' package in sys.modules to simulate the expected structure.
 sys.modules['modules'] = MagicMock()
-sys.modules['modules.base_module'] = sys.modules['ai.modules.base_module']
 # --- END VIRTUAL MODULE PATCH ---
 
 # Now that the virtual `modules` module is in place, we can import the module under test.
-from ai.modules.memory.vector_memory_module import VectorMemoryModule
+from modules.memory.vector_memory_module import VectorMemoryModule
 
 
 class TestVectorMemoryModule(unittest.TestCase):

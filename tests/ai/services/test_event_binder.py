@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock, call
 
 # Imports adjusted for PYTHONPATH=src
-from ai.services.event_binder import EventBinder
+from services.event_binder import EventBinder
 from core.llms.base_llm import BaseModel
 from chat.chat import Chat
 

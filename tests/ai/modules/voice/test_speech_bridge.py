@@ -13,14 +13,11 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 
 try:
     # 1. Import the actual module we want to test.
-    from ai.modules.voice.speech_bridge import SpeechBridge
+    from modules.voice.speech_bridge import SpeechBridge
 
     # 2. Create a mock for the top-level 'modules' package.
     sys.modules['modules'] = Mock()
     sys.modules['modules.voice'] = Mock()
-
-    # 3. Point the old, incorrect import path to the actual, loaded module.
-    sys.modules['modules.voice.speech_bridge'] = sys.modules['ai.modules.voice.speech_bridge']
 
 except ImportError as e:
     raise ImportError(f"Could not import the actual SpeechBridge module for patching: {e}")

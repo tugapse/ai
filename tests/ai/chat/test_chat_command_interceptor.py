@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch, call, mock_open, ANY
 
 # Since the class is in a sibling module, we need to adjust the python path for imports
 # This is a common pattern in testing.
-from ai.chat.chat_command_interceptor import ChatCommandInterceptor
-from ai.chat.chat import Chat
+from chat.chat_command_interceptor import ChatCommandInterceptor
+from chat.chat import Chat
 
 @pytest.fixture
 def mock_chat():
