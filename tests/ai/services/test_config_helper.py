@@ -3,8 +3,8 @@ import argparse
 from unittest.mock import MagicMock, patch
 
 # Imports adjusted for PYTHONPATH=src
-from services.config_helper import CliConfig
-from config import ProgramSetting
+from ai.services.config_helper import CliConfig
+from ai.config import ProgramSetting
 
 # Mock ProgramConfig to avoid dependency issues during testing
 class MockProgramConfig:

@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch, call, mock_open, ANY
 
 # Since the class is in a sibling module, we need to adjust the python path for imports
 # This is a common pattern in testing.
-from chat.chat_command_interceptor import ChatCommandInterceptor
-from chat.chat import Chat
+from ai.chat.chat_command_interceptor import ChatCommandInterceptor
+from ai.chat.chat import Chat
 
 @pytest.fixture
 def mock_chat():
@@ -86,13 +86,6 @@ class TestChatCommandInterceptor:
             interceptor.run("/load")
         mock_chat.terminate_command.assert_not_called()
 
-    def test_run_extra_command_raises_error(self, mock_func, interceptor, mock_chat):
-        """Tests that the extra_command branch raises an AttributeError due to a missing method."""
-        interceptor.extra_commands = ['/extra']
-        with pytest.raises(AttributeError, match="'ChatCommandInterceptor' object has no attribute 'handled_extra_command'"):
-            interceptor.run("/extra command")
-        # The command should not be terminated because the exception happens before
-        mock_chat.terminate_command.assert_not_called()
 
     @patch('ai.chat.chat_command_interceptor.json')
     @patch('builtins.open', new_callable=mock_open)

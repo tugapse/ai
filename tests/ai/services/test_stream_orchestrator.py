@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch, call
 
-from services.stream_orchestrator import StreamOrchestrator, StreamResult
+from ai.services.stream_orchestrator import StreamOrchestrator, StreamResult
 
 # Mock the 'functions' module, a common dependency
 func = MagicMock()

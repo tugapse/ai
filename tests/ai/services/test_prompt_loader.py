@@ -6,8 +6,8 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
 # Adjust imports for PYTHONPATH=src
-from services.prompt_loader import PromptLoader, DEFAULT_SYSTEM_PROMPT
-from services.config_helper import ProgramSetting
+from ai.services.prompt_loader import PromptLoader, DEFAULT_SYSTEM_PROMPT
+from ai.services.config_helper import ProgramSetting
 
 # Since ProgramConfig is a dependency, we can create a mock version of it for tests.
 class MockProgramConfig:

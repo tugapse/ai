@@ -10,9 +10,9 @@ class TestJarvisServerModule(unittest.TestCase):
     def setUp(self):
         """Set up a fresh environment and mocks before each test."""
         # Patch the dependencies using the *correct* module path.
-        self.patcher_uvicorn = patch('modules.server.server_module.uvicorn', new_callable=MagicMock)
-        self.patcher_create_app = patch('modules.server.server_module.create_app', new_callable=MagicMock)
-        self.patcher_brain_hub = patch('modules.server.server_module.BrainHub', new_callable=MagicMock)
+        self.patcher_uvicorn = patch('ai.modules.server.server_module.uvicorn', new_callable=MagicMock)
+        self.patcher_create_app = patch('ai.modules.server.server_module.create_app', new_callable=MagicMock)
+        self.patcher_brain_hub = patch('ai.modules.server.server_module.BrainHub', new_callable=MagicMock)
         self.patcher_thread = patch('threading.Thread', new_callable=MagicMock)
 
         # Start the patchers and get the mock objects.
