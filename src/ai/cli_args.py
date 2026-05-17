@@ -329,27 +329,28 @@ def {function_name}(argument: str) -> str:
 
     def _has_task_file(self, prog, args):
         if args.task_file:
-            prog.chat._add_message(BaseModel.create_message(ChatRoles.SYSTEM, func.read_file(args.task_file)))
+            prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, func.read_file(args.task_file)))
 
     def _has_task(self, prog, args):
         if args.task:
             task_name = f"{args.task.replace('.md', '')}.md"
-            user_tasks_dir = prog.config.get(ProgramSetting.PATHS_TASKS_TEMPLATES)
-            found_path = os.path.join(user_tasks_dir, task_name) if user_tasks_dir else None
+            user_tasks_dir = prog.config.get(ProgramSetting.PATHS_TASKS_TEMPLATES) or os.path.join(func.get_root_directory(), "tasks")
+            found_path = os.path.join(user_tasks_dir, task_name)
             
-            if not found_path or not os.path.exists(found_path):
+            if not os.path.exists(found_path):
                 raise FileNotFoundError(f"Task template '{args.task}' not found.")
 
             prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, func.read_file(found_path)))
             
     def _has_message(self, prog, args):
-        piped = False
-        user_input = args.task or args.msg
-
+        has_piped_input = False
+        piped_input = ""
+        
         if not sys.stdin.isatty():
-            piped = True
-            user_input = sys.stdin.read().strip()
-            prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, user_input))
+            piped_input = sys.stdin.read().strip()
+            if piped_input:
+                has_piped_input = True
+                prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, piped_input))
 
         if prog.chat.images:
             message = prog.llm.load_images(prog.chat.images)
@@ -358,7 +359,9 @@ def {function_name}(argument: str) -> str:
         if args.msg:
             prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, args.msg))
         
-        if piped or (user_input and user_input.strip()):
+        should_ask = has_piped_input or args.msg or args.task or args.task_file
+        
+        if should_ask:
             func.log("Starting direct ask.")
             ask(
                 prog.llm,

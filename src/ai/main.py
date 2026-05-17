@@ -169,7 +169,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     config_group.add_argument('--model-type', type=str, choices=[t.value for t in ModelType], help="Target architecture for manifest")
 
     if '-h' in sys.argv or '--help' in sys.argv:
-        func.log(f"\n{__logo}", start_line="")
+        func.out(f"\n{__logo}")
 
     return parser, parser.parse_args()
 

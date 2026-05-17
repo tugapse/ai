@@ -3,7 +3,10 @@
 set -e
 
 # Define the path to the virtual environment directory
-VENV_DIR=".venv"
+# resolve from current file dir
+
+SCRIPT_DIR=$(dirname -- "$(realpath -- "$0")")
+VENV_DIR="$SCRIPT_DIR/../.venv"
 
 # Check if the virtual environment directory exists
 if [ ! -d "$VENV_DIR" ]; then
