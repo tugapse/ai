@@ -185,10 +185,10 @@ def print_chat_header(prog) -> None:
 
 
 def run():
+    parser, args = load_args()
+    
     check_dependencies()
     hack_warnings()
-    
-    parser, args = load_args()
     
     # Load configuration first, before any other imports that might rely on it
     ProgramConfig.load(args=args)
