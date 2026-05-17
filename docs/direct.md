@@ -8,7 +8,7 @@ This component acts as a bridge between the high-level user intent and the low-l
 
 ## 2. Environment & Configuration
 **Environment Lookups:**
-- `ProgramConfig.current` (via `ProgramConfig.load`)  Retrieves the active global configuration state.
+- `ProgramConfig.get_current()` (via `ProgramConfig.load`)  Retrieves the active global configuration state.
 
 **Hardcoded Constants:**
 - `ThinkingAnimationHandler.THINKING_PREFIX` (Default: `"Processing request"`)  Sets the visual label for the thinking animation.

@@ -9,7 +9,7 @@ This component acts as a foundational layer that supports higher-level modules b
 ## 2. Environment & Configuration
 
 **Environment Lookups:**
-- `ROOT_DIRECTORY` (via `get_root_directory` using `ProgramConfig.current`)  Retrieves the base directory for the application.
+- `ROOT_DIRECTORY` (via `get_root_directory` using `ProgramConfig.get_current()`)  Retrieves the base directory for the application.
 - `ACTIVE_LOG_FILENAME` (Global variable)  Determines the destination for active system logs.
 - `SESSION_LOG_FILENAME` (Global variable)  Determines the destination for session-specific logs.
 
@@ -42,7 +42,7 @@ This component acts as a foundational layer that supports higher-level modules b
 
 ## 4. Execution Logic & Flow
 
-- **Initialization**: The module relies on the global state of `ProgramConfig.current` being populated (typically via `main.py`) and the initialization of global logging filename variables to direct output.
+- **Initialization**: The module relies on the global state of `ProgramConfig.get_current()` being populated (typically via `main.py`) and the initialization of global logging filename variables to direct output.
 - **Data Path**: 
     - **Logging Flow**: `log/error/debug` $\rightarrow$ `get_formatted_text` (Colorization) $\rightarrow$ `write_to_file` (Persistence) $\rightarrow$ `print` (Console Output).
     - **File Discovery Flow**: `get_files(dir, ext)` $\rightarrow$ `Path.rglob` (Recursive Search) $\rightarrow$ `ContextFile` instantiation $\rightarrow$ List return.

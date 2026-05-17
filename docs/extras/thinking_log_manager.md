@@ -9,7 +9,7 @@ This component acts as a sidecar logging service that integrates with the broade
 ## 2. Environment & Configuration
 
 **Environment Lookups:**
-- `ProgramConfig.current.get(ProgramSetting.PATHS_LOGS)`  Retrieves the base directory for all system logs to determine the root for thinking logs.
+- `ProgramConfig.get_current().get(ProgramSetting.PATHS_LOGS)`  Retrieves the base directory for all system logs to determine the root for thinking logs.
 
 **Hardcoded Constants:**
 - `DEFAULT_LOG_SUBDIR` (Default: `"Ai/logs/thinking"`)  The fallback relative path for log storage if no configuration is found.
@@ -43,7 +43,7 @@ This component acts as a sidecar logging service that integrates with the broade
     - **Output**: Persistent text appended to `.log` files on the filesystem.
 - **Conditional Branching**:
     - **Lock Acquisition**: If `os.open` fails with `errno.EE_EXIST`, the system enters a retry loop until `max_lock_wait_time` is exceeded, at which point a `TimeoutError` is raised.
-    - **Config Availability**: If `ProgramConfig.current` is `None`, the logic branches to use the hardcoded default pathing.
+    - **Config Availability**: If `ProgramConfig.get_current()` is `None`, the logic branches to use the hardcoded default pathing.
     - **Error Handling**: `write_thinking_log` and `write_session_header` catch `TimeoutError` and `IOError` to prevent logging failures from crashing the main execution thread.
 
 ## 5. Resource Dependencies

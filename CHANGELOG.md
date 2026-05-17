@@ -142,7 +142,7 @@
 - changed bash ans cmd files
 - changed bash ans cmd files
 - Merge tag 'hoyfix-20250612' into develop
-- **cli_args.py:** 1. Imports have been updated to include `ProgramSetting`. 2. The order of some checks has been slightly rearranged. 3. Hard-coded paths in the code have been replaced with references to `ProgramConfig.current.config` and `ProgramSetting` constants.
+- **cli_args.py:** 1. Imports have been updated to include `ProgramSetting`. 2. The order of some checks has been slightly rearranged. 3. Hard-coded paths in the code have been replaced with references to `ProgramConfig.get_current().config` and `ProgramSetting` constants.
 - updated templates
 - fix system templates key
 - fix if no user config is provided

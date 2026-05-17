@@ -9,7 +9,7 @@ This component acts as the primary execution engine that bridges high-level user
 ## 2. Environment & Configuration
 
 **Environment Lookups:**
-- `ProgramConfig.current.get(ProgramSetting.AGENT_THOUGHT)`  Determines if agent reasoning/thought processes should be rendered to the UI.
+- `ProgramConfig.get_current().get(ProgramSetting.AGENT_THOUGHT)`  Determines if agent reasoning/thought processes should be rendered to the UI.
 
 **Hardcoded Constants:**
 - `MAX_ITERATIONS` (Default: `100`)  The maximum number of agent execution cycles allowed in a single run loop.

@@ -9,8 +9,8 @@ This component acts as a middleware layer in the prompt construction pipeline. I
 ## 2. Environment & Configuration
 
 **Environment Lookups:**
-- `INJECT_TEMP_LATES` (via `ProgramConfig.current.config.get`)  Retrieves a list of injection key-value pairs defining which placeholders to replace.
-- `PATHS_INJECT_TEMP_LATES` (via `ProgramConfig.current.get`)  Retrieves the directory path where injection markdown templates are stored.
+- `INJECT_TEMP_LATES` (via `ProgramConfig.get_current().config.get`)  Retrieves a list of injection key-value pairs defining which placeholders to replace.
+- `PATHS_INJECT_TEMP_LATES` (via `ProgramConfig.get_current().get`)  Retrieves the directory path where injection markdown templates are stored.
 
 **Hardcoded Constants:**
 - `".md"` (Default: `".md"`)  Used to enforce the markdown file extension during template loading.
