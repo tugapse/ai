@@ -43,8 +43,8 @@ function test_file_flag() {
 
 function test_task_flag() {
     local TEMP_TASK_OUT=$(mktemp)
-    mkdir -p "$AI_ASSISTANT_DIRECTORY/tasks"
-    local TASK_FILE="$AI_ASSISTANT_DIRECTORY/tasks/secret_task.md"
+    mkdir -p "$AI_ASSISTANT_DIRECTORY/task"
+    local TASK_FILE="$AI_ASSISTANT_DIRECTORY/task/secret_task.md"
     echo "Reply exactly with the secret code: SECRET_CODE_7777" > "$TASK_FILE"
     
     echo "   [EXEC] $AI_CMD -t \"secret_task\" -o \"$TEMP_TASK_OUT\""

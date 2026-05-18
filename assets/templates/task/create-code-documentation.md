@@ -7,11 +7,16 @@ Deconstruct the provided source code into a high-density technical map. You MUST
 Every internal link must use the REPO-ABSOLUTE path provided in the MANIFEST.
 - **FORBIDDEN**: [file](subfolder/file.md) (Relative)
 - **MANDATORY**: [file](/root_folder/subfolder/file.md) (Absolute)
+- **MANDATORY**:when providing a link for the src file [FILE_NAME_WITHOUT_EXT] (relative_link_to_actual_src_file.original_ext: replace with the correct path, look for the 'Source folder', 'Docs folder' and the file EXT on the manifest to know what parts need to change)
 
 **DOCUMENTATION STRUCTURE:**
 
 ## 1. Architectural Role
-Provide a detailed overview of the component's purpose and its strategic position within the system across two distinct paragraphs.
+| :--- | :--- |
+| Name | [Compoennt] |
+| Source file | [filename](relative/path/to/src/file.ext)|
+
+Provide a detailed overview of the component's purpose and its strategic position within the system across two or three paragraphs.
 
 **Functional Mission**
 Define the primary responsibility of this file. What specific problem does it solve, and what is its core "mission" in the codebase? Ensure the component name is bolded on its first mention.

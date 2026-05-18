@@ -70,13 +70,13 @@ function test_system_flag() {
 function test_system_allow_combinations() {
     local TEMP_DIR=$(mktemp -d)
     mkdir -p "$AI_ASSISTANT_DIRECTORY/system"
-    mkdir -p "$AI_ASSISTANT_DIRECTORY/tasks"
+    mkdir -p "$AI_ASSISTANT_DIRECTORY/task"
     
     # Test 1: System File + Task
     local SYS1="$TEMP_DIR/sys1.md"
     local OUT1="$TEMP_DIR/out1.md"
     echo "You are Yoda. End every sentence with 'Yes, hmm.'." > "$SYS1"
-    local TASK1="$AI_ASSISTANT_DIRECTORY/tasks/hello.md"
+    local TASK1="$AI_ASSISTANT_DIRECTORY/task/hello.md"
     echo "Say hello" > "$TASK1"
     run_and_verify "Yes, hmm" "$OUT1" "$AI_CMD -sf \"$SYS1\" -t \"hello\" -o \"$OUT1\"" || return 1
     
@@ -94,7 +94,7 @@ function test_system_allow_combinations() {
     local OUT3="$TEMP_DIR/out3.md"
     echo "You are a translator. Prefix output with 'ES:'" > "$SYS3"
     echo "Hello world" > "$FILE3"
-    local TASK3="$AI_ASSISTANT_DIRECTORY/tasks/translate.md"
+    local TASK3="$AI_ASSISTANT_DIRECTORY/task/translate.md"
     echo "Translate the file" > "$TASK3"
     run_and_verify "ES:" "$OUT3" "$AI_CMD -sf \"$SYS3\" -f \"$FILE3\" -t \"translate\" -o \"$OUT3\"" || return 1
     
@@ -108,7 +108,7 @@ function test_system_allow_combinations() {
     local SYS5="$AI_ASSISTANT_DIRECTORY/system/poet.md"
     local OUT5="$TEMP_DIR/out5.md"
     echo "You are a poet. Every response must contain the word 'Breeze'." > "$SYS5"
-    local TASK5="$AI_ASSISTANT_DIRECTORY/tasks/poem.md"
+    local TASK5="$AI_ASSISTANT_DIRECTORY/task/poem.md"
     echo "Write a poem about the ocean." > "$TASK5"
     run_and_verify "Breeze" "$OUT5" "$AI_CMD -s \"poet.md\" -t \"poem\" -o \"$OUT5\"" || return 1
     
@@ -126,7 +126,7 @@ function test_system_allow_combinations() {
     local OUT7="$TEMP_DIR/out7.md"
     echo "You are a strict robot. Always output exactly 'ROBOT_ACTIVE'." > "$SYS7"
     echo "Some random data." > "$FILE7"
-    local TASK7="$AI_ASSISTANT_DIRECTORY/tasks/process.md"
+    local TASK7="$AI_ASSISTANT_DIRECTORY/task/process.md"
     echo "Process this data" > "$TASK7"
     run_and_verify "ROBOT_ACTIVE" "$OUT7" "$AI_CMD -s \"robot.md\" -f \"$FILE7\" -t \"process\" -o \"$OUT7\"" || return 1
     
@@ -140,7 +140,7 @@ function test_system_allow_combinations() {
     local SYS9="$AI_ASSISTANT_DIRECTORY/system/binary.md"
     local OUT9="$TEMP_DIR/out9.md"
     echo "Prefix with 'BIN:'." > "$SYS9"
-    local TASK9="$AI_ASSISTANT_DIRECTORY/tasks/say_yes.md"
+    local TASK9="$AI_ASSISTANT_DIRECTORY/task/say_yes.md"
     echo "Say yes" > "$TASK9"
     run_and_verify "BIN:" "$OUT9" "$AI_CMD -s \"binary.md\" -t \"say_yes\" -o \"$OUT9\"" || return 1
     
@@ -150,12 +150,12 @@ function test_system_allow_combinations() {
     local OUT10="$TEMP_DIR/out10.md"
     echo "Always end with 'DONE_ANALYSIS'." > "$SYS10"
     echo "Data" > "$FILE10"
-    local TASK10="$AI_ASSISTANT_DIRECTORY/tasks/analyze.md"
+    local TASK10="$AI_ASSISTANT_DIRECTORY/task/analyze.md"
     echo "Analyze" > "$TASK10"
     run_and_verify "DONE_ANALYSIS" "$OUT10" "$AI_CMD -sf \"$SYS10\" -f \"$FILE10\" -t \"analyze\" -m \"Do it now\" -o \"$OUT10\"" || return 1
     
     echo -e "\n   -> ${GREEN}✅ 10 System 'Allow' combinations successfully verified${NC}"
-    rm -rf "$TEMP_DIR" "$AI_ASSISTANT_DIRECTORY/system/reviewer.md" "$AI_ASSISTANT_DIRECTORY/system/poet.md" "$AI_ASSISTANT_DIRECTORY/system/robot.md" "$AI_ASSISTANT_DIRECTORY/system/binary.md" "$AI_ASSISTANT_DIRECTORY/tasks"
+    rm -rf "$TEMP_DIR" "$AI_ASSISTANT_DIRECTORY/system/reviewer.md" "$AI_ASSISTANT_DIRECTORY/system/poet.md" "$AI_ASSISTANT_DIRECTORY/system/robot.md" "$AI_ASSISTANT_DIRECTORY/system/binary.md" "$AI_ASSISTANT_DIRECTORY/task"
 }
 
 function test_system_out_of_the_box() {

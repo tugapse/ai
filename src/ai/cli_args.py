@@ -334,7 +334,7 @@ def {function_name}(argument: str) -> str:
     def _has_task(self, prog, args):
         if args.task:
             task_name = f"{args.task.replace('.md', '')}.md"
-            user_tasks_dir = prog.config.get(ProgramSetting.PATHS_TASKS_TEMPLATES) or os.path.join(func.get_root_directory(), "tasks")
+            user_tasks_dir = prog.config.get(ProgramSetting.PATHS_TASKS_TEMPLATES) or os.path.join(func.get_root_directory(), "task")
             found_path = os.path.join(user_tasks_dir, task_name)
             
             if not os.path.exists(found_path):
