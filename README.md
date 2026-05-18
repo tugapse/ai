@@ -1,6 +1,6 @@
 # AI Assistant
 
-![Version](https://img.shields.io/badge/version-3.1.3-orange)
+![Version](https://img.shields.io/badge/version-3.2.0-orange)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -10,7 +10,7 @@ A modular conversational AI framework built with Python. It provides a unified i
 
 ##  Features
 
-* **Hybrid LLM Integration:** Toggle between Ollama (local inference) and Hugging Face (GGUF/PyTorch) models.
+* **Hybrid LLM Integration:** Toggle between Ollama and Hugging Face (GGUF/PyTorch) or openapi and gemini models.
 * **Autonomous Agents:** Enable tool-use for terminal execution, file manipulation, and smart searching.
 * **Contextual Data Ingestion:** Load text data from individual files or entire directories for analysis, reporting, or code reviews.
 * **Automated Task Pipeline:** Execute predefined logic (summarize, brainstorm, code) using prompt templates.
@@ -28,7 +28,7 @@ The assistant includes an **Agentic Mode** that allows the LLM to interact with 
 * **Iteration:** Agents can self-correct and iterate through multiple steps to complete complex tasks.
 
 
-> For a full list of available tools, safety configurations, and agentic workflows, please refer to the [**Agent Documentation**](docs/agents.md).
+> For a full list of available tools, safety configurations, and agentic workflows, please refer to the [**Agent Documentation**](docs/agents/agent.md).
 
 ---
 
@@ -74,6 +74,7 @@ Run the assistant with tool-access enabled:
 ```
 
 **Analyze a source folder:**
+Running a task from user/tasks folder
 ```bash
 ./run.sh --load-folder "./src" --ext "py" --task "code_review"
 ```
@@ -88,7 +89,7 @@ Run the assistant with tool-access enabled:
 | `--help` | `-h` | Show the diagnostic help message. |
 | `--msg` | `-m` | Direct inquiry to the sentinel. |
 | `--model` | `-md` | Specify neural model configuration. |
-| `--system` | `-s` | Load named system persona. |
+| `--system` | `-s` | Load named system persona from user/system folder. |
 | `--system-file` | `-sf` | Inject system prompt from disk. |
 | `--list-models` | `-l` | Audit available neural models. |
 
@@ -96,7 +97,7 @@ Run the assistant with tool-access enabled:
 | Flag | Alias | Description |
 | :--- | :--- | :--- |
 | `--file` | `-f` | Analyze target file. |
-| `--image` | `-i` | Process visual input from path. |
+| `--image` | `-i` | Process visual input from image path. |
 | `--load-folder` | `-D` | Ingest directory into context. |
 | `--ext` | `-e` | Filter context ingestion by extension. |
 
@@ -104,10 +105,10 @@ Run the assistant with tool-access enabled:
 | Flag | Alias | Description |
 | :--- | :--- | :--- |
 | `--agent` | | Enable agentic logic injection. |
-| `--task` | `-t` | Load named directive |
+| `--task` | `-t` | Load named directive from user/tasks folder.|
 | `--task-file` | `-tf` | Load directive from file. |
 | `--pipeline` | `-ppl` | Define multi-stage instruction pipeline. (defaults to default.json) |
-| `--session-id`| | Session key. |
+| `--session-id`| | Session key used for this session, if not provided default to new GUID. |
 | `--output-file` | `-o` | Designate clean output stream (temp-file mode). |
 
 ### Distributed Architecture
@@ -115,7 +116,7 @@ Run the assistant with tool-access enabled:
 | :--- | :--- | :--- |
 | `--server` | | Initialize Brain Server module. |
 | `--remote` | `-r` | Connect to remote neural hub URL. |
-| `--modules` | | Load specific sub-modules. |
+| `--modules` | | Load specific sub-modules. <module_name> |
 
 ### System Debug & Maintenance
 | Flag | Alias | Description |
@@ -144,7 +145,7 @@ python main.py --generate-config "new_model" --model-type "gguf"
 * **--generate-config:** Specify the filename to save the new JSON config (you can ommit .json).
 * **--model-type:** Choose the architectural type (`ollama`, `causallm`, `gguf`, `gemini`, `openai`).
 
-For detailed instructions on configuration parameters, refer to the [**Model Configuration Manager README**](docs/MODEL_CONFIG.md).
+For detailed instructions on configuration parameters, refer to the [**Model Configuration Manager README**](docs/model_config_manager.md).
 
 ---
 
