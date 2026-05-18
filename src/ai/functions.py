@@ -137,6 +137,49 @@ def read_file(filename):
         sys.exit(1)  # Exit on read error as per original logic
 
 
+def resolve_path_and_get_content(input_value: str, base_folder_setting: str, default_ext: str = ".md") -> str:
+    """
+    Resolves an input string as a file path or returns the content of the file.
+    Resolution order:
+    1. Check for a file in the user-specific directory (e.g., 'tasks', 'system_prompts').
+    2. Check if the input is a direct, existing file path.
+    3. Return the input string as is.
+
+    Args:
+        input_value (str): The value from the command-line argument.
+        base_folder_setting (ProgramSetting): The config key for the user-specific directory.
+        default_ext (str): The default extension to append if none is present.
+
+    Returns:
+        str: The content of the file or a empty string if not found.
+    """
+    if not input_value:
+        return ""
+
+    config = ProgramConfig.get_current()
+    # 1. Check user-specific directory
+    user_dir = config.get(base_folder_setting)
+    if user_dir:
+        # Append default extension if the input doesn't look like a file
+        name = input_value if '.' in Path(input_value).name else f"{input_value}{default_ext}"
+        user_path = Path(user_dir) / name
+        if user_path.exists() and user_path.is_file():
+            log(f"Resolved input '{input_value}' to user file: {user_path}")
+            return user_path.read_text(encoding="utf-8")
+
+    # 2. Check if input is a direct file path
+    direct_path = Path(input_value)
+    if direct_path.exists() and direct_path.is_file():
+        log(f"Resolved input '{input_value}' to direct file path.")
+        return direct_path.read_text(encoding="utf-8")
+
+    # 3. Return the string as is
+    log(f"Treating input '{input_value}' as raw text.")
+    return ""
+
+
+
+
 def write_to_file(filename, content, filemode=FILE_MODE_CREATE, silent=False):
     """
     Writes the given content to a file.

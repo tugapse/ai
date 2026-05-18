@@ -273,8 +273,7 @@ class Program:
                 self.tool_registry
             )
             self.llm_initialized = True
-            # print(system_prompt)
-            # exit()
+
             func.log("Program: LLM loaded.", level="DEBUG")
         elif self.models and self.models.llm:
             self.models.llm.system_prompt = system_prompt
