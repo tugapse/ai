@@ -46,12 +46,12 @@ export MODEL_TO_USE="$TEST_MODEL_CONFIG"
 export AI_CMD="./run.sh -dc -md $MODEL_TO_USE"
 
 SCRIPT_DIR=$(dirname -- "$(realpath -- "$0")")
-source "$SCRIPT_DIR/test_utils.sh"
-source "$SCRIPT_DIR/test_category_1_info.sh"
-source "$SCRIPT_DIR/test_category_2_single_turn.sh"
-source "$SCRIPT_DIR/test_category_3_fs_modifiers.sh"
-source "$SCRIPT_DIR/test_category_4_config_state.sh"
-source "$SCRIPT_DIR/test_category_5_blocking.sh"
+source "$SCRIPT_DIR/e2e/test_utils.sh"
+source "$SCRIPT_DIR/e2e/test_category_1_info.sh"
+source "$SCRIPT_DIR/e2e/test_category_2_single_turn.sh"
+source "$SCRIPT_DIR/e2e/test_category_3_fs_modifiers.sh"
+source "$SCRIPT_DIR/e2e/test_category_4_config_state.sh"
+source "$SCRIPT_DIR/e2e/test_category_5_blocking.sh"
 
 # --- Execution ---
 echo "========================================"
