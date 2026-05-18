@@ -1,5 +1,31 @@
 # Changelog
 
+## v3.2.0
+
+### [Added]
+- feat(assets/templates/task/create-code-documentation.md, src/ai/cli_args.py, tests/test_category_2_single_turn.sh, tests/test_category_4_config_state.sh): Update task directory structure and references
+- feat(ai): Add resolve_path_and_get_content and extend tests
+- feat(run): Set TQDM_DISABLE and PYTHONPATH env vars
+- feat(ai): Refactor and simplify session hydration logic
+- feat(cli): Expand autocompletion options and pipeline config lookup
+- Add small script files and update args
+
+### [Changed]
+- Refactor(cli_args): Improve task/template handling and input routing
+- refactor(main): Move load_args() to start of run to initialize parser and args
+- refactor(ai-package): Migrate imports to ai.* and adjust references
+- refactor(imports): Standardize internal imports to ai.* package paths
+- chore(setup): Add initial package.json
+- refactor(llm): Enhance type hinting and tool parsing robustness
+- refactor: Increase command execution timeout to 180 seconds
+- build(setup): Automatically create virtualenv and install dependencies
+
+### [Fixed]
+- fix(docs): update references to ProgramConfig in multiple files
+
+### [Documentation]
+- docs(readme): Update version badge and documentation references
+
 ## v3.1.3
 
 ### [Added]
