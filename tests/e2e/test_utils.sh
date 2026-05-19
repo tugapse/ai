@@ -11,6 +11,8 @@ export TESTS_TOTAL=0
 export TESTS_PASSED=0
 export TESTS_FAILED=0
 
+export VERBOSE="${VERBOSE:-0}"
+
 function log_verbose() {
     if [ "$VERBOSE" -eq 1 ]; then
         echo -e "${YELLOW}   [DEBUG] $1${NC}"
