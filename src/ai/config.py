@@ -79,7 +79,7 @@ class ProgramConfig(Generic[T]):
             self.copy_templates_to_user_dir(user_directory)
 
         user_config = self.__load_to_dict(user_config_filename, user_directory)
-        if user_config:
+        if user_config and not need_save:
             default_config.update(user_config)
 
         self.config = default_config

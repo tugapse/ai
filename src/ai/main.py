@@ -159,7 +159,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     sys_group.add_argument("--no-think-anim", "-nta", action="store_true", help="Disable reasoning animations")
     sys_group.add_argument("--debug-console", "-dc", action="store_true", help="Lock console (disable clear-screen)")
     sys_group.add_argument("--install", action="store_true", help="Execute dependency sync protocol")
-    sys_group.add_argument("--overwrite-config", action="store_true", help="Force configuration override")
+    sys_group.add_argument("--overwrite-config", action="store_true", help="Force configuration and templates overwriting, additional templates will not be removed!")
     sys_group.add_argument("--create-tool", type=str, metavar='TOOL_NAME', help="Create a new user tool skeleton file")
 
     # 6. Model Generation (Your existing group)
@@ -221,7 +221,7 @@ def run():
         from ai.cli_args import CliArgs
         cli_args_processor = CliArgs()
 
-        maintenance_keys = ['install','overwrite-config' 'generate_config', 'server', 'print_chat', 'list_models', 'create_tool']
+        maintenance_keys = ['install',  'overwrite_config', 'generate_config', 'server', 'print_chat', 'list_models', 'create_tool']
         if any(getattr(args, key, None) for key in maintenance_keys):
             cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
             if is_server:
