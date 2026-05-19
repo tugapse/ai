@@ -9,7 +9,6 @@ import getpass
 import datetime
 
 from ai.core.context_file import ContextFile
-from ai.core.template_injection import TemplateInjection
 from ai.config import ProgramConfig, ProgramSetting  # Ensure these are correctly imported
 
 FILE_MODE_APPEND = "a"
@@ -173,8 +172,6 @@ def resolve_path_and_get_content(input_value: str, base_folder_setting: str, def
         log(f"Resolved input '{input_value}' to direct file path.")
         return direct_path.read_text(encoding="utf-8")
 
-    # 3. Return the string as is
-    log(f"Treating input '{input_value}' as raw text.")
     return ""
 
 

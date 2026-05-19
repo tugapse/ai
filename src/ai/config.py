@@ -69,9 +69,8 @@ class ProgramConfig(Generic[T]):
         os.makedirs(user_directory, exist_ok=True)
         user_config_filename = os.path.join(user_directory, "config.json")
 
-        need_save = (
-            args.overwrite_config if hasattr(args, "overwrite_config") else False
-        )
+        need_save = args.overwrite_config if hasattr(args, "overwrite_config") else False
+        
 
         if not exists(path=user_config_filename) or need_save:
             self.logger.info(

@@ -8,7 +8,6 @@ import traceback
 import time
 import signal
 import gc
-from typing import Optional
 import re
 from pathlib import Path
 
@@ -222,35 +221,21 @@ def run():
         from ai.cli_args import CliArgs
         cli_args_processor = CliArgs()
 
-        maintenance_keys = ['install', 'generate_config', 'server', 'print_chat', 'list_models', 'create_tool']
+        maintenance_keys = ['install','overwrite-config' 'generate_config', 'server', 'print_chat', 'list_models', 'create_tool']
         if any(getattr(args, key, None) for key in maintenance_keys):
             cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
             if is_server:
                 func.log(f"{Color.GREEN}[  ] Neural Hub is online. Press Ctrl+C to shut down.{Color.RESET}")
                 if prog.modules:
                     prog.modules.load_all()
-                while True:
-                    time.sleep(1)
             
             sys.exit(0) 
+        
         prog.init_config(args=args)
-
         prog.init_program()
-
-        # Define arguments that imply a one-shot command instead of an interactive session.
-        oneshot_args = [
-            'msg', 'file', 'image', 'load_folder', 'task', 'task_file', 'pipeline'
-        ]
-        # Check if any one-shot argument was explicitly passed by the user BEFORE CliArgs processing.
-        is_oneshot_command = any(getattr(args, arg, None) is not None for arg in oneshot_args)
 
         cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
         
-        # If a one-shot command was given, the program can now exit.
-        if is_oneshot_command:
-            sys.exit(0)
-        
-        # Otherwise, no one-shot command was given, so start the main interactive loop.
         if func.ALLOW_CLEAR_CONSOLE: 
             func.clear_console()
 
