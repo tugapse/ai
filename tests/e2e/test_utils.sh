@@ -38,8 +38,21 @@ function run_test() {
     TESTS_TOTAL=$((TESTS_TOTAL + 1))
 
     set +e
-    $func_name
-    local exit_code=$?
+    if [ "$VERBOSE" -eq 1 ]; then
+        $func_name
+        local exit_code=$?
+    else
+        local temp_out=$(mktemp)
+        $func_name > "$temp_out" 2>&1
+        local exit_code=$?
+        
+        if [ "$exit_code" -ne 0 ]; then
+            cat "$temp_out"
+        else
+            grep -aE '(\[EXEC\]|->)' "$temp_out" || true
+        fi
+        rm -f "$temp_out"
+    fi
     set -e
 
     if [ "$exit_code" -eq 0 ]; then

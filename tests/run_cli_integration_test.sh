@@ -4,15 +4,6 @@
 
 set -e
 
-VERBOSE=0
-for arg in "$@"; do
-    if [ "$arg" == "-V" ] || [ "$arg" == "--verbose" ]; then
-        VERBOSE=1
-    fi
-done
-
-export VERBOSE
-
 # Set the AI_ASSISTANT_DIRECTORY environment variable for the test environment
 export AI_ASSISTANT_DIRECTORY="/tmp/ai_assistant_test_dir"
 
