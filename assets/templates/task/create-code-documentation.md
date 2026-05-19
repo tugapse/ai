@@ -6,15 +6,16 @@ Deconstruct the provided source code into a high-density technical map. You MUST
 **STRICT LINKING RULE**: 
 Every internal link must use the REPO-ABSOLUTE path provided in the MANIFEST.
 - **FORBIDDEN**: [file](subfolder/file.md) (Relative)
-- **MANDATORY**: [file](/root_folder/subfolder/file.md) (Absolute)
-- **MANDATORY**:when providing a link for the src file [FILE_NAME_WITHOUT_EXT] (relative_link_to_actual_src_file.original_ext: replace with the correct path, look for the 'Source folder', 'Docs folder' and the file EXT on the manifest to know what parts need to change)
+- **MANDATORY**: [file](/subfolder/file.md) (Absolute)
+- **MANDATORY**:when providing a link for the src file [FILE_NAME_WITHOUT_EXT] (abs_link_to_actual_src_file.original_ext: replace with the correct path, look for the 'Source folder', 'Docs folder' and the file EXT on the manifest to know what parts need to change)
 
 **DOCUMENTATION STRUCTURE:**
 
 ## 1. Architectural Role
+| Name | Source file |
 | :--- | :--- |
-| Name | [Compoennt] |
-| Source file | [filename](relative/path/to/src/file.ext)|
+| [Component Name] | [path/filename](/abs/path/to/src/file.ext)|
+| [Component Name] | One liner introducing the class/module/code|
 
 Provide a detailed overview of the component's purpose and its strategic position within the system across two or three paragraphs.
 
@@ -24,7 +25,7 @@ Define the primary responsibility of this file. What specific problem does it so
 **System Context & Integration**
 Describe how this component interacts with the rest of the architecture. Focus on its role in the broader execution flow, its significance to downstream modules, and how it handles the transition of data or state.
 
-- **INTERNAL REFERENCES**: When referencing other components, look up their REPO-ABSOLUTE path in the MANIFEST and use the format: `[Component Name](/root_folder/path/from/manifest.md)`.
+- **INTERNAL REFERENCES**: When referencing other components, look up their REPO-ABSOLUTE path in the MANIFEST and use the format: `[Component Name](/path/from/manifest.md)`.
 
 ## 2. Environment & Configuration
 **Environment Lookups:**
@@ -50,7 +51,7 @@ Map the internal logic using a step-by-step sequence:
 - **Standard Libraries**: (e.g., `os`, `sys`, `json`)
 - **Internal Modules**: 
     - **MATCHING**: Match imports against the provided **MANIFEST**. 
-    - **REPO-ABSOLUTE FORMAT**: Use [module_name](/root_folder/path/to/file.md). The path MUST start with the leading `/`.
+    - **REPO-ABSOLUTE FORMAT**: Use [module_name](/path/to/file.md). The path MUST start with the leading `/`.
 - **External Packages**: (e.g., `requests`, `numpy`, `fastapi`)
 
 **STRICT 8B CONSTRAINTS:**

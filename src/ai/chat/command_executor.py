@@ -107,8 +107,9 @@ class AsyncExecutor(CommandExecutor):
         The target method for the thread, which executes the command and triggers the callback.
         """
         try:
+            # FIXME finish this implementation !!
             # In a real scenario, this would execute self._command_string
-            # For this fix, we will just simulate a successful execution.
+            # we will just simulate a successful execution.
             result = f"Successfully executed: {self._command_string}"
             self._trigger_callback(result)
         except Exception as e:
