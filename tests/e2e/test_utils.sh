@@ -44,7 +44,7 @@ function run_test() {
     else
         local temp_out=$(mktemp)
         $func_name > "$temp_out" 2>&1
-        local exit_code=$?
+        local exit_code=$? 
         
         if [ "$exit_code" -ne 0 ]; then
             cat "$temp_out"
