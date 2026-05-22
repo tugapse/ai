@@ -1,6 +1,5 @@
 #!/bin/bash
 # CLI Integration Test Skeleton
-# Based on plan.md
 
 set -e
 
@@ -44,14 +43,13 @@ source "$SCRIPT_DIR/e2e/test_category_3_fs_modifiers.sh"
 source "$SCRIPT_DIR/e2e/test_category_4_config_state.sh"
 source "$SCRIPT_DIR/e2e/test_category_5_blocking.sh"
 
-# --- Execution ---
-echo "========================================"
-echo "Starting CLI Integration Tests"
-echo "========================================"
 
 run_category_1
 run_category_2
 run_category_3
+run_category_4
+run_category_5
+print_summary
 
 # ==============================================================================
 # TODO: Pending Implementations
@@ -61,14 +59,8 @@ run_category_3
 # Test: --create-tool
 # Test: --generate-config
 
-run_category_4
-
 # TODO: Implement remaining tests: -D, -e, -q, -pl, -pdb, -nta
-
-run_category_5
-
 # Test: Interactive mode
 # Test: --install
 # Test: --overwrite-config
 
-print_summary
