@@ -14,13 +14,13 @@ export TESTS_FAILED=0
 export VERBOSE="${VERBOSE:-0}"
 
 function log_verbose() {
-    if [ "$VERBOSE" -eq 1 ]; then
+    if [ "${VERBOSE:-0}" -eq 1 ]; then
         echo -e "${YELLOW}   [DEBUG] $1${NC}"
     fi
 }
 
 function cleanup_files() {
-    if [ "$VERBOSE" -eq 0 ]; then
+    if [ "${VERBOSE:-0}" -eq 0 ]; then
         rm -f "$@"
     else
         log_verbose "Keeping temp file(s) for debugging: $@"
@@ -40,13 +40,14 @@ function run_test() {
     TESTS_TOTAL=$((TESTS_TOTAL + 1))
 
     set +e
-    if [ "$VERBOSE" -eq 1 ]; then
-        $func_name
+    
+    if [ "${VERBOSE:-0}" -eq 1 ]; then
+        ( $func_name )
         local exit_code=$?
     else
         local temp_out=$(mktemp)
-        $func_name > "$temp_out" 2>&1
-        local exit_code=$?
+        ( $func_name ) > "$temp_out" 2>&1
+        local exit_code=$? 
         
         if [ "$exit_code" -ne 0 ]; then
             cat "$temp_out"

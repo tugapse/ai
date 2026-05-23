@@ -7,14 +7,14 @@
 
     "MASTER": {
       "role": "management",
-      "prompt_file": "agents/thinker.md",
+      "prompt_file": "agents/multi/thinker.md",
       "tools": ["read_dir" ,"smart_search", "read_file","read_files","write_file", 
       "patch_file", "web_search", "web_read"],
       "allowed_targets": ["MASTER", "USER", "STOP"]
     },
        "SYSTEM_OPERATOR": {
       "role": "labor",
-      "prompt_file": "agents/operator.md",
+      "prompt_file": "agents/multi/operator.md",
       "tools": ["execute_command", "send_notification"],
       "allowed_targets": ["MASTER"]
     }
