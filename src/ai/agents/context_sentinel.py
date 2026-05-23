@@ -32,6 +32,11 @@ class ContextSentinel:
         delta = (self.max_tokens - self.buffer )
         pressure = est_tokens / delta if delta > 0 else 1
 
+        if delta <= 0:
+            func.log("DELTA  WAS ZERO ", level="WARN")
+            return payload, False
+
+
         if pressure < self.threshold:
             return payload, False
 

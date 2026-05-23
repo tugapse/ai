@@ -141,9 +141,9 @@ def {function_name}(argument: str) -> str:
                     try:
                         orchestrator.load(args.model)
                     except Exception as e:
-                        func.log(f"{{Color.RED}}[ ! ] Neural Load Failed: {{e}}. Starting in STANDBY.{{Color.RESET}}")
+                        func.log(f"{Color.RED}[ ! ] Neural Load Failed: {e}. Starting in STANDBY.{Color.RESET}")
                 else:
-                    func.log(f"{{Color.CYAN}}[*] Neural Hub: Standby Mode. Awaiting Neural Link...{{Color.RESET}}")
+                    func.log(f"{Color.CYAN}[*] Neural Hub: Standby Mode. Awaiting Neural Link...{Color.RESET}")
                 
                 from modules.server.server_module import JarvisServerModule
                 server = JarvisServerModule( 

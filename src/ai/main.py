@@ -11,6 +11,8 @@ import gc
 import re
 from pathlib import Path
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 # Core imports
 from ai.config import ProgramConfig, ProgramSetting
 from ai.entities.model_enums import ModelType
@@ -186,6 +188,12 @@ def print_chat_header(prog) -> None:
 def run():
     parser, args = load_args()
     
+    # args.remote     = "http://0.0.0.0:9999"
+    # args.agent      = True
+    # args.model      = "gemini/gemini-25"
+    # args.msg        = "explain this program"
+    # args.pipeline   = "gemini" 
+
     check_dependencies()
     hack_warnings()
     

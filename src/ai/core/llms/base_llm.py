@@ -91,6 +91,12 @@ class BaseModel:
         self.token_info_count = TokenCountInfo()
         self.tool_registry: Optional[ToolRegistry] = kargs.get("tool_registry")
         self.HIL_TOOLS = ProgramConfig.get_current().get(ProgramSetting.HIL_TOOLS)
+        
+    
+    def _load_llm_params(self, **kwargs) -> None:
+        self.token_info_count.max_context_window = self.options.get("n_ctx", 2048)
+        self.token_info_count.max_output_tokens = self.options.get("max_new_tokens", 2048)
+
 
     def handle_sentinel(self, content: str, is_intercepting: bool, sentinel_buffer: str):
         """Monitors and intercepts streaming chunks matching syntax blocks to extract raw agent tool calls."""

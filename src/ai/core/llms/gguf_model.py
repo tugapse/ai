@@ -2,7 +2,7 @@ import threading
 import queue
 import gc
 import ctypes
-from typing import List, Dict, Any
+from typing import List, Dict, Any, NoReturn
 from huggingface_hub import hf_hub_download
 from llama_cpp import Llama, llama_log_set
 
@@ -27,10 +27,10 @@ class GGUFImageLLM(BaseModel):
         self,
         model_name: str,
         gguf_filename: str,
-        model_repo_id: str = None,
-        system_prompt: str = None,
+        model_repo_id: str = "",
+        system_prompt: str = "",
         n_ctx: int = 4000,
-        model_params: dict = None,
+        model_params: dict = {},
         **kwargs,
     ):
         super().__init__(model_name, system_prompt=system_prompt, **kwargs)
@@ -52,7 +52,8 @@ class GGUFImageLLM(BaseModel):
     
         self._load_llm_params(**kwargs)
 
-    def _load_llm_params(self, **kwargs):
+    def _load_llm_params(self, **kwargs) -> None:
+        super()._load_llm_params(**kwargs)
         kwargs.pop('verbose', None)
         kwargs.pop('print_timings', None)
         

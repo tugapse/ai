@@ -12,7 +12,7 @@ class RemoteConnectorModule(BaseModule):
     def __init__(self, url: str, model_id: str = "default", **kwargs):
         """
         Args:
-            url (str): The base URL of the JARVIS Server (e.g., http://0.0.0.0:8000)
+            url (str): The base URL of the JARVIS Server (e.g., http://0.0.0.0:PORT
             model_id (str): The preferred model config to request from the server.
         """
         super().__init__(module_name="RemoteBrainLink", **kwargs)

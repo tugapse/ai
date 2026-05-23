@@ -82,7 +82,6 @@ class LLMConnector:
                 messages, 
                 hide_think_anim=True, 
                 print_output=False, 
-                print_mode="line", 
                 output_filename=output_filename, 
                 write_to_file=True,
                 stream=True

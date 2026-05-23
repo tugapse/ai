@@ -95,7 +95,8 @@ class HuggingFaceModel(BaseModel):
             self.tokenizer = None
             sys.exit(1)
 
-    def _load_llm_params(self):
+    def _load_llm_params(self, **kwargs):
+        super()._load_llm_params(kwargs=kwargs)
         self.init_pytorch_cuda()
         import torch
         self.torch_lib = torch

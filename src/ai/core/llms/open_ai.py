@@ -76,12 +76,14 @@ class OpenAIAPIModel(BaseModel):
             self.options["top_p"] = kargs.get('top_p', 0.95)
             self.options["presence_penalty"] = kargs.get('presence_penalty', 0.0)
             self.options["frequency_penalty"] = kargs.get('frequency_penalty', 0.0)
-
+        self._load_llm_params(**kargs)
+        
+    def _load_llm_params(self, **kargs) -> None:
         # Telemetry Initialization
         out_tokens = self.options.get("max_completion_tokens") or self.options.get("max_tokens") or 2048
         self.token_info_count.max_output_tokens = out_tokens
         self.token_info_count.max_context_window = kargs.get("n_ctx", BaseModel.CONTEXT_WINDOW_128K)
-
+        
     # NOTE: Inheriting format_tools_for_prompt() from BaseModel to inject the ____@tool text protocol.
 
     def _convert_messages(self, messages: List[Dict[str, str]]) -> List[Dict[str, str]]:

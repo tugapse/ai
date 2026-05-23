@@ -24,8 +24,8 @@ show_help() {
   echo "  -v, --verbose            Display LLM output during tests."
   echo "  -h, --help               Display this help message and exit."
   echo ""
-  echo "If no options are provided, all tests will be run."
 }
+
 
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
@@ -59,10 +59,11 @@ while [[ "$#" -gt 0 ]]; do
   shift
 done
 
+
 # If no specific flags were set, run both by default
 if [ "$ANY_SPECIFIC_FLAG_SET" -eq 0 ]; then
-  RUN_UNIT_TESTS_FLAG=1
-  RUN_CLI_INTEGRATION_TESTS_FLAG=1
+  show_help
+  exit 1
 fi
 
 # Execute selected tests
