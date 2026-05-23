@@ -62,18 +62,9 @@ def check_dependencies():
     """Diagnostic boot check for JARVIS dependencies."""
     core_deps = [
         ("colorama", "colorama"),
-        ("python-dotenv", "dotenv"),
-        ("huggingface-hub", "huggingface_hub"),
         ("prompt_toolkit", "prompt_toolkit"),
         ("requests", "requests"),
     ]
-    
-    if sys.platform == "win32":
-        core_deps.append(("pyreadline3", "pyreadline3"))
-        core_deps.append(("triton-windows", "triton"))
-    else:
-        core_deps.append(("triton", "triton"))
-
     missing = [pkg for pkg, imp in core_deps if importlib.util.find_spec(imp) is None]
 
     if missing:
@@ -82,7 +73,7 @@ def check_dependencies():
         WHITE = "\033[0m"
         print(f"\n{RED_B}[!] SYSTEM REJECT: MISSING DEPENDENCIES{WHITE}")
         print(f"Missing Modules : {RED_B}{', '.join(missing)}{WHITE}")
-        print(f"\n{YLW_B}[*] RESOLUTION: Run 'python main.py --install'{WHITE}")
+        print(f"\n{YLW_B}[*] RESOLUTION: Run 'run.sh --install'{WHITE}")
         sys.exit(1)
 
 def hack_warnings():
