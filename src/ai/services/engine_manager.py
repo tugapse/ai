@@ -278,8 +278,8 @@ class EngineManager:
 
     @staticmethod
     def _create_jarvis_model(model_name: str, system_prompt: str, model_params: dict, other_llm_kwargs: dict) -> BaseModel:
-        from core.llms.jarvis import OpenAIAPIModel
-        llm_instance = OpenAIAPIModel(
+        from core.llms.jarvis import JarvisAiModel
+        llm_instance = JarvisAiModel(
             model_name=model_name,
             system_prompt=system_prompt,
             model_params=model_params,

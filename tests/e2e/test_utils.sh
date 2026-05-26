@@ -9,6 +9,7 @@ export YELLOW='\033[0;33m'
 
 export TESTS_TOTAL=0
 export TESTS_PASSED=0
+export TEST_CASES=0
 export TESTS_FAILED=0
 
 export VERBOSE="${VERBOSE:-0}"
@@ -86,12 +87,14 @@ function run_and_verify() {
     if [ "$expected" != "NO_CHECK" ]; then
         if grep -iq "$expected" "$out_file"; then
             echo -e "      -> ${GREEN}Verified: '$expected' found in output.${NC}"
+        TEST_CASES=$((TEST_CASES + 1))
         else
             echo -e "      -> ${RED}❌ FAILED: '$expected' not found in $out_file${NC}"
             cat "$out_file" 2>/dev/null || echo "(file not found)"
             return 1
         fi
     else
+        TEST_CASES=$((TEST_CASES + 1))
         echo -e "      -> ${GREEN}Verified: Command completed successfully.${NC}"
     fi
 }
@@ -101,6 +104,7 @@ function print_summary() {
     echo -e "🏆 INTEGRATION TEST SUMMARY"
     echo -e "======================================================================"
     echo -e "Total Tests Run : $TESTS_TOTAL"
+    echo -e "Total Cases Tested : $TEST_CASES"
     echo -e "Tests Passed    : ${GREEN}$TESTS_PASSED${NC}"
     if [ "$TESTS_FAILED" -gt 0 ]; then
         echo -e "Tests Failed    : ${RED}$TESTS_FAILED${NC}"

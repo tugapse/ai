@@ -132,10 +132,9 @@ def {function_name}(argument: str) -> str:
         if args.server:
             try:
                 orchestrator = prog.models 
-                
                 if args.model:
                     try:
-                        orchestrator.load(args.model)
+                        orchestrator.load(args.model,"")
                     except Exception as e:
                         func.log(f"{Color.RED}[ ! ] Neural Load Failed: {e}. Starting in STANDBY.{Color.RESET}")
                 else:

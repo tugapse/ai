@@ -197,7 +197,6 @@ class GGUFImageLLM(BaseModel):
 
         # Refresh System Prompt context (Time, OS, etc.)
         safe_messages = self.check_system_prompt(safe_messages)
-        
         self._update_token_metrics(safe_messages, options)
 
         current_options = self.options.copy()

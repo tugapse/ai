@@ -8,7 +8,7 @@ import ai.functions as func
 from ai.core.llms.base_llm import BaseModel
 
 
-class OpenAIAPIModel(BaseModel):
+class JarvisAiModel(BaseModel):
     """
     A drop-in client interface tailored for the JARVIS custom FastAPI endpoint.
     
@@ -41,15 +41,20 @@ class OpenAIAPIModel(BaseModel):
         self.stop_generation_event.clear()
         
         # Dynamic system prompt override sync matching original behavior
+        injected_system_prompt = False
         for m in messages:
             if m.get('role') == 'system':
                 self.system_prompt = m.get('content')
+                injected_system_prompt = True
                 break
+        
+        if not injected_system_prompt and self.system_prompt:
+            messages.insert(0, {"role": "system", "content": self.system_prompt})
 
         # Construct payload targeting the backend ChatCompletionRequest schema
         payload = {
             "model": self.model_name,
-            "system_prompt": self.system_prompt,
+            "system_prompt_content": self.system_prompt,
             "stream": stream,
             "session_id": self.session_id,
             "session_folder": self.session_folder,

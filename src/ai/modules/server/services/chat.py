@@ -123,7 +123,7 @@ class ChatService:
 
     def _resolve_system_prompt(self, system_prompt: Optional[str]) -> Optional[str]:
         if not system_prompt:
-            return None
+            return ""
 
         # Attempt file/template resolution for system prompt references.
         func.debug(f"Resolving system prompt reference: '{system_prompt}'")
@@ -140,15 +140,25 @@ class ChatService:
         return system_prompt
 
     def _resolve_brain(self, request: ChatCompletionRequest):
+        # print(request)
         requested_model = (getattr(request, "model", "default") or "default").strip().lower()
-        system_prompt = getattr(request, "system_prompt", None)
+        system_prompt = getattr(request, "system_prompt_content", '')
         resolved_system_prompt = self._resolve_system_prompt(system_prompt)
+        print(resolved_system_prompt,end="\n\n")
         prompt_preview = (resolved_system_prompt or "<None>")[:50]
         print(
             f"Resolving brain: model='{requested_model}', system_prompt_preview='{prompt_preview}...'")
         self.brain_hub.get_brain(requested_model, resolved_system_prompt)
 
+
+
     async def chat_completion(self, request: ChatCompletionRequest):
+        """ 
+        Main entry point for handling chat completion requests.
+        - Routes memory to session file
+        - Resolves brain/model and system prompt
+        - Delegates to response handler for streaming or non-streaming response
+        """
         func.log(
             f"Chat completion request received. Stream: {getattr(request, 'stream', False)}, Model: {getattr(request, 'model', 'default')}"
         )
@@ -166,7 +176,7 @@ class ChatService:
         formatted_messages, last_user_message = self.message_formatter.format_messages(messages)
         func.debug(f"Adding user message to history: '{last_user_message[:100]}...'")
         self.brain_hub.add_history_message("user", last_user_message)
-
+        print(f"Formatted messages: {formatted_messages}")  # Debug print to verify message formatting
         if getattr(request, "stream", False):
             return await self.response_handler.stream_response(formatted_messages)
 

@@ -99,7 +99,7 @@ class BrainHub:
             func.log(f"BrainHub: Swapping {self.current_model_id} -> {model_id}")
             self.unload_brain()
 
-        if self.orchestrator.llm and self.current_model_id == model_id:
+        if self.orchestrator.llm:
             if getattr(self.orchestrator.llm, "system_prompt", None) != system_prompt:
                 func.log(
                     f"BrainHub: Updating system prompt for loaded model '{model_id}'.",
