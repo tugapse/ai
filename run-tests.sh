@@ -20,7 +20,7 @@ show_help() {
   echo "Options:"
   echo "  -u, --unit               Run only unit tests."
   echo "  -c, --cli                Run only CLI integration tests."
-  echo "  -a, --all                Run all tests "
+  echo "  -a, --all                Run all tests."
   echo "  -v, --verbose            Display LLM output during tests."
   echo "  -h, --help               Display this help message and exit."
   echo ""
