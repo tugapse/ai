@@ -228,8 +228,8 @@ class EngineManager:
         llama_log_set(log_callback, ctypes.c_void_p())
         
         gguf_filename = model_properties.get("gguf_filename")
-        model_repo_id = model_properties.get("model_repo_id")
-        n_ctx = model_properties.get("n_ctx")
+        model_repo_id = model_properties.get("model_repo_id") or 'default'
+        n_ctx = model_properties.get("n_ctx") or 2048
         n_gpu_layers = model_properties.get("n_gpu_layers", -1)
         verbose = model_properties.get("verbose", False)
 

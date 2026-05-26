@@ -55,11 +55,6 @@ class CliArgs:
             self._handle_server_mode(prog, args)
             os._exit(0)
 
-        # Check for Client Mode (Tiny PC)
-        if hasattr(args, 'remote') and args.remote:
-            self._handle_client_mode(prog, args)
-            # Fall through to execute agent/direct logic via the remote connector
-
         # Default to Local/Direct Task Mode
         self._handle_local_direct_mode(prog, args)
 
@@ -159,21 +154,6 @@ def {function_name}(argument: str) -> str:
                 func.log(f"\\n{{Color.YELLOW}}[ * ] Manual override engaged. Terminating JARVIS server.{{Color.RESET}}")
                 sys.exit(0)
                 
-
-    def _handle_client_mode(self, prog, args):
-        """
-        Swaps the local LLM for a Remote Connector to use the Main PC's GPU.
-        """
-        func.log(format_text("=== REMOTE BRAIN LINK ACTIVE ===", Color.YELLOW))
-        
-        remote_url = args.remote
-        # Replace the local LLM with the Remote Link
-        from modules.client.remote_connector import RemoteBrainConnector
-        
-        # We manually inject the remote connector into the program
-        prog.llm = RemoteBrainConnector(url=remote_url, model_id=args.model)
-        prog.llm_initialized = True # Mark as initialized to prevent lazy-loading local weights
-
     def _handle_local_direct_mode(self, prog, args):
         """
         The standard non-agent loop for one-shot tasks and context loading.

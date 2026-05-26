@@ -16,7 +16,7 @@ class OpenAIAPIModel(BaseModel):
     with the existing Orchestrator and Sentinel protocols.
     """
 
-    def __init__(self, model_name: Optional[str] = None, system_prompt: Optional[str] = "", api_key: Optional[str] = None, **kargs: Any):
+    def __init__(self, model_name: Optional[str] = None, system_prompt: str = "", api_key: Optional[str] = None, **kargs: Any):
         """Initializes the custom API endpoint model interface."""
         model_name = model_name or os.environ.get("AI_MODEL_NAME", "gpt-4o")
         super().__init__(model_name, system_prompt, **kargs)
@@ -36,7 +36,7 @@ class OpenAIAPIModel(BaseModel):
         self.token_info_count.max_output_tokens = out_tokens
         self.token_info_count.max_context_window = kargs.get("n_ctx", BaseModel.CONTEXT_WINDOW_128K)
 
-    def chat(self, messages: List[Dict[str, str]], tools: Optional[List[Dict[str, Any]]] = None, stream: bool = True, options: Optional[Dict[str, Any]] = None) -> Union[str, Dict[str, Any], Generator[Union[str, Dict[str, Any]], None, None]]:
+    def chat(self, messages: List[Dict[str, str]], images=[],stream: bool = True, options={} ) -> Union[str, Dict[str, Any], Generator[Union[str, Dict[str, Any]], None, None]]:
         """Executes a chat completion request directly to the custom backend endpoint."""
         self.stop_generation_event.clear()
         
