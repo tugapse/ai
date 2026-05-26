@@ -12,6 +12,7 @@ function test_output_file_flag() {
     
     if grep -q "BANANA" "$TEMP_OUT_FILE" 2>/dev/null; then
         echo -e "      -> ${GREEN}Output file successfully created and verified${NC}"
+        TEST_CASES=$((TEST_CASES + 1))
     else
         echo -e "      -> ${RED}❌ FAILED: Output file not created or verification failed${NC}"
         echo -e "      -> Content of output file ($TEMP_OUT_FILE):"

@@ -43,11 +43,11 @@ function run_test() {
     set +e
     
     if [ "${VERBOSE:-0}" -eq 1 ]; then
-        ( $func_name )
+        $func_name
         local exit_code=$?
     else
         local temp_out=$(mktemp)
-        ( $func_name ) > "$temp_out" 2>&1
+        $func_name > "$temp_out" 2>&1
         local exit_code=$? 
         
         if [ "$exit_code" -ne 0 ]; then

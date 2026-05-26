@@ -11,6 +11,7 @@ function test_help_flag() {
     
     if grep -q "JUST A REASONING VIRTUAL INTELLIGENT SENTINEL AGENTIC INTERFACE" "$TEMP_OUT" && grep -q "\[ SYSTEM READY \]" "$TEMP_OUT"; then
         echo -e "      -> ${GREEN}Help output successfully verified${NC}"
+        TEST_CASES=$((TEST_CASES + 1))
     else
         echo -e "      -> ${RED}❌ FAILED: Help output verification failed${NC}"
         echo -e "      -> Content of output file ($TEMP_OUT):"
@@ -31,6 +32,7 @@ function test_version_flag() {
     
     if grep -q "Version" "$TEMP_OUT"; then
         echo -e "      -> ${GREEN}Version output successfully verified${NC}"
+        TEST_CASES=$((TEST_CASES + 1))
     else
         echo -e "      -> ${RED}❌ FAILED: Version output verification failed${NC}"
         echo -e "      -> Content of output file ($TEMP_OUT):"
@@ -51,6 +53,7 @@ function test_list_models() {
     
     if [ "$exit_code" -eq 0 ]; then
         echo -e "      -> ${GREEN}List models successfully executed${NC}"
+        TEST_CASES=$((TEST_CASES + 1))
     else
         echo -e "      -> ${RED}❌ FAILED: List models execution failed with exit code $exit_code${NC}"
         echo -e "      -> Content of output file ($TEMP_OUT):"
@@ -71,6 +74,7 @@ function test_show_logo() {
     
     if grep -q "JARVIS" "$TEMP_OUT"; then
         echo -e "      -> ${GREEN}Show Logo successfully verified${NC}"
+        TEST_CASES=$((TEST_CASES + 1))
     else
         echo -e "      -> ${RED}❌ FAILED: Show Logo verification failed${NC}"
         echo -e "      -> Content of output file ($TEMP_OUT):"
