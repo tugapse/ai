@@ -11,6 +11,7 @@ function test_simple_message() {
     
     if [ "$exit_code" -eq 0 ]; then
         echo -e "      -> ${GREEN}Simple Message successfully executed${NC}"
+        TEST_CASES=$((TEST_CASES + 1))
     else
         echo -e "      -> ${RED}❌ FAILED: Simple Message execution failed${NC}"
         return 1
@@ -32,6 +33,7 @@ function test_file_flag() {
     
     if grep -q "SECRET_CODE_4285" "$TEMP_OUT" 2>/dev/null; then
         echo -e "      -> ${GREEN}File Flag successfully verified${NC}"
+        TEST_CASES=$((TEST_CASES + 1))
     else
         echo -e "      -> ${RED}❌ FAILED: File Flag verification failed${NC}"
         echo -e "      -> Content of output file ($TEMP_OUT):"
@@ -56,6 +58,7 @@ function test_task_flag() {
     
     if grep -q "SECRET_CODE_7777" "$TEMP_TASK_OUT" 2>/dev/null; then
         echo -e "      -> ${GREEN}Task output file successfully created and verified${NC}"
+        TEST_CASES=$((TEST_CASES + 1))
     else
         echo -e "      -> ${RED}❌ FAILED: Task output file not created or verification failed${NC}"
         echo -e "      -> Content of output file ($TEMP_TASK_OUT):"
@@ -79,6 +82,7 @@ function test_task_file_flag() {
     
     if grep -q "SECRET_CODE_8888" "$TEMP_TASK_OUT" 2>/dev/null; then
         echo -e "      -> ${GREEN}Task output file successfully created and verified${NC}"
+        TEST_CASES=$((TEST_CASES + 1))
     else
         echo -e "      -> ${RED}❌ FAILED: Task output file not created or verification failed${NC}"
         echo -e "      -> Task input file was: $TEMP_TASK_FILE"
