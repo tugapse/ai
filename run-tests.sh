@@ -3,7 +3,7 @@ set -e
 
 # Define test script paths
 CLI_INTEGRATION_TEST_SCRIPT="tests/run_cli_integration_test.sh"
-UNIT_TEST_SCRIPT="tests/run_tests.sh"
+UNIT_TEST_SCRIPT="tests/run-unit-test.sh"
 
 # Initialize flags
 RUN_UNIT_TESTS_FLAG=0
@@ -20,7 +20,7 @@ show_help() {
   echo "Options:"
   echo "  -u, --unit               Run only unit tests."
   echo "  -c, --cli                Run only CLI integration tests."
-  echo "  -a, --all                Run all tests (default behavior if no specific test is chosen)."
+  echo "  -a, --all                Run all tests "
   echo "  -v, --verbose            Display LLM output during tests."
   echo "  -h, --help               Display this help message and exit."
   echo ""
