@@ -25,6 +25,7 @@ class ModelType(Enum):
     GGUF = "gguf"                 # GGUF quantized models (typically run with llama.cpp bindings)
     GEMINI = "gemini"             # Gemini Model (Google hosted)
     OPEN_AI = "openai"            # Chat GPT Model (Open AI hosted)
+    JARVIS = "jarvis"             # JARVIS Model (Custom implementation with FastAPI backend)
 
     def __str__(self):
         return self.value

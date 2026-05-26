@@ -172,78 +172,17 @@ class EngineManager:
         llm_instance: Optional[BaseModel] = None
         try:
             if model_type == ModelType.CAUSAL_LM:
-                from core.llms.huggingface_model import HuggingFaceModel
-                llm_instance = HuggingFaceModel(
-                    model_name=model_name,
-                    system_prompt=system_prompt,
-                    quantization_bits=quantization_bits,
-                    model_params=model_params,
-                    **other_llm_kwargs
-                )
-                func.log(f"Model '{model_name}' loaded as a Causal Language Model (HuggingFace).") 
+                llm_instance = EngineManager._create_causal_lm(model_name, system_prompt, quantization_bits, model_params, other_llm_kwargs)
             elif model_type == ModelType.OLLAMA:
-                from core.llms.ollama_model import OllamaModel
-
-                llm_instance = OllamaModel(
-                    model_name=model_name,
-                    system_prompt=system_prompt,
-                    model_params=model_params,
-                    **other_llm_kwargs
-                )
-                func.log(f"Model '{model_name}' loaded as an Ollama Model.") 
+                llm_instance = EngineManager._create_ollama_model(model_name, system_prompt, model_params, other_llm_kwargs)
             elif model_type == ModelType.GGUF:
-
-                import ctypes
-                from llama_cpp import llama_log_set
-                def my_log_callback(level, message, user_data):
-                    pass
-
-                log_callback = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_char_p, ctypes.c_void_p)(my_log_callback)
-                llama_log_set(log_callback, ctypes.c_void_p())
-                
-                gguf_filename = model_properties.get("gguf_filename")
-                model_repo_id = model_properties.get("model_repo_id")
-                n_ctx = model_properties.get("n_ctx")
-                n_gpu_layers = model_properties.get("n_gpu_layers", -1)
-                verbose = model_properties.get("verbose", False)
-
-                if not gguf_filename:
-                    func.log("'gguf_filename' is required for 'gguf' model_type in model properties.", level="ERROR") 
-                    raise ValueError("Invalid model configuration: missing 'gguf_filename'.")
-                from core.llms.gguf_model import GGUFImageLLM
-                llm_instance = GGUFImageLLM(
-                    model_name=model_name,
-                    gguf_filename=gguf_filename,
-                    model_repo_id=model_repo_id,
-                    system_prompt=system_prompt,
-                    n_gpu_layers=n_gpu_layers,
-                    n_ctx=n_ctx,
-                    verbose=verbose,
-                    model_params=model_params,
-
-                    **other_llm_kwargs
-                )
-                func.log(f"Model '{model_name}' loaded as a GGUF Image LLM.") 
+                llm_instance = EngineManager._create_gguf_model(model_name, system_prompt, model_properties, model_params, other_llm_kwargs)
             elif model_type == ModelType.GEMINI:
-                from core.llms.gemini import GeminiAPIModel
-                llm_instance = GeminiAPIModel(
-                    model_name=model_name,
-                    system_prompt=system_prompt,
-                    model_params=model_params,
-                    use_vertex=other_llm_kwargs.get("vertex_ai", False),
-                    **other_llm_kwargs
-                )
-                func.log(f"Model '{model_name}' loaded as a Gemini Model.")
+                llm_instance = EngineManager._create_gemini_model(model_name, system_prompt, model_params, other_llm_kwargs)
             elif model_type == ModelType.OPEN_AI:
-                from core.llms.open_ai import OpenAIAPIModel
-                llm_instance = OpenAIAPIModel(
-                    model_name=model_name,
-                    system_prompt=system_prompt,
-                    model_params=model_params,
-
-                    **other_llm_kwargs
-                )
-                func.log(f"Model '{model_name}' loaded as an OpenAI Model.")
+                llm_instance = EngineManager._create_openai_model(model_name, system_prompt, model_params, other_llm_kwargs)
+            elif model_type == ModelType.JARVIS:
+                llm_instance = EngineManager._create_jarvis_model(model_name, system_prompt, model_params, other_llm_kwargs)
             else:
                 func.log(f"Unhandled model_type '{model_type.value}'.", level="ERROR")
                 raise ValueError("Invalid model configuration: unknown 'model_type'.")
@@ -251,4 +190,100 @@ class EngineManager:
             func.error(f"Failed to instantiate model '{model_name}': {e}", level="ERROR")
             raise e
 
+        return llm_instance
+
+    @staticmethod
+    def _create_causal_lm(model_name: str, system_prompt: str, quantization_bits: int, model_params: dict, other_llm_kwargs: dict) -> BaseModel:
+        from core.llms.huggingface_model import HuggingFaceModel
+        llm_instance = HuggingFaceModel(
+            model_name=model_name,
+            system_prompt=system_prompt,
+            quantization_bits=quantization_bits,
+            model_params=model_params,
+            **other_llm_kwargs
+        )
+        func.log(f"Model '{model_name}' loaded as a Causal Language Model (HuggingFace).")
+        return llm_instance
+
+    @staticmethod
+    def _create_ollama_model(model_name: str, system_prompt: str, model_params: dict, other_llm_kwargs: dict) -> BaseModel:
+        from core.llms.ollama_model import OllamaModel
+        llm_instance = OllamaModel(
+            model_name=model_name,
+            system_prompt=system_prompt,
+            model_params=model_params,
+            **other_llm_kwargs
+        )
+        func.log(f"Model '{model_name}' loaded as an Ollama Model.")
+        return llm_instance
+
+    @staticmethod
+    def _create_gguf_model(model_name: str, system_prompt: str, model_properties: dict, model_params: dict, other_llm_kwargs: dict) -> BaseModel:
+        import ctypes
+        from llama_cpp import llama_log_set
+        def my_log_callback(level, message, user_data):
+            pass
+
+        log_callback = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_char_p, ctypes.c_void_p)(my_log_callback)
+        llama_log_set(log_callback, ctypes.c_void_p())
+        
+        gguf_filename = model_properties.get("gguf_filename")
+        model_repo_id = model_properties.get("model_repo_id")
+        n_ctx = model_properties.get("n_ctx")
+        n_gpu_layers = model_properties.get("n_gpu_layers", -1)
+        verbose = model_properties.get("verbose", False)
+
+        if not gguf_filename:
+            func.log("'gguf_filename' is required for 'gguf' model_type in model properties.", level="ERROR") 
+            raise ValueError("Invalid model configuration: missing 'gguf_filename'.")
+        from core.llms.gguf_model import GGUFImageLLM
+        llm_instance = GGUFImageLLM(
+            model_name=model_name,
+            gguf_filename=gguf_filename,
+            model_repo_id=model_repo_id,
+            system_prompt=system_prompt,
+            n_gpu_layers=n_gpu_layers,
+            n_ctx=n_ctx,
+            verbose=verbose,
+            model_params=model_params,
+            **other_llm_kwargs
+        )
+        func.log(f"Model '{model_name}' loaded as a GGUF Image LLM.")
+        return llm_instance
+
+    @staticmethod
+    def _create_gemini_model(model_name: str, system_prompt: str, model_params: dict, other_llm_kwargs: dict) -> BaseModel:
+        from core.llms.gemini import GeminiAPIModel
+        llm_instance = GeminiAPIModel(
+            model_name=model_name,
+            system_prompt=system_prompt,
+            model_params=model_params,
+            use_vertex=other_llm_kwargs.get("vertex_ai", False),
+            **other_llm_kwargs
+        )
+        func.log(f"Model '{model_name}' loaded as a Gemini Model.")
+        return llm_instance
+
+    @staticmethod
+    def _create_openai_model(model_name: str, system_prompt: str, model_params: dict, other_llm_kwargs: dict) -> BaseModel:
+        from core.llms.open_ai import OpenAIAPIModel
+        llm_instance = OpenAIAPIModel(
+            model_name=model_name,
+            system_prompt=system_prompt,
+            model_params=model_params,
+            **other_llm_kwargs
+        )
+        func.log(f"Model '{model_name}' loaded as an OpenAI Model.")
+        return llm_instance
+
+    @staticmethod
+    def _create_jarvis_model(model_name: str, system_prompt: str, model_params: dict, other_llm_kwargs: dict) -> BaseModel:
+        from core.llms.jarvis import OpenAIAPIModel
+        llm_instance = OpenAIAPIModel(
+            model_name=model_name,
+            system_prompt=system_prompt,
+            model_params=model_params,
+            **other_llm_kwargs
+        )
+        func.log(f"Model '{model_name}' loaded as a JARVIS Model.")
         return llm_instance
