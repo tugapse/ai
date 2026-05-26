@@ -26,6 +26,7 @@ from ai.direct import ask
 
 # Agent logic
 from ai.agents.agent import MessageOrchestrator, LLMConnector, ToolRegistry, load_pipeline_config
+from ai.program import Program
 from ai.tools.tool_loader import load_and_register_user_tools
 import ai.tools.agent_tools as agent_tools
 
@@ -127,7 +128,7 @@ def {function_name}(argument: str) -> str:
             sys.exit(0)
 
 
-    def _handle_server_mode(self, prog, args):
+    def _handle_server_mode(self, prog:Program, args):
         if args.server:
             try:
                 orchestrator = prog.models 
