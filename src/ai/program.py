@@ -293,9 +293,10 @@ class Program:
     def run(self) -> None:
         self.allow_tools = False
         func.log("Program: Interface active.")
+        
         if not self.llm:
             raise RuntimeError("LLM failed to initialize. Cannot start chat loop.")
-        
+
         EventBinder.bind_core_events(
             chat=self.chat,
             llm=self.llm,
@@ -307,7 +308,12 @@ class Program:
         )
         self.chat.add_event(Chat.EVENT_AGENT_RUN_REQUESTED, self._handle_agent_run_requested)
 
-        try:
+        try:        
+            if func.ALLOW_CLEAR_CONSOLE: 
+                func.clear_console()
+             
+            self._print_chat_header()
+
             self.chat.loop()
         except KeyboardInterrupt:
             func.log("\nProgram: Shutdown initiated.")
@@ -334,3 +340,13 @@ class Program:
 
     def route_session(self, filepath: str) -> None:
         if self.history: self.history.switch_active_session(filepath)
+
+    def _print_chat_header(self) -> None:
+        chat_name = self.models.get_chat_name() 
+    
+        if func.ALLOW_CLEAR_CONSOLE:
+            func.clear_console()
+        
+        func.out(f"{Color.CYAN} # {Color.RESET}Established neural link to: {Color.YELLOW}{chat_name}{Color.RESET}")
+        func.out(f"{Color.CYAN} #{Color.PURPLE} Sentinel status: ACTIVE | Logic: INJECTED{Color.RESET}")
+        func.out(f"{Color.CYAN} # {Color.RESET}-----------------------------------------------------------")

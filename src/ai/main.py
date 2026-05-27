@@ -173,15 +173,6 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
 
     return parser, parser.parse_args()
 
-def print_chat_header(prog) -> None:
-    chat_name = prog.models.get_chat_name() 
-    
-    if func.ALLOW_CLEAR_CONSOLE:
-        func.clear_console()
-        
-    func.out(f"{Color.CYAN} # {Color.RESET}Established neural link to: {Color.CYAN}{chat_name}{Color.RESET}")
-    func.out(f"{Color.CYAN} #{Color.PURPLE} Sentinel status: ACTIVE | Logic: INJECTED{Color.RESET}")
-    func.out(f"{Color.CYAN} # {Color.RESET}-----------------------------------------------------------")
 
 
 def run():
@@ -242,11 +233,7 @@ def run():
         prog.init_program()
 
         cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
-        
-        if func.ALLOW_CLEAR_CONSOLE: 
-            func.clear_console()
 
-        print_chat_header(prog=prog)
         prog.run()
         
     except Exception as e:
