@@ -133,7 +133,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     asset_group = parser.add_argument_group(f'{Color.CYAN}ASSET & CONTEXT MANAGEMENT{Color.RESET}')
     asset_group.add_argument("--file", "-f", type=str, help="Analyze target file")
     asset_group.add_argument("--image", "-i", type=str, help="Process visual input from path")
-    asset_group.add_argument("--load-folder", "-D", type=str, help="Ingest directory into vector memory")
+    asset_group.add_argument("--load-folder", "-D", type=str, help="Ingest directory into context")
     asset_group.add_argument("--ext", "-e", type=str, help="Filter context ingestion by extension")
 
     # 3. Autonomous Operations (Agentic Logic)

@@ -58,9 +58,9 @@ print_summary
 # Test: --pipeline
 # Test: --create-tool
 # Test: --generate-config
+# Test: --overwrite-config
 
 # TODO: Implement remaining tests: -D, -e, -q, -pl, -pdb, -nta
 # Test: Interactive mode
 # Test: --install
-# Test: --overwrite-config
 

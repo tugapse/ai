@@ -316,7 +316,7 @@ class Program:
             self.shutdown()
 
     def shutdown(self) -> None:
-        func.log("Program: Initiating aggressive shutdown...", level="DEBUG")
+        func.debug("Program: Initiating aggressive shutdown...", level="DEBUG")
         if not hasattr(self, "config") or self.config is None: return
 
         if self.llm_initialized:
@@ -326,11 +326,11 @@ class Program:
                     llm_instance.request_shutdown()
                     del self.models.llm
             except Exception as e:
-                func.log(f"Program: Error during LLM shutdown: {e}", level="ERROR")
+                func.debug(f"Program: Error during LLM shutdown: {e}", level="ERROR")
 
         if hasattr(self, "models"): del self.models
         gc.collect()
-        func.log("JARVIS Shutdown complete.", level="DEBUG")
+        func.debug("JARVIS Shutdown complete.", level="DEBUG")
 
     def route_session(self, filepath: str) -> None:
         if self.history: self.history.switch_active_session(filepath)

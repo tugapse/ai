@@ -227,7 +227,7 @@ class BaseModel:
     def request_shutdown(self) -> None:
         """Halts running generation streams, signals execution exit, and cleans local memory allocations."""
         self.stop_generation_event.set()
-        self.join_generation_thread(2)
+        self.join_generation_thread(120)
         self.clean_cache()
 
     def join_generation_thread(self, timeout: float = 0.0) -> None:

@@ -8,6 +8,7 @@ class ChatMessage(BaseModel):
 class ChatCompletionRequest(BaseModel):
     messages: List[ChatMessage]
     model: Optional[str] = None
+    model_config_data: Optional[Dict[str, Any]] = None
     system_prompt: Optional[str] = None
     system_prompt_filename: Optional[str] = None
     system_prompt_content: Optional[str] = None

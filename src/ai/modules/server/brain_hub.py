@@ -90,11 +90,14 @@ class BrainHub:
 
         return datetime.now().isoformat()
 
-    def get_brain(self, model_id: str, system_prompt: str):
+    def get_brain(self, model_id: str, system_prompt: str, model_config_data: Optional[dict] = None):
         """
         Ensures the requested model is loaded.
         If a different model is active, it unloads it first to clear VRAM.
         """
+        if model_config_data and "model_name" in model_config_data:
+            model_id = model_config_data["model_name"]
+
         if self.current_model_id and self.current_model_id != model_id:
             func.log(f"BrainHub: Swapping {self.current_model_id} -> {model_id}")
             self.unload_brain()
@@ -109,7 +112,11 @@ class BrainHub:
             return self.orchestrator.llm
 
         if not self.orchestrator.llm:
-            self.orchestrator.load(model_id, system_prompt)
+            self.orchestrator.load(
+                model_config_name=model_id, 
+                system_prompt=system_prompt, 
+                model_config_data=model_config_data
+            )
             self.current_model_id = model_id
             func.log(f"BrainHub: {model_id} is now HOT.")
 

@@ -6,11 +6,10 @@ from typing import Any, Dict, List, Optional
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 
-import ai.functions as func  
+import ai.functions as func
 from ai.modules.server.brain_hub import BrainHub
 from ai.modules.server.schemas import ChatCompletionRequest
 from ai.services.prompt_loader import PromptLoader
-
 
 
 class ChatSessionRouter:
@@ -24,11 +23,19 @@ class ChatSessionRouter:
             session_dir = session_dir / request.session_folder
 
         os.makedirs(session_dir, exist_ok=True)
-        target_session_id = request.session_id or self.config.get("ACTIVE_SESSION", "default")
+        target_session_id = request.session_id or self.config.get(
+            "ACTIVE_SESSION", "default"
+        )
         session_file = session_dir / f"{target_session_id}.json"
         return session_dir, session_file, target_session_id
 
-    def route_memory(self, brain_hub: BrainHub, request: ChatCompletionRequest, session_file: Path, target_session_id: str):
+    def route_memory(
+        self,
+        brain_hub: BrainHub,
+        request: ChatCompletionRequest,
+        session_file: Path,
+        target_session_id: str,
+    ):
         brain_hub.route_memory(
             str(session_file),
             session_title=getattr(request, "session_title", None),
@@ -44,7 +51,9 @@ class ChatMessageFormatter:
     @staticmethod
     def format_messages(messages: List[Any]):
         formatted_messages = [{"role": m.role, "content": m.content} for m in messages]
-        last_user_message = formatted_messages[-1]["content"] if formatted_messages else "N/A"
+        last_user_message = (
+            formatted_messages[-1]["content"] if formatted_messages else "N/A"
+        )
         return formatted_messages, last_user_message
 
 
@@ -57,13 +66,17 @@ class ChatResponseHandler:
             func.log(f"LLM not initialized for {context}.", level="ERROR")
             raise HTTPException(status_code=503, detail="LLM not initialized.")
 
-    async def stream_response(self, formatted_messages: List[Dict[str, str]]) -> StreamingResponse:
+    async def stream_response(
+        self, formatted_messages: List[Dict[str, str]]
+    ) -> StreamingResponse:
         func.log("Initiating streaming response for chat completion.")
         self._ensure_llm_available("streaming")
 
         async def event_generator():
             try:
-                raw_output = self.brain_hub.orchestrator.llm.chat(formatted_messages, stream=True)
+                raw_output = self.brain_hub.orchestrator.llm.chat(
+                    formatted_messages, stream=True
+                )
                 func.debug("Streaming response generator started.")
                 completed_response = ""
 
@@ -90,7 +103,9 @@ class ChatResponseHandler:
         func.log("Initiating non-streaming response for chat completion.")
         self._ensure_llm_available("non-streaming")
 
-        raw_output = self.brain_hub.orchestrator.llm.chat(formatted_messages, stream=False)
+        raw_output = self.brain_hub.orchestrator.llm.chat(
+            formatted_messages, stream=False
+        )
         if isinstance(raw_output, str):
             response_text = raw_output
         else:
@@ -115,19 +130,29 @@ class ChatService:
     - Streams or returns non-streaming responses
     """
 
-    def __init__(self, brain_hub: BrainHub, session_root_dir: Path, config: Dict[str, Any]):
+    def __init__(
+        self, brain_hub: BrainHub, session_root_dir: Path, config: Dict[str, Any]
+    ):
         self.brain_hub = brain_hub
         self.session_router = ChatSessionRouter(session_root_dir, config)
         self.message_formatter = ChatMessageFormatter()
         self.response_handler = ChatResponseHandler(brain_hub)
 
     def _resolve_system_prompt(self, system_prompt: Optional[str]) -> Optional[str]:
+        """
+        Resolves the system prompt content, supporting both direct text and file/template references.
+        - If the system prompt is empty or None, returns an empty string.
+        - If the system prompt is a reference to a file or template, attempts to load it using PromptLoader.
+        - If loading fails or the content is empty, treats the system prompt as literal text and returns it.
+        """
         if not system_prompt:
             return ""
 
         # Attempt file/template resolution for system prompt references.
         func.debug(f"Resolving system prompt reference: '{system_prompt}'")
-        resolved_content = PromptLoader.load_system_prompt(self.brain_hub.config, system_prompt)
+        resolved_content = PromptLoader.load_system_prompt(
+            self.brain_hub.config, system_prompt
+        )
         if resolved_content and resolved_content.strip():
             func.debug(
                 f"System prompt resolved successfully; content length={len(resolved_content)}"
@@ -140,20 +165,29 @@ class ChatService:
         return system_prompt
 
     def _resolve_brain(self, request: ChatCompletionRequest):
+        """
+        Resolves the brain/model for the chat session based on the request.
+        - Extracts the requested model/brain from the request (defaulting to "default   if not specified).
+        - Resolves the system prompt content using the _resolve_system_prompt method.
+        - Instructs the BrainHub to load the appropriate brain/model with the resolved system prompt.
+        """
+
         # print(request)
-        requested_model = (getattr(request, "model", "default") or "default").strip().lower()
-        system_prompt = getattr(request, "system_prompt_content", '')
-        resolved_system_prompt = self._resolve_system_prompt(system_prompt)
-        print(resolved_system_prompt,end="\n\n")
-        prompt_preview = (resolved_system_prompt or "<None>")[:50]
-        print(
-            f"Resolving brain: model='{requested_model}', system_prompt_preview='{prompt_preview}...'")
-        self.brain_hub.get_brain(requested_model, resolved_system_prompt)
+        requested_model_file: str | Any = (
+            (getattr(request, "model", "default") or "default").strip().lower()
+        )
+        system_prompt: Any | str = getattr(request, "system_prompt_content", "")
+        resolved_system_prompt: str | None = self._resolve_system_prompt(system_prompt)
+        model_config_data = getattr(request, "model_config_data", None)
 
-
+        self.brain_hub.get_brain(
+            model_id=requested_model_file, 
+            system_prompt=resolved_system_prompt,
+            model_config_data=model_config_data
+        )
 
     async def chat_completion(self, request: ChatCompletionRequest):
-        """ 
+        """
         Main entry point for handling chat completion requests.
         - Routes memory to session file
         - Resolves brain/model and system prompt
@@ -167,21 +201,32 @@ class ChatService:
             func.log("BrainHub not initialized for chat completion.", level="ERROR")
             raise HTTPException(status_code=503, detail="Orchestrator not initialized.")
 
-        _, session_file, target_session_id = self.session_router.build_session_path(request)
-        self.session_router.route_memory(self.brain_hub, request, session_file, target_session_id)
+        _, session_file, target_session_id = self.session_router.build_session_path(
+            request
+        )
+        self.session_router.route_memory(
+            self.brain_hub, request, session_file, target_session_id
+        )
 
         self._resolve_brain(request)
 
         messages = getattr(request, "messages", [])
-        formatted_messages, last_user_message = self.message_formatter.format_messages(messages)
+        formatted_messages, last_user_message = self.message_formatter.format_messages(
+            messages
+        )
         func.debug(f"Adding user message to history: '{last_user_message[:100]}...'")
         self.brain_hub.add_history_message("user", last_user_message)
-        print(f"Formatted messages: {formatted_messages}")  # Debug print to verify message formatting
+        print(
+            f"Formatted messages: {formatted_messages}"
+        )  # Debug print to verify message formatting
         if getattr(request, "stream", False):
             return await self.response_handler.stream_response(formatted_messages)
 
         try:
             return self.response_handler.non_stream_response(formatted_messages)
         except Exception as e:
-            func.log(f"Inference Error during non-streaming chat completion: {e}", level="ERROR")
+            func.log(
+                f"Inference Error during non-streaming chat completion: {e}",
+                level="ERROR",
+            )
             raise HTTPException(status_code=500, detail=str(e))
