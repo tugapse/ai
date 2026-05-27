@@ -85,7 +85,7 @@ class Program:
 
         if hasattr(args, "modules") and args.modules:
             for mod_name in args.modules:
-                self.config.set(f"{mod_name.upper()}_ENABLED", True)
+                self.config.set(ProgramSetting(f"{mod_name.upper()}_ENABLED"), True)
                 func.log(f"Config: Enabled module '{mod_name}' via CLI argument.", level="DEBUG")
         
         if self.modules:

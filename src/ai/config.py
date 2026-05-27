@@ -1,3 +1,4 @@
+from enum import Enum
 import json
 import logging
 import os
@@ -9,7 +10,7 @@ from typing import Any, TypeVar, Generic, Optional, overload
 T = TypeVar("T")
 
 
-class ProgramSetting:
+class ProgramSetting(Enum):
     MODEL_NAME = "MODEL_NAME"
     MODEL_CONFIG_NAME = "MODEL_CONFIG_NAME"
     ROOT_DIRECTORY = "ROOT_DIRECTORY"
@@ -46,6 +47,12 @@ class ProgramSetting:
     VECTOR_MEMORY_ENABLED = "VECTOR_MEMORY_ENABLED"
     VECTOR_DB_PATH = "VECTOR_DB_PATH"
 
+    def __str__(self):
+        return self.value
+    
+    def __repr__(self):
+        return f"ProgramSetting.{self.name}"    
+
 
 class ProgramConfig(Generic[T]):
     _current: Optional["ProgramConfig"] = None
@@ -73,8 +80,9 @@ class ProgramConfig(Generic[T]):
         
 
         if not exists(path=user_config_filename) or need_save:
+            need_save = True
             self.logger.info(
-                f"config.json not found in {user_directory}. Copying default config."
+                f"Copying default config."
             )
             self.copy_templates_to_user_dir(user_directory)
 
@@ -171,15 +179,15 @@ class ProgramConfig(Generic[T]):
             return None
 
     @overload
-    def get(self, key: str) -> Any: ...
+    def get(self, key: ProgramSetting) -> Any: ...
 
     @overload
-    def get(self, key: str, default: T) -> T: ...
+    def get(self, key: ProgramSetting, default: T) -> T: ...
 
-    def get(self, key: str, default: Any = None) -> Any:
+    def get(self, key: ProgramSetting, default: Any = None) -> Any:
         return self.config.get(key, default)
 
-    def set(self, key: str, value: Any) -> None:
+    def set(self, key: ProgramSetting, value: Any) -> None:
         self.config[key] = value
 
     @classmethod
