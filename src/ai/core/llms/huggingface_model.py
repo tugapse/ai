@@ -112,8 +112,10 @@ class HuggingFaceModel(HFModelLoaderMixin, HFPipelineMixin, HFEngineMixin, BaseM
         input_data = self._prepare_input(processed_messages)
         func.debug(f"Input data prepared. Input IDs shape: {input_data['input_ids'].shape}")
 
-        if self.is_gpu_available() and self.device_map == "cuda":
-            inputs_on_device = {k: v.to("cuda") for k, v in input_data.items()}
+        if hasattr(self.model, 'device'):
+            inputs_on_device = {k: v.to(self.model.device) if hasattr(v, 'to') else v for k, v in input_data.items()}
+        elif self.is_gpu_available() and self.device_map == "cuda":
+            inputs_on_device = {k: v.to("cuda") if hasattr(v, 'to') else v for k, v in input_data.items()}
         else:
             inputs_on_device = input_data
 
