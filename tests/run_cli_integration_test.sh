@@ -10,20 +10,17 @@ export AI_ASSISTANT_DIRECTORY="/tmp/ai_assistant_test_dir"
 TEST_MODEL_CONFIG=$(mktemp --suffix=.json)
 cat << 'EOF' > "$TEST_MODEL_CONFIG"
 {
-  "model_name": "gemma4",
-  "model_type": "gguf",
+  "model_name": "google/gemma-4-E4B-it",
+  "model_type": "causal_lm",
   "model_properties": {
-    "gguf_filename": "gemma-4-E2B-it-Q4_K_M.gguf",
-    "model_repo_id": "unsloth/gemma-4-E2B-it-GGUF",
-    "n_gpu_layers": -1,
-    "n_ctx": 2048,
-    "verbose": false,
-    "max_new_tokens": 512,
+    "max_new_tokens": 8192,
+    "do_sample": true,
     "temperature": 0.1,
-    "top_p": 0.5,
-    "top_k": 50,
-    "presence_penalty": 1,
-    "frequency_penalty": 1
+    "top_p": 0.95,
+    "top_k": 10,
+    "presence_penalty": 1.5,
+    "frequency_penalty": 1.2,
+    "quantization_bits": 4
   }
 }
 EOF
