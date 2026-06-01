@@ -146,8 +146,10 @@ class T5Model(BaseModel):
             truncation=True
         )
 
-        if self.is_gpu_available():
-            inputs_on_device = {k: v.to('cuda') for k, v in inputs.items()}
+        if hasattr(self.model, 'device'):
+            inputs_on_device = {k: v.to(self.model.device) if hasattr(v, 'to') else v for k, v in inputs.items()}
+        elif self.is_gpu_available():
+            inputs_on_device = {k: v.to('cuda') if hasattr(v, 'to') else v for k, v in inputs.items()}
         else:
             inputs_on_device = inputs
 
