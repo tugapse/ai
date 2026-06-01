@@ -10,20 +10,22 @@ export AI_ASSISTANT_DIRECTORY="/tmp/ai_assistant_test_dir"
 TEST_MODEL_CONFIG=$(mktemp --suffix=.json)
 cat << 'EOF' > "$TEST_MODEL_CONFIG"
 {
-  "model_name": "Qwen/Qwen3-4B",
-  "model_type": "causal_lm",
+  "model_name": "gemma4",
+  "model_type": "gguf",
   "model_properties": {
-    "max_new_tokens": 2048,
-    "do_sample": true,
-    "temperature": 0.7,
-    "top_p": 0.95,
-    "top_k": 10,  
-    "quantization_bits": 4,
-    "device_type":"cuda"
+    "gguf_filename": "gemma-4-E2B-it-Q4_K_M.gguf",
+    "model_repo_id": "unsloth/gemma-4-E2B-it-GGUF",
+    "n_gpu_layers": -1,
+    "n_ctx": 2048,
+    "verbose": false,
+    "max_new_tokens": 512,
+    "temperature": 0.1,
+    "top_p": 0.5,
+    "top_k": 50,
+    "presence_penalty": 1,
+    "frequency_penalty": 1
   }
 }
-
-
 EOF
 
 # Ensure cleanup on exit
