@@ -291,9 +291,8 @@ class Program:
                 func.log(traceback.format_exc(), level="ERROR")
 
     def run(self) -> None:
-        self.allow_tools = False
         func.log("Program: Interface active.")
-        
+        self.allow_tools = True
         if not self.llm:
             raise RuntimeError("LLM failed to initialize. Cannot start chat loop.")
 
@@ -314,6 +313,7 @@ class Program:
              
             self._print_chat_header()
 
+            
             self.chat.loop()
         except KeyboardInterrupt:
             func.log("\nProgram: Shutdown initiated.")

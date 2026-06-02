@@ -108,19 +108,20 @@ Running a task from user/tasks folder
 | `--task` | `-t` | Load named directive from user/tasks folder.|
 | `--task-file` | `-tf` | Load directive from file. |
 | `--pipeline` | `-ppl` | Define multi-stage instruction pipeline. (defaults to default.json) |
-| `--session-id`| | Session key used for this session, if not provided default to new GUID. |
+| `--session-id`| | LTM (Long Term Memory) session key. |
 | `--output-file` | `-o` | Designate clean output stream (temp-file mode). |
 
 ### Distributed Architecture
 | Flag | Alias | Description |
 | :--- | :--- | :--- |
 | `--server` | | Initialize Brain Server module. |
-| `--remote` | `-r` | Connect to remote neural hub URL. |
 | `--modules` | | Load specific sub-modules. <module_name> |
 
 ### System Debug & Maintenance
 | Flag | Alias | Description |
 | :--- | :--- | :--- |
+| `--version` | `-v` | Display the system version and exit. |
+| `--show-logo` | | Display the JARVIS startup logo. |
 | `--print-chat` | `-p` | Output session history. |
 | `--print-log` | `-pl` | Enable system telemetry logs. |
 | `--print-debug`| `-pdb` | Enable verbose debug stream. |
@@ -128,7 +129,7 @@ Running a task from user/tasks folder
 | `--no-think-anim`| `-nta` | Disable reasoning animations. |
 | `--debug-console`| `-dc` | Lock console (disable clear-screen). |
 | `--install` | | Execute dependency sync protocol. |
-| `--overwrite-config`| | Force configuration override. |
+| `--overwrite-config`| | Force configuration and templates overwriting. |
 | `--create-tool` | | Create a new user tool skeleton file. |
 
 ---
