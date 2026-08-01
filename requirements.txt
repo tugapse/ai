@@ -1,11 +1,6 @@
 wheel
 setuptools
 colorama
-dotenv
-huggingface-hub
-pyreadline3; sys_platform == "win32"
-triton-windows; sys_platform == "win32"
-triton; sys_platform != "win32"
 prompt_toolkit
 requests
 pytest

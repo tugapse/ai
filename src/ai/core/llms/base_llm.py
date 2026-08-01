@@ -20,10 +20,11 @@ class TokenCountInfo:
 
     def get_log_string(self) -> str:
         """Calculates context window usage percentages and prints a formatted log metric string."""
+        free_tokens = self.max_context_window - self.max_output_tokens
         usage = (
             (
                 self.total_prompt_count
-                / (self.max_context_window - self.max_output_tokens)
+                / (free_tokens if free_tokens > 0 else 1)
                 * 100
             )
             if self.max_context_window > 0

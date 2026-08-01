@@ -58,7 +58,7 @@ class ProgramConfig(Generic[T]):
     _current: Optional["ProgramConfig"] = None
 
     def __init__(self, config: Optional[dict] = None) -> None:
-        self.config = config if config is not None else {}
+        self.config = config if config is not None else dict()
         self.logger = logging.Logger(name="Config")
 
     @classmethod
@@ -185,10 +185,10 @@ class ProgramConfig(Generic[T]):
     def get(self, key: ProgramSetting, default: T) -> T: ...
 
     def get(self, key: ProgramSetting, default: Any = None) -> Any:
-        return self.config.get(key, default)
+        return self.config.get(str(key), default)
 
     def set(self, key: ProgramSetting, value: Any) -> None:
-        self.config[key] = value
+        self.config[str(key)] = value
 
     @classmethod
     def load(cls, args=None):
