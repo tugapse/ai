@@ -3,6 +3,7 @@ import sys
 import subprocess
 import json
 import shutil
+import re
 
 C_BOLD = "\033[1m"
 C_GREEN = "\033[92m"
@@ -56,6 +57,20 @@ class SystemDiagnostics:
         return "other"
 
     @staticmethod
+    def detect_cuda_version():
+        """Automatically fetch system CUDA version via nvidia-smi."""
+        try:
+            result = subprocess.run(["nvidia-smi"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+            lines = result.stdout.splitlines()
+            for line in lines[:3]:
+                match = re.search(r"CUDA\s+(?:UMD\s+)?Version\s*:\s*([0-9]+\.[0-9]+)", line, re.IGNORECASE)
+                if match:
+                    return match.group(1)
+        except Exception:
+            pass
+        return None
+
+    @staticmethod
     def check_engine_deps(engine_id):
         req = SYSTEM_REQS.get(engine_id)
         if not req:
@@ -64,7 +79,6 @@ class SystemDiagnostics:
         binary_to_check = req["binary"]
         has_binary = shutil.which(binary_to_check)
         
-        # Fallback check for compilers if specific binary isn't found
         if engine_id in ["gguf", "vector_memory"] and not has_binary:
             has_binary = shutil.which("gcc") or shutil.which("g++")
 
@@ -138,44 +152,20 @@ def main_menu():
             print(f"{C_BOLD}{i:2}. {eng['name']:<35}{C_END} {status_text}")
 
         print(f"\n{C_CYAN}----------------------------------------------{C_END}")
-        print(f"{C_GREEN}[a] Install/Update Engine{C_END}")
-        print(f"{C_RED}[r] Remove Engine{C_END}")
         print(f"{C_BOLD}[q] Quit{C_END}")
         print(f"{C_CYAN}----------------------------------------------{C_END}")
         
-        choice = input(f"\n{C_BOLD}Action:{C_END} ").lower().strip()
+        choice = input(f"\n{C_BOLD}Select engine number (or 'q' to quit):{C_END} ").lower().strip()
         
-        if choice == 'q': break
-        elif choice == 'a': install_flow(config, venv_python)
-        elif choice == 'r': uninstall_flow(config, venv_python)
-
-def install_flow(config, venv_python):
-    clear_screen()
-    print(f"{C_YELLOW}{C_BOLD}--- Select engine to INSTALL ---{C_END}\n")
-    for i, eng in enumerate(ENGINES, 1):
-        print(f"{i}. {eng['name']}")
-    
-    idx_input = input(f"\n{C_BOLD}Number (or 'b' to go back):{C_END} ")
-    if idx_input.isdigit():
-        idx = int(idx_input) - 1
-        if 0 <= idx < len(ENGINES):
-            run_pip(ENGINES[idx], config, venv_python, "install")
-
-def uninstall_flow(config, venv_python):
-    clear_screen()
-    print(f"{C_RED}{C_BOLD}--- Select engine to REMOVE ---{C_END}\n")
-    installed = [e for e in ENGINES if config.get(e['id'], {}).get("installed")]
-    if not installed:
-        input(f"{C_RED}No engines installed. Press Enter...{C_END}")
-        return
-    for i, eng in enumerate(installed, 1):
-        print(f"{i}. {eng['name']}")
-    
-    idx_input = input(f"\n{C_BOLD}Number to UNINSTALL (or 'b' to go back):{C_END} ")
-    if idx_input.isdigit():
-        idx = int(idx_input) - 1
-        if 0 <= idx < len(installed):
-            run_pip(installed[idx], config, venv_python, "uninstall")
+        if choice == 'q': 
+            break
+        elif choice.isdigit():
+            idx = int(choice) - 1
+            if 0 <= idx < len(ENGINES):
+                engine = ENGINES[idx]
+                is_installed = config.get(engine['id'], {}).get("installed", False)
+                action = "uninstall" if is_installed else "install"
+                run_pip(engine, config, venv_python, action)
 
 def run_pip(engine, config, venv_python, action):
     env = os.environ.copy()
@@ -192,32 +182,46 @@ def run_pip(engine, config, venv_python, action):
         if engine['id'] == "gguf":
             gpu = input(f"{C_CYAN}Enable CUDA (GPU) support for GGUF? (y/n): {C_END}").lower() == 'y'
             if gpu:
+                detected_cuda = SystemDiagnostics.detect_cuda_version()
+                if detected_cuda:
+                    print(f"\n{C_GREEN}[*] Detected System CUDA Version via nvidia-smi: {detected_cuda}{C_END}")
+                else:
+                    print(f"\n{C_YELLOW}[!] Could not automatically parse CUDA version from nvidia-smi.{C_END}")
+
                 print(f"\n{C_YELLOW}--- Select CUDA Version ---{C_END}")
-                print(f"{C_BOLD}1.{C_END} Modern NVIDIA (CUDA 12.x - Recommended)")
-                print(f"{C_BOLD}2.{C_END} Older NVIDIA (CUDA 11.x)")
-                print(f"{C_BOLD}3.{C_END} Build from Source (Advanced/Custom Hardware)")
+                print(f"{C_BOLD}1.{C_END} CUDA 13.x / Modern (cu130)")
+                print(f"{C_BOLD}2.{C_END} CUDA 12.x (cu124)")
+                print(f"{C_BOLD}3.{C_END} CUDA 11.4")
+                print(f"{C_BOLD}4.{C_END} Build from Source (Advanced/Custom Hardware)")
                 
-                cuda_choice = input(f"\n{C_CYAN}Select option (1/2/3): {C_END}").strip()
+                default_choice = "1" if detected_cuda and detected_cuda.startswith("13") else "2"
+                cuda_choice = input(f"\n{C_CYAN}Select option (1/2/3/4) [default {default_choice}]: {C_END}").strip()
+                if not cuda_choice:
+                    cuda_choice = default_choice
 
                 if cuda_choice == '1':
+                    cmd += [
+                        "--extra-index-url", "https://abetlen.github.io/llama-cpp-python/whl/cu130",
+                        "--no-cache-dir", "--force-reinstall", "--upgrade"
+                    ]
+                elif cuda_choice == '2':
                     cmd += [
                         "--extra-index-url", "https://abetlen.github.io/llama-cpp-python/whl/cu124",
                         "--no-cache-dir", "--force-reinstall", "--upgrade"
                     ]
-                elif cuda_choice == '2':
+                elif cuda_choice == '3':
                     cmd += [
                         "--extra-index-url", "https://abetlen.github.io/llama-cpp-python/whl/cu114",
                         "--no-cache-dir", "--force-reinstall", "--upgrade"
                     ]
                 else:
-                    # Source build requires local compilation directives
-                    arch = input(f"{C_CYAN}Enter GPU architecture (e.g., 86 for RTX 3000) or press Enter for 'native': {C_END}").strip()
+                    arch = input(f"{C_CYAN}Enter GPU architecture (e.g., 89 for RTX 4000) or press Enter for 'native': {C_END}").strip()
                     arch = arch if arch else "native"
                     env["CMAKE_ARGS"] = f"-DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES={arch}"
                     env["FORCE_CMAKE"] = "1"
                     cmd += ["--no-cache-dir", "--force-reinstall", "--upgrade"]
             else:
-                cmd += ["--upgrade"]
+                cmd += ["--extra-index-url", "https://abetlen.github.io/llama-cpp-python/whl/cpu", "--upgrade"]
         else:
             cmd += ["--upgrade"]
             
@@ -233,7 +237,6 @@ def run_pip(engine, config, venv_python, action):
             print(f"{C_YELLOW}>>> Note: VibeVoice-Realtime requires CUDA for optimal performance.{C_END}")
 
     else:
-        # Prevent uninstallation of shared dependencies across engines
         current_config = load_config()
         other_deps = set()
         for e in ENGINES:
@@ -245,6 +248,7 @@ def run_pip(engine, config, venv_python, action):
             config[engine['id']] = {"installed": False}
             save_config(config)
             print(f"{C_YELLOW}>>> Dependencies shared. Registry updated without uninstallation.{C_END}")
+            input("\nPress Enter to continue...")
             return
         cmd = [venv_python, "-m", "pip", "uninstall", "-y"] + to_remove
 
