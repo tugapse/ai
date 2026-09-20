@@ -17,6 +17,7 @@ class SessionVault:
         self.session_id = session_id
         self.storage_dir = os.path.join(func.get_root_directory(), "logs","agents")
         self.session_path = os.path.join(self.storage_dir, f"{self.session_id}.json")
+        self.kv_cache_path = os.path.join(self.storage_dir, f"{self.session_id}.kvcache")
         self._ensure_storage()
 
     def _ensure_storage(self):
@@ -103,3 +104,24 @@ class SessionVault:
                     })
                 except: continue
         return history
+
+    def get_kv_cache_path(self) -> str:
+        """Returns the full path to the KV cache file."""
+        return self.kv_cache_path
+
+    def purge(self):
+        """Deletes all persistent data for this session (JSON log and KV cache)."""
+        func.log(f"SessionVault: Purging all data for session {self.session_id}")
+        try:
+            if os.path.exists(self.session_path):
+                os.remove(self.session_path)
+                func.debug(f"SessionVault: Deleted session log at {self.session_path}")
+        except Exception as e:
+            func.error(f"SessionVault: Failed to delete session log {self.session_path}: {e}")
+
+        try:
+            if os.path.exists(self.kv_cache_path):
+                os.remove(self.kv_cache_path)
+                func.debug(f"SessionVault: Deleted KV cache at {self.kv_cache_path}")
+        except Exception as e:
+            func.error(f"SessionVault: Failed to delete KV cache {self.kv_cache_path}: {e}")

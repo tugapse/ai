@@ -31,6 +31,10 @@ class MockConnector:
     def __init__(self, responses):
         self.responses = responses
         self.request_history = []  # To verify what was sent to the model
+        self.save_state_called = False
+        self.load_state_called = False
+        self.save_state_path = None
+        self.load_state_path = None
 
     def send_request(self, payload, prompt_file_path, agent_config):
         self.request_history.append(payload)

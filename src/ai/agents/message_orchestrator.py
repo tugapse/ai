@@ -118,6 +118,9 @@ class MessageOrchestrator(Events):
             next_agent = self._process_agent_response(response, current_agent, agent_config)
 
             # PERSISTENCE: Commit state before moving to the next iteration
+            kv_cache_path = self.vault.get_kv_cache_path()
+            if not self.connector.save_state(kv_cache_path):
+                func.error("Orchestrator: Failed to save KV cache state.")
             self.vault.commit(self._capture_state(next_agent, i + 1))
 
             if next_agent == "DONE":
@@ -147,6 +150,14 @@ class MessageOrchestrator(Events):
                     current_agent = self.pipeline_config.get("entry_point")
 
                 func.log(f"Orchestrator: State re-inflated. Resuming as {current_agent} at iteration {start_iteration}")
+
+                # Hydrate the KV cache state if it exists
+                kv_cache_path = self.vault.get_kv_cache_path()
+                if os.path.exists(kv_cache_path):
+                    if self.connector.load_state(kv_cache_path):
+                        func.log("Orchestrator: KV cache state successfully loaded.")
+                    else:
+                        func.error("Orchestrator: Failed to load KV cache state.")
             else:
                 TerminalUI.header("Pipeline Execution Start", "Agent Orchestrator")
                 current_agent = self.pipeline_config.get("entry_point", "MASTER")

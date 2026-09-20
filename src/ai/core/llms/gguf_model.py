@@ -261,6 +261,34 @@ class GGUFImageLLM(BaseModel):
             return [{"name": self.model_name, "type": "GGUF_STABLE"}]
         return []
 
+    def save_state(self, filepath: str) -> bool:
+        if not self.llama_model:
+            func.error("[GGUF Engine] Attempted to save state but model is not loaded.")
+            return False
+        
+        try:
+            with GGUFImageLLM._shared_mem_lock:
+                self.llama_model.save_state(filepath)
+            func.debug(f"[GGUF Engine] KV cache state saved to {filepath}")
+            return True
+        except Exception as e:
+            func.error(f"[GGUF Engine] Failed to save KV cache state: {e}")
+            return False
+
+    def load_state(self, filepath: str) -> bool:
+        if not self.llama_model:
+            func.error("[GGUF Engine] Attempted to load state but model is not loaded.")
+            return False
+
+        try:
+            with GGUFImageLLM._shared_mem_lock:
+                self.llama_model.load_state(filepath)
+            func.debug(f"[GGUF Engine] KV cache state loaded from {filepath}")
+            return True
+        except Exception as e:
+            func.error(f"[GGUF Engine] Failed to load KV cache state: {e}")
+            return False
+
     def request_shutdown(self):
         func.debug("[GGUF Engine] Full shutdown requested. Unloading model.")
         super().request_shutdown()

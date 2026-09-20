@@ -253,6 +253,14 @@ class BaseModel:
         """Abstract interface endpoint intended to force generation streams to follow rigid structural JSON parameters."""
         raise NotImplementedError
 
+    def save_state(self, filepath: str) -> bool:
+        """Saves the KV cache state to a file. Base implementation returns False."""
+        return False
+
+    def load_state(self, filepath: str) -> bool:
+        """Loads the KV cache state from a file. Base implementation returns False."""
+        return False
+
     def unload(self) -> None:
         """Abstract interface checkpoint intended to completely purge engine allocations from hardware modules."""
         functions.error("Subclasses must implement unload to clear model resources.")
