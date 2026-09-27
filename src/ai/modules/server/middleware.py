@@ -1,5 +1,5 @@
 from typing import List, Tuple
-import functions as func  # aligns with your existing logging/debug utilities
+import ai.functions as func  # aligns with your existing logging/debug utilities
 
 class MIMETypeFixerMiddleware:
     def __init__(self, app):

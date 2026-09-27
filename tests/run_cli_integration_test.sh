@@ -1,17 +1,7 @@
 #!/bin/bash
 # CLI Integration Test Skeleton
-# Based on plan.md
 
 set -e
-
-VERBOSE=0
-for arg in "$@"; do
-    if [ "$arg" == "-V" ] || [ "$arg" == "--verbose" ]; then
-        VERBOSE=1
-    fi
-done
-
-export VERBOSE
 
 # Set the AI_ASSISTANT_DIRECTORY environment variable for the test environment
 export AI_ASSISTANT_DIRECTORY="/tmp/ai_assistant_test_dir"
@@ -46,21 +36,20 @@ export MODEL_TO_USE="$TEST_MODEL_CONFIG"
 export AI_CMD="./run.sh -dc -md $MODEL_TO_USE"
 
 SCRIPT_DIR=$(dirname -- "$(realpath -- "$0")")
-source "$SCRIPT_DIR/test_utils.sh"
-source "$SCRIPT_DIR/test_category_1_info.sh"
-source "$SCRIPT_DIR/test_category_2_single_turn.sh"
-source "$SCRIPT_DIR/test_category_3_fs_modifiers.sh"
-source "$SCRIPT_DIR/test_category_4_config_state.sh"
-source "$SCRIPT_DIR/test_category_5_blocking.sh"
+source "$SCRIPT_DIR/e2e/test_utils.sh"
+source "$SCRIPT_DIR/e2e/test_category_1_info.sh"
+source "$SCRIPT_DIR/e2e/test_category_2_single_turn.sh"
+source "$SCRIPT_DIR/e2e/test_category_3_fs_modifiers.sh"
+source "$SCRIPT_DIR/e2e/test_category_4_config_state.sh"
+source "$SCRIPT_DIR/e2e/test_category_5_blocking.sh"
 
-# --- Execution ---
-echo "========================================"
-echo "Starting CLI Integration Tests"
-echo "========================================"
 
 run_category_1
 run_category_2
 run_category_3
+run_category_4
+run_category_5
+print_summary
 
 # ==============================================================================
 # TODO: Pending Implementations
@@ -69,15 +58,9 @@ run_category_3
 # Test: --pipeline
 # Test: --create-tool
 # Test: --generate-config
-
-run_category_4
-
-# TODO: Implement remaining tests: -D, -e, -q, -pl, -pdb, -nta
-
-run_category_5
-
-# Test: Interactive mode
-# Test: --install
 # Test: --overwrite-config
 
-print_summary
+# TODO: Implement remaining tests: -D, -e, -q, -pl, -pdb, -nta
+# Test: Interactive mode
+# Test: --install
+

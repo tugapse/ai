@@ -21,7 +21,6 @@
       ],
       "allowed_targets": [
         "MASTER",
-        "SYSTEM_OPERATOR",
         "USER",
         "STOP"
       ]

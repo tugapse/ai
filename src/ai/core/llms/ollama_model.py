@@ -18,6 +18,7 @@ class OllamaModel(BaseModel):
         self.pull(self.model_name)
         self.keep_alive = keep_alive
         self.options = model_params or ModelParams().to_dict()
+        self._load_llm_params(**kargs)
 
     def join_generation_thread(self, timeout: float = 60.0):
         """

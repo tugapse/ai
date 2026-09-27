@@ -3,3 +3,5 @@ setuptools
 colorama
 prompt_toolkit
 requests
+pytest
+pytest-mock

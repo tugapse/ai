@@ -8,9 +8,10 @@ import traceback
 import time
 import signal
 import gc
-from typing import Optional
 import re
 from pathlib import Path
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Core imports
 from ai.config import ProgramConfig, ProgramSetting
@@ -123,7 +124,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     asset_group = parser.add_argument_group(f'{Color.CYAN}ASSET & CONTEXT MANAGEMENT{Color.RESET}')
     asset_group.add_argument("--file", "-f", type=str, help="Analyze target file")
     asset_group.add_argument("--image", "-i", type=str, help="Process visual input from path")
-    asset_group.add_argument("--load-folder", "-D", type=str, help="Ingest directory into vector memory")
+    asset_group.add_argument("--load-folder", "-D", type=str, help="Ingest directory into context")
     asset_group.add_argument("--ext", "-e", type=str, help="Filter context ingestion by extension")
 
     # 3. Autonomous Operations (Agentic Logic)
@@ -138,7 +139,6 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     # 4. Distributed Architecture
     net_group = parser.add_argument_group(f'{Color.CYAN}DISTRIBUTED ARCHITECTURE{Color.RESET}')
     net_group.add_argument("--server", action="store_true", help="Initialize Brain Server module")
-    net_group.add_argument("--remote", "-r", type=str, help="Connect to remote neural hub URL")
     net_group.add_argument("--modules", nargs="+", default=[], help="Load specific server sub-modules")
 
     # 5. System Debug & Maintenance
@@ -151,7 +151,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     sys_group.add_argument("--no-think-anim", "-nta", action="store_true", help="Disable reasoning animations")
     sys_group.add_argument("--debug-console", "-dc", action="store_true", help="Lock console (disable clear-screen)")
     sys_group.add_argument("--install", action="store_true", help="Execute dependency sync protocol")
-    sys_group.add_argument("--overwrite-config", action="store_true", help="Force configuration override")
+    sys_group.add_argument("--overwrite-config", action="store_true", help="Force configuration and templates overwriting, additional templates will not be removed!")
     sys_group.add_argument("--create-tool", type=str, metavar='TOOL_NAME', help="Create a new user tool skeleton file")
 
     # 6. Model Generation (Your existing group)
@@ -164,20 +164,18 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
 
     return parser, parser.parse_args()
 
-def print_chat_header(prog) -> None:
-    chat_name = prog.models.get_chat_name() 
-    
-    if func.ALLOW_CLEAR_CONSOLE:
-        func.clear_console()
-        
-    func.out(f"{Color.CYAN} # {Color.RESET}Established neural link to: {Color.CYAN}{chat_name}{Color.RESET}")
-    func.out(f"{Color.CYAN} #{Color.PURPLE} Sentinel status: ACTIVE | Logic: INJECTED{Color.RESET}")
-    func.out(f"{Color.CYAN} # {Color.RESET}-----------------------------------------------------------")
 
 
 def run():
     parser, args = load_args()
-    
+
+    # debugging flags for development purposes
+    # args.remote     = "http://0.0.0.0:9999"
+    # args.agent      = True
+    # args.model      = "gemini/gemini-25"
+    # args.msg        = "explain this program"
+    # args.pipeline   = "gemini" 
+
     check_dependencies()
     hack_warnings()
     
@@ -213,39 +211,21 @@ def run():
         from ai.cli_args import CliArgs
         cli_args_processor = CliArgs()
 
-        maintenance_keys = ['install', 'generate_config', 'server', 'print_chat', 'list_models', 'create_tool']
+        maintenance_keys = ['install',  'overwrite_config', 'generate_config', 'server', 'print_chat', 'list_models', 'create_tool']
         if any(getattr(args, key, None) for key in maintenance_keys):
             cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
             if is_server:
                 func.log(f"{Color.GREEN}[  ] Neural Hub is online. Press Ctrl+C to shut down.{Color.RESET}")
                 if prog.modules:
                     prog.modules.load_all()
-                while True:
-                    time.sleep(1)
             
             sys.exit(0) 
+        
         prog.init_config(args=args)
-
         prog.init_program()
 
-        # Define arguments that imply a one-shot command instead of an interactive session.
-        oneshot_args = [
-            'msg', 'file', 'image', 'load_folder', 'task', 'task_file', 'pipeline'
-        ]
-        # Check if any one-shot argument was explicitly passed by the user BEFORE CliArgs processing.
-        is_oneshot_command = any(getattr(args, arg, None) is not None for arg in oneshot_args)
-
         cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
-        
-        # If a one-shot command was given, the program can now exit.
-        if is_oneshot_command:
-            sys.exit(0)
-        
-        # Otherwise, no one-shot command was given, so start the main interactive loop.
-        if func.ALLOW_CLEAR_CONSOLE: 
-            func.clear_console()
 
-        print_chat_header(prog=prog)
         prog.run()
         
     except Exception as e:

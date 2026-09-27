@@ -1,3 +1,4 @@
+from enum import Enum
 import json
 import logging
 import os
@@ -9,7 +10,7 @@ from typing import Any, TypeVar, Generic, Optional, overload
 T = TypeVar("T")
 
 
-class ProgramSetting:
+class ProgramSetting(Enum):
     MODEL_NAME = "MODEL_NAME"
     MODEL_CONFIG_NAME = "MODEL_CONFIG_NAME"
     ROOT_DIRECTORY = "ROOT_DIRECTORY"
@@ -46,6 +47,12 @@ class ProgramSetting:
     VECTOR_MEMORY_ENABLED = "VECTOR_MEMORY_ENABLED"
     VECTOR_DB_PATH = "VECTOR_DB_PATH"
 
+    def __str__(self):
+        return self.value
+    
+    def __repr__(self):
+        return f"ProgramSetting.{self.name}"    
+
 
 class ProgramConfig(Generic[T]):
     _current: Optional["ProgramConfig"] = None
@@ -69,18 +76,18 @@ class ProgramConfig(Generic[T]):
         os.makedirs(user_directory, exist_ok=True)
         user_config_filename = os.path.join(user_directory, "config.json")
 
-        need_save = (
-            args.overwrite_config if hasattr(args, "overwrite_config") else False
-        )
+        need_save = args.overwrite_config if hasattr(args, "overwrite_config") else False
+        
 
         if not exists(path=user_config_filename) or need_save:
+            need_save = True
             self.logger.info(
-                f"config.json not found in {user_directory}. Copying default config."
+                f"Copying default config."
             )
             self.copy_templates_to_user_dir(user_directory)
 
         user_config = self.__load_to_dict(user_config_filename, user_directory)
-        if user_config:
+        if user_config and not need_save:
             default_config.update(user_config)
 
         self.config = default_config

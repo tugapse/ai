@@ -24,9 +24,6 @@ def ask(
     input_message: Union[str, List[Dict[str, str]]],
     write_to_file: bool = False,
     output_filename: Optional[str] = None,
-    thinking_mode: str = "spinner",
-    print_mode: str = "line",
-    tokens_per_print: int = 5,
     hide_think_anim: bool = False,
     print_output: bool = True,
     stream: bool = True
@@ -38,7 +35,6 @@ def ask(
     start_time = time()
     first_token_time = None
 
-    # 1. UI Initialization
     config = ProgramConfig.get_current() or ProgramConfig.load()
     ui = UIOrchestrator(config)
     
@@ -52,7 +48,6 @@ def ask(
     if hide_think_anim:
         handler.show_thinking_animation = False
 
-    # 2. Input Prep
     if isinstance(input_message, str):
         messages = [BaseModel.create_message(ChatRoles.USER, input_message)]
     else:
@@ -60,15 +55,12 @@ def ask(
 
     func.log(f"Direct: Querying {llm.model_name}...")
 
-    # 3. File Prep (FIX: Removed non-existent FILE_MODE_WRITE)
     if write_to_file and output_filename:
         file_dir = os.path.dirname(os.path.abspath(output_filename))
         if file_dir:
             os.makedirs(file_dir, exist_ok=True)
-        # We call it without a mode to trigger the default 'write/truncate' behavior
         func.write_to_file(output_filename, "")
 
-    # 4. Stream Loop
     try:
         for raw_token in llm.chat(messages, stream=stream):
             if first_token_time is None:
@@ -85,7 +77,6 @@ def ask(
                     printer.process_and_print(content)
 
                 if write_to_file and output_filename and content:
-                    # Use the constant we know exists
                     func.write_to_file(
                         output_filename, content, func.FILE_MODE_APPEND
                     )

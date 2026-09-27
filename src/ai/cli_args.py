@@ -26,6 +26,7 @@ from ai.direct import ask
 
 # Agent logic
 from ai.agents.agent import MessageOrchestrator, LLMConnector, ToolRegistry, load_pipeline_config
+from ai.program import Program
 from ai.tools.tool_loader import load_and_register_user_tools
 import ai.tools.agent_tools as agent_tools
 
@@ -54,11 +55,6 @@ class CliArgs:
         if hasattr(args, 'server') and args.server:
             self._handle_server_mode(prog, args)
             os._exit(0)
-
-        # Check for Client Mode (Tiny PC)
-        if hasattr(args, 'remote') and args.remote:
-            self._handle_client_mode(prog, args)
-            # Fall through to execute agent/direct logic via the remote connector
 
         # Default to Local/Direct Task Mode
         self._handle_local_direct_mode(prog, args)
@@ -132,18 +128,17 @@ def {function_name}(argument: str) -> str:
             sys.exit(0)
 
 
-    def _handle_server_mode(self, prog, args):
+    def _handle_server_mode(self, prog:Program, args):
         if args.server:
             try:
                 orchestrator = prog.models 
-                
                 if args.model:
                     try:
-                        orchestrator.load(args.model)
+                        orchestrator.load(args.model,"")
                     except Exception as e:
-                        func.log(f"{{Color.RED}}[ ! ] Neural Load Failed: {{e}}. Starting in STANDBY.{{Color.RESET}}")
+                        func.log(f"{Color.RED}[ ! ] Neural Load Failed: {e}. Starting in STANDBY.{Color.RESET}")
                 else:
-                    func.log(f"{{Color.CYAN}}[*] Neural Hub: Standby Mode. Awaiting Neural Link...{{Color.RESET}}")
+                    func.log(f"{Color.CYAN}[*] Neural Hub: Standby Mode. Awaiting Neural Link...{Color.RESET}")
                 
                 from modules.server.server_module import JarvisServerModule
                 server = JarvisServerModule( 
@@ -159,21 +154,6 @@ def {function_name}(argument: str) -> str:
                 func.log(f"\\n{{Color.YELLOW}}[ * ] Manual override engaged. Terminating JARVIS server.{{Color.RESET}}")
                 sys.exit(0)
                 
-
-    def _handle_client_mode(self, prog, args):
-        """
-        Swaps the local LLM for a Remote Connector to use the Main PC's GPU.
-        """
-        func.log(format_text("=== REMOTE BRAIN LINK ACTIVE ===", Color.YELLOW))
-        
-        remote_url = args.remote
-        # Replace the local LLM with the Remote Link
-        from modules.client.remote_connector import RemoteBrainConnector
-        
-        # We manually inject the remote connector into the program
-        prog.llm = RemoteBrainConnector(url=remote_url, model_id=args.model)
-        prog.llm_initialized = True # Mark as initialized to prevent lazy-loading local weights
-
     def _handle_local_direct_mode(self, prog, args):
         """
         The standard non-agent loop for one-shot tasks and context loading.

@@ -18,28 +18,37 @@ class ModelOrchestrator:
         self.active_model_name:str=""
         self.llm:Optional[BaseModel] = None
 
+    
+    def load(self, model_config_name: str, system_prompt: str, tool_registry:Optional[ToolRegistry] = None, model_config_data: Optional[dict] = None) -> BaseModel:
+        if model_config_data and "model_name" in model_config_data:
+            model_config_name = model_config_data["model_name"]
 
-    def load(self, model_config_name: str, system_prompt: str, tool_registry:Optional[ToolRegistry] = None) -> BaseModel:
         if not model_config_name:
             model_config_name = "default.json"
             
         if not str(model_config_name).endswith(".json"):
             model_config_name = f"{model_config_name}.json"
-        
+            
+        if model_config_data is None:
+            folder = self.config.get(ProgramSetting.PATHS_MODEL_CONFIGS)
+            if folder is None:
+                # Fallback to local project folder if config is missing the path
+                root = func.get_root_directory()
+                folder = os.path.join(root, "models")
+                
+            filename = os.path.join(folder, model_config_name)
+
+            try:
+                model_config_data = EngineManager.load_config(filename) 
+            except Exception as e:
+                func.error(f"ModelOrchestrator: Failed to load {filename}: {e}", level="CRITICAL")
+                sys.exit(1)
+
         if model_config_name != self.active_model_name:
             if self.llm: self.llm.request_shutdown()
-            
-        folder = self.config.get(ProgramSetting.PATHS_MODEL_CONFIGS)
-        if folder is None:
-            # Fallback to local project folder if config is missing the path
-            root = func.get_root_directory()
-            folder = os.path.join(root, "model-config")
-            
-        filename = os.path.join(folder, model_config_name)
 
         try:
-            model_config_data = EngineManager.load_config(filename) 
-            self.model_chat_name = model_config_data["model_name"]
+            self.model_chat_name = model_config_data.get("model_name", "No name Found")
 
             self.llm = EngineManager.load_model_instance(
                 model_config=model_config_data,
@@ -50,11 +59,12 @@ class ModelOrchestrator:
             if not self.llm:
                 raise ValueError("ModelManager returned None.")
 
+            self.active_model_name = model_config_name
             self._init_model_params()
             return self.llm
 
         except Exception as e:
-            func.error(f"ModelOrchestrator: Failed to load {filename}: {e}", level="CRITICAL")
+            func.error(f"ModelOrchestrator: Failed to load model {model_config_name}: {e}", level="CRITICAL")
             sys.exit(1)
 
     def _init_model_params(self):

@@ -9,7 +9,6 @@ import getpass
 import datetime
 
 from ai.core.context_file import ContextFile
-from ai.core.template_injection import TemplateInjection
 from ai.config import ProgramConfig, ProgramSetting  # Ensure these are correctly imported
 
 FILE_MODE_APPEND = "a"
@@ -18,6 +17,8 @@ FILE_MODE_CREATE = "w"
 LOCK_LOG = False  # This variable needs to be accessible globally for logging control
 LOCK_DEBUG = True  # This variable needs to be accessible globally for logging control
 
+ACTIVE_ERROR_FILENAME = None
+SESSION_ERROR_FILENAME = None
 ACTIVE_LOG_FILENAME = None
 SESSION_LOG_FILENAME = None
 ALLOW_CLEAR_CONSOLE = False
@@ -30,8 +31,6 @@ def get_system_info_prompt_concise() -> dict:
     for LLM token efficiency.
     """
     current_time = datetime.datetime.now().isoformat(timespec='seconds') # YYYY-MM-DDTHH:MM:SS
-    hostname = socket.gethostname()
-    user = getpass.getuser()
     os_info = f"{platform.system()} {platform.release()} ({platform.machine()})"
 
     # Constructing a single, compact string
@@ -137,7 +136,7 @@ def read_file(filename):
         sys.exit(1)  # Exit on read error as per original logic
 
 
-def resolve_path_and_get_content(input_value: str, base_folder_setting: str, default_ext: str = ".md") -> str:
+def resolve_path_and_get_content(input_value: str, base_folder_setting: ProgramSetting, default_ext: str = ".md") -> str:
     """
     Resolves an input string as a file path or returns the content of the file.
     Resolution order:
@@ -173,8 +172,6 @@ def resolve_path_and_get_content(input_value: str, base_folder_setting: str, def
         log(f"Resolved input '{input_value}' to direct file path.")
         return direct_path.read_text(encoding="utf-8")
 
-    # 3. Return the string as is
-    log(f"Treating input '{input_value}' as raw text.")
     return ""
 
 
@@ -263,17 +260,6 @@ def ensure_directory_exists(path: str,silent=False):
             sys.exit(1)  # Exit on critical directory creation failure
 
 
-# --- Logging/Output Functions (Adapted to use ProgramConfig.get_current()) ---
-
-def error(text, start_line="[ * ]", level="ERROR", **kargs):  # Added level for consistency
-    """
-    Logs an informational message to stderr, respecting PRINT_LOG setting.
-    """
-    formatted_text = get_formatted_text(text,start_line=start_line, level=level)
-    
-    print(formatted_text, **kargs)
-    sys.stdout.flush()
-    log(text,start_line=start_line, level='ERROR',**kargs)
 
 def log(text, start_line="[ * ]", level="INFO", **kargs):  # Added level for consistency
     """
@@ -297,17 +283,43 @@ def debug(text, start_line="[ # ]",  level="DEBUG", **kargs):
     formatted_text = get_formatted_text(text, start_line=start_line, level=level)
     if ACTIVE_LOG_FILENAME:
         write_to_file(
-            ACTIVE_LOG_FILENAME.replace("log_", "debug_"), f"{formatted_text}\n", FILE_MODE_APPEND,True
+            ACTIVE_LOG_FILENAME.replace("log_", "debug_"), f"{text}\n", FILE_MODE_APPEND,True
         )
     if SESSION_LOG_FILENAME:
         write_to_file(
             SESSION_LOG_FILENAME.replace("log_", "debug_"),
-            formatted_text,
+            text,
             FILE_MODE_APPEND,
             True
         )
         
-    if not LOCK_DEBUG or level=="ERROR":
+    if not LOCK_DEBUG:
+        print(formatted_text, **kargs)
+        sys.stdout.flush()
+
+def error(text, start_line="[ !! ]",  level="ERROR", **kargs):
+    """
+    Logs a debug message to stderr, respecting PRINT_DEBUG setting.
+    """
+    datetime_now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    line_number = sys._getframe(1).f_lineno
+    file_name = sys._getframe(1).f_code.co_filename
+    log_text = f" {datetime_now} ({file_name}, {line_number}) {text}"
+    formatted_text = get_formatted_text(text, start_line=start_line, level=level)
+
+    if ACTIVE_ERROR_FILENAME:
+        write_to_file(
+            ACTIVE_ERROR_FILENAME, f"{log_text}\n", FILE_MODE_APPEND,True
+        )
+    if SESSION_ERROR_FILENAME:
+        write_to_file(
+            SESSION_ERROR_FILENAME,
+            log_text,\
+            FILE_MODE_APPEND,
+            True
+        )
+        
+    if not LOCK_DEBUG:
         print(formatted_text, **kargs)
         sys.stdout.flush()
 

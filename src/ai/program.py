@@ -85,7 +85,7 @@ class Program:
 
         if hasattr(args, "modules") and args.modules:
             for mod_name in args.modules:
-                self.config.set(f"{mod_name.upper()}_ENABLED", True)
+                self.config.set(ProgramSetting(f"{mod_name.upper()}_ENABLED"), True)
                 func.log(f"Config: Enabled module '{mod_name}' via CLI argument.", level="DEBUG")
         
         if self.modules:
@@ -291,11 +291,11 @@ class Program:
                 func.log(traceback.format_exc(), level="ERROR")
 
     def run(self) -> None:
-        self.allow_tools = True
         func.log("Program: Interface active.")
+        self.allow_tools = True
         if not self.llm:
             raise RuntimeError("LLM failed to initialize. Cannot start chat loop.")
-        
+
         EventBinder.bind_core_events(
             chat=self.chat,
             llm=self.llm,
@@ -307,7 +307,13 @@ class Program:
         )
         self.chat.add_event(Chat.EVENT_AGENT_RUN_REQUESTED, self._handle_agent_run_requested)
 
-        try:
+        try:        
+            if func.ALLOW_CLEAR_CONSOLE: 
+                func.clear_console()
+             
+            self._print_chat_header()
+
+            
             self.chat.loop()
         except KeyboardInterrupt:
             func.log("\nProgram: Shutdown initiated.")
@@ -316,21 +322,31 @@ class Program:
             self.shutdown()
 
     def shutdown(self) -> None:
-        func.log("Program: Initiating aggressive shutdown...", level="DEBUG")
+        func.debug("Program: Initiating aggressive shutdown...", level="DEBUG")
         if not hasattr(self, "config") or self.config is None: return
 
-        if self.llm_initialized:
+        if self.llm_initialized and hasattr(self, "models") and hasattr(self.models, "llm"):
             try:
                 llm_instance = self.models.llm  
                 if llm_instance:
                     llm_instance.request_shutdown()
                     del self.models.llm
             except Exception as e:
-                func.log(f"Program: Error during LLM shutdown: {e}", level="ERROR")
+                func.error(f"Program: Error during LLM shutdown: {e}")
 
         if hasattr(self, "models"): del self.models
         gc.collect()
-        func.log("JARVIS Shutdown complete.", level="DEBUG")
+        func.debug("JARVIS Shutdown complete.", level="DEBUG")
 
     def route_session(self, filepath: str) -> None:
         if self.history: self.history.switch_active_session(filepath)
+
+    def _print_chat_header(self) -> None:
+        chat_name = self.models.get_chat_name() 
+    
+        if func.ALLOW_CLEAR_CONSOLE:
+            func.clear_console()
+        
+        func.out(f"{Color.CYAN} # {Color.RESET}Established neural link to: {Color.YELLOW}{chat_name}{Color.RESET}")
+        func.out(f"{Color.CYAN} #{Color.PURPLE} Sentinel status: ACTIVE | Logic: INJECTED{Color.RESET}")
+        func.out(f"{Color.CYAN} # {Color.RESET}-----------------------------------------------------------")
