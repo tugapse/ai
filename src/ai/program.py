@@ -325,14 +325,14 @@ class Program:
         func.debug("Program: Initiating aggressive shutdown...", level="DEBUG")
         if not hasattr(self, "config") or self.config is None: return
 
-        if self.llm_initialized:
+        if self.llm_initialized and hasattr(self, "models") and hasattr(self.models, "llm"):
             try:
                 llm_instance = self.models.llm  
                 if llm_instance:
                     llm_instance.request_shutdown()
                     del self.models.llm
             except Exception as e:
-                func.debug(f"Program: Error during LLM shutdown: {e}", level="ERROR")
+                func.error(f"Program: Error during LLM shutdown: {e}")
 
         if hasattr(self, "models"): del self.models
         gc.collect()

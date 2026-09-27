@@ -232,7 +232,7 @@ class GGUFImageLLM(BaseModel):
                         return 
                     yield token
                 except queue.Empty:
-                    if not self._generation_thread.is_alive(): break
+                    if self._generation_thread is None and not self._generation_thread.is_alive(): break
                     continue
         else:
             func.debug("[GGUF Engine] Executing synchronous generation...")

@@ -34,7 +34,7 @@ ui_confirm()  {
 }
 
 # --- GLOBAL CONFIGURATION ---
-AI_ENGINE=${AI_ENGINE:-ai}
+AI_ENGINE=${AI_ENGINE:-coiso}
 AI_ENGINE_DEFAULT_MODEL="${AI_ENGINE_DEFAULT_MODEL:-custom/task/create-project-doc}"
 
 # Runtime state
@@ -60,6 +60,20 @@ cleanup() {
     exit 130
 }
 trap cleanup SIGINT SIGTERM
+
+
+check_environment() {
+    if ! command -v "$AI_ENGINE -h" >/dev/null 2>&1; then
+        ui_error "AI engine '$AI_ENGINE' not found. Please install it and ensure it's in your PATH. You can set the AI_ENGINE environment variable if necessary."
+        exit 1
+    fi
+
+    if ! command -v git >/dev/null 2>&1; then
+        ui_warn "'git' command not found. Git diff mode will be unavailable."
+    fi
+
+}
+
 
 # --- UTILITY FUNCTIONS ---
 sanitize_path() {
@@ -267,4 +281,6 @@ main() {
     cleanup 
 }
 
+
+check_environment || echo "Environment check failed." && exit 1
 main "$@"

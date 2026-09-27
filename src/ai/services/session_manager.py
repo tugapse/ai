@@ -73,6 +73,8 @@ class SessionManager:
         func.ensure_directory_exists(session_paths["session_workspace_path"]) 
 
         # Update legacy global logs
+        func.ACTIVE_ERROR_FILENAME = os.path.join(logs_dir, "active_error_filename.log")
+        func.SESSION_ERROR_FILENAME = os.path.join(logs_dir, "logs", f"{session_timestamp}_error_filename.log")
         func.ACTIVE_LOG_FILENAME = os.path.join(logs_dir, "active_log_filename.log")
         func.SESSION_LOG_FILENAME = os.path.join(logs_dir, "logs", f"{session_timestamp}_log_filename.log")
         

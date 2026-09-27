@@ -168,7 +168,8 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
 
 def run():
     parser, args = load_args()
-    
+
+    # debugging flags for development purposes
     # args.remote     = "http://0.0.0.0:9999"
     # args.agent      = True
     # args.model      = "gemini/gemini-25"

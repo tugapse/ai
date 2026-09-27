@@ -233,7 +233,7 @@ class BaseModel:
 
     def join_generation_thread(self, timeout: float = 0.0) -> None:
         """Blocks execution until the background streaming generation thread fully unwinds or times out."""
-        if self._generation_thread and self._generation_thread.is_alive():
+        if self._generation_thread is not None and self._generation_thread.is_alive():
             self._generation_thread.join(timeout=timeout)
         self.stop_generation_event.clear()
 
