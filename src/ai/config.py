@@ -46,12 +46,14 @@ class ProgramSetting(Enum):
     VOICE_FILE = "VOICE_FILE"
     VECTOR_MEMORY_ENABLED = "VECTOR_MEMORY_ENABLED"
     VECTOR_DB_PATH = "VECTOR_DB_PATH"
+    SERVER_HOST = "SERVER_HOST"    
+    SERVER_PORT = "SERVER_PORT"
 
     def __str__(self):
         return self.value
     
     def __repr__(self):
-        return f"ProgramSetting.{self.name}"    
+        return f"ProgramSetting.{self.name}"
 
 
 class ProgramConfig(Generic[T]):

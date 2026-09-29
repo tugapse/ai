@@ -3,6 +3,7 @@ import copy
 import json
 from typing import Callable, Dict, Any, Optional, List
 
+from ai.agents.llm_connector import LLMConnector
 import ai.functions as func
 from ai.config import ProgramConfig, ProgramSetting
 from ai.color import Color
@@ -12,6 +13,8 @@ from ai.agents.memory_manager import AgentMemory, MemoryManager
 from ai.agents.context_sentinel import ContextSentinel
 from ai.agents.session_vault import SessionVault
 from ai.core.events import Events
+from ai.services.module_registry import ModuleRegistry
+from ai.tools.tool_registry import ToolRegistry
 
 MAX_ITERATIONS = 100
 MANAGER_AGENT_ROLE = "management"
@@ -24,7 +27,7 @@ class MessageOrchestrator(Events):
     EVENT_BEFORE_LLM_REQUEST = "before_llm_request"
     EVENT_AFTER_LLM_REQUEST = "after_llm_request"
 
-    def __init__(self, connector: Any, registry: Any, pipeline_config: Dict[str, Any], module_registry: Any):
+    def __init__(self, connector: LLMConnector, registry: ToolRegistry, pipeline_config: Dict[str, Any], module_registry: ModuleRegistry):
         super().__init__()
         self.connector = connector
         self.registry = registry
@@ -108,7 +111,7 @@ class MessageOrchestrator(Events):
             self.trigger("after_llm_request", {"agent": current_agent, "response": response})
 
             if response.get("status") == "FAILED":
-                if not self._handle_format_error(current_agent, response.get("error")):
+                if not self._handle_format_error(current_agent, response.get("error") or "Unknown parsing error."):
                     break
                 continue
 

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # ==============================================================================
 # Script: ai-create-project-doc.sh
@@ -19,22 +19,22 @@ CYAN='\033[0;36m'
 NC='\033[0m' 
 
 # --- LOCAL UI FUNCTIONS ---
-ui_section()  { echo -e "\n${BOLD}${CYAN}● $1${NC}"; ui_divider; }
-ui_info()     { echo -e "${CYAN}○${NC} $1"; }
-ui_warn()     { echo -e "${YELLOW}⚠${NC} $1"; }
-ui_error()    { echo -e "${RED}✖${NC} $1"; }
-ui_success()  { echo -e "${GREEN}✔${NC} $1"; }
+ui_section()  { echo -e "\n${BOLD}${CYAN} $1${NC}"; ui_divider; }
+ui_info()     { echo -e "${CYAN}${NC} $1"; }
+ui_warn()     { echo -e "${YELLOW}${NC} $1"; }
+ui_error()    { echo -e "${RED}${NC} $1"; }
+ui_success()  { echo -e "${GREEN}${NC} $1"; }
 ui_divider()  { echo -e "${CYAN}────────────────────────────────────────────────${NC}"; }
 ui_property() { printf "${BOLD}%-15s:${NC} %b\n" "$1" "$2"; }
 
 ui_confirm()  {
-    echo -ne "\n${YELLOW}${BOLD}⚡ $1 (y/N): ${NC}"
+    echo -ne "\n${YELLOW}${BOLD} $1 (y/N): ${NC}"
     read -r response
     [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]
 }
 
 # --- GLOBAL CONFIGURATION ---
-AI_ENGINE=${AI_ENGINE:-coiso}
+AI_ENGINE=${AI_ENGINE:-ai}
 AI_ENGINE_DEFAULT_MODEL="${AI_ENGINE_DEFAULT_MODEL:-custom/task/create-project-doc}"
 
 # Runtime state
@@ -63,8 +63,8 @@ trap cleanup SIGINT SIGTERM
 
 
 check_environment() {
-    if ! command -v "$AI_ENGINE -h" >/dev/null 2>&1; then
-        ui_error "AI engine '$AI_ENGINE' not found. Please install it and ensure it's in your PATH. You can set the AI_ENGINE environment variable if necessary."
+    if ! command -v "$AI_ENGINE" >/dev/null 2>&1; then
+        ui_error "Executable '$AI_ENGINE' not found. Please install it and ensure it's in your PATH. You can set the AI_ENGINE environment variable if necessary."
         exit 1
     fi
 
@@ -282,5 +282,5 @@ main() {
 }
 
 
-check_environment || echo "Environment check failed." && exit 1
+check_environment
 main "$@"

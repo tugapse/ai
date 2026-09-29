@@ -140,10 +140,10 @@ def {function_name}(argument: str) -> str:
                 else:
                     func.log(f"{Color.CYAN}[*] Neural Hub: Standby Mode. Awaiting Neural Link...{Color.RESET}")
                 
-                from modules.server.server_module import JarvisServerModule
+                from ai.modules.server.server_module import JarvisServerModule
                 server = JarvisServerModule( 
-                    host=prog.config.get("SERVER_HOST", "0.0.0.0"),
-                    port=prog.config.get("SERVER_PORT", 9999),
+                    host=prog.config.get(ProgramSetting.SERVER_HOST, "0.0.0.0"),
+                    port=prog.config.get(ProgramSetting.SERVER_PORT, 9999),
                     brain_hub=BrainHub(prog.config) 
                 )
                 
@@ -166,7 +166,7 @@ def {function_name}(argument: str) -> str:
         self._has_task(prog, args)
         
 
-    def _handle_agent_mode(self, prog, args):
+    def _handle_agent_mode(self, prog:Program, args):
         """Handles the execution of the agent pipeline."""
         taskfile=""
         if args.task_file:
@@ -190,7 +190,11 @@ def {function_name}(argument: str) -> str:
         if not pipeline_config:
             func.error("Failed to load pipeline config. Aborting.")
             sys.exit(1)
-
+        
+        if not prog.llm:
+            func.error("LLM not initialized. Cannot proceed with agent mode.")
+            sys.exit(1)
+        
         connector = LLMConnector(prog.llm)
         
         registry = ToolRegistry()

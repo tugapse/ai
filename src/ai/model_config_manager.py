@@ -3,7 +3,7 @@ import os
 import sys
 import argparse
 
-from entities.model_enums import ModelType
+from ai.entities.model_enums import ModelType
 import ai.functions as func 
 from ai.color import Color, format_text 
 

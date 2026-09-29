@@ -1,7 +1,7 @@
 from typing import Dict, Any, Optional
-from entities.model_enums import EngineType
-from services.engine_manager import EngineManager
-from services.config_helper import ProgramConfig, ProgramSetting
+from ai.entities.model_enums import EngineType
+from ai.services.engine_manager import EngineManager
+from ai.services.config_helper import ProgramConfig, ProgramSetting
 import ai.functions as func
 
 class ModuleRegistry:
@@ -57,7 +57,7 @@ class ModuleRegistry:
             func.log("Voice Engine not found. Run --install.", level="ERROR")
             return None
             
-        from modules.voice.vibe_module import VibeVoiceModule
+        from ai.modules.voice.vibe_module import VibeVoiceModule
         voice = VibeVoiceModule( voice_file=self.config.get(ProgramSetting.VOICE_FILE), volume=1.5) 
         voice.preload() 
         return voice
@@ -77,7 +77,7 @@ class ModuleRegistry:
         }
 
         try:
-            from modules.memory.vector_memory_module import VectorMemoryModule
+            from ai.modules.memory.vector_memory_module import VectorMemoryModule
             memory_module = VectorMemoryModule(db_path=db_path, **kwargs)
             func.log("VectorMemoryModule loaded (pending initialization).")
             return memory_module
@@ -88,7 +88,7 @@ class ModuleRegistry:
     def _load_knowledge_graph_logic(self):
         """Boots the KnowledgeGraph module wrapper."""
         try:
-            from modules.knowledge_graph import KnowledgeGraph
+            from ai.modules.knowledge_graph import KnowledgeGraph
             kg = KnowledgeGraph()
             if hasattr(kg, "preload"):
                 kg.preload()
@@ -97,7 +97,7 @@ class ModuleRegistry:
                 if hasattr(kg, "register_with_orchestrator"):
                     kg.register_with_orchestrator()
                 else:
-                    from modules.knowledge_graph import register_with_orchestrator as _kg_reg
+                    from ai.modules.knowledge_graph import register_with_orchestrator as _kg_reg
                     _kg_reg()
             except Exception as _e:
                 func.debug(f"KG integration hook failed: {_e}")
