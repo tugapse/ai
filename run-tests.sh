@@ -12,7 +12,6 @@ ANY_SPECIFIC_FLAG_SET=0
 VERBOSE=0
 
 
-# Function to display help message
 show_help() {
   echo "Usage: $(basename "$0") [OPTIONS]"
   echo "Run various test suites for the project."

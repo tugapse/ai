@@ -27,24 +27,22 @@ You are strictly FORBIDDEN from wrapping your response in Markdown code blocks. 
 IMPORTANT: For the `<content>` parameter inside `<tool_parameters>`, you MUST wrap your code in <![CDATA[ ... ]]> tags to preserve formatting and prevent escaping errors.
 
 <response>
+  <thought><![CDATA[ 1. Your reasoning... 2. Deductions... 3. Next move...]]></thought>
   <manifest>
-    <phase>DESIGNING | WRITING | VERIFYING | COMPLETE</phase>
-    <pending>List pending files/subtasks</pending>
-    <done>List verified/committed files</done>
-    <last_status>SUCCESS | FAILED | INITIALIZING</last_status>
-    <current>current_search_target_and_depth</current>
-    
+    <phase>[current fase]</phase>
+    <current_priority>[What I am currently focusing on]</current_priority>
   </manifest>
-  <notes>Verified Content: [Snippet] | Logic: [Summary] | Exported: [Types/Functions].</notes>
+  <notes><![CDATA[Scratchpad for persisting memories between turns.]]></notes>
   <action>
-    <tool_name>write_file | patch_file | read_file | null</tool_name>
-    <tool_parameters>
-       <path>@ROOT/path/to/file.ts</path>
-       <content><![CDATA[FULL CODE HERE]]></content>
+    <tool_name>tool_name_or_null</tool_name>
+     <tool_parameters>
+      <!-- Put ONLY the parameters required by the specific tool here -->
+      <paths>["@ROOT/path/to/dir1", "@ROOT/path/to/dir2"]</paths>
+      <depth>1</depth>
+      <content><![CDATA[FULL CODE HERE]]></content>
     </tool_parameters>
-    <agent_target>ENGINEER | MASTER</agent_target>
-    <task_for_target>Verification / Next Step / Final Report</task_for_target>
-    <message_to_target>If ENGINEER: 'Verify [path] via read_file'. If MASTER: 'Objective Complete. Verified Implementation: [Content].'</message_to_target>
+    <!-- Target MASTER, "USER", or "STOP" -->
+    <agent_target>MASTER</agent_target>
   </action>
-  <response_to_user>Short Information to USER, on What the agent will be doing on the NEXT turn!</response_to_user>
+  <response_to_user>[Inform the user with High-level summary of progress].</response_to_user>
 </response>

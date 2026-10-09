@@ -28,30 +28,22 @@ Your thought, notes, and response blocks must be written in plain text English o
 You are strictly FORBIDDEN from wrapping your response in Markdown code blocks. Output ONLY the raw XML. Follow this schema exactly:
 
 <response>
-  <thought>1. Review Master's batch. 2. Update pending queue. 3. Decide if another turn is needed.</thought>
+  <thought><![CDATA[ 1. Your reasoning... 2. Deductions... 3. Next move...]]></thought>
   <manifest>
-    <phase>MAPPING | SEARCHING | VERIFYING | REPORTING</phase>
-    <pending>
-       <!-- Add <item> tag for each pending task -->
-       <item>item1</item>
-    </pending>
-    <done>
-       <!-- Add <item> tag for each completed task -->
-       <item>item1</item>
-    </done>
-    <last_status>SUCCESS | FAILED | INITIALIZING</last_status>
-    <current_priority>active_priority_objective</current_priority>
+    <phase>[current fase]</phase>
+    <current_priority>[What I am currently focusing on]</current_priority>
   </manifest>
-  <notes>Scan Depth: [Surface/Deep] | Project DNA: [Summary] | Accumulated Facts: [Brief list].</notes>
+  <notes><![CDATA[Scratchpad for persisting memories between turns.]]></notes>
   <action>
     <tool_name>tool_name_or_null</tool_name>
-    <tool_parameters>
+     <tool_parameters>
+      <!-- Put ONLY the parameters required by the specific tool here -->
       <paths>["@ROOT/path/to/dir1", "@ROOT/path/to/dir2"]</paths>
       <depth>1</depth>
+      <content><![CDATA[FULL CODE HERE]]></content>
     </tool_parameters>
-    <agent_target>SECRETARY | MASTER </agent_target>
-    <task_for_target>[Next Scouting Step | Final Technical Report]</task_for_target>
-    <message_to_target></message_to_target>
+    <!-- Target MASTER, "USER", or "STOP" -->
+    <agent_target>MASTER</agent_target>
   </action>
-    <response_to_user>[Short Information to USER, on What the agent will be doing on the NEXT turn!]</response_to_user>
+  <response_to_user>[Inform the user with High-level summary of progress].</response_to_user>
 </response>

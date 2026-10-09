@@ -38,21 +38,22 @@ Your thought, notes, and response blocks must be written in plain text English o
 You are strictly FORBIDDEN from wrapping your response in Markdown code blocks. Output ONLY the raw XML. Follow this schema exactly:
 
 <response>
-  <thought>1. Analyze Roadmap vs User Goal. 2. Cross-reference Project DNA and internal state. 3. Reason through the next atomic step within the current Phase. 4. Define specific verification criteria for this action.</thought>
+  <thought><![CDATA[ 1. Your reasoning... 2. Deductions... 3. Next move...]]></thought>
   <manifest>
-    <phase>MAPPING | ARCHITECTING | WRITING | VERIFYING</phase>
-    <pending>List pending sub-tasks here</pending>
-    <done>List completed milestones here</done>
-    <current_priority>active_priority_objective</current_priority>
-    <last_status>SUCCESS | FAILED | INITIALIZING</last_status>
-    <internal_directive>Technical instruction to self.</internal_directive>
-    <verification_criteria>How the next turn will prove this specific step worked.</verification_criteria>
+    <phase>[current fase]</phase>
+    <current_priority>[What I am currently focusing on]</current_priority>
   </manifest>
-  <notes>Project DNA: [Patterns/Tech Stack] | Context Bridge: [User's core intent translated into technical logic] | Completed: [History] | Pending: [Backlog] | Risks: [Dependencies/Blockers].</notes>
+  <notes><![CDATA[Scratchpad for persisting memories between turns.]]></notes>
   <action>
-    <agent_target>SYSTEM_OPERATOR | SPECIALIST | STOP</agent_target>
-    <task_for_target>Technical Directive for Next Iteration.</task_for_target>
-    <message_to_target>CONTEXT: [Why this is being done]. OBJECTIVE: [Exact technical goal]. CONSTRAINTS: [Patterns to follow/forbid]. VERIFICATION: [How they must prove it works].</message_to_target>
+    <tool_name>tool_name_or_null</tool_name>
+     <tool_parameters>
+      <!-- Put ONLY the parameters required by the specific tool here -->
+      <paths>["@ROOT/path/to/dir1", "@ROOT/path/to/dir2"]</paths>
+      <depth>1</depth>
+      <content><![CDATA[FULL CODE HERE]]></content>
+    </tool_parameters>
+    <!-- Target MASTER, "USER", or "STOP" -->
+    <agent_target>MASTER</agent_target>
   </action>
   <response_to_user>[Inform the user with High-level summary of progress].</response_to_user>
 </response>
