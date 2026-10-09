@@ -19,6 +19,9 @@ from ai.tools.tool_registry import ToolRegistry
 MAX_ITERATIONS = 100
 MANAGER_AGENT_ROLE = "management"
 
+STOP_SIGNAL = "STOP"
+MASTER_AGENT = "MASTER"
+
 class MessageOrchestrator(Events):
     """
     Orchestrates multi-agent execution, routing, and state management.
@@ -65,13 +68,15 @@ class MessageOrchestrator(Events):
         self.vault = SessionVault(session_id)
         self._initialize_session_modules(session_id)
 
-        start_iteration, current_agent = self._start_hidration_state(session_id=session_id, user_prompt=user_prompt)
+        start_iteration, current_agent = self._get_saved_session(session_id=session_id, user_prompt=user_prompt)
+        
+        if current_agent is STOP_SIGNAL: current_agent = MASTER_AGENT   
 
         max_iterations = self.pipeline_config.get("max_iterations", MAX_ITERATIONS)
 
         for i in range(start_iteration, max_iterations):
             # Agent state validation at the start of the loop
-            if current_agent in [None, "STOP"]:
+            if current_agent in [None, STOP_SIGNAL]:
                 TerminalUI.log_step("Pipeline execution finished.", "SUCCESS")
                 break
 
@@ -126,40 +131,40 @@ class MessageOrchestrator(Events):
             if next_agent == "DONE":
                 func.log(f"Cycle complete for {current_agent}. Clearing memory.", level="WARN")
                 self.memory.clear(current_agent)
-                next_agent = "MASTER"
+                next_agent = MASTER_AGENT
 
             current_agent = next_agent
 
 
-    def _start_hidration_state(self, session_id: str, user_prompt: str)->tuple[int, str]:
+    def _get_saved_session(self, session_id: str, user_prompt: str)->tuple[int, str]:
 
-        current_agent = "MASTER"
+        current_agent = MASTER_AGENT
         start_iteration = 0
 
         if  self.vault:         
-            hydrated_state = self.vault.hydrate()
-            if hydrated_state:
+            session_state = self.vault.get_session()
+            if session_state:
                 TerminalUI.header(f"Resuming Session: {session_id}", "Sentinel Architect")
-                self._apply_state(hydrated_state)
-                current_agent = hydrated_state.get("current_agent", self.pipeline_config.get("entry_point"))
-                start_iteration = hydrated_state.get("iteration", 0)
+                self._apply_state(session_state)
+                current_agent = session_state.get("current_agent", self.pipeline_config.get("entry_point"))
+                start_iteration = session_state.get("iteration", 0)
 
                 # State integrity check: If the hydrated agent isn't in the current pipeline, reset to entry point.
-                if current_agent not in self.agents and current_agent not in ["STOP", "USER", "DONE"]:
+                if current_agent not in self.agents and current_agent not in [STOP_SIGNAL, "USER", "DONE"]:
                     func.log(f"Stale agent '{current_agent}' in session. Resetting to entry point.", level="WARN")
                     current_agent = self.pipeline_config.get("entry_point")
 
                 func.log(f"Orchestrator: State re-inflated. Resuming as {current_agent} at iteration {start_iteration}")
             else:
                 TerminalUI.header("Pipeline Execution Start", "Agent Orchestrator")
-                current_agent = self.pipeline_config.get("entry_point", "MASTER")
+                current_agent = self.pipeline_config.get("entry_point", MASTER_AGENT)
                 start_iteration = 0
                 # Seed initial objective only for new sessions
                 self.memory.add_message_to_agent(current_agent, {
                     "from": "USER", "message": user_prompt, "task": user_prompt
                 })
 
-        return start_iteration, current_agent or "MASTER"
+        return start_iteration, current_agent or MASTER_AGENT
 
     def _capture_state(self, next_agent: str, iteration: int) -> Dict[str, Any]:
         """Serializes current memory and orchestration metadata."""
@@ -241,12 +246,12 @@ class MessageOrchestrator(Events):
         is_empty = not tool_name or str(tool_name).upper() == "NULL"
         validated_target = self._validate_target(target, is_empty, agent, config)
 
-        if not is_empty and validated_target != "STOP":
+        if not is_empty and validated_target != STOP_SIGNAL:
             if not self._handle_tool_execution(tool_name, params, agent, config):
                 return agent
 
         msg_to_target = action.get("message_to_target")
-        if msg_to_target and validated_target not in ["STOP", agent]:
+        if msg_to_target and validated_target not in [STOP_SIGNAL, agent]:
             self.memory.add_message_to_agent(validated_target, {"from": agent, "message": msg_to_target, "task": action.get("task_for_target", "")})
 
         return validated_target or agent
@@ -329,7 +334,7 @@ class MessageOrchestrator(Events):
 
     def _validate_target(self, target: str, is_empty: bool, agent: str, config: Dict[str, Any]) -> str:
         if target == "USER": return "USER"
-        allowed = config.get("allowed_targets", ["STOP", "USER"])
+        allowed = config.get("allowed_targets", [STOP_SIGNAL, "USER"])
         if target and target not in allowed:
             self.memory.add_message_to_agent(agent, {"from": "SYSTEM", "message": f"Invalid transition target: {target}"})
             return agent

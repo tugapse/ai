@@ -55,7 +55,7 @@ class SessionVault:
         except Exception as e:
             func.error(f"SessionVault: Commit failed for {self.session_id}: {str(e)}")
 
-    def hydrate(self, turn_index: int = -1) -> Optional[Dict[str, Any]]:
+    def get_session(self, turn_index: int = -1) -> Optional[Dict[str, Any]]:
         """
         Re-inflates the orchestrator from the agent file.
         """
