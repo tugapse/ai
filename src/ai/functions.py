@@ -299,7 +299,7 @@ def debug(text, start_line="[ # ]",  level="DEBUG", **kargs):
 
 def error(text, start_line="[ !! ]",  level="ERROR", **kargs):
     """
-    Logs a debug message to stderr, respecting PRINT_DEBUG setting.
+    Logs an error message to stderr and ensures it is always printed to the console.
     """
     datetime_now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     line_number = sys._getframe(1).f_lineno
@@ -309,19 +309,19 @@ def error(text, start_line="[ !! ]",  level="ERROR", **kargs):
 
     if ACTIVE_ERROR_FILENAME:
         write_to_file(
-            ACTIVE_ERROR_FILENAME, f"{log_text}\n", FILE_MODE_APPEND,True
+            ACTIVE_ERROR_FILENAME, f"{log_text}\n", FILE_MODE_APPEND, True
         )
     if SESSION_ERROR_FILENAME:
         write_to_file(
             SESSION_ERROR_FILENAME,
-            log_text,\
+            log_text,
             FILE_MODE_APPEND,
             True
         )
         
-    if not LOCK_DEBUG:
-        print(formatted_text, **kargs)
-        sys.stdout.flush()
+    # FIX: Print critical errors to the console regardless of the debug lock
+    print(formatted_text, **kargs)
+    sys.stdout.flush()
 
 
 def out(text,  level="", **kargs):

@@ -1,31 +1,25 @@
-# Get the script's directory. This is a reliable way to get the script's location.
-$PSScriptRoot = Split-Path -Parent -Path $MyInvocation.MyCommand.Definition
+$ErrorActionPreference = "Stop"
 
-# Construct the path to the activation script
-$activationScript = Join-Path $PSScriptRoot ".venv\Scripts\Activate.ps1"
+$FOLDER = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
 
-# Check if the activation script exists
-if (Test-Path $activationScript) {
-    # Activate the virtual environment
-    & $activationScript
-} else {
-    Write-Error "Virtual environment activation script not found at '$activationScript'. Please ensure the .venv is set up correctly."
+# Ensure absolute module imports (e.g., 'import src.ai') resolve correctly
+$env:PYTHONPATH = $FOLDER
+$env:PYTHONUNBUFFERED = "1"
+
+$VENV_PATH = Join-Path -Path $FOLDER -ChildPath ".venv"
+$VENV_PYTHON = Join-Path -Path $VENV_PATH -ChildPath "Scripts\python.exe"
+$MAIN_SCRIPT = Join-Path -Path $FOLDER -ChildPath "src\ai\main.py"
+
+# Enforce virtual environment usage to prevent missing dependency errors
+if (-not (Test-Path -LiteralPath $VENV_PYTHON)) {
+    Write-Host "[!] Virtual environment not found. Please run .\build.ps1 first." -ForegroundColor Red
     exit 1
 }
 
-# Set environment variable 
-$env:TQDM_DISABLE = "1"
-$env:PYTHONPATH = "$PSScriptRoot/src"
+# Set VIRTUAL_ENV variable just in case any underlying Python scripts check for it
+$env:VIRTUAL_ENV = $VENV_PATH
 
+# Execute main.py using the isolated Python environment
+& $VENV_PYTHON $MAIN_SCRIPT @args
 
-# Construct the path to the main Python script
-$mainScript = Join-Path $PSScriptRoot "src/ai/main.py"
-
-# Run the main Python script, passing along any arguments
-# The '$args' variable in PowerShell contains all arguments passed to the script.
-python -X faulthandler $mainScript $args
-
-# Deactivate the virtual environment if the function exists
-if (Get-Command -Name deactivate -ErrorAction SilentlyContinue) {
-    deactivate
-}
+exit $LASTEXITCODE
