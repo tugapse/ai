@@ -2,7 +2,7 @@ from typing import Any, Optional
 import functions as func
 from ai.modules.base_module import BaseModule
 from ai.core.llms.base_llm import BaseModel
-from ai.modules.memory.vector_memory import VectorMemory
+from ai.modules.vector_memory.vector_memory import VectorMemory
 
 class VectorMemoryModule(BaseModule):
     """

@@ -3,7 +3,7 @@ import time
 import hashlib
 from unittest.mock import MagicMock, patch
 
-from ai.modules.memory.vector_memory import VectorMemory
+from ai.modules.vector_memory.vector_memory import VectorMemory
 
 
 
@@ -14,9 +14,9 @@ def mock_providers(mocker):
     mock_embedder_provider = MagicMock()
     mock_llm_provider = MagicMock()
 
-    mocker.patch('ai.modules.memory.vector_memory.ChromaDBProvider', return_value=mock_db_provider)
-    mocker.patch('ai.modules.memory.vector_memory.SentenceTransformerEmbeddingProvider', return_value=mock_embedder_provider)
-    mocker.patch('ai.modules.memory.vector_memory.LLMProvider', return_value=mock_llm_provider)
+    mocker.patch('ai.modules.vector_memory.vector_memory.ChromaDBProvider', return_value=mock_db_provider)
+    mocker.patch('ai.modules.vector_memory.vector_memory.SentenceTransformerEmbeddingProvider', return_value=mock_embedder_provider)
+    mocker.patch('ai.modules.vector_memory.vector_memory.LLMProvider', return_value=mock_llm_provider)
     
     return mock_db_provider, mock_embedder_provider, mock_llm_provider
 

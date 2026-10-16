@@ -19,7 +19,7 @@ from ai.color import Color
 from ai.tools.tool_registry import ToolRegistry
 
 class GeminiAPIModel(BaseModel):
-    def __init__(self, model_name="gemini-2.5-flash", system_prompt="", api_key=None, use_vertex=True, project_id=None, location="us-central1", **kargs):
+    def __init__(self, model_name="gemini-3.8-flash", system_prompt="", api_key=None, use_vertex=True, project_id=None, location="global", **kargs):
         func.log(f"Initializing GeminiAPIModel for model: {model_name}")
         
         super().__init__(model_name, system_prompt, **kargs)

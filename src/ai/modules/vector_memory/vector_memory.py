@@ -9,7 +9,7 @@ import ai.functions as func
 from ai.chat.chat import ChatRoles
 from ai.core.llms.base_llm import BaseModel
 from ai.direct import ask
-from ai.modules.memory.memory_tools import MemoryTools
+from ai.modules.vector_memory.memory_tools import MemoryTools
 
 SentenceTransformer = None
 chromadb = None

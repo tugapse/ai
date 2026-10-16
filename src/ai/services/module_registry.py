@@ -31,7 +31,7 @@ class ModuleRegistry:
     def load_all(self):
         """Loads all modules specified as enabled in the configuration."""
         for mod_name, loader_func in self._manifest.items():
-            config_key = f"{mod_name.upper()}_ENABLED"
+            config_key = f"{mod_name.upper()}_ENABLED" 
 
             # Determine whether to load this module
             enabled_value = None
@@ -68,16 +68,16 @@ class ModuleRegistry:
             func.log("Vector Memory module not found. Run --install.", level="ERROR")
             return None
 
-        db_path = self.config.get("VECTOR_DB_PATH") or func.get_root_directory() + "/databases"
+        db_path = self.config.get(ProgramSetting.VECTOR_DB_PATH) or func.get_root_directory() + "/databases"
         
         kwargs = {
-            "recency_weight": self.config.get("VECTOR_RECENCY_WEIGHT", 1.0),
-            "importance_weight": self.config.get("VECTOR_IMPORTANCE_WEIGHT", 1.0),
-            "relevance_weight": self.config.get("VECTOR_RELEVANCE_WEIGHT", 1.0),
+            "recency_weight": self.config.get(ProgramSetting.VECTOR_RECENCY_WEIGHT, 1.0),
+            "importance_weight": self.config.get(ProgramSetting.VECTOR_IMPORTANCE_WEIGHT, 1.0),
+            "relevance_weight": self.config.get(ProgramSetting.VECTOR_RELEVANCE_WEIGHT, 1.0),
         }
 
         try:
-            from ai.modules.memory.vector_memory_module import VectorMemoryModule
+            from ai.modules.vector_memory.vector_memory_module import VectorMemoryModule
             memory_module = VectorMemoryModule(db_path=db_path, **kwargs)
             func.log("VectorMemoryModule loaded (pending initialization).")
             return memory_module

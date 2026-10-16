@@ -2,7 +2,7 @@ import pytest
 import hashlib
 from unittest.mock import MagicMock, patch
 
-from ai.modules.memory.rag_engine import _chunk_text, ingest_text, retrieve_context
+from ai.modules.vector_memory.rag_engine import _chunk_text, ingest_text, retrieve_context
 
 def test_chunk_text():
     text = "word1 word2 word3 word4 word5 word6 word7 word8 word9 word10"
@@ -23,8 +23,8 @@ def test_chunk_text():
     short_text = "word1 word2"
     assert _chunk_text(short_text, chunk_size=4, overlap=2) == [short_text]
 
-@patch("ai.modules.memory.rag_engine.RAGChromaDBProvider")
-@patch("ai.modules.memory.rag_engine.RAGEmbeddingProvider")
+@patch("ai.modules.vector_memory.rag_engine.RAGChromaDBProvider")
+@patch("ai.modules.vector_memory.rag_engine.RAGEmbeddingProvider")
 def test_ingest_text(mock_embedding, mock_db):
     mock_db_instance = MagicMock()
     mock_db.return_value = mock_db_instance
@@ -67,8 +67,8 @@ def test_ingest_text(mock_embedding, mock_db):
 def test_ingest_text_empty():
     assert ingest_text("", {}, "test_col") is None
 
-@patch("ai.modules.memory.rag_engine.RAGChromaDBProvider")
-@patch("ai.modules.memory.rag_engine.RAGEmbeddingProvider")
+@patch("ai.modules.vector_memory.rag_engine.RAGChromaDBProvider")
+@patch("ai.modules.vector_memory.rag_engine.RAGEmbeddingProvider")
 def test_retrieve_context(mock_embedding, mock_db):
     mock_db_instance = MagicMock()
     mock_db.return_value = mock_db_instance
@@ -111,8 +111,8 @@ def test_chunk_text_invalid_overlap():
     assert len(chunks) == 1
     assert chunks[0] == "word1 word2"
 
-@patch("ai.modules.memory.rag_engine.RAGChromaDBProvider")
-@patch("ai.modules.memory.rag_engine.RAGEmbeddingProvider")
+@patch("ai.modules.vector_memory.rag_engine.RAGChromaDBProvider")
+@patch("ai.modules.vector_memory.rag_engine.RAGEmbeddingProvider")
 def test_ingest_text_deterministic_ids(mock_embedding, mock_db):
     """Ensure identical inputs produce the exact same SHA-256 chunk IDs."""
     mock_db_instance = MagicMock()
@@ -135,8 +135,8 @@ def test_ingest_text_deterministic_ids(mock_embedding, mock_db):
     args, kwargs = mock_db_instance.upsert.call_args_list[0]
     assert kwargs["memory_id"] == expected_id
 
-@patch("ai.modules.memory.rag_engine.RAGChromaDBProvider")
-@patch("ai.modules.memory.rag_engine.RAGEmbeddingProvider")
+@patch("ai.modules.vector_memory.rag_engine.RAGChromaDBProvider")
+@patch("ai.modules.vector_memory.rag_engine.RAGEmbeddingProvider")
 def test_retrieve_context_sorting_and_limits(mock_embedding, mock_db):
     """Ensure results are sorted by score descending, and max_items is strictly enforced."""
     mock_db_instance = MagicMock()

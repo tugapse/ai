@@ -82,7 +82,7 @@ class TerminalUI:
         func.out(f"\n{Color.BLUE}╭── {Color.BG_YELLOW}{Color.NORMAL_BLACK} AUTHORIZATION REQUIRED {Color.RESET}{Color.BLUE} ───")
         func.out(f"│ {Color.NORMAL_CYAN}TOOL:   {Color.RESET}{tool_name}")
         if command:
-            func.out(f"│ {Color.NORMAL_CYAN}COMMA.: {Color.RESET}{command}")
+            func.out(f"│ {Color.NORMAL_CYAN}CMD    : {Color.RESET}{command}")
         func.out(f"│ {Color.NORMAL_CYAN}TARGET: {Color.RESET}{target}")
         func.out(f"╰───────────────────────────────────────────────────{Color.RESET}")
 
@@ -95,8 +95,14 @@ class TerminalUI:
     @staticmethod
     def log_step(step_name: str, status: str = "SUCCESS"):
         color = TerminalUI.OK if status == "SUCCESS" else TerminalUI.FAIL
-        icon = TerminalUI.ICON_SUCCESS if status == "SUCCESS" else TerminalUI.ICON_ERROR
+        icon = TerminalUI.ICON_SUCCESS if status == "SUCCESS" else TerminalUI.ICON_AGENT
         func.out(f"\n{color}{icon} {step_name}{TerminalUI.RESET}")
+
+    @staticmethod
+    def agent_step(status: str = "SUCCESS"):
+        color = TerminalUI.OK 
+        icon = TerminalUI.ICON_AGENT
+        func.out(f"\n{color}{icon} {status}{TerminalUI.RESET}")
 
     @staticmethod
     def clear_line():

@@ -42,7 +42,7 @@ class MemoryManager:
             "agents": {name: asdict(mem) for name, mem in self.agents.items()}
         }
 
-    def hydrate(self, data: Dict[str, Any]):
+    def load_state(self, data: Dict[str, Any]):
         """
         Restores the memory state from a dictionary. 
         Safely maps keys to maintain compatibility if the agent pool changes.

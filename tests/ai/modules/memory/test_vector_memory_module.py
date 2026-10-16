@@ -5,7 +5,7 @@ from unittest.mock import patch, Mock, ANY
 import sys
 from unittest.mock import MagicMock
 
-from ai.modules.memory.vector_memory_module import VectorMemoryModule
+from ai.modules.vector_memory.vector_memory_module import VectorMemoryModule
 
 
 class TestVectorMemoryModule(unittest.TestCase):
@@ -13,9 +13,9 @@ class TestVectorMemoryModule(unittest.TestCase):
     def setUp(self):
         """Set up a fresh module instance, mocks, and a temporary directory before each test."""
         # Start patchers
-        self.func_patcher = patch('ai.modules.memory.vector_memory_module.func')
+        self.func_patcher = patch('ai.modules.vector_memory.vector_memory_module.func')
         # Patch the class where it is defined for reliability
-        self.vm_patcher = patch('ai.modules.memory.vector_memory_module.VectorMemory')
+        self.vm_patcher = patch('ai.modules.vector_memory.vector_memory_module.VectorMemory')
 
         self.mock_functions = self.func_patcher.start()
         self.mock_vector_memory = self.vm_patcher.start()

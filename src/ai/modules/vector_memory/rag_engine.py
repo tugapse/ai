@@ -2,7 +2,7 @@ import hashlib
 from typing import Any, List, Dict
 
 import ai.functions as func
-from ai.modules.memory.vector_memory import SentenceTransformerEmbeddingProvider, ChromaDBProvider
+from ai.modules.vector_memory.vector_memory import SentenceTransformerEmbeddingProvider, ChromaDBProvider
 
 
 class RAGChromaDBProvider(ChromaDBProvider):

@@ -179,7 +179,7 @@ class MessageOrchestrator(Events):
 
     def _apply_state(self, state: Dict[str, Any]):
         """Injects serialized state back into active managers."""
-        self.memory.hydrate(state.get("memory", {}))
+        self.memory.load_state(state.get("memory", {}))
         self.memory.context.plan = state.get("context_plan", [])
         self.memory.context.current_step_index = state.get("step_index", 0)
         self.auto_authorized_tools = set(state.get("auto_authorized_tools", []))
@@ -191,7 +191,7 @@ class MessageOrchestrator(Events):
         return {n: f for n, f in tool_pool.items() if n in allowed}
 
     def _prepare_payload(self, user_prompt: str, agent: str) -> Dict[str, Any]:
-        
+        """Constructs the payload for the LLM, including context, history, and recent outcomes."""
         mem = self.memory.get_agent_memory(agent)
         if not mem :
             raise ValueError(f"Agent memory not found for {agent}")
@@ -208,7 +208,7 @@ class MessageOrchestrator(Events):
             "agent_notes": mem.notes,
             "messages_received": mem.messages_received,
             "conversation_history": mem.history[-10:],
-            "plan": self.memory.context.plan,
+            "plan": self.memory.context.plan, # FIXME We are not fetching the plan from the response nor injecting it into the payload.
             "current_step": self.memory.context.current_step_index,
             "recent_outcomes": self._format_recent_outcomes(self.memory.context.tool_results[-3:]),
             "context": {"files_in_project": list(set(filter(None, known_files)))}
@@ -307,14 +307,16 @@ class MessageOrchestrator(Events):
             formatted.append({"tool": o["tool"], "result": raw_str})
         return formatted
 
+
     def _handle_format_error(self, agent: str, error: str) -> bool:
+        """Handles repeated parsing failures, enforcing a limit to prevent infinite loops."""
         self.format_error_count += 1
         
-        if self.format_error_count >= 3:
+        if self.format_error_count >= 10:
             TerminalUI.header("Sentinel loop error!", f"{agent} stuck in format loop.")
             # In a non-interactive test environment, we can't ask for input.
             # We will log the error and break the loop.
-            func.error(f"Agent {agent} failed to produce valid output 3 times. Halting loop.")
+            func.error(f"Agent {agent} failed to produce valid output 10 times. Halting loop.")
             return False
 
         error_msg = (
@@ -326,10 +328,16 @@ class MessageOrchestrator(Events):
         return True
 
     def _gatekeeper(self, tool: str, params: Dict[str, Any]) -> bool:
-        if tool in self.auto_authorized_tools or tool not in ["execute_command"]: return True
-        TerminalUI.auth_request(tool, params.get('path') or params.get('command') or "System", params.get('command', ""))
-        choice = input("Allow? (y/n/all): ").lower().strip()
-        if choice == 'all': self.auto_authorized_tools.add(tool); return True
+        if tool in self.auto_authorized_tools or tool not in ["execute_command"]: 
+            TerminalUI.agent_step(f"Executing tool: {tool} with params: {params}")
+            return True
+        
+        TerminalUI.auth_request(tool, params.get('path') or "@ROOT", params.get('command', ""))
+        choice = input("Allow? ( y / n / (a)ll): ").lower().strip()
+        
+        # TODO: Improve the mechanism to remember user choices for specific tools or paths to avoid repeated prompts in the same session.
+        if choice == 'all' or choice == 'a': self.auto_authorized_tools.add(tool); return True
+        
         return choice in ['y', 'yes']
 
     def _validate_target(self, target: str, is_empty: bool, agent: str, config: Dict[str, Any]) -> str:

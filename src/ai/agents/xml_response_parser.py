@@ -44,7 +44,7 @@ class ResponseParser:
             end = raw_string.rfind("</response>")
 
             if start == -1 or end == -1:
-                return {"status": "FAILED", "error": "Missing response boundaries"}
+                return {"status": "FAILED", "error": f"Missing response boundaries.", "response_to_user": raw_string}
 
             xml_block = raw_string[start : end + 11].strip()
 

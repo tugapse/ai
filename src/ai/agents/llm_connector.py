@@ -57,8 +57,12 @@ class LLMConnector:
         parsed = self.parser.parse(raw_response)
         
         if parsed.get("status") == "FAILED":
-            func.error(f"XML Parsing Failed: {parsed.get('error')}")
-            
+            raw_Content = parsed.get("response_to_user", None)
+
+            if not raw_Content:
+                func.error(f"XML Parsing Failed: {parsed.get('error')}")
+            else:
+                func.out(raw_Content)
         return parsed
 
     def send_raw_request(self, payload: Dict[str, Any], system_prompt: str = "") -> str:

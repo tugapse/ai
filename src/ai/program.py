@@ -12,8 +12,8 @@ from ai.color import Color
 
 # Agent & Tools
 from ai.agents.agent import Agent
-from ai.modules.memory.vector_memory_module import VectorMemoryModule
-from ai.modules.memory.vector_memory import VectorMemory
+from ai.modules.vector_memory.vector_memory_module import VectorMemoryModule
+from ai.modules.vector_memory.vector_memory import VectorMemory
 from ai.tools.tool_registry import ToolRegistry
 from ai.tools.agent_tools import AVAILABLE_TOOLS
 from ai.tools.tool_loader import load_and_register_user_tools

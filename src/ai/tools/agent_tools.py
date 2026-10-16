@@ -81,7 +81,6 @@ def execute_command(**kwargs) -> Dict[str, Any]:
     Use the '@ROOT' token in commands to refer to the absolute path of the project base directory.
     
     Args:
-        intent (str): Clear reasoning of why this tool is being called and the expected outcome. Required.
         command (str): The raw shell command to execute. Required.
         path (str): The directory path to run the command in. Defaults to '@ROOT'.
         timeout (int): Maximum execution time in seconds. Defaults to 180.
@@ -122,13 +121,12 @@ def read_dir(**kwargs) -> Dict[str, Any]:
     Use the '@ROOT' token to refer to the absolute path of the project base directory.
     
     Args:
-        intent (str): Clear reasoning of why this tool is being called and the expected outcome. Required.
-        paths (str | List[str]): A single path string or a list of paths to inspect. Defaults to '@ROOT'.
+        path (str | List[str]): A single path string or a list of paths to inspect. Defaults to '@ROOT'.
         depth (int): How many levels deep to recursively list folders. Defaults to 0 (current directory only).
     """
     try:
         path_input = kwargs.get("paths", kwargs.get("path", "@ROOT"))
-        paths = ensure_list(path_input)
+        path = ensure_list(path_input)
         depth = int(kwargs.get("depth", 0))
         results = {}
         had_errors = False
@@ -148,7 +146,7 @@ def read_dir(**kwargs) -> Dict[str, Any]:
                     res["folders"][d] = "[Sub-entries hidden. Increase depth to see.]"
             return res
 
-        for p in paths:
+        for p in path:
             try:
                 target = _resolve_path({"path": p})
                 if not os.path.isdir(target):
@@ -161,7 +159,7 @@ def read_dir(**kwargs) -> Dict[str, Any]:
 
         if had_errors:
             error_summary = "One or more paths could not be read."
-            if len(paths) == 1:
+            if len(path) == 1:
                 error_summary = next(iter(results.values()))
             return {"status": "FAILED", "error": error_summary, "results": results}
 
@@ -174,17 +172,16 @@ def read_file(**kwargs) -> Dict[str, Any]:
     Retrieves the full UTF-8 text content of one or more specific files.
     
     Args:
-        intent (str): Clear reasoning of why this tool is being called and the expected outcome. Required.
-        paths (str | List[str]): A single file path or a list of file paths to read. Required.
+        path (str | List[str]): A single file path or a list of file paths to read. Required.
     """
     try:
-        path_input = kwargs.get("paths", kwargs.get("path", []))
-        paths = ensure_list(path_input)
+        path_input = kwargs.get("path")
+        path = ensure_list(path_input)
         
         results = {}
         had_errors = False
 
-        for p in paths:
+        for p in path:
             try:
                 full_path = _resolve_path({"path": p})
                 if not os.path.isfile(full_path):
@@ -199,7 +196,7 @@ def read_file(**kwargs) -> Dict[str, Any]:
         
         if had_errors:
             error_summary = "One or more files could not be read."
-            if len(paths) == 1:
+            if len(path) == 1:
                 error_summary = next(iter(results.values()))
             return {"status": "FAILED", "error": error_summary, "files": results}
 
@@ -213,7 +210,6 @@ def write_file(**kwargs) -> Dict[str, Any]:
     Automatically creates necessary parent directories.
     
     Args:
-        intent (str): Clear reasoning of why this tool is being called and the expected outcome. Required.
         path (str): The destination file path to write to. Required.
         content (str): The raw text or code to write into the file. MANDATORY: Use the YAML pipe (|) for all multi-line content. Required.
     """
@@ -234,7 +230,6 @@ def smart_search(**kwargs) -> Dict[str, Any]:
     Paginates results to prevent context window overflow (50 items per page).
     
     Args:
-        intent (str): Clear reasoning of why this tool is being called and the expected outcome. Required.
         pattern (str): The search keyword or regex pattern to look for. Required.
         path (str): The base directory to search within. Defaults to '@ROOT'.
         exclude_dirs (List[str]): Additional directory names to ignore during the search.
@@ -350,7 +345,6 @@ def patch_file(**kwargs) -> Dict[str, Any]:
     Surgically replaces a specific block of text within a file without overwriting the entire file.
     
     Args:
-        intent (str): Clear reasoning of why this tool is being called and the expected outcome. Required.
         path (str): The exact path to the file to modify. Required.
         search (str): The exact string block currently in the file to find. MANDATORY: Use the YAML pipe (|). Required.
         replace (str): The new string block to insert. MANDATORY: Use the YAML pipe (|). Required.

@@ -29,7 +29,7 @@ class MemoryTools:
     def query_memory(self, **kwargs) -> Dict[str, Any]:
         """
         ACTION: RECALL specific findings, code signatures, or technical context from Long-Term Memory (LTM).
-        USE CASE: Mandatory to use if the information you need was recently 'Pruned' or 'Distilled' by the Sentinel, or if you need historical context without re-scanning physical files.
+        USE CASE: Mandatory to use if the information you need was recently 'Pruned' or 'Distilled' by the SYSTEM, or if you need historical context without re-scanning physical files.
         BENEFIT: Prevents context window overflow and saves compute tokens.
         
         INPUTS:
