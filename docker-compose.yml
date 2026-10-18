@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     image: jarvis-ai:latest
     container_name: jarvis-ai
-    command: ["--server"]
+    command: ["--help"]
     ports:
       - "9999:9999"
     environment:
@@ -17,13 +17,6 @@ services:
     volumes:
       # Mount host path directly to the identical path inside the container:
       - ${AI_ASSISTANT_DIRECTORY}:${AI_ASSISTANT_DIRECTORY}
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9999/api/health || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-    restart: unless-stopped
     networks:
       - jarvis-network
 

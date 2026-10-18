@@ -19,5 +19,5 @@ elif [ "$1" = "bash" ] || [ "$1" = "sh" ]; then
     exec "$@"
 else
     echo "Starting Interactive AI Assistant CLI..."
-    exec python3 /app/src/ai/main.py "$@"
+    exec /app/run.sh "$@"
 fi
