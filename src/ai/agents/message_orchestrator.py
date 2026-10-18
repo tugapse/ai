@@ -312,11 +312,11 @@ class MessageOrchestrator(Events):
         """Handles repeated parsing failures, enforcing a limit to prevent infinite loops."""
         self.format_error_count += 1
         
-        if self.format_error_count >= 10:
+        if self.format_error_count >= 3:
             TerminalUI.header("Sentinel loop error!", f"{agent} stuck in format loop.")
             # In a non-interactive test environment, we can't ask for input.
             # We will log the error and break the loop.
-            func.error(f"Agent {agent} failed to produce valid output 10 times. Halting loop.")
+            func.error(f"Agent {agent} failed to produce valid output 3 times. Halting loop.")
             return False
 
         error_msg = (

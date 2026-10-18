@@ -8,16 +8,19 @@ set -e
 SCRIPT_DIR=$(dirname -- "$(realpath -- "$0")")
 VENV_DIR="$SCRIPT_DIR/../.venv"
 
-# Check if the virtual environment directory exists
-if [ ! -d "$VENV_DIR" ]; then
-  echo "Error: Virtual environment not found at '$VENV_DIR'."
+# Activate virtual environment if present, otherwise rely on system/container environment
+if [ -d "$VENV_DIR" ]; then
+  echo "Activating virtual environment at $VENV_DIR..."
+  source "$VENV_DIR/bin/activate"
+elif command -v pytest >/dev/null 2>&1; then
+  echo "Virtual environment not present; using environment pytest..."
+else
+  echo "Error: Virtual environment not found at '$VENV_DIR' and pytest is not installed."
   echo "Please run the build script first to set up the environment."
   exit 1
 fi
 
-# Activate the virtual environment, install dependencies, and run pytest
 echo "Running tests..."
-source "$VENV_DIR/bin/activate"
 
 echo "Executing pytest..."
 export PYTHONPATH=$PYTHONPATH:./src
