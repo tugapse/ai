@@ -13,9 +13,15 @@ C_BLUE = "\033[94m"
 C_CYAN = "\033[96m"
 C_END = "\033[0m"
 
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-CONFIG_FILE = os.path.join(BASE_DIR, "installed_engines.json")
-VENV_DIR = os.path.join(BASE_DIR, ".venv")
+BASE_DIR = os.environ.get(
+    "AI_PROJECT_ROOT",
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..")),
+)
+CONFIG_FILE = os.environ.get(
+    "AI_ENGINE_STATUS_FILE",
+    os.path.join(BASE_DIR, "installed_engines.json"),
+)
+VENV_DIR = os.environ.get("AI_VENV_PATH", os.path.join(BASE_DIR, ".venv"))
 
 SYSTEM_REQS = {
     "gguf": {

@@ -46,6 +46,14 @@ The assistant includes an **Agentic Mode** that allows the LLM to interact with 
     ./build.sh
     ```
 
+    On Windows, run the PowerShell setup script and compile the executable:
+    ```powershell
+    .\build.ps1
+    .\compile.ps1
+    ```
+    The executable is created at `dist\ai.exe` and includes `run.ps1`, the Python source, assets, and installer. Copy the EXE and `.venv` folder together to run it without the source checkout. For example, from a folder containing both, run `.\ai.exe -m "hello"`.
+    To install additional engines, run `.\ai.exe --install` from that folder. Installation updates `installed_engines.json` beside the EXE.
+
 ---
 
 ##  Usage

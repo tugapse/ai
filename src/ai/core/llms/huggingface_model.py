@@ -21,7 +21,7 @@ import ai.functions as func
 from ai.core.llms.base_llm import BaseModel, ModelParams
 from ai.core.events import Events
 from ai.color import Color
-from tools.tool_registry import ToolRegistry
+from ai.tools.tool_registry import ToolRegistry
 
 # Relative import of your extracted logic folder
 from .hf import HFModelLoaderMixin, HFPipelineMixin, HFEngineMixin

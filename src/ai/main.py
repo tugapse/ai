@@ -29,8 +29,11 @@ def get_project_version() -> str:
     cannot be found.
     """
     try:
-        # Assumes pyproject.toml is at the project root, three levels up from src/ai/main.py
-        pyproject_path = Path(__file__).resolve().parent.parent.parent / "pyproject.toml"
+        bundle_root = getattr(sys, "_MEIPASS", None)
+        if bundle_root:
+            pyproject_path = Path(bundle_root) / "pyproject.toml"
+        else:
+            pyproject_path = Path(__file__).resolve().parent.parent.parent / "pyproject.toml"
 
         if not pyproject_path.exists():
             return "0.0.0-dev (pyproject.toml not found)"

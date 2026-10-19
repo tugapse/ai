@@ -12,3 +12,7 @@ logs/*
 .env
 run.sh
 *.log
+/build/
+/dist/
+/*.spec
+*.pyc

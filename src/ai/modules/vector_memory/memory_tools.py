@@ -1,4 +1,4 @@
-import functions as func
+import ai.functions as func
 from typing import Dict, Any, Optional, Callable
 from ai.tools.agent_tools import tool
 

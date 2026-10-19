@@ -24,8 +24,24 @@ class EngineManager:
         Checks the installed_engines.json config manually by stepping up
         from src/ai/services/ to the project root.
         """
-        root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
-        config_path = os.path.join(root_dir, "installed_engines.json")
+        configured_path = os.environ.get("AI_ENGINE_STATUS_FILE")
+        if configured_path:
+            config_path = configured_path
+        elif getattr(sys, "frozen", False):
+            executable_dir = os.path.dirname(os.path.abspath(sys.executable))
+            bundled_dir = getattr(sys, "_MEIPASS", executable_dir)
+            config_paths = [
+                os.path.join(os.path.dirname(executable_dir), "installed_engines.json"),
+                os.path.join(executable_dir, "installed_engines.json"),
+                os.path.join(bundled_dir, "installed_engines.json"),
+            ]
+            config_path = next(
+                (path for path in config_paths if os.path.isfile(path)),
+                config_paths[-1],
+            )
+        else:
+            root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+            config_path = os.path.join(root_dir, "installed_engines.json")
         
         # If the file isn't there, we assume nothing is installed
         if not os.path.exists(config_path):
@@ -148,7 +164,7 @@ class EngineManager:
 
         # If this returns False, we stop here and avoid the 'Lazy Import' crash.
         if not EngineManager.is_engine_installed(model_type, model_name):
-            from color import Color
+            from ai.color import Color
             func.error(
                 f"The engine for {Color.YELLOW}{model_type.value}{Color.RED} is not installed.\n"
                 f"Run '{Color.CYAN} ai --install{Color.RED}' to configure it.",
@@ -194,7 +210,7 @@ class EngineManager:
 
     @staticmethod
     def _create_causal_lm(model_name: str, system_prompt: str, quantization_bits: int, model_params: dict, other_llm_kwargs: dict) -> BaseModel:
-        from core.llms.huggingface_model import HuggingFaceModel
+        from ai.core.llms.huggingface_model import HuggingFaceModel
         llm_instance = HuggingFaceModel(
             model_name=model_name,
             system_prompt=system_prompt,
@@ -207,7 +223,7 @@ class EngineManager:
 
     @staticmethod
     def _create_ollama_model(model_name: str, system_prompt: str, model_params: dict, other_llm_kwargs: dict) -> BaseModel:
-        from core.llms.ollama_model import OllamaModel
+        from ai.core.llms.ollama_model import OllamaModel
         llm_instance = OllamaModel(
             model_name=model_name,
             system_prompt=system_prompt,
@@ -236,7 +252,7 @@ class EngineManager:
         if not gguf_filename:
             func.log("'gguf_filename' is required for 'gguf' model_type in model properties.", level="ERROR") 
             raise ValueError("Invalid model configuration: missing 'gguf_filename'.")
-        from core.llms.gguf_model import GGUFImageLLM
+        from ai.core.llms.gguf_model import GGUFImageLLM
         llm_instance = GGUFImageLLM(
             model_name=model_name,
             gguf_filename=gguf_filename,
@@ -253,7 +269,7 @@ class EngineManager:
 
     @staticmethod
     def _create_gemini_model(model_name: str, system_prompt: str, model_params: dict, other_llm_kwargs: dict) -> BaseModel:
-        from core.llms.gemini import GeminiAPIModel
+        from ai.core.llms.gemini import GeminiAPIModel
         llm_instance = GeminiAPIModel(
             model_name=model_name,
             system_prompt=system_prompt,
@@ -266,7 +282,7 @@ class EngineManager:
 
     @staticmethod
     def _create_openai_model(model_name: str, system_prompt: str, model_params: dict, other_llm_kwargs: dict) -> BaseModel:
-        from core.llms.open_ai import OpenAIAPIModel
+        from ai.core.llms.open_ai import OpenAIAPIModel
         llm_instance = OpenAIAPIModel(
             model_name=model_name,
             system_prompt=system_prompt,
@@ -278,7 +294,7 @@ class EngineManager:
 
     @staticmethod
     def _create_jarvis_model(model_name: str, system_prompt: str, model_params: dict, other_llm_kwargs: dict) -> BaseModel:
-        from core.llms.jarvis import JarvisAiModel
+        from ai.core.llms.jarvis import JarvisAiModel
         llm_instance = JarvisAiModel(
             model_name=model_name,
             system_prompt=system_prompt,
