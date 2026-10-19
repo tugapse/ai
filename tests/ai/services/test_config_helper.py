@@ -55,8 +55,7 @@ class TestCliConfig:
         original_prompt_file = self.config.get(ProgramSetting.SYSTEM_PROMPT_FILE)
 
         with patch('ai.services.config_helper.func.get_root_directory', return_value='/fake/root'):
-            self.config.set(ProgramSetting.PATHS_SYSTEM_TEMPLATES, '/fake/root/system')
-            expected_path = '/fake/root/system/non_existent_prompt.md'
+            expected_path = os.path.join('/fake/root', 'system', 'non_existent_prompt.md')
 
             CliConfig.apply_cli_args_to_config(self.config, self.args)
 

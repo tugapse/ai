@@ -1,7 +1,8 @@
+.*
 !.gitignore
+!.gitattributes
 installed_engines.json
 .venv/*
-.*
 .vscode/*
 logs/*
 *__pycache__/*

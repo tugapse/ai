@@ -1,9 +1,8 @@
 # Exit immediately if a command exits with a non-zero status.
 $ErrorActionPreference = 'Stop'
 
-# Define test script paths
+$PROJECT_ROOT = $PSScriptRoot
 $CLI_INTEGRATION_TEST_SCRIPT = "tests/run_cli_integration_test.sh"
-$UNIT_TEST_SCRIPT = "tests/run_tests.sh"
 
 # Initialize flags
 $RUN_UNIT_TESTS_FLAG = $false
@@ -68,14 +67,50 @@ if ($RUN_UNIT_TESTS_FLAG) {
     Write-Host "========================================"
     Write-Host "Running Unit Tests"
     Write-Host "========================================"
-    & bash $UNIT_TEST_SCRIPT
+    $VENV_PYTHON = Join-Path $PROJECT_ROOT ".venv\Scripts\python.exe"
+    if (-not (Test-Path -LiteralPath $VENV_PYTHON)) {
+        Write-Error "Project virtual environment Python not found at '$VENV_PYTHON'."
+        exit 1
+    }
+
+    Push-Location $PROJECT_ROOT
+    try {
+        & $VENV_PYTHON -m pytest
+        if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+        }
+    } finally {
+        Pop-Location
+    }
 }
 
 if ($RUN_CLI_INTEGRATION_TESTS_FLAG) {
     Write-Host "========================================"
     Write-Host "Running CLI Integration Tests"
     Write-Host "========================================"
-    & bash $CLI_INTEGRATION_TEST_SCRIPT
+    $GIT = Get-Command git.exe -ErrorAction SilentlyContinue
+    if (-not $GIT) {
+        Write-Error "Git for Windows is required for CLI integration tests."
+        exit 1
+    }
+
+    $GIT_BASH = Join-Path (Split-Path -Parent $GIT.Source) "..\bin\bash.exe"
+    if (-not (Test-Path -LiteralPath $GIT_BASH)) {
+        Write-Error "Git Bash was not found beside '$($GIT.Source)'."
+        exit 1
+    }
+
+    $env:AI_WINDOWS_CLI = "1"
+    Push-Location $PROJECT_ROOT
+    try {
+        & $GIT_BASH $CLI_INTEGRATION_TEST_SCRIPT
+        if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+        }
+    } finally {
+        Pop-Location
+        Remove-Item Env:\AI_WINDOWS_CLI -ErrorAction SilentlyContinue
+    }
 }
 
 if (-not $RUN_UNIT_TESTS_FLAG -and -not $RUN_CLI_INTEGRATION_TESTS_FLAG) {
