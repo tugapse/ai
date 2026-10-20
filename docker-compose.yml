@@ -5,18 +5,18 @@ services:
       dockerfile: Dockerfile
     image: jarvis-ai:latest
     container_name: jarvis-ai
-    command: ["--help"]
+    command: ["--server"]
     ports:
       - "9999:9999"
     environment:
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app/src
-      # Pass the same variable value into the container's environment:
-      - AI_ASSISTANT_DIRECTORY=${AI_ASSISTANT_DIRECTORY}
+      # Default to a valid local directory if the host variable is not exported.
+      - AI_ASSISTANT_DIRECTORY=${AI_ASSISTANT_DIRECTORY:-/tmp/jarvis-ai}
       - TQDM_DISABLE=1
     volumes:
-      # Mount host path directly to the identical path inside the container:
-      - ${AI_ASSISTANT_DIRECTORY}:${AI_ASSISTANT_DIRECTORY}
+      # Bind the host data directory to the same absolute path inside the container.
+      - ${AI_ASSISTANT_DIRECTORY:-/tmp/jarvis-ai}:${AI_ASSISTANT_DIRECTORY:-/tmp/jarvis-ai}
     networks:
       - jarvis-network
 
