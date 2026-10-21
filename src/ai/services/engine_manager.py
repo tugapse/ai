@@ -166,11 +166,11 @@ class EngineManager:
         if not EngineManager.is_engine_installed(model_type, model_name):
             from ai.color import Color
             func.error(
-                f"The engine for {Color.YELLOW}{model_type.value}{Color.RED} is not installed.\n"
-                f"Run '{Color.CYAN} ai --install{Color.RED}' to configure it.",
+                f"The engine for {Color.YELLOW}{model_type.value}{Color.RESET} is not installed.\n"
+                f"Run '{Color.CYAN} ai --install{Color.RESET}' to configure it.",
                 level="ERROR"
             )
-            raise ValueError("Invalid model configuration: engine not installed.")
+            exit(1)
 
         func.log(f"Selected model: {model_name} (Type: {model_type.value})") 
         quantization_bits = model_properties.get("quantization_bits", 0)

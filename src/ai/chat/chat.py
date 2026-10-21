@@ -104,7 +104,7 @@ class Chat(Events):
         self.images: list[str] = []
         self.current_message = ""
         self.user_prompt = "\nUser: "
-        self.assistant_prompt = "Assistant: "
+        self.assistant_prompt = "Jarvis Ai: "
         self.max_chat_log = 50
         self.cache_messages = True
         self.current_prompt = ""

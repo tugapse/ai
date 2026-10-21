@@ -203,7 +203,7 @@ class T5Model(BaseModel):
             elif msg['role'] == 'user':
                 input_text += f"User: {msg['content']}\n"
             elif msg['role'] == 'assistant':
-                input_text += f"Assistant: {msg['content']}\n"
+                input_text += f"Jarvis Ai: {msg['content']}\n"
         
         inputs = self.tokenizer(input_text, return_tensors="pt")
         return inputs
