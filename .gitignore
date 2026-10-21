@@ -1,7 +1,8 @@
+.*
 !.gitignore
+!.gitattributes
 installed_engines.json
 .venv/*
-.*
 .vscode/*
 logs/*
 *__pycache__/*
@@ -12,3 +13,7 @@ logs/*
 .env
 run.sh
 *.log
+/build/
+/dist/
+/*.spec
+*.pyc

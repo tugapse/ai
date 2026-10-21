@@ -4,7 +4,11 @@
 set -e
 
 # Set the AI_ASSISTANT_DIRECTORY environment variable for the test environment
-export AI_ASSISTANT_DIRECTORY="/tmp/ai_assistant_test_dir"
+if [ "${AI_WINDOWS_CLI:-0}" -eq 1 ]; then
+    export AI_ASSISTANT_DIRECTORY="$(cygpath -u "$(cygpath -w "${TEMP:-/tmp}")")/ai_assistant_test_dir"
+else
+    export AI_ASSISTANT_DIRECTORY="/tmp/ai_assistant_test_dir"
+fi
 
 # Create a temporary file for the model configuration
 TEST_MODEL_CONFIG=$(mktemp --suffix=.json)
@@ -33,7 +37,11 @@ trap "rm -f \"$TEST_MODEL_CONFIG\"" EXIT
 
 export MODEL_TO_USE="$TEST_MODEL_CONFIG"
 # Execution command
-export AI_CMD="./run.sh -dc -md $MODEL_TO_USE"
+if [ "${AI_WINDOWS_CLI:-0}" -eq 1 ]; then
+    export AI_CMD="./tests/e2e/run-windows-cli.sh -dc -md $MODEL_TO_USE"
+else
+    export AI_CMD="./run.sh -dc -md $MODEL_TO_USE"
+fi
 
 SCRIPT_DIR=$(dirname -- "$(realpath -- "$0")")
 source "$SCRIPT_DIR/e2e/test_utils.sh"
@@ -63,4 +71,3 @@ print_summary
 # TODO: Implement remaining tests: -D, -e, -q, -pl, -pdb, -nta
 # Test: Interactive mode
 # Test: --install
-

@@ -143,7 +143,7 @@ class ToolRegistry:
 
         # 1. YAML Format parser via ResponseParser
         if "____@tool_end" in text:
-            from agents.response_parser import ResponseParser
+            from ai.agents.response_parser import ResponseParser
             parser = ResponseParser()
             parsed = parser.parse(text)
             if parsed and parsed.get("action") and parsed["action"].get("tool_name"):
@@ -153,7 +153,6 @@ class ToolRegistry:
                     "args": parsed["action"]["tool_parameters"]
                 }
             else:
-                import functions as func
                 func.log(f"DEBUG: YAML tool parse failed. Text: {text}", level="DEBUG")
 
         # 2. Matches J.A.R.V.I.S. tags AND Gemma's <|tool_call> artifacts
@@ -245,8 +244,6 @@ class ToolRegistry:
 
                 return {"type": "function_call", "name": name, "args": parsed_args}
             except Exception as e:
-                import functions as func
-
                 func.log(
                     f"DEBUG: JSON parse fallback triggered for {name}. Error: {e}",
                     level="DEBUG",

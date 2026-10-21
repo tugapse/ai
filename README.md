@@ -1,11 +1,27 @@
 # AI Assistant
 
-![Version](https://img.shields.io/badge/version-3.2.0-orange)
-![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+![Version](https://img.shields.io/badge/version-3.3.0-orange)
+![Python](https://img.shields.io/badge/python-3.13%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 A modular conversational AI framework built with Python. It provides a unified interface for **Ollama** and **Hugging Face Transformers**, supporting advanced file ingestion, autonomous agent workflows, and multimodal analysis.
+```python
 
+
+      ██╗  █████╗  ██████╗  ██╗   ██╗ ██╗ ███████╗      █████╗  ██╗
+      ██║ ██╔══██╗ ██╔══██╗ ██║   ██║ ██║ ██╔════╝     ██╔══██╗ ██║
+      ██║ ███████║ ██████╔╝ ██║   ██║ ██║ ███████╗     ███████║ ██║
+ ██   ██║ ██╔══██║ ██╔══██╗ ╚██╗ ██╔╝ ██║ ╚════██║     ██╔══██║ ██║
+ ╚█████╔╝ ██║  ██║ ██║  ██║  ╚████╔╝  ██║ ███████║     ██║  ██║ ██║
+  ╚════╝  ╚═╝  ╚═╝ ╚═╝  ╚═╝   ╚═══╝   ╚═╝ ╚══════╝     ╚═╝  ╚═╝ ╚═╝
+
+  JUST A REASONING VIRTUAL INTELLIGENT SENTINEL AGENTIC INTERFACE
+  Version: 3.3.0
+
+  An integrated reasoning core powering autonomous agentic logic and long-term memory synthesis.
+
+  [ SYSTEM READY ] --------------------------------------------------------------------------
+```
 ---
 
 ##  Features
@@ -45,6 +61,15 @@ The assistant includes an **Agentic Mode** that allows the LLM to interact with 
     ```bash
     ./build.sh
     ```
+
+    On Windows, run the PowerShell setup script and compile the executable:
+    ```powershell
+    .\build.ps1
+    .\compile.ps1
+    ```
+    The executable is created at `dist\ai.exe` and includes `run.ps1`, the Python source, assets, and installer. Copy the EXE and `.venv` folder together to run it without the source checkout. For example, from a folder containing both, run `.\ai.exe -m "hello"`.
+    `compile.ps1` uses the environment specified by `AI_VENV_PATH` when set; otherwise it checks for `.venv` in the project directory and its parent before falling back to `python` on `PATH`. A relative `AI_VENV_PATH` is resolved from the project directory.
+    To install additional engines, run `.\ai.exe --install` from that folder. Installation updates `installed_engines.json` beside the EXE.
 
 ---
 

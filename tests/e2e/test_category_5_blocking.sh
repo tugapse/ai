@@ -148,5 +148,10 @@ EOF
 
 function run_category_5() {
     echo -e "\n${GREEN}### Category 5: Blocking / Long-Running Processes ###${NC}"
-    run_test "Server Flag (--server)" "Verifies the AI server starts in the background and shuts down gracefully upon SIGTERM." test_server_flag
+    if [ "${AI_WINDOWS_CLI:-0}" -eq 1 ]; then
+        echo -e "   -> ${YELLOW}SKIPPED: Server shutdown integration requires POSIX signal forwarding.${NC}"
+        TESTS_SKIPPED=$((TESTS_SKIPPED + 1))
+    else
+        run_test "Server Flag (--server)" "Verifies the AI server starts in the background and shuts down gracefully upon SIGTERM." test_server_flag
+    fi
 }

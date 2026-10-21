@@ -3,7 +3,7 @@ from tqdm import tqdm
 import sys
 
 from ai.core.llms.base_llm import BaseModel, ModelParams
-import functions as func
+import ai.functions as func
 
 
 class OllamaModel(BaseModel):
