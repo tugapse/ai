@@ -1,5 +1,5 @@
 from typing import Any, Optional
-import functions as func
+import ai.functions as func
 from ai.modules.base_module import BaseModule
 from ai.core.llms.base_llm import BaseModel
 from ai.modules.vector_memory.vector_memory import VectorMemory

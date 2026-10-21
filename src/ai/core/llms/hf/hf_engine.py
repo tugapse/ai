@@ -6,7 +6,7 @@ import ai.functions as func
 from ai.core.llms.base_llm import BaseModel, ModelParams
 from ai.core.events import Events
 from ai.color import Color
-from tools.tool_registry import ToolRegistry
+from ai.tools.tool_registry import ToolRegistry
 
 class CustomStoppingCriteria:
     def __init__(self, stop_event: threading.Event):

@@ -66,10 +66,10 @@ class HFPipelineMixin:
                 elif msg["role"] == "user":
                     input_text += f"User: {msg['content']}\n"
                 elif msg["role"] == "assistant":
-                    input_text += f"Assistant: {msg['content']}\n"
+                    input_text += f"Jarvis Ai: {msg['content']}\n"
 
             if messages and messages[-1]["role"] == "user":
-                input_text += "Assistant:"
+                input_text += "Jarvis Ai:"
 
             inputs = self.tokenizer(input_text, return_tensors="pt")
             func.debug(f"_prepare_input using manual formatting. Input text length: {len(input_text)}")

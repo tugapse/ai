@@ -154,7 +154,7 @@ class BaseModel:
             for msg in messages:
                 role = msg.get("role", "user").capitalize()
                 input_text += f"{role}: {msg.get('content', '')}\n"
-            input_text += "Assistant:"
+            input_text += "Jarvis Ai:"
             return self.tokenizer(input_text, return_tensors="pt")
 
     def add_event(self, event_name: str, listener: Callable) -> None:

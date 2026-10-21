@@ -74,11 +74,19 @@ class TestAgentToolsExtensive(unittest.TestCase):
         self.assertEqual(res_d["status"], "SUCCESS")
         self.assertIn("structure", res_d["results"]["@ROOT/deep/folder"]["folders"])
 
-    def test_04_search_and_truncation(self):
+    @patch("ai.tools.agent_tools.subprocess.run")
+    def test_04_search_and_truncation(self, mock_run):
         self.log_scenario("Search & Recon", "Test regex filename matching and content grep.")
         write_file(path="logs/error.log", content="CRITICAL: DB Down")
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout=f"{os.path.join(self.sandbox_dir, 'logs', 'error.log')}:1:CRITICAL: DB Down\n",
+        )
+
         res_f = smart_search(pattern=r"error.*log")
+        self.assertEqual(res_f["status"], "SUCCESS")
         self.assertTrue(len(res_f["matched_filenames"]) > 0)
+        self.assertTrue(any("CRITICAL: DB Down" in line for line in res_f["matched_content"]))
 
     def test_05_patching_precision(self):
         self.log_scenario("Surgical Patching", "Test exact string replacement in code files.")

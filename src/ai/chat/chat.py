@@ -1,8 +1,10 @@
 import os
+import sys
 from datetime import datetime
 from typing import Optional
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import InMemoryHistory
+from prompt_toolkit.output import DummyOutput
 from prompt_toolkit.formatted_text import ANSI
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.filters import Condition
@@ -102,7 +104,7 @@ class Chat(Events):
         self.images: list[str] = []
         self.current_message = ""
         self.user_prompt = "\nUser: "
-        self.assistant_prompt = "Assistant: "
+        self.assistant_prompt = "Jarvis Ai: "
         self.max_chat_log = 50
         self.cache_messages = True
         self.current_prompt = ""
@@ -123,7 +125,15 @@ class Chat(Events):
         # Top Bar State
         self.top_bar_content: list[str] = [] # Array of strings for the top bar
         
-        self.prompt_session = PromptSession(history=InMemoryHistory())
+        prompt_output = (
+            DummyOutput()
+            if sys.platform == "win32" and not sys.stdout.isatty()
+            else None
+        )
+        self.prompt_session = PromptSession(
+            history=InMemoryHistory(),
+            output=prompt_output,
+        )
         self.kb = KeyBindings()
         self._setup_key_bindings()
 

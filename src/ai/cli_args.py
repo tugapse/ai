@@ -6,6 +6,8 @@ It coordinates the JARVIS behavior mode: Standalone, Server, or Client.
 import argparse
 import os
 import sys
+import subprocess
+from pathlib import Path
 
 import uuid
 import traceback
@@ -95,7 +97,7 @@ class CliArgs:
 
             # Using double braces {{ }} for literal braces in the generated code
             skeleton_content = f"""
-from agents.agent_tools import tool
+from ai.tools.agent_tools import tool
 
 @tool
 def {function_name}(argument: str) -> str:
@@ -250,7 +252,7 @@ def {function_name}(argument: str) -> str:
         if not args.print_chat:
             return
         from pathlib import Path
-        from extras.console import ConsoleChatReader 
+        from ai.extras.console import ConsoleChatReader
         
         # Logic to find the file in logs or local path
         log_path = (Path(__file__).parent / "logs" / "chat") / args.print_chat
@@ -269,13 +271,43 @@ def {function_name}(argument: str) -> str:
     def _is_install(self, args):
         if args.install:
             import importlib.util
-            root = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])),"..","..")
-            installer_path = os.path.join(root, "scripts", "install_engines.py")
+            if getattr(sys, "frozen", False):
+                project_root = Path(sys.executable).resolve().parent.parent
+            else:
+                project_root = Path(__file__).resolve().parent.parent.parent
+
+            installer_path = project_root / "scripts" / "install_engines.py"
+            if not installer_path.is_file():
+                raise FileNotFoundError(
+                    f"Engine installer not found at '{installer_path}'. "
+                    "Run --install from the project checkout."
+                )
+
+            if getattr(sys, "frozen", False):
+                venv_python = project_root / ".venv" / "Scripts" / "python.exe"
+                if not venv_python.is_file():
+                    raise FileNotFoundError(
+                        f"Project virtual environment not found at '{venv_python}'. "
+                        "Run .\\build.ps1 from the project checkout first."
+                    )
+                subprocess.run(
+                    [str(venv_python), str(installer_path)],
+                    cwd=project_root,
+                    check=True,
+                )
+                func.out(
+                    "Engine installation updated the project environment. "
+                    "Run .\\compile.ps1 to include changes in the executable."
+                )
+                sys.exit(0)
+
             spec = importlib.util.spec_from_file_location("install_engines", installer_path)
-            if spec and spec.loader: 
-                installer_module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(installer_module)
-                installer_module.main_menu()
+            if spec is None or spec.loader is None:
+                raise ImportError(f"Could not load engine installer from '{installer_path}'.")
+
+            installer_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(installer_module)
+            installer_module.main_menu()
             sys.exit(0)
 
     def _is_list_models(self, args):
