@@ -14,6 +14,7 @@ from ai.agents.context_sentinel import ContextSentinel
 from ai.agents.session_vault import SessionVault
 from ai.core.events import Events
 from ai.services.module_registry import ModuleRegistry
+from ai.tools.mcp_bridge import MCPBridge
 from ai.tools.tool_registry import ToolRegistry
 
 MAX_ITERATIONS = 100
@@ -22,7 +23,7 @@ MANAGER_AGENT_ROLE = "management"
 STOP_SIGNAL = "STOP"
 MASTER_AGENT = "MASTER"
 
-class MessageOrchestrator(Events):
+class AgentOrchestrator(Events):
     """
     Orchestrates multi-agent execution, routing, and state management.
     Integrates short-term context protection and long-term session persistence.
@@ -30,30 +31,36 @@ class MessageOrchestrator(Events):
     EVENT_BEFORE_LLM_REQUEST = "before_llm_request"
     EVENT_AFTER_LLM_REQUEST = "after_llm_request"
 
-    def __init__(self, connector: LLMConnector, registry: ToolRegistry, pipeline_config: Dict[str, Any], module_registry: ModuleRegistry):
+    def __init__(self, llm_connector: LLMConnector, tool_registry: ToolRegistry, pipeline_config: Dict[str, Any], module_registry: ModuleRegistry):
         super().__init__()
-        self.connector = connector
-        self.registry = registry
+        self.llm_connector = llm_connector
+        self.tool_registry = tool_registry
         self.pipeline_config = pipeline_config
+        self.module_registry = module_registry
+        
         self.agents = pipeline_config.get("agents", {})
         self.auto_authorized_tools = set()
         self.format_error_count = 0
 
         # Specialized Managers
         self.specialist_manager = SpecialistManager(
-            self.connector, 
+            self.llm_connector, 
             {"generate_doc": "Technical Writer. Deep-dive documentation."}
         )
         self.context_sentinel = ContextSentinel(
-            self.connector, 
+            self.llm_connector, 
             threshold=0.9, 
-            max_tokens=self.connector.get_context_limit(),
-            buffer=self.connector.get_max_tokens()
+            max_tokens=self.llm_connector.get_context_limit(),
+            buffer=self.llm_connector.get_max_tokens()
         )
-
+        self.mcp_bridge = MCPBridge(self.tool_registry)
+        
+        # Load external servers from config
+        mcp_config = os.path.join(func.get_root_directory() , "mcp/mcp_servers.json")
+        self.mcp_bridge.load_from_config(mcp_config)
+        
         # Memory State
         self.memory = MemoryManager(list(self.agents.keys()))
-        self.module_registry = module_registry
         self.vector_memory = None
         
         # Session State (Initialized in run_loop)
@@ -101,7 +108,7 @@ class MessageOrchestrator(Events):
                 break
 
             active_tools = self._assemble_agent_tools(current_agent)
-            agent_config["tool_descriptions"] = "\n".join([self.registry.get_tool_info(name) for name in active_tools.keys()])
+            agent_config["tool_descriptions"] = "\n".join([self.tool_registry.get_tool_info(name) for name in active_tools.keys()])
 
             payload = self._prepare_payload(user_prompt, current_agent)
             payload, was_compressed = self.context_sentinel.enforce_limits(
@@ -112,7 +119,7 @@ class MessageOrchestrator(Events):
                 TerminalUI.log_step(f"Sentinel: Context distilled for {current_agent}", "INFO")
 
             self.trigger("before_llm_request", {"agent": current_agent, "payload_preview": {k: v for k, v in payload.items() if k not in ['messages_received', 'conversation_history']}})
-            response = self.connector.send_request(payload, agent_config["prompt_file_path"], agent_config=agent_config)
+            response = self.llm_connector.send_request(payload, agent_config["prompt_file_path"], agent_config=agent_config)
             self.trigger("after_llm_request", {"agent": current_agent, "response": response})
 
             if response.get("status") == "FAILED":
@@ -186,7 +193,11 @@ class MessageOrchestrator(Events):
 
     def _assemble_agent_tools(self, agent_name: str) -> Dict[str, Callable]:
         allowed = self.agents.get(agent_name, {}).get("tools", [])
-        tool_pool = copy.copy(self.registry.get_all_tools())
+        
+        if hasattr(self, "mcp_bridge"):
+            allowed.extend(self.mcp_bridge.server_schemas.keys())
+        
+        tool_pool = copy.copy(self.tool_registry.get_all_tools())
             
         return {n: f for n, f in tool_pool.items() if n in allowed}
 
@@ -271,7 +282,7 @@ class MessageOrchestrator(Events):
             self.memory.add_message_to_agent(agent, {"from": "USER", "message": "Access Denied."})
             return False
 
-        result = self.registry.execute_tool(tool_name, params)
+        result = self.tool_registry.execute_tool(tool_name, params)
         self.memory.record_tool_result(agent, tool_name, params, result)
         return True
 
@@ -295,7 +306,7 @@ class MessageOrchestrator(Events):
             if instance and hasattr(instance, 'tools') and hasattr(instance.tools, 'get_tools'):
                 module_tools = instance.tools.get_tools()
                 for tool_name, tool_func in module_tools.items():
-                    self.registry.register_tool(tool_name, tool_func)
+                    self.tool_registry.register_tool(tool_name, tool_func)
                     func.log(f"Registered tool '{tool_name}' from module '{module_name}'.")
 
     def _format_recent_outcomes(self, outcomes: list, length=3000) -> list:

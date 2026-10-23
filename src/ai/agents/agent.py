@@ -11,7 +11,7 @@ import ai.functions as func
 from ai.config import ProgramSetting
 from ai.tools.tool_registry import ToolRegistry
 from ai.agents.llm_connector import LLMConnector
-from ai.agents.message_orchestrator import MessageOrchestrator
+from ai.agents.agent_orchestrator import AgentOrchestrator
 from ai.core.events import Events
 
 def load_pipeline_config(prog, pipeline_file: str) -> dict:
@@ -80,10 +80,11 @@ class Agent(Events):
 
         # Core Components
         self.registry = ToolRegistry() # Singleton
-        self.connector = LLMConnector(self.prog.llm)
-        self.orchestrator = MessageOrchestrator(
-            connector=self.connector,
-            registry=self.registry,
+        
+        self.llm_connector = LLMConnector(self.prog.llm)
+        self.orchestrator = AgentOrchestrator(
+            llm_connector=self.llm_connector,
+            tool_registry=self.registry,
             pipeline_config=self.pipeline_config,
             module_registry=self.prog.modules
         )

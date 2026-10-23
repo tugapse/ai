@@ -27,7 +27,7 @@ from ai.color import Color, format_text
 from ai.direct import ask
 
 # Agent logic
-from ai.agents.agent import MessageOrchestrator, LLMConnector, ToolRegistry, load_pipeline_config
+from ai.agents.agent import AgentOrchestrator, LLMConnector, ToolRegistry, load_pipeline_config
 from ai.program import Program
 from ai.tools.tool_loader import load_and_register_user_tools
 import ai.tools.agent_tools as agent_tools
@@ -198,8 +198,8 @@ def {function_name}(argument: str) -> str:
             sys.exit(1)
         
         connector = LLMConnector(prog.llm)
-        
         registry = ToolRegistry()
+        
         for name, tool_ref in agent_tools.AVAILABLE_TOOLS.items():
             registry.register_tool(name, tool_ref)
 
@@ -210,9 +210,9 @@ def {function_name}(argument: str) -> str:
         session_id = args.session_id or str(uuid.uuid4())
         func.log(f"Session: {session_id}")
 
-        orchestrator = MessageOrchestrator(
-            connector=connector, 
-            registry=registry, 
+        orchestrator = AgentOrchestrator(
+            llm_connector=connector, 
+            tool_registry=registry, 
             pipeline_config=pipeline_config,
             module_registry=prog.modules
         )

@@ -3,6 +3,7 @@ import subprocess
 import json
 import difflib
 from typing import Dict, Any, List, Optional
+import socket
 
 PROJECT_ROOT = os.getcwd()
 
@@ -390,6 +391,52 @@ def patch_file(**kwargs) -> Dict[str, Any]:
     except Exception as e:
         return {"status": "FAILED", "error": str(e)}
 
+@tool
+def tcp_client_tool(**kwargs) -> Dict[str, Any]:
+    """
+    Connects to a generic TCP server and sends data.
+
+    Args:
+        host (str): The hostname or IP address of the TCP server. Required.
+        port (int): The port number of the TCP server. Required.
+        data_to_send (str): The data to send to the TCP server. Required.
+    """
+    host = kwargs.get("host")
+    port = kwargs.get("port")
+    data_to_send = kwargs.get("data_to_send")
+
+    if not host or not port or not data_to_send:
+        return {"status": "FAILED", "error": "Host, port, and data_to_send are required for tcp_client_tool."}
+
+    try:
+        port = int(port)
+        if not (0 < port < 65536):
+            raise ValueError("Port must be between 1 and 65535.")
+    except ValueError as e:
+        return {"status": "FAILED", "error": f"Invalid port: {e}"}
+
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(10)  # 10-second timeout for connection and subsequent operations
+            sock.connect((host, port))
+            sock.sendall(data_to_send.encode('utf-8'))
+
+            # Attempt to receive a response, up to 4096 bytes
+            response_data = sock.recv(4096)
+            response_message = response_data.decode('utf-8', errors='ignore')
+
+        return {
+            "status": "SUCCESS",
+            "message": f"Data sent to {host}:{port}.",
+            "response": response_message.strip()
+        }
+    except socket.timeout:
+        return {"status": "FAILED", "error": f"Connection to {host}:{port} timed out."}
+    except ConnectionRefusedError:
+        return {"status": "FAILED", "error": f"Connection to {host}:{port} refused. Is the server running?"}
+    except Exception as e:
+        return {"status": "FAILED", "error": f"An error occurred: {e}"}
+
 # --- REGISTRY ---
 AVAILABLE_TOOLS = {
     "read_dir": read_dir,
@@ -398,4 +445,5 @@ AVAILABLE_TOOLS = {
     "patch_file": patch_file,
     "execute_command": execute_command,
     "smart_search": smart_search,
+    "tcp_client_tool": tcp_client_tool,
 }

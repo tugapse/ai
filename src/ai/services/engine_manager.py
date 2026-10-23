@@ -165,12 +165,12 @@ class EngineManager:
         # If this returns False, we stop here and avoid the 'Lazy Import' crash.
         if not EngineManager.is_engine_installed(model_type, model_name):
             from ai.color import Color
-            func.error(
+            message = (
                 f"The engine for {Color.YELLOW}{model_type.value}{Color.RESET} is not installed.\n"
-                f"Run '{Color.CYAN} ai --install{Color.RESET}' to configure it.",
-                level="ERROR"
+                f"Run '{Color.CYAN} ai --install{Color.RESET}' to configure it."
             )
-            exit(1)
+            func.error(message, level="ERROR")
+            raise ValueError(f"engine not installed: {model_type.value}")
 
         func.log(f"Selected model: {model_name} (Type: {model_type.value})") 
         quantization_bits = model_properties.get("quantization_bits", 0)

@@ -19,7 +19,7 @@ sys.modules["program"] = mock_program
 sys.modules["ai.program"] = mock_program
 
 # Now we import the class we want to test
-from ai.agents.message_orchestrator import MessageOrchestrator
+from ai.agents.agent_orchestrator import AgentOrchestrator
 
 
 # =================================================================
@@ -122,7 +122,7 @@ class TestMessageOrchestrator(unittest.TestCase):
             }
         ]
         connector = MockConnector(mock_responses)
-        orchestrator = MessageOrchestrator(connector, self.registry, self.pipeline_config, self.module_registry)
+        orchestrator = AgentOrchestrator(llm_connector=connector, tool_registry=self.registry, pipeline_config=self.pipeline_config, module_registry=self.module_registry)
         
         # Patch input just in case, though it shouldn't be called here
         with patch('builtins.input', return_value='y'):
@@ -142,7 +142,7 @@ class TestMessageOrchestrator(unittest.TestCase):
             {"action": {"agent_target": "STOP"}}
         ]
         connector = MockConnector(mock_responses)
-        orchestrator = MessageOrchestrator(connector, self.registry, self.pipeline_config, self.module_registry)
+        orchestrator = AgentOrchestrator(llm_connector=connector, tool_registry=self.registry, pipeline_config=self.pipeline_config, module_registry=self.module_registry)
         
         orchestrator.run_loop("Write a script.", session_id="test-session")
         
@@ -159,7 +159,7 @@ class TestMessageOrchestrator(unittest.TestCase):
             {"action": {"agent_target": "STOP"}}
         ]
         connector = MockConnector(mock_responses)
-        orchestrator = MessageOrchestrator(connector, self.registry, self.pipeline_config, self.module_registry)
+        orchestrator = AgentOrchestrator(llm_connector=connector, tool_registry=self.registry, pipeline_config=self.pipeline_config, module_registry=self.module_registry)
         
         orchestrator.run_loop("Call Batman.", session_id="test-session")
         
@@ -179,7 +179,7 @@ class TestMessageOrchestrator(unittest.TestCase):
             {"action": {"agent_target": "STOP"}} # Should never reach this
         ]
         connector = MockConnector(mock_responses)
-        orchestrator = MessageOrchestrator(connector, self.registry, self.pipeline_config, self.module_registry)
+        orchestrator = AgentOrchestrator(llm_connector=connector, tool_registry=self.registry, pipeline_config=self.pipeline_config, module_registry=self.module_registry)
         
         orchestrator.run_loop("Break the parser.", session_id="test-session")
         
@@ -195,7 +195,7 @@ class TestMessageOrchestrator(unittest.TestCase):
             {"action": {"agent_target": "STOP"}} # 3rd try is valid JSON
         ]
         connector = MockConnector(mock_responses)
-        orchestrator = MessageOrchestrator(connector, self.registry, self.pipeline_config, self.module_registry)
+        orchestrator = AgentOrchestrator(llm_connector=connector, tool_registry=self.registry, pipeline_config=self.pipeline_config, module_registry=self.module_registry)
         
         orchestrator.run_loop("Recover from error.", session_id="test-session")
         

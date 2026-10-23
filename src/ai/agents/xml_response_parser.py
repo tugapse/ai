@@ -4,7 +4,6 @@ import re
 from typing import Dict, Any, Optional
 import ai.functions as func
 
-
 class ResponseParser:
     def __init__(self, parameter_mode: str = "xml"):
         self.parameter_mode = parameter_mode
@@ -20,11 +19,23 @@ class ResponseParser:
             except json.JSONDecodeError:
                 return {"error": "Invalid JSON in tool_parameters"}
 
-        return {child.tag: (child.text or "").strip() for child in element}
+        params = {}
+        for child in element:
+            tag = child.tag
+            text = (child.text or "").strip()
+            
+            if tag in params:
+                if isinstance(params[tag], list):
+                    params[tag].append(text)
+                else:
+                    params[tag] = [params[tag], text]
+            else:
+                params[tag] = text
+                
+        return params
 
     def _sanitize_block(self, xml_string: str, tag: str) -> str:
         """Extracts a block, escapes rogue characters, and returns the rebuilt string."""
-        # Search for everything inside the target tags, including newlines (DOTALL)
         pattern = re.compile(f"<{tag}>(.*?)</{tag}>", re.DOTALL)
         match = pattern.search(xml_string)
         
@@ -32,10 +43,8 @@ class ResponseParser:
             return xml_string
         
         raw_content = match.group(1)
-        # Convert rogue brackets to safe XML entities
         safe_content = raw_content.replace("<", "&lt;").replace(">", "&gt;")
         
-        # Stitch the safe content back into the original string
         return xml_string[:match.start(1)] + safe_content + xml_string[match.end(1):]
 
     def parse(self, raw_string: str) -> Dict[str, Any]:
@@ -49,17 +58,12 @@ class ResponseParser:
             xml_block = raw_string[start : end + 11].strip()
 
             try:
-                # FIRST ATTEMPT: Strict parse
                 root = ET.fromstring(xml_block)
             except ET.ParseError:
                 func.log("[ResponseParser] Initial XML parsing failed, attempting salvage operation...")
-                # SALVAGE OPERATION TRIGGERED
-                # Sanitize the blocks where the LLM is allowed to 'think'
                 xml_block = self._sanitize_block(xml_block, "thought")
                 xml_block = self._sanitize_block(xml_block, "notes")
                 xml_block = self._sanitize_block(xml_block, "response_to_user")
-                
-                # SECOND ATTEMPT: Parse the repaired string
                 root = ET.fromstring(xml_block)
 
             def get_text(tag):
@@ -83,7 +87,6 @@ class ResponseParser:
             }
 
         except ET.ParseError as e:
-            # If it STILL fails, the tool parameters or structure itself is broken
             return {"status": "FAILED", "error": f"Malformed XML (Salvage Failed): {str(e)}"}
         except Exception as e:
             return {"status": "FAILED", "error": f"System Error: {str(e)}"}
