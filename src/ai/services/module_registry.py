@@ -1,5 +1,6 @@
 from typing import Dict, Any, Optional
 from ai.entities.model_enums import EngineType
+from ai.modules.base_module import BaseModule
 from ai.services.engine_manager import EngineManager
 from ai.services.config_helper import ProgramConfig, ProgramSetting
 import ai.functions as func
@@ -12,7 +13,7 @@ class ModuleRegistry:
 
     def __init__(self, config: ProgramConfig):
         self.config = config
-        self._active_modules: Dict[str, Any] = {}
+        self._active_modules: Dict[str, BaseModule] = {}
         
         # Manifest of available module loaders
         self._manifest = {
@@ -21,7 +22,7 @@ class ModuleRegistry:
             "knowledge_graph": self._load_knowledge_graph_logic
         }
 
-    def __getitem__(self, key: str) -> Optional[Any]:
+    def __getitem__(self, key: str) -> Optional[BaseModule]:
         """Allows the prog.modules['voice'] syntax."""
         return self._active_modules.get(key)
     

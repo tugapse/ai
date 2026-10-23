@@ -11,7 +11,7 @@ from ai.agents.terminal_ui import TerminalUI
 from ai.agents.specialist_manager import SpecialistManager
 from ai.agents.memory_manager import AgentMemory, MemoryManager
 from ai.agents.context_sentinel import ContextSentinel
-from ai.agents.session_vault import SessionVault
+from ai.agents.session_manager import AgentSessionManager
 from ai.core.events import Events
 from ai.services.module_registry import ModuleRegistry
 from ai.tools.mcp_bridge import MCPBridge
@@ -64,7 +64,7 @@ class AgentOrchestrator(Events):
         self.vector_memory = None
         
         # Session State (Initialized in run_loop)
-        self.vault = None
+        self.session_manager = None
         self.session_id = None
 
     def run_loop(self, user_prompt: str, session_id: str):
@@ -72,8 +72,8 @@ class AgentOrchestrator(Events):
         Main execution loop. Hydrates session if available, otherwise starts fresh.
         """
         self.session_id = session_id
-        self.vault = SessionVault(session_id)
-        self._initialize_session_modules(session_id)
+        self.session_manager = AgentSessionManager(session_id)
+        self._initialize_modules()
 
         start_iteration, current_agent = self._get_saved_session(session_id=session_id, user_prompt=user_prompt)
         
@@ -133,7 +133,7 @@ class AgentOrchestrator(Events):
             next_agent = self._process_agent_response(response, current_agent, agent_config)
 
             # PERSISTENCE: Commit state before moving to the next iteration
-            self.vault.commit(self._capture_state(next_agent, i + 1))
+            self.session_manager.commit(self._capture_state(next_agent, i + 1))
 
             if next_agent == "DONE":
                 func.log(f"Cycle complete for {current_agent}. Clearing memory.", level="WARN")
@@ -148,8 +148,8 @@ class AgentOrchestrator(Events):
         current_agent = MASTER_AGENT
         start_iteration = 0
 
-        if  self.vault:         
-            session_state = self.vault.get_session()
+        if  self.session_manager:         
+            session_state = self.session_manager.get_session()
             if session_state:
                 TerminalUI.header(f"Resuming Session: {session_id}", "Sentinel Architect")
                 self._apply_state(session_state)
@@ -286,7 +286,7 @@ class AgentOrchestrator(Events):
         self.memory.record_tool_result(agent, tool_name, params, result)
         return True
 
-    def _initialize_session_modules(self, session_id: str):
+    def _initialize_modules(self):
         """
         Initializes all registered modules, centralizing their tools in the ToolRegistry.
         """
@@ -294,15 +294,12 @@ class AgentOrchestrator(Events):
             if not mod:
                 continue
 
-            # Modules are pre-initialized, so we just retrieve the instance.
             instance = mod.get_instance()
 
-            # Special handling for vector_memory to maintain direct access
             if module_name == "vector_memory":
                 self.vector_memory = instance
                 func.log(f"VectorMemory: {'CONNECTED' if self.vector_memory else 'DISABLED'}")
 
-            # Register tools from the module into the central registry
             if instance and hasattr(instance, 'tools') and hasattr(instance.tools, 'get_tools'):
                 module_tools = instance.tools.get_tools()
                 for tool_name, tool_func in module_tools.items():

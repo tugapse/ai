@@ -1,6 +1,23 @@
 from typing import Any, Optional
 import ai.functions as func
 
+class ModuleTools:
+    """
+    A simple container for module-specific tools.
+    Each module can define its own set of tools and expose them via this class.
+    """
+    def __init__(self):
+        self._tools = {}
+
+    def register_tool(self, name: str, func: Any):
+        """Registers a tool with a given name."""
+        self._tools[name] = func
+
+    def get_tools(self) -> dict:
+        """Returns the registered tools."""
+        return self._tools
+
+
 class BaseModule:
     """
     The fundamental blueprint for all JARVIS modules.
@@ -11,6 +28,7 @@ class BaseModule:
         self.kwargs = kwargs
         self._instance: Optional[Any] = None
         self._is_initialized: bool = False
+        self.tools = ModuleTools()  # Placeholder for module-specific tools
 
     def initialize(self, *args, **kwargs):
         """

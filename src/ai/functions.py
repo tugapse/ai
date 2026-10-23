@@ -175,8 +175,6 @@ def resolve_path_and_get_content(input_value: str, base_folder_setting: ProgramS
     return ""
 
 
-
-
 def write_to_file(filename, content, filemode=FILE_MODE_CREATE, silent=False):
     """
     Writes the given content to a file.
