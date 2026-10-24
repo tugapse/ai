@@ -342,3 +342,15 @@ def get_formatted_text(text, level="INFO", start_line="[ * ]"):
         formatted_text = f"{Color.NORMAL_CYAN}{start_line}{Color.RESET} {text}"
     return formatted_text
         
+def get_logo_asci():
+    """
+    Returns the ASCII art logo for the application.
+    """
+    return f"""{Color.CYAN}
+      ██╗  █████╗  ██████╗  ██╗   ██╗ ██╗ ███████╗      █████╗  ██╗
+      ██║ ██╔══██╗ ██╔══██╗ ██║   ██║ ██║ ██╔════╝     ██╔══██╗ ██║
+      ██║ ███████║ ██████╔╝ ██║   ██║ ██║ ███████╗     ███████║ ██║
+ ██   ██║ ██╔══██║ ██╔══██╗ ╚██╗ ██╔╝ ██║ ╚════██║     ██╔══██║ ██║
+ ╚█████╔╝ ██║  ██║ ██║  ██║  ╚████╔╝  ██║ ███████║     ██║  ██║ ██║
+  ╚════╝  ╚═╝  ╚═╝ ╚═╝  ╚═╝   ╚═══╝   ╚═╝ ╚══════╝     ╚═╝  ╚═╝ ╚═╝
+{Color.RESET}"""

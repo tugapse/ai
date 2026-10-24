@@ -15,6 +15,7 @@ import re
 from typing import Optional
 
 # Configuration and Enums
+from ai.agents.session_manager import AgentSessionManager
 from ai.modules.server.brain_hub import BrainHub
 from ai.model_config_manager import ModelConfigManager
 from ai.config import ProgramConfig, ProgramSetting 
@@ -46,11 +47,12 @@ class CliArgs:
         acts as a Brain (Server), a Body (Client), or a Standalone agent.
         """
         # 1. System/Global Actions
-        self._handle_create_tool(args)
-        self._handle_config_generation(prog, args, args_parser) 
+        self._check_nhandle_create_tool(args)
+        self._check_nhandle_config_generation(prog, args, args_parser) 
         self._is_install(args)
         self._is_print_chat(args)
         self._is_list_models(args)
+        self._check_nhandle_list_sessions(args)
 
         # 2. Mode Dispatching
         # Check for Server Mode (Main PC)
@@ -68,7 +70,7 @@ class CliArgs:
 
         self._has_message(prog, args) 
     
-    def _handle_create_tool(self, args):
+    def _check_nhandle_create_tool(self, args):
             if not args.create_tool:
                 return
 
@@ -225,7 +227,7 @@ def {function_name}(argument: str) -> str:
         finally:
             sys.exit(0)
 
-    def _handle_config_generation(self, prog, args, parser: argparse.ArgumentParser):
+    def _check_nhandle_config_generation(self, prog, args, parser: argparse.ArgumentParser):
         if not args.generate_config:
             return
 
@@ -387,4 +389,15 @@ def {function_name}(argument: str) -> str:
                 hide_think_anim=args.no_think_anim,
                 print_output=args.no_out != True
             )
+            sys.exit(0)
+    def _check_nhandle_list_sessions(self, args):
+        if args.list_sessions:
+            sessions = AgentSessionManager.list_sessions(os.getcwd())
+            if not sessions:
+                func.out("No agent sessions found.", level="INFO")
+                sys.exit(0)
+
+            func.out("Agent Sessions:", level="INFO")
+            for session in sessions:
+                func.out(f"Session ID: {session['session_id']}, User Request: {session.get('user_request', 'N/A')}", level="INFO")
             sys.exit(0)

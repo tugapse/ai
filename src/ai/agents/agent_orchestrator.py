@@ -133,7 +133,7 @@ class AgentOrchestrator(Events):
             next_agent = self._process_agent_response(response, current_agent, agent_config)
 
             # PERSISTENCE: Commit state before moving to the next iteration
-            self.session_manager.commit(self._capture_state(next_agent, i + 1))
+            self.session_manager.commit(self._capture_state(next_agent, i + 1, user_prompt))
 
             if next_agent == "DONE":
                 func.log(f"Cycle complete for {current_agent}. Clearing memory.", level="WARN")
@@ -173,9 +173,10 @@ class AgentOrchestrator(Events):
 
         return start_iteration, current_agent or MASTER_AGENT
 
-    def _capture_state(self, next_agent: str, iteration: int) -> Dict[str, Any]:
+    def _capture_state(self, next_agent: str, iteration: int,user_request: str) -> Dict[str, Any]:
         """Serializes current memory and orchestration metadata."""
         return {
+            "user_request": user_request,
             "current_agent": next_agent,
             "iteration": iteration,
             "memory": self.memory.serialize(),
@@ -270,6 +271,7 @@ class AgentOrchestrator(Events):
     def _handle_tool_execution(self, tool_name: str, params: Dict[str, Any], agent: str, config: Dict[str, Any]) -> bool:
         if tool_name not in config.get("tools", []):
             self.memory.add_message_to_agent(agent, {"from": "SYSTEM", "message": f"Unauthorized tool: {tool_name}"})
+            func.debug(f"Agent {agent} attempted to use unauthorized tool: {tool_name} , allowed tools: {config.get('tools', [])}", level="WARN")
             return False
 
         if self.specialist_manager.is_specialist_tool(tool_name):

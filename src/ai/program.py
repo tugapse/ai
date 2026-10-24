@@ -14,6 +14,7 @@ from ai.color import Color
 from ai.agents.agent import Agent
 from ai.modules.vector_memory.vector_memory_module import VectorMemoryModule
 from ai.modules.vector_memory.vector_memory import VectorMemory
+from ai.modules.voice.base_module import BaseVoiceModule
 from ai.tools.tool_registry import ToolRegistry
 from ai.tools.agent_tools import AVAILABLE_TOOLS
 from ai.tools.tool_loader import load_and_register_user_tools
@@ -114,7 +115,7 @@ class Program:
         
         if self.models:
             self._active_tools_system_prompt = ToolRegistry.format_tools_for_prompt(self.tool_registry.get_all_tools())
-            func.log(f"Program: Dynamic tool protocol injected into System Prompt. {self._active_tools_system_prompt}", level="DEBUG")
+            func.debug(f"Program: Dynamic tool protocol injected into System Prompt. {self._active_tools_system_prompt}", level="DEBUG")
     
     def _load_vector_memory(self):
         if self.modules and (vector_memory := self.modules['vector_memory']):
@@ -249,8 +250,8 @@ class Program:
     def _cleanup_after_turn(self):
         self.ui.reset_turn()
         try:
-            if self.modules and (voice := self.modules["voice"]):
-                voice.collect_audio()
+            if self.modules and isinstance(voice := self.modules["voice"], BaseVoiceModule):
+                    voice.collect_audio()
         except: pass
         self.history.save()
         self.chat.chat_finished()

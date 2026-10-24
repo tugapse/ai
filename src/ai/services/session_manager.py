@@ -65,12 +65,12 @@ class SessionManager:
             )
 
         # --- Workspace setup ---
-        generated_files_base_path = config.get(ProgramSetting.PATHS_WORKSPACES)
-        if not generated_files_base_path:
-            generated_files_base_path = os.path.join(func.get_root_directory(), "workspaces") 
+        # generated_files_base_path = config.get(ProgramSetting.PATHS_WORKSPACES)
+        # if not generated_files_base_path:
+        #     generated_files_base_path = os.path.join(func.get_root_directory(), "workspaces") 
 
-        session_paths["session_workspace_path"] = os.path.join(generated_files_base_path, f"session_{session_timestamp}")
-        func.ensure_directory_exists(session_paths["session_workspace_path"]) 
+        # session_paths["session_workspace_path"] = os.path.join(generated_files_base_path, f"session_{session_timestamp}")
+        # func.ensure_directory_exists(session_paths["session_workspace_path"]) 
 
         # Update legacy global logs
         func.ACTIVE_ERROR_FILENAME = os.path.join(logs_dir, "active_error_filename.log")
