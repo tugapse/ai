@@ -22,7 +22,7 @@ class JarvisAiModel(BaseModel):
         super().__init__(model_name, system_prompt, **kargs)
         
         # Configuration routing pointing to the custom backend server
-        self.base_url = kargs.get("base_url") or os.environ.get("AI_API_BASE_URL", "http://127.0.0.1:8000")
+        self.base_url = kargs.get("base_url") or os.environ.get("AI_API_BASE_URL", "http://0.0.0.0:9999")
         self.endpoint = f"{self.base_url.rstrip('/')}/api/v1/chat/completions"
         
         # Session state details used by ChatSessionRouter on the backend
@@ -35,6 +35,7 @@ class JarvisAiModel(BaseModel):
         out_tokens = kargs.get('max_new_tokens', 2048)
         self.token_info_count.max_output_tokens = out_tokens
         self.token_info_count.max_context_window = kargs.get("n_ctx", BaseModel.CONTEXT_WINDOW_128K)
+        self.time_out = kargs.get("timeout", 600.0)  # Default to 10 minutes for long-running tasks
 
     def chat(self, messages: List[Dict[str, str]], images=[],stream: bool = True, options={} ) -> Union[str, Dict[str, Any], Generator[Union[str, Dict[str, Any]], None, None]]:
         """Executes a chat completion request directly to the custom backend endpoint."""
@@ -65,7 +66,7 @@ class JarvisAiModel(BaseModel):
             if stream:
                 return self._run_streaming_chat(payload)
             else:
-                with httpx.Client(timeout=60.0) as client:
+                with httpx.Client(timeout=self.time_out) as client:
                     response = client.post(self.endpoint, json=payload)
                     response.raise_for_status()
                     data = response.json()
@@ -86,7 +87,7 @@ class JarvisAiModel(BaseModel):
         full_content = ""
         
         try:
-            with httpx.stream("POST", self.endpoint, json=payload, timeout=60.0) as response:
+            with httpx.stream("POST", self.endpoint, json=payload, timeout=self.time_out) as response:
                 response.raise_for_status()
                 
                 for line in response.iter_lines():

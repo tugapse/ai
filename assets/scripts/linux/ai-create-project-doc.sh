@@ -36,6 +36,8 @@ ui_confirm()  {
 # --- GLOBAL CONFIGURATION ---
 AI_ENGINE=${AI_ENGINE:-ai}
 AI_ENGINE_DEFAULT_MODEL="${AI_ENGINE_DEFAULT_MODEL:-custom/task/create-project-doc}"
+AI_ENGINE_DEFAULT_REMOTE_MODEL="${AI_ENGINE_DEFAULT_REMOTE_MODEL:-custom/task/create-project-doc-remote}"
+
 
 # Runtime state
 TEMP_LIST=""
@@ -192,12 +194,14 @@ process_single_file() {
     ui_info "[${BOLD}${CYAN}$current_step/$TOTAL_FILES${NC}] Processing: ${BOLD}$rel_path${NC} (ETA: $eta_str)"
 
     local task="create-code-documentation"
-
-    local ai_args=(-md "$AI_ENGINE_DEFAULT_MODEL" -o "$target_file" --task "$task" --system task --file "$file" --msg "MANIFEST: $MANIFEST")
+    local  model=AI_ENGINE_DEFAULT_MODEL
+    if [[ "$USE_SERVER" == true ]]; then
+        model="$AI_ENGINE_DEFAULT_REMOTE_MODEL"
+    fi
+    local ai_args=(-md "$model" -o "$target_file" --task "$task" --system task --file "$file" --msg "MANIFEST: $MANIFEST")
     [[ -n "$SILENT_FLAG" ]] && ai_args+=("$SILENT_FLAG")
-    [[ "$USE_SERVER" == true ]] && ai_args+=(--remote "$REMOTE_TARGET")
 
-    if ! $AI_ENGINE "${ai_args[@]}" < /dev/null 2>/dev/null; then
+    if ! $AI_ENGINE "${ai_args[@]}" < /dev/null ; then
         ui_error "Failed to document: $rel_path"
         exit 1
     fi
