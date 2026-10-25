@@ -1,68 +1,60 @@
 ## 1. Architectural Role
-| Name | Source file |
+|  |  |
 | :--- | :--- |
-| ChatCommandInterceptor | [/src/ai/chat/chat_command_interceptor.py](/src/ai/chat/chat_command_interceptor.py) |
+| Name | ChatCommandInterceptor |
+| Source file | chat_command_interceptor.py |
 
-The ChatCommandInterceptor serves as the command-handling conduit within a chat session. It attaches to a Chat instance and listens for command events, routing user input through a small command-dispatch mechanism that supports saving, loading, and listing sessions, plus any extensible extra commands. 
+The **ChatCommandInterceptor** serves as a specialized middleware component designed to monitor and react to specific user input patterns within a chat session. It acts as a gatekeeper that intercepts raw command strings before they are processed as standard conversational text, allowing the system to execute administrative or state-management tasks.
 
-Its responsibilities include coordinating with the chats lifecycle, persisting conversation history to disk, and replaying saved sessions for inspection or continuation. By centralizing command parsing and execution, it decouples session management from the core chat logic, enabling clean extension points for future commands or behaviors.
+**Functional Mission**
+The primary responsibility of the **ChatCommandInterceptor** is to provide a mechanism for session persistence and command routing. It solves the problem of managing chat state (saving, loading, and listing sessions) and provides an extensible framework for developers to inject custom command logic via inheritance.
 
-Within the broader system, this component acts as a bridge between user-issued textual commands and persistent session state. It interacts with the Chat object to obtain and modify in-memory messages and to signal command termination after processing. Internal references to other modules (e.g., colorized output, IO helpers) are linked to their documented interfaces to maintain a consistent cross-component contract. [Chat](/docs/ai/chat/chat.md) | [ConsoleChatReader](/docs/ai/extras/console.md) | [Color](/docs/ai/color.md) | [ai.functions](/docs/ai/functions.md)
+**System Context & Integration**
+This component is tightly coupled with the [Chat](/docs/ai/chat/chat.md) class, which it observes via an event-driven architecture. By subscribing to the `Chat.EVENT_COMMAND_STARTED` event, it intercepts the execution flow immediately when a command is detected. It facilitates data persistence by interacting with the file system to store or retrieve message histories, and it utilizes [ConsoleChatReader](/docs/ai/extras/console.md) to re-render loaded sessions into the user interface.
 
+- **INTERNAL REFERENCES**: [Chat](/docs/ai/chat/chat.md), [Color](/docs/ai/color.md), [ConsoleChatReader](/docs/ai/extras/console.md), [func](/docs/ai/functions.md).
 
 ## 2. Environment & Configuration
 **Environment Lookups:**
 - No environment lookups identified.
 
 **Hardcoded Constants:**
-- No hardcoded constants identified.
+- `['/save', '/load', '/list']` (Default: list of supported core commands)  Defines the set of built-in administrative commands.
 
 ## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| ChatCommandInterceptor | Class | Intercepts and handles chat commands, supports /save, /load, /list, plus extensible extra commands; terminates command processing after handling. |
+| `ChatCommandInterceptor` | Class | Orchestrates command interception, session management, and custom command routing. |
+| `run` | Method | The primary entry point triggered by chat events; parses command strings and routes to specific handlers. |
+| `handle_extra_command` | Method | An abstract hook intended to be overridden by subclasses to implement custom command logic. |
+| `save_session` | Method | Serializes the current `chat.messages` list to a JSON file in the `root_folder`. |
+| `load_session` | Method | Deserializes a JSON file into `chat.messages` and triggers a UI re-print via `ConsoleChatReader`. |
+| `list_sessions` | Method | Scans the `root_folder` and outputs a list of available session files to the console. |
 
-## 4. Code Example
-```python
-# Example usage
-from ai.chat.chat import Chat
-from ai.chat.chat_command_interceptor import ChatCommandInterceptor
+## 4. Execution Logic & Flow
+- **Initialization**: 
+    1. Receives a `Chat` instance and a `root_folder` path.
+    2. Initializes an empty `extra_commands` list.
+    3. Registers the `run` method as a listener for the `Chat.EVENT_COMMAND_STARTED` event within the `Chat` object.
+- **Data Path**: 
+    - **Input**: A raw string (`command_text`) provided by the `Chat` event.
+    - **Processing**: 
+        1. String is split into whitespace-separated parts.
+        2. The first part (the command) is evaluated against built-in commands and the `extra_commands` registry.
+        3. If a match is found, specific logic (file I/O or custom handler) is executed.
+    - **Output**: Console output via `func.out` (success/error messages) or state modification of the `Chat` object.
+- **Conditional Branching**:
+    - **Command Type Check**: 
+        - If `/save`, `/load`, or `/list` $\rightarrow$ Execute session management logic.
+        - If in `extra_commands` $\rightarrow$ Call `handle_extra_command`.
+        - Otherwise $\rightarrow$ Output "Invalid Command".
+    - **File Existence**: During `load_session`, checks if the target file exists in `root_folder` before attempting to read.
 
-chat = Chat()
-interceptor = ChatCommandInterceptor(chat=chat, root_folder="/sessions")
-
-# Save the current session
-interceptor.run("/save session1.json")
-
-# Load a saved session
-interceptor.run("/load session1.json")
-
-# List available sessions
-interceptor.run("/list")
-```
-
-## 5. Execution Logic & Flow
-- Initialization
-  - __init__(chat, root_folder) sets self.chat, self.root_folder, initializes self.extra_commands to [], and registers self.run to Chat.EVENT_COMMAND_STARTED.
-- Data Path
-  - run(command_text) splits input, determines command, and dispatches to save, load, list, or extra command handlers.
-- Conditional Branching
-  - If command is /save, call save_session(parts[1]).
-  - If command is /load, call load_session(parts[1]).
-  - If command is /list, call list_sessions().
-  - If command is in extra_commands, call handle_extra_command(command_text).
-  - Otherwise output "Invalid Command".
-  - Finally, terminate the command via self.chat.terminate_command().
-
-## 6. Resource Dependencies
-- **Standard Libraries**:
-  - json
-  - os
-- **Internal Modules** (matched via manifest):
-  - [ai.functions](/docs/ai/functions.md)
-  - [Chat](/docs/ai/chat/chat.md)
-  - [Color](/docs/ai/color.md)
-  - [ConsoleChatReader](/docs/ai/extras/console.md)
-- **External Packages**:
-  - None
-
+## 5. Resource Dependencies
+- **Standard Libraries**: `json`, `os`
+- **Internal Modules**: 
+    - [func](/docs/ai/functions.md)
+    - [Chat](/docs/ai/chat/chat.md)
+    - [Color](/docs/ai/color.md)
+    - [ConsoleChatReader](/docs/ai/extras/console.md)
+- **External Packages**: None identified.

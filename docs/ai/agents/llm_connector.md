@@ -1,80 +1,57 @@
 ## 1. Architectural Role
-| Name | Source file |
+|  |  |
 | :--- | :--- |
-| LLMConnector | [/src/ai/agents/llm_connector.py](/src/ai/agents/llm_connector.py) |
+| Name | LLMConnector |
+| Source file | llm_connector.py |
 
-The LLMConnector component serves as the architectural bridge between a concrete Large Language Model (LLM) implementation and a structured, XML-oriented agent workflow. It encapsulates the orchestration logic required to load system prompts, apply dynamic constraints, construct structured messages for the LLM, and parse the LLMs response using a strict XML-aware parser. Its role is to translate high-level agent intents into a format the LLM can process reliably while ensuring robust handling of prompt loading failures and parsing errors. By delegating parsing to ResponseParser, the component enforces a consistent interpretation of LLM outputs, enabling downstream modules to react to standardized results.
+The **LLMConnector** serves as the primary communication bridge between the high-level agentic logic and the underlying Large Language Model (LLM) implementations. It acts as a sophisticated wrapper that manages the lifecycle of a request, transforming structured JSON inputs into formatted prompts and ensuring that the resulting raw text is parsed back into actionable data structures.
 
-In the broader system, LLMConnector interacts with the LLModel abstraction (BaseModel), the XML-based response parser, and the tool/injection framework that provides dynamic constraints or tool descriptions. It operates within the execution flow that converts structured inputs into agent actions, and then back into structured results. The component is central to the data/state transition: it reads a system prompt, augments it with optional agent tool constraints, sends a formatted message sequence to the LLM, captures the raw output, and finally parses it into a structured dictionary for downstream consumption. This tight coupling with the parser and LLM interface ensures clear boundaries between message construction, prompt management, and result interpretation.
+**Functional Mission**
+The primary responsibility of **LLMConnector** is to facilitate "Structured Agentic XML communication." It solves the problem of non-deterministic LLM outputs by enforcing strict prompt injection (including dynamic tool constraints) and utilizing a specialized parser to validate and extract structured responses. Its core mission is to provide a reliable, stateful interface for agents to interact with various LLM backends while maintaining strict adherence to defined communication protocols.
 
-- Internal references: [ResponseParser](/docs/ai/agents/xml_response_parser.md), [BaseModel](/docs/ai/core/llms/base_llm.md), [ChatRoles](/docs/ai/chat/chat.md), [ai.functions](/docs/ai/functions.md), [ask](/docs/ai/direct.md)
+**System Context & Integration**
+This component sits between the agentic orchestration layer and the low-level model drivers. It consumes `BaseModel` instances from [BaseModel](/docs/ai/core/llms/base_llm.md) to execute calls and utilizes [ResponseParser](/docs/ai/agents/xml_response_parser.md) to sanitize outputs. It integrates with [ask](/docs/ai/direct.md) to perform the actual execution and uses [ChatRoles](/docs/ai/chat/chat.md) to structure the conversation history. Downstream, the parsed output is returned to the calling agent to drive decision-making or tool execution.
+
+- **INTERNAL REFERENCES**: [BaseModel](/docs/ai/core/llms/base_llm.md), [ResponseParser](/docs/ai/agents/xml_response_parser.md), [ChatRoles](/docs/ai/chat/chat.md), [ask](/docs/ai/direct.md).
 
 ## 2. Environment & Configuration
 **Environment Lookups:**
 - No environment lookups identified.
 
 **Hardcoded Constants:**
-- No hardcoded constants identified.
+- `parameter_mode` (Default: `"xml"`)  Determines the expected communication format.
+- `output_filename` (Default: `f"{func.get_root_directory()}/logs/llm_output_active.md"`)  The path used to capture the LLM's raw output for reliability.
 
 ## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `LLMConnector` | Class | Orchestrates LLM calls with system prompts, applies dynamic constraints, formats messages, executes the LLM call, and parses the result via the strict XML parser. |
+| `LLMConnector` | Class | Orchestrates structured and raw communication with LLM instances. |
+| `get_context_limit` | Method | Returns the maximum token window supported by the current LLM. |
+| `get_max_tokens` | Method | Returns the maximum output token limit of the current LLM. |
+| `send_request` | Method | Executes a structured XML-based request with dynamic tool/target constraints. |
+| `send_raw_request` | Method | Executes a direct text/code generation request bypassing XML parsing. |
+| `_execute_llm_call` | Method | Internal handler that manages the file-based capture of LLM responses via `ask`. |
 
-## 4. Code Example
-```python
+## 4. Execution Logic & Flow
+- **Initialization**: The class is instantiated with a `BaseModel` instance and an optional `parameter_mode`. It initializes a `ResponseParser` to handle incoming LLM text.
+- **Data Path (Structured Request)**:
+    1. **Prompt Loading**: Reads a system prompt from a file path.
+    2. **Constraint Injection**: If `agent_config` is provided, it appends `AVAILABLE TOOLS` and `ALLOWED AGENT TARGETS` to the system prompt.
+    3. **Message Construction**: Wraps the system prompt and the JSON input (inside `<context>` tags) into a list of chat messages.
+    4. **Execution**: Calls `_execute_llm_call`, which triggers `ask` and writes the result to a temporary markdown file.
+    5. **Parsing**: The file content is read and passed to `self.parser.parse()`.
+    6. **Error Handling/Output**: If parsing fails, it attempts to extract `response_to_user` for fallback; otherwise, it returns the parsed dictionary.
+- **Conditional Branching**:
+    - **Prompt Read Failure**: If the system prompt file cannot be read, the method returns a `FAILED` status immediately.
+    - **Parsing Failure**: If `parsed.get("status") == "FAILED"`, the logic checks for `raw_Content` to provide a graceful fallback to the user via `func.out`.
+    - **File IO Failure**: In `_execute_llm_call`, if the output file is not created after execution, an error is logged and an empty string is returned.
 
-# Example usage (pseudo-code; replace with real implementations)
-from ai.agents.llm_connector import LLMConnector
-from ai.core.llms.base_llm import BaseModel
-
-# llm_impl should be an instantiated subclass of BaseModel
-llm_impl = SomeLLMImplementation()
-
-connector = LLMConnector(llm_impl)
-
-# Prepare inputs
-json_input = {"task": "summarize", "context": {"user": "example"}}
-
-system_prompt_path = "/path/to/system_prompt.md"
-
-agent_config = {
-    "tools": ["tool_a", "tool_b"],
-    "tool_descriptions": "tool_a: does X; tool_b: does Y",
-    "allowed_targets": ["STOP", "EXECUTE"]
-}
-
-response = connector.send_request(json_input, system_prompt_path, agent_config=agent_config)
-
-print(response)
-```
-
-## 5. Execution Logic & Flow
-- Initialization:
-  - Create LLMConnector with an LLM instance (BaseModel derivative).
-  - Initialize a ResponseParser for strict parsing.
-
-- Data Path:
-  - Read system prompt from system_prompt_path, assign to llm.system_prompt.
-  - If agent_config is provided, construct a dynamic constraints block with available tools and allowed targets and append to the system prompt.
-  - Build messages list:
-    - System message containing the system prompt.
-    - User message containing the input context as <context>...</context>.
-  - Execute LLM call via _execute_llm_call(messages).
-  - Parse raw LLM output with the strict XML parser (self.parser.parse).
-  - If parsing indicates failure, log error and return the parsed error structure.
-
-- Conditional Branching:
-  - If prompt file read fails, return a failure dictionary with the error.
-  - If parsing fails, log an error but return the parsed error result.
-
-## 6. Resource Dependencies
-- **Standard Libraries**: os, typing
+## 5. Resource Dependencies
+- **Standard Libraries**: `os`, `typing`
 - **Internal Modules**: 
-  - [ai.functions](/docs/ai/functions.md) 
-  - [ResponseParser](/docs/ai/agents/xml_response_parser.md)
-  - [BaseModel](/docs/ai/core/llms/base_llm.md)
-  - [ChatRoles](/docs/ai/chat/chat.md)
-  - [ask](/docs/ai/direct.md)
-  - [LLMConnector](/docs/ai/agents/llm_connector.md)
-- **External Packages**: None
+    - [ai.functions](/docs/ai/functions.md)
+    - [ai.agents.xml_response_parser](/docs/ai/agents/xml_response_parser.md)
+    - [ai.core.llms.base_llm](/docs/ai/core/llms/base_llm.md)
+    - [ai.chat.chat](/docs/ai/chat/chat.md)
+    - [ai.direct](/docs/ai/direct.md)
+- **External Packages**: None identified.
