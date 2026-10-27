@@ -79,11 +79,11 @@ class TerminalUI:
     @staticmethod
     def auth_request(tool_name: str, target: str, command: str = ""): 
         """Displays a boxed authorization request."""
-        func.out(f"\n{Color.BLUE}╭── {Color.BG_YELLOW}{Color.NORMAL_BLACK} AUTHORIZATION REQUIRED {Color.RESET}{Color.BLUE} ───")
-        func.out(f"│ {Color.NORMAL_CYAN}TOOL:   {Color.RESET}{tool_name}")
+        func.out(f"\n{Color.BLUE}╭── {Color.BG_YELLOW}AUTHORIZATION REQUIRED{Color.BLUE} ───")
+        func.out(f"│ {Color.NORMAL_CYAN}TOOL:   {Color.BLUE}{tool_name}")
         if command:
-            func.out(f"│ {Color.NORMAL_CYAN}CMD    : {Color.RESET}{command}")
-        func.out(f"│ {Color.NORMAL_CYAN}TARGET: {Color.RESET}{target}")
+            func.out(f"│ {Color.NORMAL_CYAN}CMD: {Color.BLUE}{command}")
+        func.out(f"│ {Color.NORMAL_CYAN}TARGET: {Color.BLUE}{target}")
         func.out(f"╰───────────────────────────────────────────────────{Color.RESET}")
 
     @staticmethod

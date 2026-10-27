@@ -1,6 +1,8 @@
+import hashlib
 import os
 import sys
 import unittest
+import uuid
 from unittest.mock import patch, MagicMock
 
 # --- 1. CIRCULAR IMPORT & UI BYPASS ---
@@ -74,13 +76,18 @@ class TestMessageOrchestrator(unittest.TestCase):
         # We use os.getcwd() to ensure it points to the project root where `pytest` is run.
         self.test_root = os.getcwd()
         mock_func.get_root_directory.return_value = self.test_root
+        self.session_id = f"test-session-{uuid.uuid4().hex}"
 
         # --- 2. CLEAN UP PREVIOUS TEST STATE ---
-        # Now that the mock is configured, we can reliably find and delete the
-        # session file from the previous test run.
-        session_file = os.path.join(self.test_root, "logs", "agents", "test-session.json")
-        if os.path.exists(session_file):
-            os.remove(session_file)
+        # Use the same hash-based storage layout as AgentSessionManager so stale files
+        # from earlier runs do not resume unexpectedly.
+        digest = hashlib.sha256(os.path.abspath(self.test_root).encode("utf-8")).hexdigest()[:16]
+        storage_dir = os.path.join(self.test_root, "logs", "agents", digest)
+        if os.path.isdir(storage_dir):
+            for filename in os.listdir(storage_dir):
+                file_path = os.path.join(storage_dir, filename)
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
 
         # --- 3. SET UP TEST-SPECIFIC CONFIG ---
         self.pipeline_config = {
@@ -126,7 +133,7 @@ class TestMessageOrchestrator(unittest.TestCase):
         
         # Patch input just in case, though it shouldn't be called here
         with patch('builtins.input', return_value='y'):
-            orchestrator.run_loop("Find the main file.", session_id="test-session")
+            orchestrator.run_loop("Find the main file.", session_id=self.session_id)
 
         # Verify it stopped without blowing through max_iterations
         self.assertEqual(len(connector.request_history), 2)
@@ -144,7 +151,7 @@ class TestMessageOrchestrator(unittest.TestCase):
         connector = MockConnector(mock_responses)
         orchestrator = AgentOrchestrator(llm_connector=connector, tool_registry=self.registry, pipeline_config=self.pipeline_config, module_registry=self.module_registry)
         
-        orchestrator.run_loop("Write a script.", session_id="test-session")
+        orchestrator.run_loop("Write a script.", session_id=self.session_id)
         
         # Verify CODER actually received the message from MANAGER in its history
         coder_history = orchestrator.memory.get_agent_memory("CODER").history
@@ -161,7 +168,7 @@ class TestMessageOrchestrator(unittest.TestCase):
         connector = MockConnector(mock_responses)
         orchestrator = AgentOrchestrator(llm_connector=connector, tool_registry=self.registry, pipeline_config=self.pipeline_config, module_registry=self.module_registry)
         
-        orchestrator.run_loop("Call Batman.", session_id="test-session")
+        orchestrator.run_loop("Call Batman.", session_id=self.session_id)
         
         # Verify the system injected an error message in MANAGER's history
         manager_history = orchestrator.memory.get_agent_memory("MANAGER").history
@@ -181,7 +188,7 @@ class TestMessageOrchestrator(unittest.TestCase):
         connector = MockConnector(mock_responses)
         orchestrator = AgentOrchestrator(llm_connector=connector, tool_registry=self.registry, pipeline_config=self.pipeline_config, module_registry=self.module_registry)
         
-        orchestrator.run_loop("Break the parser.", session_id="test-session")
+        orchestrator.run_loop("Break the parser.", session_id=self.session_id)
         
         # Verify it halted exactly after 3 attempts
         self.assertEqual(len(connector.request_history), 3)
@@ -197,7 +204,7 @@ class TestMessageOrchestrator(unittest.TestCase):
         connector = MockConnector(mock_responses)
         orchestrator = AgentOrchestrator(llm_connector=connector, tool_registry=self.registry, pipeline_config=self.pipeline_config, module_registry=self.module_registry)
         
-        orchestrator.run_loop("Recover from error.", session_id="test-session")
+        orchestrator.run_loop("Recover from error.", session_id=self.session_id)
         
         # Verify it processed all 3, and the strike counter reset to 0
         self.assertEqual(len(connector.request_history), 3)

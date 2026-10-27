@@ -1,81 +1,79 @@
 ## 1. Architectural Role
-| Name | Source file |
+|  |  |
 | :--- | :--- |
-| TerminalUI | [/src/ai/agents/terminal_ui.py](/src/ai/agents/terminal_ui.py) |
+| Name | TerminalUI |
+| Source file | terminal_ui.py |
 
-The TerminalUI component acts as the high-fidelity presentation layer for terminal-based interactions within the AI agent ecosystem. 
+The **TerminalUI** component serves as the high-fidelity presentation layer for the agent's command-line interface. It is responsible for translating abstract system states, agent activities, and authorization requirements into visually structured, color-coded terminal output. By abstracting ANSI escape sequences and theme management, it provides a consistent aesthetic experience across different terminal environments.
 
-It centralizes theming, colorization, and consistent formatting of console output. By loading theme variables from environment or fallbacks and providing a suite of static methods for common UI actions (header, status updates, authorization prompts, messages, and step logging), it ensures a unified and visually coherent user experience across agents and tools. As the central hub for output.
+**Functional Mission**
+The primary responsibility of **TerminalUI** is to manage the visual ergonomics of the terminal session. It solves the problem of "information density overload" by using structured headers, status indicators, and color-coded messaging to help users quickly distinguish between agent thoughts, system logs, and critical authorization requests.
 
-In the broader system, TerminalUI serves as the interface through which agents communicate progress, results, and prompts to users. It collaborates with the Color abstraction and the output utility ([functions](/docs/ai/functions.md) as func) to render colored, styled messages, dividers, and banners.
+**System Context & Integration**
+This component acts as a downstream consumer of system events and agent states. It is typically invoked by agents or orchestrators to signal progress or request user intervention. It integrates closely with [Color](/docs/ai/color.md) for low-level ANSI definitions and utilizes [ai.functions](/docs/ai/functions.md) for the actual output stream. It functions as a specialized view in a Model-View-Controller-like pattern, where the agent logic (Model/Controller) triggers specific visual representations (View) through this interface.
 
-The class-level constants and methods are designed to be globally accessible, allowing downstream modules to call into a consistent UI surface without embedding formatting logic.
+- **INTERNAL REFERENCES**: [Color](/docs/ai/color.md), [ai.functions](/docs/ai/functions.md).
 
 ## 2. Environment & Configuration
 **Environment Lookups:**
-
-| Name | Description |
-| :--- | :--- |
-| `THEME_PRIMARY` | Primary color for UI accents (via `_get_var`). |
-| `THEME_SECONDARY` | Secondary UI color (via `_get_var`). |
-| `THEME_ACCENT` | Accent color for emphasis (via `_get_var`). |
-| `THEME_TEXT` | Text color within UI elements (via `_get_var`). |
-| `THEME_OK` | Color used for success/status OK indicators (via `_get_var`). |
-| `THEME_WARN` | Color used for warnings (via `_get_var`). |
-| `THEME_FAIL` | Color used for failures (via `_get_var`). |
-| `ICON_PROMPT` | Icon used for agent prompts (default: ). |
-| `ICON_SECTION` | Icon used for sections (default: ). |
-| `ICON_SUCCESS` | Icon used for successful steps (default: ). |
-| `ICON_ERROR` | Icon used for errors (default: ). |
-| `GLYPH_H_LINE` | Horizontal line glyph (default: ). |
-
-- If none identified, behavior falls back to the provided defaults and hardcoded fallbacks.
+- `THEME_PRIMARY` (via `_get_var`)  Primary brand color for headers.
+- `THEME_SECONDARY` (via `_get_var`)  Color for dividers and subtitles.
+- `THEME_ACCENT` (via `_get_var`)  Color for agent identifiers and highlights.
+- `THEME_TEXT` (via `_get_var`)  Standard text color.
+- `THEME_OK` (via `_get_var`)  Color for success states.
+- `THEME_WARN` (via `_get_var`)  Color for warning/task states.
+- `THEME_FAIL` (via `_get_var`)  Color for error states.
+- `ICON_PROMPT` (via `os.getenv`)  Glyph used for agent prompts.
+- `ICON_SECTION` (via `os.getenv`)  Glyph used for section headers.
+- `ICON_SUCCESS` (via `os.getenv`)  Glyph for successful operations.
+- `ICON_ERROR` (via `os.getenv`)  Glyph for error states.
+- `GLYPH_H_LINE` (via `os.getenv`)  Character used for horizontal dividers.
 
 **Hardcoded Constants:**
-- RESET (Default: `"\033[0m"`)  ANSI reset sequence to revert styling after colored output.
+- `PRIMARY` (Default: `\033[38;5;214m`)  Fallback primary color.
+- `SECONDARY` (Default: `\033[38;5;94m`)  Fallback secondary color.
+- `ACCENT` (Default: `\033[38;5;202m`)  Fallback accent color.
+- `TEXT` (Default: `\033[38;5;223m`)  Fallback text color.
+- `OK` (Default: `\033[38;5;106m`)  Fallback success color.
+- `WARN` (Default: `\033[38;5;226m`)  Fallback warning color.
+- `FAIL` (Default: `\033[38;5;124m`)  Fallback error color.
+- `RESET` (Default: `\033[0m`)  ANSI reset sequence.
+- `ICON_AGENT` (Default: ``)  Default agent icon.
+- `ICON_ROCKET` (Default: ``)  Default section icon.
+- `ICON_SUCCESS` (Default: ``)  Default success icon.
+- `ICON_ERROR` (Default: ``)  Default error icon.
+- `H_LINE` (Default: ``)  Default divider character.
+- `DIVIDER` (Default: `` * 60)  Pre-calculated horizontal line.
 
 ## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| TerminalUI | Class | Provides static methods for terminal formatting and messaging: header, status, auth_request, message, log_step, clear_line. Centralizes theming, icons, dividers, and consistent output formatting for AI agent interactions. |
+| `_get_var` | Static Method | Resolves theme variables via environment, `colors.bashrc`, or theme files. |
+| `header` | Static Method | Renders a stylized header with a title, subtitle, and dividers. |
+| `status` | Static Method | Displays a single-line agent status update (supports in-place updates via `\r`). |
+| `auth_request` | Static Method | Renders a boxed UI component for tool/command authorization. |
+| `message` | Static Method | Prints a clean, color-coded message from an agent. |
+| `log_step` | Static Method | Renders a single-line log entry with a status icon (Success/Fail). |
+| `agent_step` | Static Method | Renders a single-line agent progress indicator. |
+| `clear_line` | Static Method | Clears the current terminal line using ANSI escape codes. |
 
-## 4. Code Example
-- Example usage:
-  - TerminalUI.header("Startup","Initializing components")
-  - TerminalUI.status("Indexer","Loading data", is_updating=True)
-  - TerminalUI.auth_request("Sensitive Tool","Data Vault","sudo access")
+## 4. Execution Logic & Flow
+- **Initialization**: 
+    - The class executes `_get_var` for all theme constants during module load.
+    - `_get_var` follows a hierarchical lookup: 1. Environment Variable $\rightarrow$ 2. `~/.source/colors.bashrc` (to find theme name) $\rightarrow$ 3. `~/.source/themes/[theme].bashrc` (to find specific variable) $\rightarrow$ 4. Hardcoded fallback.
+    - ANSI escape sequences are processed via `unicode_escape` and `\e` replacement to ensure compatibility.
+- **Data Path**: 
+    - **Input**: String data (titles, agent names, tasks, commands) and status flags.
+    - **Processing**: Strings are wrapped in ANSI color codes and combined with glyphs/icons.
+    - **Output**: Formatted strings are passed to `func.out()` for terminal rendering.
+- **Conditional Branching**:
+    - `_get_var`: Branches based on the existence of environment variables, the existence of the config file, and the existence of the specific theme file.
+    - `status`: Uses `is_updating` to decide whether to prepend `\r\033[K` for line overwriting.
+    - `log_step`: Selects color and icon based on the `status` string ("SUCCESS" vs others).
 
-```python
-# Example usage snippet
-from ai.agents.terminal_ui import TerminalUI
-
-TerminalUI.header("Startup","Initializing components")
-TerminalUI.status("Indexer","Loading data", is_updating=True ) # is_updating will move cursor to begining of the line 
-TerminalUI.auth_request("execute_command","Agent 1","ls -la /tmp")
-```
-
-## 5. Execution Logic & Flow
-- Initialization
-  - On import-time evaluation, class attributes PRIMARY, SECONDARY, ACCENT, TEXT, OK, WARN, FAIL are computed by _get_var, which attempts environment resolution, then theme file parsing, then a hardcoded fallback.
-  - ICON_AGENT, ICON_ROCKET, ICON_SUCCESS, ICON_ERROR resolve from environment with specified defaults. H_LINE resolves from GLYPH_H_LINE with a default, and DIVIDER derives from H_LINE.
-- Data Path
-  - header(title, subtitle) prints a styled divider, a bolded title with an rocket-style icon, optional subtitle, and a trailing divider.
-  - status(agent_name, task, is_updating) prints an updating line with agent name and task using accent and warn colors.
-  - auth_request(tool_name, target, command="") renders a boxed authorization request with optional command, using a dedicated color composition.
-  - message(agent_name, text, color) prints a colored message line.
-  - log_step(step_name, status="SUCCESS") outputs a colored step indicator with a corresponding icon.
-  - clear_line() clears the current terminal line.
-- Conditional Branching
-  - _get_var: if environment variable found, uses it; else tries theme file parsing; else falls back to a default string.
-  - subtitle handling in header is conditional (only prints if provided).
-  - auth_request includes an optional command line; if not provided, only tool/target lines render.
-
-## 6. Resource Dependencies
-- **Standard Libraries**:
-  - os
-  - re
-- **Internal Modules**:
-  - [ai.functions](/docs/ai/functions.md)  generic utility for output streams (func.out).
-  - [Color](/docs/ai/color.md)  color constants and formatting referenced in UI rendering.
-- **External Packages**:
-  - None
+## 5. Resource Dependencies
+- **Standard Libraries**: `os`, `re`
+- **Internal Modules**: 
+    - [ai.functions](/docs/ai/functions.md)
+    - [Color](/docs/ai/color.md)
+- **External Packages**: None identified.

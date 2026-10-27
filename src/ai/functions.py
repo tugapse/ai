@@ -175,8 +175,6 @@ def resolve_path_and_get_content(input_value: str, base_folder_setting: ProgramS
     return ""
 
 
-
-
 def write_to_file(filename, content, filemode=FILE_MODE_CREATE, silent=False):
     """
     Writes the given content to a file.
@@ -344,3 +342,15 @@ def get_formatted_text(text, level="INFO", start_line="[ * ]"):
         formatted_text = f"{Color.NORMAL_CYAN}{start_line}{Color.RESET} {text}"
     return formatted_text
         
+def get_logo_asci():
+    """
+    Returns the ASCII art logo for the application.
+    """
+    return f"""{Color.CYAN}
+      ██╗  █████╗  ██████╗  ██╗   ██╗ ██╗ ███████╗      █████╗  ██╗
+      ██║ ██╔══██╗ ██╔══██╗ ██║   ██║ ██║ ██╔════╝     ██╔══██╗ ██║
+      ██║ ███████║ ██████╔╝ ██║   ██║ ██║ ███████╗     ███████║ ██║
+ ██   ██║ ██╔══██║ ██╔══██╗ ╚██╗ ██╔╝ ██║ ╚════██║     ██╔══██║ ██║
+ ╚█████╔╝ ██║  ██║ ██║  ██║  ╚████╔╝  ██║ ███████║     ██║  ██║ ██║
+  ╚════╝  ╚═╝  ╚═╝ ╚═╝  ╚═╝   ╚═══╝   ╚═╝ ╚══════╝     ╚═╝  ╚═╝ ╚═╝
+{Color.RESET}"""

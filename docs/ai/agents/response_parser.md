@@ -1,65 +1,51 @@
 ## 1. Architectural Role
-| Name | Source file |
+|  |  |
 | :--- | :--- |
-| ResponseParser | [/src/ai/agents/response_parser.py](/src/ai/agents/response_parser.py)|
+| Name | ResponseParser |
+| Source file | response_parser.py |
 
-The **ResponseParser** is the gateway between the JARVIS Plain Text Protocol  (____@ tokens) produced by the model and the orchestrators structured data expectations. It scans the raw model output for tokenized sections, segments and maps them into a machine-friendly dictionary that includes fields such as **thought**, **notes**, **manifest**, **action**, and **response_to_user**. 
+The **ResponseParser** serves as the critical translation layer between the raw, unstructured text output of Large Language Models (specifically optimized for 8B parameter models) and the structured command format required by the system's orchestration logic. It implements the JARVIS Plain Text Protocol, utilizing specific token delimiters (` (`____@`) to segment model thoughts, metadata, and actionable tool calls.
 
-Its role is to normalize model quirkslike indentation drift and unquoted special charactersso downstream components can reliably consume the data regardless of formatting anomalies. The parser also handles the extraction and sanitization of ARGS blocks within tool invocations, producing a safe, structured representation of tool parameters.
+Its primary mission is to provide high-fidelity parsing that is resilient to common LLM failures, such as indentation drift in YAML blocks and the omission of quotes around special characters (e.g., `@ROOT`). By sanitizing these outputs, it ensures that the downstream execution engine receives valid, predictable data structures, preventing system crashes caused by malformed model responses.
 
-In the broader system, this component anchors the transition from free-form model text to the internal action model used by the orchestration layer. It feeds into the action descriptor, including tool invocation details and the agent_target, and serves as a stable surface for logging and debugging a models reasoning trace (thoughts, notes, and manifest). Downstream modules depend on the structured action payload to drive actual tool execution and state progression.
+**System Context & Integration**
+This component acts as a gatekeeper in the agentic loop. Once an LLM generates a response, the `ResponseParser` intercepts the raw string and transforms it into a standardized dictionary. This dictionary is then consumed by the orchestrator to determine the next state of the agent, whether that involves updating the user via `response_to_user`, logging internal reasoning via `thought`, or executing a tool via the `action` object. It effectively bridges the gap between probabilistic text generation and deterministic code execution.
+
+- **INTERNAL REFERENCES**: The parser utilizes logging capabilities provided by [ai.functions](/docs/ai/functions.md).
 
 ## 2. Environment & Configuration
 **Environment Lookups:**
 - No environment lookups identified.
 
 **Hardcoded Constants:**
-- No hardcoded constants identified.
+- `token_pattern` (Regex: `(\s*____@[A-Za-z_:]+)`)  Defines the delimiter pattern for the JARVIS Plain Text Protocol.
 
 ## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| **ResponseParser** | Class | Parses the JARVIS Plain Text Protocol tokens from a raw string into a structured dictionary, including extraction of thoughts, notes, manifest data, an action block (tool_name, tool_parameters, intent), and response_to_user. Handles tool blocks containing ARGS with YAML-like content via a sanitizer. |
+| `ResponseParser` | Class | Orchestrates the parsing of raw model strings into structured data. |
+| `_parse_key_value_block` | Method | Parses simple colon-delimited strings for Manifest data. |
+| `_sanitize_yaml` | Method | Corrects indentation and quoting errors in model-generated YAML. |
+| `_parse_tool_block` | Method | Extracts tool names, intents, and parameters from a specific tool token block. |
+| `parse` | Method | The primary public entry point for processing raw text into a structured dictionary. |
 
-## 4. Code Example
-- Example usage:
-```python
-from ai.agents.response_parser import ResponseParser
+## 4. Execution Logic & Flow
+- **Initialization**: The class initializes a compiled regular expression (`token_pattern`) to identify protocol tokens.
+- **Data Path**: 
+    1. **Segmentation**: The raw input string is split into segments using the `____@` regex.
+    2. **Mapping**: Segments are paired into a dictionary where tokens are keys and subsequent text is the value.
+    3. **Extraction**: Standard fields (`thought`, `notes`, `response`, `TARGET`) are pulled from the map.
+    4. **Manifest Parsing**: The `____@manifest` block is processed via `_parse_key_value_block`.
+    5. **Tool Processing**: If a `____@tool:` token is detected, `_parse_tool_block` is invoked.
+    6. **YAML Sanitization**: Inside tool parsing, `_sanitize_yaml` applies regex fixes for `@` variables and forces indentation on multi-line blocks.
+    7. **Output**: A unified dictionary containing `status`, `thought`, `notes`, `manifest`, `action`, and `response_to_user` is returned.
+- **Conditional Branching**:
+    - **Tool Detection**: If no `____@tool:` token exists, the `action` object is returned with empty parameters.
+    - **YAML Error Handling**: If `yaml.safe_load` fails after sanitization, the error is caught, logged via `func.log`, and the error message is embedded into the `tool_parameters`.
+    - **Global Exception Handling**: Any catastrophic parsing failure returns a dictionary with `status: "FAILED"`.
 
-raw_string = "<response>...</response>"  # LLM output string
-rp = ResponseParser()
-result = rp.parse(raw_string)
-print(result)
-
-```
-This demonstrates how to instantiate the component and process a raw model output string into the standardized structure expected by the orchestration layer.
-
-## 5. Execution Logic & Flow
-- Initialization:
-  - Compile the token_pattern regex to locate tokens starting with ____@ in the input string.
-- Data Path:
-  - Split the raw string into segments around token boundaries.
-  - Build a data_map mapping each token to its corresponding content block.
-  - Extract standard internal state fields: thought, notes, response_to_user, and agent_target.
-  - Parse the Manifest block into a manifest dictionary using a simple KEY: VALUE parser.
-- Conditional Branching:
-  - Identify the presence of a tool block (____@tool:*). If found:
-    - Use _parse_tool_block to derive tool_name, tool_parameters, and intent from the block.
-    - Safely parse ARGS content via _sanitize_yaml and yaml.safe_load to populate tool_parameters.
-    - If ARGS parsing fails, record an error in tool_parameters.
-  - If no tool token is present, the action remains with an empty tool_name and parameters.
-- Output:
-  - Return a structured dictionary containing status, thought, notes, manifest, action, and response_to_user. If an error occurs, return a failure payload with an error message.
-
-Key internal steps leverage:
-- _parse_key_value_block for simple manifest lines.
-- _sanitize_yaml to fix YAML-like ARGS blocks and indentation quirks.
-- _parse_tool_block to extract tool_name, intent, and parameters from the tool block.
-
-For documentation on this component and its scope, see the RESPONDER docs: [ResponseParser Documentation](/docs/ai/agents/response_parser.md).
-
-## 6. Resource Dependencies
-- **Standard Libraries**: re, yaml, typing
+## 5. Resource Dependencies
+- **Standard Libraries**: `re`, `yaml`, `typing`
 - **Internal Modules**: 
-  - [ai.functions](/docs/ai/functions.md) (as a logging/utility hook used when ARGS parsing fails)
-  - PyYAML (yaml) (used for ARGS parsing)
+    - [ai.functions](/docs/ai/functions.md)
+- **External Packages**: `PyYAML` (imported as `yaml`)

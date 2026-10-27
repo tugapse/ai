@@ -53,14 +53,7 @@ def get_project_version() -> str:
         return "0.0.0-dev (fallback)"
 
 __version__ = get_project_version()
-__logo = f"""{Color.CYAN}
-      ██╗  █████╗  ██████╗  ██╗   ██╗ ██╗ ███████╗      █████╗  ██╗
-      ██║ ██╔══██╗ ██╔══██╗ ██║   ██║ ██║ ██╔════╝     ██╔══██╗ ██║
-      ██║ ███████║ ██████╔╝ ██║   ██║ ██║ ███████╗     ███████║ ██║
- ██   ██║ ██╔══██║ ██╔══██╗ ╚██╗ ██╔╝ ██║ ╚════██║     ██╔══██║ ██║
- ╚█████╔╝ ██║  ██║ ██║  ██║  ╚████╔╝  ██║ ███████║     ██║  ██║ ██║
-  ╚════╝  ╚═╝  ╚═╝ ╚═╝  ╚═╝   ╚═══╝   ╚═╝ ╚══════╝     ╚═╝  ╚═╝ ╚═╝
-{Color.RESET}"""
+__logo = func.get_logo_asci()
 
 def check_dependencies():
     """Diagnostic boot check for JARVIS dependencies."""
@@ -137,6 +130,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     agent_group.add_argument("--task-file", "-tf", type=str, help="Load directive from file")
     agent_group.add_argument("--pipeline", "-ppl", type=str, help="Execute multi-stage instruction pipeline")
     agent_group.add_argument("--session-id", type=str, help="LTM (Long Term Memory) session key")
+    agent_group.add_argument("--list-sessions","-ls", action="store_true", help="List all available sessions for current working directory")
     agent_group.add_argument("--output-file", "-o", type=str, help="Designate clean output stream (temp-file mode)")
 
     # 4. Distributed Architecture
@@ -174,6 +168,7 @@ def run():
 
     # debugging flags for development purposes
     # args.remote     = "http://0.0.0.0:9999"
+    # args.list_sessions = True
     # args.agent      = True
     # args.model      = "gemini/gemini-25"
     # args.msg        = "explain this program"

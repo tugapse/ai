@@ -1,64 +1,53 @@
 ## 1. Architectural Role
-| Name | Source file |
+|  |  |
 | :--- | :--- |
-| ResponseParser | [/src/ai/agents/xml_response_parser.py](/src/ai/agents/xml_response_parser.py) |
+| Name | ResponseParser |
+| Source file | xml_response_parser.py |
 
-The **ResponseParser** is a focused XML/JSON response decoding utility that translates the raw textual output from an LLM into a structured, machine-usable dictionary. It supports two parameter modes (xml by default and json) for extracting tool_parameters and builds a consistent payload containing thought, notes, manifest, action (tool_name, tool_parameters, agent_target), and response_to_user. A salvaging pathway is provided: if strict XML parsing fails, the component sanitizes specific blocks (thought, notes, response_to_user) to escape rogue characters and retries parsing, enabling graceful recovery from malformed generations.
+The **ResponseParser** serves as a critical data extraction and sanitization layer designed to transform unstructured or semi-structured LLM outputs into structured, actionable Python dictionaries. It specifically targets XML-wrapped responses, which are used to encapsulate complex agentic intents such as internal reasoning (thoughts), metadata (manifests), and tool execution commands (actions).
 
-Strategically, this component sits at the boundary between the LLMs generated content and the agents orchestration layer. It enforces a consistent data contract for downstream modules to consume (e.g., the action with tool parameters, manifest details, and user-facing responses), while offering resilience against poorly formed outputs. It also encapsulates the logic for parameter extraction, supporting JSON or tag-based kv pairs, thus decoupling the parsing concerns from higher-level orchestration.
+By providing a robust parsing mechanism, the component ensures that the agent's decision-making process is decoupled from the raw string output of the language model. It acts as a defensive barrier, implementing "salvage operations" to recover data from malformed XML, thereby increasing the system's resilience against LLM hallucinations or formatting errors.
 
-- Internal reference: This module relies on the internal logging function to report salvage attempts, interfacing with [AI Functions](/docs/ai/functions.md) for cross-cutting tooling utilities.
+**Functional Mission**
+The primary responsibility of **ResponseParser** is to parse and validate XML-formatted strings to extract structured components including `thought`, `notes`, `manifest`, `action` (tool name, parameters, and target), and `response_to_user`. Its core mission is to convert raw text into a reliable schema that downstream execution modules can consume without fear of parsing exceptions.
 
+**System Context & Integration**
+This component is a specialized implementation within the agentic workflow, likely utilized by [agent.md](/docs/ai/agents/agent.md) or [response_parser.md](/docs/ai/agents/response_parser.md) to interpret model outputs. It sits between the raw LLM output and the tool execution logic. Once a successful parse occurs, the resulting `action` dictionary is passed to the system to trigger specific functions, while the `thought` and `response_to_user` fields are routed to the user interface or logging systems.
+
+- **INTERNAL REFERENCES**: [ai.functions](/docs/ai/functions.md)
 
 ## 2. Environment & Configuration
 **Environment Lookups:**
 - No environment lookups identified.
 
 **Hardcoded Constants:**
-- No hardcoded constants identified.
+- `parameter_mode` (Default: `"xml"`)  Determines whether tool parameters are extracted via XML child nodes or parsed as a JSON string.
 
 ## 3. Interface & API Surface
 | Entity | Type | Functional Responsibility |
 | :--- | :--- | :--- |
-| `ResponseParser` | Class | Parses a raw response string to a structured dictionary, supporting XML and JSON parameter modes, with a salvage path for malformed XML and extraction of fields: thought, notes, manifest, action (tool_name, tool_parameters, agent_target), and response_to_user. |
+| `ResponseParser` | Class | Orchestrates the parsing logic and maintains configuration state. |
+| `__init__` | Method | Initializes the parser with a specific `parameter_mode`. |
+| `_extract_params` | Method | Internal helper to traverse XML elements or decode JSON to extract tool arguments. |
+| `_sanitize_block` | Method | Internal helper that uses regex to escape `<` and `>` characters within specific tags to prevent XML parsing failures. |
+| `parse` | Method | The primary public entry point; accepts a raw string and returns a structured dictionary containing status and extracted data. |
 
-## 4. Code Example
-- Usage example:
-```python
-from ai.agents.xml_response_parser import ResponseParser
+## 4. Execution Logic & Flow
+- **Initialization**: The class is instantiated with a `parameter_mode` (either `"xml"` or `"json"`), defining how the `tool_parameters` block will be processed.
+- **Data Path**: 
+    1. **Input**: A raw string containing potential XML tags.
+    2. **Boundary Detection**: Locates `<response>` and `</response>` tags.
+    3. **XML Parsing**: Attempts to load the block via `ET.fromstring`.
+    4. **Salvage (If needed)**: If parsing fails, the `_sanitize_block` method is called on `thought`, `notes`, and `response_to_user` tags to escape rogue angle brackets.
+    5. **Extraction**: Traverses the XML tree to populate the `manifest`, `action`, and text-based fields.
+    6. **Output**: A dictionary with `status` ("SUCCESS" or "FAILED") and the extracted payload.
+- **Conditional Branching**:
+    - **XML Parse Failure**: Triggers the salvage logic to attempt character escaping.
+    - **Parameter Mode**: If `parameter_mode == "json"`, the parser skips XML child traversal for parameters and attempts `json.loads` on the element text.
+    - **Missing Boundaries**: If `<response>` tags are absent, returns a `FAILED` status immediately.
 
-parser = ResponseParser(parameter_mode="xml")
-raw_string = "<response>...</response>"  # LLM output
-result = parser.parse(raw_string)
-print(result)
-```
-
-## 5. Execution Logic & Flow
-- Initialization
-  - Instantiate ResponseParser with an optional parameter_mode (default "xml").
-- Data Path
-  - locate the <response> boundaries in the input.
-  - Attempt strict XML parsing of the extracted block.
-  - If parsing fails, trigger salvage:
-    - sanitize_block called on blocks: thought, notes, response_to_user
-    - second attempt: parse the repaired xml_block
-  - On success, extract:
-    - manifest data (each child tag under <manifest>)
-    - action (tool_name, tool_parameters, agent_target)
-    - thought, notes, response_to_user
-- Conditional Branching
-  - If boundaries are missing: return {"status": "FAILED", "error": "Missing response boundaries"}.
-  - If salvage parsing fails: return {"status": "FAILED", "error": "Malformed XML (Salvage Failed): ..." }.
-  - On success: return {"status": "SUCCESS", ...structured fields...}.
-
-## 6. Resource Dependencies
-- **Standard Libraries**:
-  - `xml.etree.ElementTree` (ET)  XML parsing
-  - `json`  JSON parsing for tool_parameters when in json mode
-  - `re`  regular expression-based sanitization in _sanitize_block
-  - `typing`  type hints (`Dict`, `Any`, `Optional`)
-- **Internal Modules**:
-  - [ai.functions](/docs/ai/functions.md)  logging and auxiliary helpers used via `func.log`
-- **External Packages**:
-  - None
-
+## 5. Resource Dependencies
+- **Standard Libraries**: `xml.etree.ElementTree`, `json`, `re`, `typing`
+- **Internal Modules**: 
+    - [ai.functions](/docs/ai/functions.md)
+- **External Packages**: None identified.
