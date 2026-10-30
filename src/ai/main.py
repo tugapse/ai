@@ -11,6 +11,9 @@ import gc
 import re
 from pathlib import Path
 
+from ai.services.directory_manager import DirectoryManager
+from ai.services.process_manager import ProcessManager
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Core imports
@@ -166,6 +169,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
 def run():
     parser, args = load_args()
 
+
     # debugging flags for development purposes
     # args.remote     = "http://0.0.0.0:9999"
     # args.list_sessions = True
@@ -197,8 +201,12 @@ def run():
     signal.signal(signal.SIGTERM, shutdown_handler)
     if args.show_logo:
         func.log(f"\n{__logo}", start_line="")
-
+    
+    directory_manager = DirectoryManager()
+    process_manager = ProcessManager(directory_manager)
+    
     try:
+        process_manager.start()  
         if getattr(args, 'debug_console', False): 
             func.ALLOW_CLEAR_CONSOLE = False
             prog.config.set(ProgramSetting.PRINT_LOG, True)
@@ -211,7 +219,7 @@ def run():
 
         maintenance_keys = ['install',  'overwrite_config', 'generate_config', 'server', 'print_chat', 'list_models', 'create_tool']
         if any(getattr(args, key, None) for key in maintenance_keys):
-            cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
+            cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser,directory_manager=directory_manager)
             if is_server:
                 func.log(f"{Color.GREEN}[  ] Neural Hub is online. Press Ctrl+C to shut down.{Color.RESET}")
                 if prog.modules:
@@ -222,8 +230,9 @@ def run():
         prog.init_config(args=args)
         prog.init_program()
 
-        cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
-
+        cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser,directory_manager=directory_manager)
+        
+        
         prog.run()
         
     except Exception as e:
@@ -236,6 +245,7 @@ def run():
     finally:
         if not is_server:
             prog.shutdown()
+        process_manager.shutdown()
 
 if __name__ == "__main__":
     sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))

@@ -6,12 +6,14 @@ from ai.agents.xml_response_parser import ResponseParser
 from ai.core.llms.base_llm import BaseModel
 from ai.chat.chat import ChatRoles
 from ai.direct import ask
+from ai.services.directory_manager import DirectoryManager
 
 class LLMConnector:
     def __init__(self, llm_instance: BaseModel, parameter_mode: str = "xml"):
         self.llm = llm_instance
         # Initialize the new strict parser here
         self.parser = ResponseParser()
+        self.directory_manager = DirectoryManager()
         
     def get_context_limit(self) -> int:
         return self.llm.token_info_count.max_context_window
@@ -78,7 +80,7 @@ class LLMConnector:
 
     def _execute_llm_call(self, messages: List[Dict[str, str]]) -> str:
         """Uses a unique, timestamped file to capture output reliably."""
-        output_filename = f"{func.get_root_directory()}/logs/llm_output_active.md"
+        output_filename = f"{os.path.join(self.directory_manager.get_system_logs_directory(), "output", 'llm_output_active.md')}"
 
         try:
             ask(

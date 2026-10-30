@@ -30,6 +30,7 @@ from ai.direct import ask
 # Agent logic
 from ai.agents.agent import AgentOrchestrator, LLMConnector, ToolRegistry, load_pipeline_config
 from ai.program import Program
+from ai.services.directory_manager import DirectoryManager
 from ai.tools.tool_loader import load_and_register_user_tools
 import ai.tools.agent_tools as agent_tools
 
@@ -41,14 +42,14 @@ class CliArgs:
     and ensures proper initialization based on the user's intent.
     """
 
-    def parse_args(self, prog, args, args_parser: argparse.ArgumentParser) -> None:
+    def parse_args(self, prog, args, args_parser: argparse.ArgumentParser, directory_manager: DirectoryManager) -> None:
         """
         The main dispatcher. Analyzes arguments to decide if JARVIS 
         acts as a Brain (Server), a Body (Client), or a Standalone agent.
         """
         # 1. System/Global Actions
-        self._check_nhandle_create_tool(args)
-        self._check_nhandle_config_generation(prog, args, args_parser) 
+        self._check_nhandle_create_tool(args, directory_manager)
+        self._check_nhandle_config_generation(prog, args, args_parser, directory_manager) 
         self._is_install(args)
         self._is_print_chat(args)
         self._is_list_models(args)
@@ -61,16 +62,16 @@ class CliArgs:
             os._exit(0)
 
         # Default to Local/Direct Task Mode
-        self._handle_local_direct_mode(prog, args)
+        self._handle_local_direct_mode(prog, args,directory_manager=directory_manager)
 
         # 3. Execution Dispatching
         if args.agent:
-            self._handle_agent_mode(prog, args)
+            self._handle_agent_mode(prog, args, directory_manager)
             os._exit(0) 
 
         self._has_message(prog, args) 
     
-    def _check_nhandle_create_tool(self, args):
+    def _check_nhandle_create_tool(self, args, directory_manager: DirectoryManager):
             if not args.create_tool:
                 return
 
@@ -88,7 +89,7 @@ class CliArgs:
             filename = f"{base_name}.py"
             function_name = base_name
 
-            user_tools_dir = os.path.join(func.get_root_directory(), "tools")
+            user_tools_dir = directory_manager.get_user_tools_directory()
             func.ensure_directory_exists(user_tools_dir)
 
             file_path = os.path.join(user_tools_dir, filename)
@@ -158,7 +159,7 @@ def {function_name}(argument: str) -> str:
                 func.log(f"\\n{{Color.YELLOW}}[ * ] Manual override engaged. Terminating JARVIS server.{{Color.RESET}}")
                 sys.exit(0)
                 
-    def _handle_local_direct_mode(self, prog, args):
+    def _handle_local_direct_mode(self, prog, args,directory_manager:DirectoryManager):
         """
         The standard non-agent loop for one-shot tasks and context loading.
         """
@@ -170,7 +171,7 @@ def {function_name}(argument: str) -> str:
         self._has_task(prog, args)
         
 
-    def _handle_agent_mode(self, prog:Program, args):
+    def _handle_agent_mode(self, prog:Program, args, directory_manager: DirectoryManager):
         """Handles the execution of the agent pipeline."""
         taskfile=""
         if args.task_file:
@@ -206,7 +207,7 @@ def {function_name}(argument: str) -> str:
             registry.register_tool(name, tool_ref)
 
         # Dynamically load and register tools from the user-defined 'tools' directory
-        user_tools_dir = os.path.join(func.get_root_directory(), "tools")
+        user_tools_dir = directory_manager.get_user_tools_directory()   
         load_and_register_user_tools(registry, user_tools_dir)
        
         session_id = args.session_id or str(uuid.uuid4())
@@ -227,7 +228,7 @@ def {function_name}(argument: str) -> str:
         finally:
             sys.exit(0)
 
-    def _check_nhandle_config_generation(self, prog, args, parser: argparse.ArgumentParser):
+    def _check_nhandle_config_generation(self, prog, args, parser: argparse.ArgumentParser, directory_manager: DirectoryManager):
         if not args.generate_config:
             return
 
@@ -238,7 +239,7 @@ def {function_name}(argument: str) -> str:
             model_type_enum = ModelType(args.model_type)
             config_filename = args.generate_config if args.generate_config.endswith(".json") else f"{args.generate_config}.json"
             
-            models_dir = prog.config.get(ProgramSetting.PATHS_MODEL_CONFIGS) or os.path.join(func.get_root_directory(), "models")
+            models_dir = directory_manager.get_system_models_directory()
             func.ensure_directory_exists(models_dir)
 
             full_filepath = os.path.join(models_dir, config_filename)

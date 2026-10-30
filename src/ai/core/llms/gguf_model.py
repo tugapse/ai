@@ -19,8 +19,7 @@ llama_log_set(_callback_ref, ctypes.c_void_p())
 
 class GGUFImageLLM(BaseModel):
     """
-    JARVIS GGUF Engine - Hardened for CPU.
-    Inference only. Protocol injection handled externally by Orchestrator.
+    JARVIS GGUF Engine - Inference only. Protocol injection handled externally by Orchestrator.
     """
     _shared_mem_lock = threading.Lock()
     def __init__(
@@ -34,7 +33,7 @@ class GGUFImageLLM(BaseModel):
         **kwargs,
     ):
         super().__init__(model_name, system_prompt=system_prompt, **kwargs)
-        func.log(f"Initializing Hardened GGUF: {model_name}")
+        func.log(f"Initializing GGUF: {model_name}")
         
         self.model_repo_id = model_repo_id
         self.gguf_filename = gguf_filename

@@ -14,6 +14,7 @@ from ai.agents.context_sentinel import ContextSentinel
 from ai.agents.session_manager import AgentSessionManager
 from ai.core.events import Events
 from ai.services.module_registry import ModuleRegistry
+from ai.services.process_manager import ProcessManager
 from ai.tools.mcp_bridge import MCPBridge
 from ai.tools.tool_registry import ToolRegistry
 
@@ -80,12 +81,14 @@ class AgentOrchestrator(Events):
         if current_agent is STOP_SIGNAL: current_agent = MASTER_AGENT   
 
         max_iterations = self.pipeline_config.get("max_iterations", MAX_ITERATIONS)
-
+        ProcessManager.set_state("mode", "agent")
         for i in range(start_iteration, max_iterations):
             # Agent state validation at the start of the loop
             if current_agent in [None, STOP_SIGNAL]:
                 TerminalUI.log_step("Pipeline execution finished.", "SUCCESS")
                 break
+            ProcessManager.set_state("agent_turn",i)
+            ProcessManager.set_state("agent_max_turn",max_iterations)
 
             agent_mem = self.memory.get_agent_memory(current_agent)
             if not agent_mem:
@@ -114,6 +117,7 @@ class AgentOrchestrator(Events):
             payload, was_compressed = self.context_sentinel.enforce_limits(
                 current_agent, self.memory, payload, vector_memory=self.vector_memory
             )
+            ProcessManager.set_state("agent_payload", payload)
 
             if was_compressed:
                 TerminalUI.log_step(f"Sentinel: Context distilled for {current_agent}", "INFO")
