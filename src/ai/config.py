@@ -2,6 +2,7 @@ from enum import Enum
 import json
 import logging
 import os
+import tempfile
 from os.path import exists, dirname
 import shutil
 import pathlib
@@ -75,9 +76,10 @@ class ProgramConfig(Generic[T]):
     def load_predefined_config(self, args):
         default_config = {}
 
-        user_directory = os.environ.get(
-            "AI_ASSISTANT_DIRECTORY", os.path.join(os.path.expanduser("~"), "Ai")
-        )
+        default_root = os.environ.get("AI_ASSISTANT_DIRECTORY")
+        if not default_root:
+            default_root = os.path.join(tempfile.gettempdir(), "ai")
+        user_directory = os.path.abspath(default_root)
         os.makedirs(user_directory, exist_ok=True)
         user_config_filename = os.path.join(user_directory, "config.json")
 
@@ -135,7 +137,13 @@ class ProgramConfig(Generic[T]):
             self.logger.info(f"Configuration saved to {filename}")
         except Exception as e:
             self.logger.error(f"Error saving configuration: {e}")
+    
+    def copy_skip_existing(self, src: str, dst: str, *, follow_symlinks: bool = True) -> str:
+        if os.path.exists(dst):
+            return dst
+        return shutil.copy2(src, dst, follow_symlinks=follow_symlinks)
 
+    
     def copy_templates_to_user_dir(self, user_dir: Optional[str] = None):
         if user_dir is None:
             self.logger.warning("User directory not specified for template copy.")
@@ -159,11 +167,13 @@ class ProgramConfig(Generic[T]):
             for item_name in os.listdir(project_root_templates_dir):
                 src_item_path = os.path.join(project_root_templates_dir, item_name)
                 dest_item_path = os.path.join(user_dir, item_name)
-
+                
                 if os.path.isdir(src_item_path):
-                    shutil.copytree(src_item_path, dest_item_path, dirs_exist_ok=True)
-                elif os.path.isfile(src_item_path):
+                    shutil.copytree(src_item_path, dest_item_path, dirs_exist_ok=True,copy_function=self.copy_skip_existing )
+                    
+                elif os.path.isfile(src_item_path) and not os.path.exists(dest_item_path):
                     shutil.copy2(src_item_path, dest_item_path)
+
             self.logger.info("Templates copied successfully.")
         except Exception as e:
             self.logger.error(f"Error copying templates: {e}")

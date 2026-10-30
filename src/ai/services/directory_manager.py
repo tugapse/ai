@@ -9,9 +9,9 @@ class DirectoryManager:
 
 
     def __init__(self):
-        root_directory = func.get_root_directory()
-        self.system_directory = os.path.join(root_directory, "system")
-        self.user_directory = os.path.join(root_directory,"user") 
+        self.root_directory = func.get_root_directory()
+        self.system_directory = os.path.join(self.root_directory, "system")
+        self.user_directory = os.path.join(self.root_directory,"user") 
     
     def get_user_directory(self):
         return self.user_directory
@@ -23,12 +23,15 @@ class DirectoryManager:
             func.debug(f"{Color.GREEN}Tools directory created at: {tools_directory}{Color.RESET}")
         return tools_directory
     
-    
-    
-
-
+    def _create_user_directory(self):
+        if not os.path.exists(self.user_directory):
+            os.makedirs(self.user_directory)
+            func.debug(f"{Color.GREEN}User directory created at: {self.user_directory}{Color.RESET}")
+        else:
+            func.debug(f"{Color.YELLOW}[ * ] User directory already exists at: {self.user_directory}{Color.RESET}")
+   
     def get_system_prompts_templates_directory(self):
-        system_templates_directory = os.path.join(self.system_directory, "templates", "system")
+        system_templates_directory = os.path.join(self.system_directory, "system-prompt")
         if not os.path.exists(system_templates_directory):
             os.makedirs(system_templates_directory)
             func.debug(f"{Color.GREEN}System templates directory created at: {system_templates_directory}{Color.RESET}")
@@ -62,29 +65,42 @@ class DirectoryManager:
             func.debug(f"{Color.GREEN}Templates directory created at: {templates_directory}{Color.RESET}")
         return templates_directory
 
-  
-
-    
-    def _create_user_directory(self):
-        if not os.path.exists(self.user_directory):
-            os.makedirs(self.user_directory)
-            func.debug(f"{Color.GREEN}User directory created at: {self.user_directory}{Color.RESET}")
-        else:
-            func.debug(f"{Color.YELLOW}[ * ] User directory already exists at: {self.user_directory}{Color.RESET}")
-
-    def _delete_user_directory(self):
-        if os.path.exists(self.user_directory):
-            shutil.rmtree(self.user_directory)
-            func.debug(f"{Color.RED}[ - ] User directory deleted at: {self.user_directory}{Color.RESET}")
-        else:
-            func.debug(f"{Color.YELLOW}[ * ] User directory does not exist at: {self.user_directory}{Color.RESET}")
-
     def get_system_models_directory(self):
         return os.path.join(self.system_directory, "models")
 
+    def get_system_dir(self):
+        return self.system_directory
+
+    def get_root_dir(self):
+            return self.root_directory
+   
     def get_pid_directory(self):
         pid_directory = os.path.join(self.system_directory, "pids")
         if not os.path.exists(pid_directory):
             os.makedirs(pid_directory)
             func.debug(f"{Color.GREEN}PID directory created at: {pid_directory}{Color.RESET}")
         return pid_directory
+
+    def get_system_pipelines_directory(self):
+        pipelines_directory = os.path.join(self.system_directory, "pipelines")
+        if not os.path.exists(pipelines_directory):
+            os.makedirs(pipelines_directory)
+            func.debug(f"{Color.GREEN}System Pipelines directory created at: {pipelines_directory}{Color.RESET}")
+        return pipelines_directory
+
+    def get_user_pipelines_directory(self):
+        directory = os.path.join(self.user_directory, "pipelines")
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+            func.debug(f"{Color.GREEN}User Pipelines directory created at: {directory}{Color.RESET}")
+        return directory
+
+ 
+    def get_user_models_directory(self):
+        directory = os.path.join(self.user_directory, "models")
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+            func.debug(f"{Color.GREEN}User model config directory created at: {directory}{Color.RESET}")
+        return directory
+
+    

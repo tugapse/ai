@@ -4,6 +4,7 @@ import errno
 import datetime
 
 from ai.config import ProgramConfig,ProgramSetting
+from ai.services.directory_manager import DirectoryManager
 
 class ThinkingLogManager:
     """
@@ -34,17 +35,9 @@ class ThinkingLogManager:
         self.log_file_name = sanitized_file_name
 
         # Access ProgramConfig safely
-        base_log_dir = None
-        if ProgramConfig.get_current():
-            base_log_dir = ProgramConfig.get_current().get(ProgramSetting.PATHS_LOGS)
-            
-        if base_log_dir:
-            self.log_dir = os.path.join(base_log_dir, "thinking")
-        else:
-            self.log_dir = os.path.join(
-                os.path.expanduser("~"), self.DEFAULT_LOG_SUBDIR
-            )
-
+        directory = DirectoryManager()
+        base_log_dir = directory.get_system_logs_directory()
+        self.log_dir = os.path.join(base_log_dir, "thinking")
         os.makedirs(self.log_dir, exist_ok=True)
 
         self.log_file_path = os.path.join(self.log_dir, self.log_file_name)

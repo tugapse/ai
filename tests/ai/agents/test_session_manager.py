@@ -5,11 +5,14 @@ import shutil
 import uuid
 
 from ai.agents.session_manager import AgentSessionManager
+from ai.services.directory_manager import DirectoryManager
+
+directory_manager = DirectoryManager()
 
 
 def _reset_storage_for_directory(working_directory: str):
     digest = hashlib.sha256(os.path.abspath(working_directory).encode("utf-8")).hexdigest()[:16]
-    storage_dir = os.path.join("logs", "agents", digest)
+    storage_dir = os.path.join(directory_manager.get_system_logs_directory(), "agents", digest)
     os.makedirs(storage_dir, exist_ok=True)
     for filename in os.listdir(storage_dir):
         file_path = os.path.join(storage_dir, filename)
@@ -25,7 +28,7 @@ def test_session_manager_uses_hashed_working_directory_for_unique_storage(tmp_pa
     digest = hashlib.sha256(os.path.abspath(working_directory).encode("utf-8")).hexdigest()[:16]
 
     assert manager.parent_dir == digest
-    assert manager.storage_dir == os.path.join("logs", "agents", digest)
+    assert manager.storage_dir == os.path.join(directory_manager.get_system_logs_directory(), "agents", digest)
     assert os.path.isdir(manager.storage_dir)
     assert manager.session_path == os.path.join(manager.storage_dir, "session-123.json")
 
@@ -120,7 +123,7 @@ def test_list_sessions_extracts_user_request_from_latest_jsonl_entry():
 def test_list_sessions_returns_empty_list_when_storage_missing():
     working_directory = os.getcwd()
     digest = hashlib.sha256(os.path.abspath(working_directory).encode("utf-8")).hexdigest()[:16]
-    storage_dir = os.path.join("logs", "agents", digest)
+    storage_dir = os.path.join(directory_manager.get_system_logs_directory(), "agents", digest)
     if os.path.isdir(storage_dir):
         for filename in os.listdir(storage_dir):
             os.remove(os.path.join(storage_dir, filename))

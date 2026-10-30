@@ -7,6 +7,7 @@ import sys
 import socket
 import getpass
 import datetime
+import tempfile
 
 from ai.core.context_file import ContextFile
 from ai.config import ProgramConfig, ProgramSetting  # Ensure these are correctly imported
@@ -219,7 +220,7 @@ def format_execution_time(start_time, end_time):
 def get_root_directory() -> str:
     """
     Retrieves the configured root directory from ProgramConfig.
-    Provides a fallback to (user home)/Ai if not configured.
+    Uses the OS temp directory by default so logs/session data are not written into the project checkout.
     """
     # ProgramConfig.get_current() should be set by ProgramConfig.load() in main.py
     config_instance = ProgramConfig.get_current()
@@ -227,10 +228,17 @@ def get_root_directory() -> str:
     if config_instance:
         root_path = config_instance.get(ProgramSetting.ROOT_DIRECTORY)
         if root_path:
-            return os.path.abspath(root_path)
+            root_path = os.path.abspath(root_path)
+            if root_path.startswith(os.path.abspath(os.getcwd())):
+                fallback_path = os.path.join(tempfile.gettempdir(), "ai")
+                log(
+                    f"WARNING: '{ProgramSetting.ROOT_DIRECTORY}' points inside the project tree. Using fallback: {fallback_path}",
+                    level="WARNING",
+                )
+                return os.path.abspath(fallback_path)
+            return root_path
 
-    # Fallback if config is not loaded or key not found (should be handled by ProgramConfig defaults now)
-    fallback_path = os.path.join(os.path.expanduser("~"), "Ai")
+    fallback_path = os.path.join(tempfile.gettempdir(), "ai")
     log(
         f"WARNING: '{ProgramSetting.ROOT_DIRECTORY}' not found in config. Using fallback: {fallback_path}",
         level="WARNING",

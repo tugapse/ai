@@ -7,14 +7,20 @@ from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 
 import ai.functions as func
+from ai.services.directory_manager import DirectoryManager
 
 class AgentSessionManager:
     """
     Manages persistence for agent sessions.
-    Stored in: [func.get_root_directory()]/logs/agents/[hash]/[session_id].json
+    Stored in: <system>/logs/agents/[hash]/[session_id].json
     """
 
     MANIFEST_FILE = "manifest.json"
+
+    @staticmethod
+    def _get_agents_storage_root() -> str:
+        directory_manager = DirectoryManager()
+        return os.path.join(directory_manager.get_system_logs_directory(), "agents")
 
     def __init__(self, session_id: str, working_directory: Optional[str] = None):
         """
@@ -25,8 +31,8 @@ class AgentSessionManager:
         self.parent_dir = hashlib.sha256(self.working_directory.encode("utf-8")).hexdigest()[:16]
         self.session_id = session_id
 
-        # 2. Base storage folder: repo-relative logs/agents/<hash>
-        self.storage_dir = os.path.join("logs", "agents", self.parent_dir)
+        # 2. Base storage folder: system/logs/agents/<hash>
+        self.storage_dir = os.path.join(self._get_agents_storage_root(), self.parent_dir)
 
         # 3. Session file: + session_id.json
         self.session_path = os.path.join(self.storage_dir, f"{self.session_id}.json")
@@ -111,7 +117,7 @@ class AgentSessionManager:
     @staticmethod
     def get_working_directory_for_hash(hash_code: str) -> Optional[str]:
         """Resolves the original working directory from a parent directory hash."""
-        manifest_path = os.path.join("logs", "agents", hash_code, AgentSessionManager.MANIFEST_FILE)
+        manifest_path = os.path.join(AgentSessionManager._get_agents_storage_root(), hash_code, AgentSessionManager.MANIFEST_FILE)
         if os.path.exists(manifest_path):
             try:
                 with open(manifest_path, "r", encoding="utf-8") as f:
@@ -124,7 +130,7 @@ class AgentSessionManager:
     @staticmethod
     def list_all_projects() -> List[Dict[str, str]]:
         """Returns all tracked projects mapping their hash to the original working directory."""
-        agents_base = os.path.join("logs", "agents")
+        agents_base = AgentSessionManager._get_agents_storage_root()
         if not os.path.exists(agents_base):
             return []
 
@@ -187,7 +193,7 @@ class AgentSessionManager:
         normalized_dir = os.path.normpath(os.path.abspath(working_directory or os.getcwd()))
         parent_dir = hashlib.sha256(normalized_dir.encode("utf-8")).hexdigest()[:16]
 
-        storage_dir = os.path.join("logs", "agents", parent_dir)
+        storage_dir = os.path.join(AgentSessionManager._get_agents_storage_root(), parent_dir)
 
         func.debug(f"AgentSessionManager: Searching for sessions in '{storage_dir}'")
 

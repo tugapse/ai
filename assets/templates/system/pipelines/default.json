@@ -17,7 +17,8 @@
         "web_search",
         "web_read",
         "query_memory",
-        "trigger_reflection"
+        "trigger_reflection",
+        "execute_command"
       ],
       "allowed_targets": [
         "MASTER",

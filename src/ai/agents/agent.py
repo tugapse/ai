@@ -9,6 +9,7 @@ import uuid
 
 import ai.functions as func
 from ai.config import ProgramSetting
+from ai.services.directory_manager import DirectoryManager
 from ai.tools.tool_registry import ToolRegistry
 from ai.agents.llm_connector import LLMConnector
 from ai.agents.agent_orchestrator import AgentOrchestrator
@@ -21,14 +22,17 @@ def load_pipeline_config(prog, pipeline_file: str) -> dict:
     - If a relative path is provided, it's first checked relative to the project root.
     - If not found, and it's a simple filename, it's then checked inside the 'pipelines' directory.
     """
-    root_dir = prog.config.get(ProgramSetting.ROOT_DIRECTORY)
+    directory = DirectoryManager()
+    system_dir = directory.get_system_pipelines_directory()
+    user_dir = directory.get_user_pipelines_directory()
     pipeline_file = pipeline_file.replace(".json", "")+".json"
 
     potential_paths = [pipeline_file]
     if os.path.isabs(pipeline_file):
         potential_paths.append(pipeline_file)
     else:
-        potential_paths.append(os.path.join(root_dir, "pipelines", pipeline_file))
+        potential_paths.append(os.path.join(user_dir, pipeline_file))
+        potential_paths.append(os.path.join(system_dir, pipeline_file))
 
     pipeline_path = ""
     for path in potential_paths:
@@ -48,7 +52,7 @@ def load_pipeline_config(prog, pipeline_file: str) -> dict:
         for agent_name, agent_data in config.get("agents", {}).items():
             prompt_file = agent_data.get("prompt_file")
             if prompt_file:
-                full_prompt_path = prompt_file if os.path.isabs(prompt_file) else os.path.join(root_dir, prompt_file)
+                full_prompt_path = prompt_file if os.path.isabs(prompt_file) else os.path.join(directory.get_system_prompts_templates_directory(), prompt_file)
                 if not os.path.exists(full_prompt_path):
                     func.error(f"Prompt file missing for agent {agent_name}: {full_prompt_path}")
                     return {}

@@ -5,10 +5,11 @@ import unittest
 import uuid
 from unittest.mock import patch, MagicMock
 
+import ai.functions as ai_functions
+
 # --- 1. CIRCULAR IMPORT & UI BYPASS ---
-mock_func = MagicMock()
-sys.modules["functions"] = mock_func
-sys.modules["ai.functions"] = mock_func
+# Use the real ai.functions module and patch the specific behavior we need locally.
+# Replacing the module globally causes import leakage across later tests.
 
 # Mock the Terminal UI so tests run silently
 mock_ui = MagicMock()
@@ -68,14 +69,12 @@ class TestMessageOrchestrator(unittest.TestCase):
 
     def setUp(self):
         """Sets up a fresh pipeline for every test."""
-        # --- 1. CONFIGURE THE MOCK ---
-        # The SessionVault depends on get_root_directory() to find the project root
-        # and build the path to the /logs/agents directory. In the test environment,
-        # the `functions` module is mocked. We MUST configure the mock to return a
-        # valid path, otherwise SessionVault cannot read, write, or delete sessions.
-        # We use os.getcwd() to ensure it points to the project root where `pytest` is run.
+        # --- 1. CONFIGURE THE ROOT DIRECTORY ---
+        # Patch the real function locally so later tests do not inherit global state.
         self.test_root = os.getcwd()
-        mock_func.get_root_directory.return_value = self.test_root
+        self.root_dir_patch = patch.object(ai_functions, "get_root_directory", return_value=self.test_root)
+        self.root_dir_patch.start()
+        self.addCleanup(self.root_dir_patch.stop)
         self.session_id = f"test-session-{uuid.uuid4().hex}"
 
         # --- 2. CLEAN UP PREVIOUS TEST STATE ---

@@ -3,6 +3,7 @@ import sys
 from typing import Optional, Dict, Any
 
 import ai.functions as func
+from ai.services.directory_manager import DirectoryManager
 from ai.services.engine_manager import EngineManager
 from ai.core.llms.base_llm import ModelParams, BaseModel
 from ai.services.config_helper import ProgramConfig, ProgramSetting
@@ -30,13 +31,15 @@ class ModelOrchestrator:
             model_config_name = f"{model_config_name}.json"
             
         if model_config_data is None:
-            folder = self.config.get(ProgramSetting.PATHS_MODEL_CONFIGS)
-            if folder is None:
-                # Fallback to local project folder if config is missing the path
-                root = func.get_root_directory()
-                folder = os.path.join(root, "models")
-                
-            filename = os.path.join(folder, model_config_name)
+            directory = DirectoryManager()
+
+            system_folder = directory.get_system_models_directory()
+            user_folder = directory.get_user_models_directory()
+            
+            filename = os.path.join(system_folder, model_config_name)
+            
+            if os.path.exists(userfilename := os.path.join(user_folder,model_config_name )):
+                filename = userfilename 
 
             try:
                 model_config_data = EngineManager.load_config(filename) 
