@@ -10,6 +10,7 @@ RUN_UNIT_TESTS_FLAG=0
 RUN_CLI_INTEGRATION_TESTS_FLAG=0
 ANY_SPECIFIC_FLAG_SET=0
 VERBOSE=0
+CLI_CATEGORY=""
 
 
 show_help() {
@@ -18,7 +19,7 @@ show_help() {
   echo ""
   echo "Options:"
   echo "  -u, --unit               Run only unit tests."
-  echo "  -c, --cli                Run only CLI integration tests."
+  echo "  -c, --cli [CATEGORY]     Run CLI integration tests. Use no value for all categories or pass 1-5 for a single category."
   echo "  -a, --all                Run all tests."
   echo "  -v, --verbose            Display LLM output during tests."
   echo "  -h, --help               Display this help message and exit."
@@ -39,6 +40,10 @@ while [[ "$#" -gt 0 ]]; do
     -c|--cli)
       RUN_CLI_INTEGRATION_TESTS_FLAG=1
       ANY_SPECIFIC_FLAG_SET=1
+      if [[ "$#" -gt 1 ]] && [[ "$2" != -* ]]; then
+        CLI_CATEGORY="$2"
+        shift
+      fi
       ;;
     -a|--all)
       RUN_UNIT_TESTS_FLAG=1
@@ -77,7 +82,11 @@ if [ "$RUN_CLI_INTEGRATION_TESTS_FLAG" -eq 1 ]; then
   echo "========================================"
   echo "Running CLI Integration Tests"
   echo "========================================"
-  "$CLI_INTEGRATION_TEST_SCRIPT"
+  if [ -n "$CLI_CATEGORY" ]; then
+    "$CLI_INTEGRATION_TEST_SCRIPT" "$CLI_CATEGORY"
+  else
+    "$CLI_INTEGRATION_TEST_SCRIPT"
+  fi
 fi
 
 if [ "$RUN_UNIT_TESTS_FLAG" -eq 0 ] && [ "$RUN_CLI_INTEGRATION_TESTS_FLAG" -eq 0 ]; then

@@ -1,7 +1,16 @@
 #!/bin/bash
 # CLI Integration Test Skeleton
+#
+# This script serves as the main entry point for running integration tests
+# against the AI assistant CLI. It selects a category of tests based on
+# command-line arguments and executes the corresponding test suites.
+# It sets up necessary environment variables, creates a temporary model configuration,
+# and sources various test utility and category-specific test files before running
+# the selected tests and printing a final summary.
 
 set -e
+
+SELECTED_CATEGORY="${1:-all}"
 
 # Set the AI_ASSISTANT_DIRECTORY environment variable for the test environment
 if [ "${AI_WINDOWS_CLI:-0}" -eq 1 ]; then
@@ -52,11 +61,42 @@ source "$SCRIPT_DIR/e2e/test_category_4_config_state.sh"
 source "$SCRIPT_DIR/e2e/test_category_5_blocking.sh"
 
 
-run_category_1
-run_category_2
-run_category_3
-run_category_4
-run_category_5
+# Function to run tests based on the selected category
+run_selected_categories() {
+    # This function executes the test suites corresponding to the selected category.
+    case "$SELECTED_CATEGORY" in
+        all|ALL|"")
+            run_category_1
+            run_category_2
+            run_category_3
+            run_category_4
+            run_category_5
+            ;;
+        1)
+            run_category_1
+            ;;
+        2)
+            run_category_2
+            ;;
+        3)
+            run_category_3
+            ;;
+        4)
+            run_category_4
+            ;;
+        5)
+            run_category_5
+            ;;
+        *)
+            echo "Error: Unknown CLI integration category: $SELECTED_CATEGORY"
+            echo "Valid values: 1, 2, 3, 4, 5, or all"
+            exit 1
+            ;;
+    esac
+}
+
+run_selected_categories
+
 print_summary
 
 # ==============================================================================

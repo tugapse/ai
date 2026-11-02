@@ -1,4 +1,7 @@
 #!/bin/bash
+# This script is responsible for setting up the testing environment,
+# activating the virtual environment, and executing the pytest unit tests.
+
 # Exit immediately if a command exits with a non-zero status.
 set -e
 
