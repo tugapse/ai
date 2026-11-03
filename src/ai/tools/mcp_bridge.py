@@ -11,9 +11,21 @@ import ai.functions as func
 class MCPBridge:
     """
     Connects to MCP servers and injects a single Gateway tool per server into JARVIS.
+
+    This class manages the lifecycle of asynchronous connections to external
+    MCP servers via standard I/O streams. It fetches the available tools from
+    each server and wraps them into a unified 'Gateway' function that JARVIS
+    can call, allowing JARVIS to interact with multiple backend systems through
+    a single, standardized interface.
     """
     
     def __init__(self, tool_registry):
+        """
+        Initializes the MCPBridge.
+
+        Args:
+            tool_registry: The registry object used to register the gateway tools.
+        """
         self.registry = tool_registry
         self.sessions: Dict[str, ClientSession] = {}
         
@@ -28,14 +40,32 @@ class MCPBridge:
         self._thread.start()
 
     def _start_background_loop(self):
+        """
+        Starts the asyncio event loop in a dedicated background thread.
+        """
         asyncio.set_event_loop(self._loop)
         self._loop.run_forever()
 
     def _run_async_task(self, coro):
+        """
+        Runs an asynchronous coroutine safely from a synchronous context thread.
+
+        Args:
+            coro: The coroutine to execute.
+
+        Returns:
+            The result of the coroutine execution.
+        """
         future = asyncio.run_coroutine_threadsafe(coro, self._loop)
         return future.result()
 
     def load_from_config(self, filepath: str):
+        """
+        Loads server connection details from a JSON configuration file and initiates connections.
+
+        Args:
+            filepath: The path to the JSON configuration file containing MCP server definitions.
+        """
         if not os.path.exists(filepath):
             func.log(f"[MCP] Config file not found: {filepath}", level="WARN")
             return
@@ -63,6 +93,15 @@ class MCPBridge:
             func.log(f"[MCP] Error loading config: {str(e)}", level="ERROR")
 
     def connect_server(self, server_name: str, command: str, args: List[str], description: str):
+        """
+        Initiates the connection process for a specified MCP server.
+
+        Args:
+            server_name: The unique name identifier for the server.
+            command: The executable command for the server process.
+            args: A list of command-line arguments for the server process.
+            description: A human-readable description of the server's functionality.
+        """
         func.log(f"[MCP] Connecting to {server_name}...", level="INFO")
         try:
             self._run_async_task(self._async_connect(server_name, command, args, description))
@@ -70,6 +109,15 @@ class MCPBridge:
             func.log(f"[MCP] Failed to connect to {server_name}: {e}", level="ERROR")
 
     async def _async_connect(self, server_name: str, command: str, args: List[str], description: str):
+        """
+        Asynchronously establishes the connection, fetches schemas, and registers the gateway.
+
+        Args:
+            server_name: The name of the server being connected to.
+            command: The command to execute the server.
+            args: Arguments for the server command.
+            description: The description used for the gateway tool.
+        """
         server_params = StdioServerParameters(command=command, args=args)
         
         # Safely enter and hold the context managers open using AsyncExitStack
@@ -91,7 +139,16 @@ class MCPBridge:
         func.log(f"[MCP] {server_name} connected. Gateway active for {len(tools_response.tools)} tools.", level="INFO")
 
     def _inject_gateway(self, server_name: str, description: str):
-        """Creates the single gateway function that JARVIS sees (Flattened Signature)."""
+        """
+        Creates the single gateway function that JARVIS sees (Flattened Signature).
+
+        This wrapper function abstracts the complex MCP interaction (listing tools,
+        executing commands) into a simple, flat interface for the AI agent.
+
+        Args:
+            server_name: The name of the server this gateway represents.
+            description: The high-level description of the server's capabilities.
+        """
         
         # The docstring explicitly teaches JARVIS to pass arguments flatly
         docstring = f"{description}\n\nArgs:\n"
@@ -100,6 +157,17 @@ class MCPBridge:
         docstring += "    [other_params] (Any): Pass any required command arguments directly as top-level parameters.\n"
 
         def gateway_wrapper(**kwargs) -> Dict[str, Any]:
+            """
+            Gateway wrapper function exposed to JARVIS.
+
+            Handles the routing logic based on the 'action' parameter.
+
+            Args:
+                **kwargs: Parameters passed by the calling agent, including 'action', 'command', and tool-specific arguments.
+
+            Returns:
+                A dictionary containing the status ('SUCCESS' or 'FAILED') and the result/error message.
+            """
             # Use .pop() to remove 'action' and 'command' from the kwargs dictionary
             action = kwargs.pop("action", "").strip().lower()
             
@@ -125,7 +193,15 @@ class MCPBridge:
         self.registry.register_tool(server_name, gateway_wrapper)
 
     def _format_tools_list(self, server_name: str) -> str:
-        """Formats the stored schemas into a readable text block for JARVIS's short-term memory."""
+        """
+        Formats the stored schemas into a readable text block for JARVIS's short-term memory.
+
+        Args:
+            server_name: The name of the server whose tools are being listed.
+
+        Returns:
+            A formatted string detailing all available commands and their arguments.
+        """
         tools = self.server_schemas.get(server_name, {})
         output = f"Available commands for {server_name}:\n\n"
         
@@ -147,7 +223,17 @@ class MCPBridge:
         return output.strip()
 
     async def _execute_mcp_tool(self, server_name: str, command: str, raw_params: dict) -> dict:
-        """Type-casts the arguments and sends the JSON-RPC execution."""
+        """
+        Type-casts the arguments and sends the JSON-RPC execution request to the MCP server.
+
+        Args:
+            server_name: The name of the server to execute the tool on.
+            command: The name of the tool/command to run.
+            raw_params: A dictionary of parameters passed by the agent, which will be type-casted.
+
+        Returns:
+            A dictionary indicating the execution status and the resulting output or error.
+        """
         schema = self.server_schemas[server_name][command].inputSchema.get("properties", {})
         casted_params = {}
         

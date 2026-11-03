@@ -25,6 +25,15 @@ class ThinkingAnimationHandler:
         log_manager: ThinkingLogManager = None,
         show_animation: bool = False
     ):
+        """
+        Initializes the ThinkingAnimationHandler.
+
+        Args:
+            enable_display: If True, the handler processes and displays thinking tags.
+            mode: The display mode for thinking indicators ("dots", "spinner", or "progressbar").
+            log_manager: An instance of ThinkingLogManager to log thinking events.
+            show_animation: If True, enables dynamic animation drawing.
+        """
         self.enable_display = enable_display
         self.show_animation = show_animation
         self.mode = mode.lower()
@@ -36,6 +45,17 @@ class ThinkingAnimationHandler:
         self._token_accumulation_buffer = ""
 
     def process_token_and_thinking_state(self, raw_token_string: str) -> tuple[bool, str]:
+        """
+        Processes a raw token string to update the thinking state and determine output content.
+
+        Args:
+            raw_token_string: The raw string token received from the LLM stream.
+
+        Returns:
+            A tuple containing:
+            - bool: True if thinking is currently active.
+            - str: The content to be displayed (either accumulated text or empty string).
+        """
         self._token_accumulation_buffer += raw_token_string
         cleaned_buffer = self.CONTROL_CHARS_PATTERN.sub("", self._token_accumulation_buffer)
 
@@ -126,8 +146,22 @@ class ThinkingAnimationHandler:
                 self.print_think(f"\r{clear_line}{self.THINKING_PREFIX}... [{bar_str}]", end="", flush=True)
 
     def get_max_thinking_indicator_length(self):
+        """
+        Calculates the maximum required length for the thinking indicator line, 
+        used for clearing the line correctly.
+
+        Returns:
+            int: The maximum length of the indicator string.
+        """
         return len(self.THINKING_PREFIX + "... [" + "-" * self.PROGRESS_BAR_LENGTH + "]") + 1
         
     def print_think(self, message, **kargs):
+        """
+        Prints the thinking message using the configured output mechanism.
+
+        Args:
+            message: The string content to print.
+            **kargs: Additional keyword arguments passed to the underlying output function (e.g., end, flush).
+        """
         if self.show_animation: 
             func.out(message, **kargs)

@@ -1,4 +1,11 @@
 class Color:
+    """
+    A class containing predefined ANSI escape codes for terminal coloring and text effects.
+
+    This class provides constants for various foreground colors, background colors,
+    and text styling attributes (like bold, underline, etc.) to allow for
+    easy and consistent terminal output formatting.
+    """
     # Reset
     RESET = '\033[0m'
 
@@ -91,6 +98,11 @@ def pformat_text(text, *colors_and_effects, **kargs):
     """
     Prints the given text with the specified ANSI color codes and effects.
     Accepts multiple color/effect arguments.
+
+    Args:
+        text (str): The text content to be printed.
+        *colors_and_effects: One or more Color class attributes defining the style.
+        **kargs: Keyword arguments passed directly to the print function (e.g., file=sys.stdout).
     """
     applied_codes = "".join(colors_and_effects)
     print (f"{applied_codes}{text}{Color.RESET}", **kargs)

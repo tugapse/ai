@@ -7,26 +7,46 @@ from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 
 import ai.functions as func
+from ai.services.directory_manager import DirectoryManager
 
 class AgentSessionManager:
     """
     Manages persistence for agent sessions.
-    Stored in: [func.get_root_directory()]/logs/agents/[hash]/[session_id].json
+    Stored in: <system>/logs/agents/[hash]/[session_id].json
     """
 
     MANIFEST_FILE = "manifest.json"
 
+    @staticmethod
+    def _get_agents_storage_root() -> str:
+        """
+        Retrieves the root directory where all agent session data is stored.
+
+        Returns:
+            str: The absolute path to the agents storage root.
+        """
+        directory_manager = DirectoryManager()
+        return os.path.join(directory_manager.get_system_logs_directory(), "agents")
+
     def __init__(self, session_id: str, working_directory: Optional[str] = None):
         """
         Initializes the session manager for a specific agent session.
+
+        This sets up the necessary directory structure based on the working directory hash
+        and prepares the path for the session's journal file.
+
+        Args:
+            session_id: A unique identifier for the current agent session.
+            working_directory: The directory from which the agent session originated. 
+                               Defaults to the current working directory if None.
         """
         # 1. User working dir (hashed)
         self.working_directory = os.path.normpath(os.path.abspath(working_directory or os.getcwd()))
         self.parent_dir = hashlib.sha256(self.working_directory.encode("utf-8")).hexdigest()[:16]
         self.session_id = session_id
 
-        # 2. Base storage folder: repo-relative logs/agents/<hash>
-        self.storage_dir = os.path.join("logs", "agents", self.parent_dir)
+        # 2. Base storage folder: system/logs/agents/<hash>
+        self.storage_dir = os.path.join(self._get_agents_storage_root(), self.parent_dir)
 
         # 3. Session file: + session_id.json
         self.session_path = os.path.join(self.storage_dir, f"{self.session_id}.json")
@@ -35,7 +55,12 @@ class AgentSessionManager:
         self._ensure_storage()
 
     def _ensure_storage(self):
-        """Ensures the agent folder and directory metadata manifest exist."""
+        """
+        Ensures the agent folder and directory metadata manifest exist.
+
+        Creates the storage directory if it does not exist and writes the manifest file
+        containing metadata about the session's working directory.
+        """
         if not os.path.exists(self.storage_dir):
             os.makedirs(self.storage_dir, exist_ok=True)
             func.log(f"AgentSessionManager: Created agent storage at {self.storage_dir}")
@@ -56,7 +81,16 @@ class AgentSessionManager:
                 func.error(f"AgentSessionManager: Failed to write manifest: {str(e)}")
 
     def commit(self, orchestrator_state: Dict[str, Any], compress: bool = False):
-        """Persists orchestrator state to the session's JSON journal."""
+        """
+        Persists orchestrator state to the session's JSON journal.
+
+        Each state update is appended as a new line to the session file. Compression
+        can be enabled for larger state objects.
+
+        Args:
+            orchestrator_state: The current state dictionary of the orchestrator to save.
+            compress: If True, the state data will be compressed using zlib and base64 encoded.
+        """
         func.debug(f"AgentSessionManager: Committing state for {self.session_id}")
 
         payload = {
@@ -81,7 +115,15 @@ class AgentSessionManager:
             func.error(f"AgentSessionManager: Commit failed for {self.session_id}: {str(e)}")
     
     def get_session(self, turn_index: int = -1) -> Optional[Dict[str, Any]]:
-        """Re-inflates the orchestrator from the agent file."""
+        """
+        Re-inflates the orchestrator state from the agent file at a specific turn index.
+
+        Args:
+            turn_index: The zero-based index of the state entry to retrieve. Defaults to -1 (last entry).
+
+        Returns:
+            Optional[Dict[str, Any]]: The deserialized orchestrator state, or None if the file is missing or an error occurs.
+        """
         if not os.path.exists(self.session_path):
             func.debug(f"AgentSessionManager: No state file found at {self.session_path}. Starting fresh.")
             return None
@@ -110,8 +152,18 @@ class AgentSessionManager:
 
     @staticmethod
     def get_working_directory_for_hash(hash_code: str) -> Optional[str]:
-        """Resolves the original working directory from a parent directory hash."""
-        manifest_path = os.path.join("logs", "agents", hash_code, AgentSessionManager.MANIFEST_FILE)
+        """
+        Resolves the original working directory from a parent directory hash code.
+
+        This reads the manifest file associated with the given hash to find the original path.
+
+        Args:
+            hash_code: The 16-character SHA256 hash prefix representing the working directory.
+
+        Returns:
+            Optional[str]: The original working directory path, or None if the manifest is not found or readable.
+        """
+        manifest_path = os.path.join(AgentSessionManager._get_agents_storage_root(), hash_code, AgentSessionManager.MANIFEST_FILE)
         if os.path.exists(manifest_path):
             try:
                 with open(manifest_path, "r", encoding="utf-8") as f:
@@ -123,8 +175,16 @@ class AgentSessionManager:
 
     @staticmethod
     def list_all_projects() -> List[Dict[str, str]]:
-        """Returns all tracked projects mapping their hash to the original working directory."""
-        agents_base = os.path.join("logs", "agents")
+        """
+        Returns all tracked projects mapping their hash to the original working directory.
+
+        Iterates through all subdirectories in the agents storage root and retrieves metadata
+        from the manifest file of each directory.
+
+        Returns:
+            List[Dict[str, str]]: A list where each dictionary contains 'hash' and 'working_directory'.
+        """
+        agents_base = AgentSessionManager._get_agents_storage_root()
         if not os.path.exists(agents_base):
             return []
 
@@ -143,7 +203,18 @@ class AgentSessionManager:
 
     @staticmethod
     def _extract_user_request_from_entry(entry: Dict[str, Any]) -> Optional[str]:
-        """Extracts the initial user request from a committed session payload."""
+        """
+        Extracts the initial user request from a committed session payload entry.
+
+        It searches several common locations within the state dictionary (direct fields,
+        history sequences, memory containers) for the first non-empty user message.
+
+        Args:
+            entry: A single JSON entry dictionary from the session file.
+
+        Returns:
+            Optional[str]: The extracted user request string, or None if not found.
+        """
         state = entry.get("state", {}) if isinstance(entry, dict) else {}
         if not isinstance(state, dict):
             return None
@@ -183,11 +254,23 @@ class AgentSessionManager:
 
     @staticmethod
     def list_sessions(working_directory: Optional[str] = None) -> list:
-        """Lists all agent sessions in the specified working directory."""
+        """
+        Lists all agent sessions in the specified working directory.
+
+        It scans the relevant storage directory, reads the first line of each session file,
+        and attempts to extract the initial user request associated with that session.
+
+        Args:
+            working_directory: Optional path to filter sessions by their originating directory. 
+                               Defaults to the current working directory.
+
+        Returns:
+            list: A list of dictionaries, each containing 'session_id', 'filename', and 'user_request'.
+        """
         normalized_dir = os.path.normpath(os.path.abspath(working_directory or os.getcwd()))
         parent_dir = hashlib.sha256(normalized_dir.encode("utf-8")).hexdigest()[:16]
 
-        storage_dir = os.path.join("logs", "agents", parent_dir)
+        storage_dir = os.path.join(AgentSessionManager._get_agents_storage_root(), parent_dir)
 
         func.debug(f"AgentSessionManager: Searching for sessions in '{storage_dir}'")
 
@@ -228,7 +311,15 @@ class AgentSessionManager:
         return sessions
 
     def get_history_summary(self) -> list:
-        """Returns turn-by-turn summary for debugging."""
+        """
+        Returns turn-by-turn summary for debugging purposes.
+
+        Reads the entire session journal file and extracts key metadata (turn number, 
+        timestamp, agent identity, and iteration count) from each committed state.
+
+        Returns:
+            list: A list of dictionaries summarizing each turn in the session.
+        """
         if not os.path.exists(self.session_path):
             return []
         

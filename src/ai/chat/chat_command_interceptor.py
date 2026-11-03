@@ -56,6 +56,15 @@ class ChatCommandInterceptor:
         self.chat.terminate_command()
     
     def handle_extra_command(self, command:str):
+        """
+        Placeholder method for handling custom, extra commands.
+
+        Args:
+            - command: The full command string to handle.
+
+        Raises:
+            NotImplementedError: If the specific command handler is not implemented.
+        """
         raise NotImplementedError(self.handle_extra_command)
 
     def save_session(self, filename: str) -> None:

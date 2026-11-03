@@ -21,6 +21,10 @@ class SessionAccessError(SessionError):
 
 
 class SessionManager:
+    """
+    Manages the lifecycle of application sessions, allowing for loading, saving,
+    listing, and deleting sessions stored as JSON files within a designated root directory.
+    """
     def __init__(self, root_dir: Path, logger: Optional[Any] = None):
         """
         Initialize the session manager.
@@ -33,6 +37,12 @@ class SessionManager:
         self.logger = logger
 
     def _log(self, message: str) -> None:
+        """
+        Internal helper to log messages if a logger callback is provided.
+
+        Args:
+            message: The string message to log.
+        """
         if callable(self.logger):
             try:
                 self.logger(message)
@@ -46,8 +56,14 @@ class SessionManager:
 
         This prevents directory traversal outside the root.
 
+        Args:
+            session_path: The path string representing the session relative to the root directory.
+
         Returns:
             The resolved Path to the .json file corresponding to session_path.
+
+        Raises:
+            InvalidPathError: If the resolved path attempts to escape the root session directory.
         """
         path = (self.root_dir / session_path).with_suffix(".json")
         resolved = path.resolve()
@@ -60,6 +76,12 @@ class SessionManager:
         """
         List all sessions (metadata) under the root directory.
         Optionally filter by a sub-folder.
+
+        Args:
+            session_folder: Optional string specifying a sub-folder within the root_dir to search.
+
+        Returns:
+            A list of dictionaries, where each dictionary contains metadata for a session.
         """
         search_root_dir = self.root_dir
         if session_folder:
@@ -100,6 +122,18 @@ class SessionManager:
     def load_session(self, session_path: str) -> Dict:
         """
         Load a single session by its path.
+
+        Args:
+            session_path: The path string identifying the session file.
+
+        Returns:
+            A dictionary containing the full content of the session.
+
+        Raises:
+            InvalidPathError: If the path attempts to escape the root directory.
+            SessionNotFoundError: If the specified session file does not exist.
+            SessionError: If the session file is corrupted (JSON decoding error).
+            SessionAccessError: If there are general IO errors reading the file.
         """
         try:
             resolved_file_path = self._resolve_session_path(session_path)
@@ -122,6 +156,14 @@ class SessionManager:
     def save_session(self, session_path: str, data: Dict) -> None:
         """
         Save (or overwrite) a session file with the provided data.
+
+        Args:
+            session_path: The path string where the session should be saved.
+            data: The dictionary containing the session data to write.
+
+        Raises:
+            InvalidPathError: If the path attempts to escape the root directory.
+            SessionAccessError: If there are general IO errors writing the file.
         """
         resolved_file_path = self._resolve_session_path(session_path)
         try:
@@ -134,6 +176,14 @@ class SessionManager:
     def update_session_content(self, session_path: str, content: Dict) -> None:
         """
         Overwrite the entire session content with the provided dict.
+
+        Args:
+            session_path: The path string identifying the session file to update.
+            content: The new dictionary content to write to the session.
+
+        Raises:
+            SessionNotFoundError: If the specified session file does not exist.
+            SessionAccessError: If there are general IO errors writing the file.
         """
         resolved_file_path = self._resolve_session_path(session_path)
         if not resolved_file_path.exists() or not resolved_file_path.is_file():
@@ -148,6 +198,18 @@ class SessionManager:
     def update_session_title(self, session_path: str, title: str) -> Dict:
         """
         Update only the session title field inside the JSON.
+
+        Args:
+            session_path: The path string identifying the session file.
+            title: The new title string for the session.
+
+        Returns:
+            A dictionary confirming the status and the new title.
+
+        Raises:
+            SessionNotFoundError: If the specified session file does not exist.
+            SessionError: If the session file is corrupted during the update.
+            SessionAccessError: If there are general IO errors during the update.
         """
         resolved_file_path = self._resolve_session_path(session_path)
         if not resolved_file_path.exists() or not resolved_file_path.is_file():
@@ -172,6 +234,13 @@ class SessionManager:
     def delete_session(self, session_path: str) -> None:
         """
         Delete a specific session file.
+
+        Args:
+            session_path: The path string identifying the session file to delete.
+
+        Raises:
+            SessionNotFoundError: If the specified session file does not exist.
+            SessionAccessError: If there are general IO errors during deletion.
         """
         resolved_file_path = self._resolve_session_path(session_path)
         if not resolved_file_path.exists() or not resolved_file_path.is_file():

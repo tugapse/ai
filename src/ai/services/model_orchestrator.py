@@ -3,15 +3,28 @@ import sys
 from typing import Optional, Dict, Any
 
 import ai.functions as func
+from ai.services.directory_manager import DirectoryManager
 from ai.services.engine_manager import EngineManager
 from ai.core.llms.base_llm import ModelParams, BaseModel
 from ai.services.config_helper import ProgramConfig, ProgramSetting
 from ai.tools.tool_registry import ToolRegistry
 
 class ModelOrchestrator:
+    """
+    Manages the loading, configuration, and lifecycle of various language models.
 
+    This orchestrator handles locating model configuration files (system or user-specific),
+    loading the appropriate LLM instance via the EngineManager, and tracking the
+    active model's parameters and chat identity.
+    """
 
     def __init__(self, config: ProgramConfig):
+        """
+        Initializes the ModelOrchestrator.
+
+        Args:
+            config: The global program configuration object.
+        """
         self.config = config
         self.model_params: Dict[str, Any] = {}
         self.model_chat_name: str = "__no_chat_name__"
@@ -20,6 +33,26 @@ class ModelOrchestrator:
 
     
     def load(self, model_config_name: str, system_prompt: str, tool_registry:Optional[ToolRegistry] = None, model_config_data: Optional[dict] = None) -> BaseModel:
+        """
+        Loads a specific language model instance based on configuration.
+
+        It resolves the configuration file path, loads the necessary data,
+        and initializes the LLM object. If a model is already active, it is shut down
+        before loading the new one.
+
+        Args:
+            model_config_name: The base name of the model configuration file (e.g., "gpt4").
+            system_prompt: The system-level prompt to be used when initializing the model.
+            tool_registry: An optional registry containing available tools for the model.
+            model_config_data: Optional pre-loaded configuration dictionary. If provided,
+                               it overrides the need to load from disk.
+
+        Returns:
+            The initialized BaseModel instance of the loaded LLM.
+
+        Raises:
+            SystemExit: If configuration loading or model initialization fails critically.
+        """
         if model_config_data and "model_name" in model_config_data:
             model_config_name = model_config_data["model_name"]
 
@@ -30,13 +63,15 @@ class ModelOrchestrator:
             model_config_name = f"{model_config_name}.json"
             
         if model_config_data is None:
-            folder = self.config.get(ProgramSetting.PATHS_MODEL_CONFIGS)
-            if folder is None:
-                # Fallback to local project folder if config is missing the path
-                root = func.get_root_directory()
-                folder = os.path.join(root, "models")
-                
-            filename = os.path.join(folder, model_config_name)
+            directory = DirectoryManager()
+
+            system_folder = directory.get_system_models_directory()
+            user_folder = directory.get_user_models_directory()
+            
+            filename = os.path.join(system_folder, model_config_name)
+            
+            if os.path.exists(userfilename := os.path.join(user_folder,model_config_name )):
+                filename = userfilename 
 
             try:
                 model_config_data = EngineManager.load_config(filename) 
@@ -68,13 +103,30 @@ class ModelOrchestrator:
             sys.exit(1)
 
     def _init_model_params(self):
+        """
+        Initializes the internal model parameters dictionary based on the currently active LLM's options.
+
+        If the LLM has options, it extracts them into ModelParams; otherwise, it uses default parameters.
+        """
         if self.llm and hasattr(self.llm, 'options'):
             self.model_params = ModelParams(**self.llm.options).to_dict()
         else:
             self.model_params = ModelParams().to_dict()
 
     def get_params(self) -> Dict[str, Any]:
+        """
+        Retrieves the current set of parameters associated with the active model.
+
+        Returns:
+            A dictionary containing the model's configuration parameters.
+        """
         return self.model_params
 
     def get_chat_name(self) -> str:
+        """
+        Retrieves the designated chat name for the currently active model.
+
+        Returns:
+            The string identifier for the model's chat context.
+        """
         return self.model_chat_name

@@ -9,9 +9,23 @@ import ai.functions as func
 class OllamaModel(BaseModel):
     """
     This class implements an LLM bot using the Ollama library.
+
+    It handles initialization, model pulling, and conversational interaction
+    with a local Ollama server instance.
     """
 
     def __init__(self, model_name, system_prompt="", host=None, keep_alive=False,model_params=None,**kargs):
+        """
+        Initializes the OllamaModel.
+
+        Args:
+            model_name (str): The name of the model to use (e.g., "llama2").
+            system_prompt (str): The system prompt to guide the model's behavior.
+            host (str, optional): The IP address of the Ollama server. Defaults to "127.0.0.1".
+            keep_alive (bool, optional): Whether to keep the connection alive. Defaults to False.
+            model_params (ModelParams, optional): Parameters to pass to the model. Defaults to None.
+            **kargs: Additional keyword arguments passed to the base class constructor.
+        """
         super().__init__(model_name, system_prompt,**kargs)
         self.server_ip = host or "127.0.0.1"
         self.model = ollama.Client(self.server_ip)
@@ -23,8 +37,12 @@ class OllamaModel(BaseModel):
     def join_generation_thread(self, timeout: float = 60.0):
         """
         Placeholder for joining the generation thread for OllamaModel.
+
         As Ollama's streaming is synchronous, there's no separate thread to join for generation.
         We just clear the stop event.
+
+        Args:
+            timeout (float, optional): The timeout duration for joining. Defaults to 60.0.
         """
         func.out("INFO: OllamaModel does not use a separate generation thread for generation. Clearing stop event.")
         self.stop_generation_event.clear()
@@ -33,6 +51,21 @@ class OllamaModel(BaseModel):
     def chat(self, messages: list, images:list[str] = None, stream: bool = True, options: object = {}):
         """
         Allows the bot to chat with users.
+
+        Args:
+            messages (list): A list of message dictionaries for the conversation history.
+            images (list[str], optional): A list of image paths to include in the prompt. Defaults to None.
+            stream (bool, optional): If True, streams the response chunk by chunk. Defaults to True.
+            options (object, optional): Additional generation options to override defaults. Defaults to {}.
+
+        Yields:
+            str: A chunk of the generated text content if streaming is enabled.
+        Returns:
+            str: The complete response content if streaming is disabled.
+
+        Raises:
+            KeyboardInterrupt: If the user interrupts the generation process (Ctrl+C).
+            Exception: For critical errors during Ollama communication.
         """
         gen_options = self.options.copy()
         gen_options.update(options)
@@ -79,9 +112,22 @@ class OllamaModel(BaseModel):
 
 
     def list(self):
+        """
+        Retrieves a list of all available models on the Ollama server.
+
+        Returns:
+            dict: The response object containing the list of models from Ollama.
+        """
         return self.model.list()
 
     def pull(self, model_name, stream=True):
+        """
+        Checks if a model exists locally and pulls it if it does not.
+
+        Args:
+            model_name (str): The name of the model to pull (e.g., "mistral").
+            stream (bool, optional): Whether to stream the pull progress. Defaults to True.
+        """
         if not ":" in model_name:   model_name += ":latest"
         
         models = self.model.list().get("models")
@@ -90,6 +136,14 @@ class OllamaModel(BaseModel):
         self.__pull_model(model_name, self.model)
 
     def __pull_model(self,model_name,ollama_inst):
+        """
+        Handles the actual process of pulling a model from the Ollama server,
+        displaying progress using tqdm.
+
+        Args:
+            model_name (str): The name of the model to pull.
+            ollama_inst (ollama.Client): The initialized Ollama client instance.
+        """
         current_digest, bars = '', {}                                                                                                                                               
                                                                                                                                                                                     
         for progress in ollama_inst.pull(model_name, stream=True):                                                                                                                       

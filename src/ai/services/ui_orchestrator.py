@@ -9,14 +9,19 @@ import ai.functions as func
 class UIOrchestrator:
     """
     Manages the visual and feedback components of the assistant.
-    Responsible for:
-    - Thinking/Thought process visualization (Progress bars).
-    - Token buffering and console printing modes.
-    - Handling 'Thinking' logs for debugging.
-    - Console formatting (Markdown/Bolding).
+
+    This class is responsible for coordinating all user-facing elements,
+    including displaying the AI's thought process (e.g., progress bars),
+    controlling how text is streamed to the console, and managing formatting.
     """
 
     def __init__(self, config: ProgramConfig):
+        """
+        Initializes the UIOrchestrator with the application configuration.
+
+        Args:
+            config: The ProgramConfig object containing global application settings.
+        """
         self.config = config
         
         # Core UI Components
@@ -28,6 +33,12 @@ class UIOrchestrator:
     def initialize(self, log_filepath: str):
         """
         Sets up the UI stack based on program configuration.
+
+        This method instantiates and configures the ThinkingLogManager, OutputPrinter,
+        and HandlerManager using settings from the ProgramConfig.
+
+        Args:
+            log_filepath: The file path where the thinking process logs should be saved.
         """
         func.log("UIOrchestrator: Initializing display and feedback systems...")
 
@@ -53,6 +64,8 @@ class UIOrchestrator:
     def reset_turn(self):
         """
         Clears formatting buffers at the start/end of a chat turn.
+
+        This ensures that formatting state is reset before a new interaction begins.
         """
         self.formatter.clear_process_token()
         if self.printer:
@@ -61,6 +74,9 @@ class UIOrchestrator:
     def get_components(self):
         """
         Returns the trio of components needed by the StreamOrchestrator.
+
+        Returns:
+            dict: A dictionary containing the initialized printer, handler, and formatter instances.
         """
         return {
             "printer": self.printer,

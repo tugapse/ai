@@ -2,9 +2,29 @@ import ai.functions as func
 from ai.core.llms.base_llm import BaseModel
 
 class HFPipelineMixin:
-    """Isolates data parsing, message role validation, and tokenization inputs."""
+    """
+    Mixin class providing utility methods for preparing chat history and inputs
+    for Hugging Face (HF) based LLM pipelines.
+
+    This class handles data cleaning to ensure alternating message roles,
+    and prepares the final input tensor based on the presence of a tokenizer
+    and a system prompt.
+    """
 
     def _ensure_alternating_roles(self, messages: list) -> list:
+        """
+        Cleans the list of messages to ensure that roles alternate sequentially.
+
+        If consecutive messages have the same role (e.g., two 'user' messages in a row),
+        their contents are concatenated into a single message entry. System messages
+        are preserved at the beginning.
+
+        Args:
+            messages: A list of message dictionaries, each expected to have 'role' and 'content'.
+
+        Returns:
+            A new list of messages with alternating roles, or the original list if empty.
+        """
         if not messages:
             return []
 
@@ -39,6 +59,19 @@ class HFPipelineMixin:
         return cleaned_messages
 
     def _prepare_input(self, messages: list):
+        """
+        Prepares the final input tensors for the tokenizer based on the message history.
+
+        It first ensures a system prompt is present if one is defined and missing.
+        It prioritizes using tokenizer.apply_chat_template if available; otherwise,
+        it manually formats the conversation into a string.
+
+        Args:
+            messages: The list of message dictionaries to be tokenized.
+
+        Returns:
+            A dictionary containing PyTorch tensors ready for model input.
+        """
         if self.system_prompt and not any(m["role"] == "system" for m in messages):
             messages.insert(0, BaseModel.create_message("system", self.system_prompt))
             

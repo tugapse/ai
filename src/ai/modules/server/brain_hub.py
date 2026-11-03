@@ -7,7 +7,20 @@ from ai.services.model_orchestrator import ModelOrchestrator
 
 
 class BrainHub:
+    """
+    Manages the core AI brain functionality, including model orchestration,
+    session history management, and state control.
+
+    This class acts as the central hub, coordinating between the LLM models
+    (via ModelOrchestrator) and the persistent memory storage (via HistoryManager).
+    """
     def __init__(self, config: ProgramConfig):
+        """
+        Initializes the BrainHub with the provided program configuration.
+
+        Args:
+            config: The global configuration object for the program.
+        """
         self.config = config
         self.orchestrator = ModelOrchestrator(config)
         self.history_file: str = ""
@@ -16,7 +29,17 @@ class BrainHub:
         
 
     def new_history(self, session_title: Optional[str], session_id: str, session_folder: Optional[str]) -> dict:
-        """Initializes a fresh history structure."""
+        """
+        Initializes a fresh history structure dictionary.
+
+        Args:
+            session_title: The title for the new session.
+            session_id: The unique identifier for the session.
+            session_folder: The folder path where the session should be stored.
+
+        Returns:
+            A dictionary representing the initial state of the session history.
+        """
         return {
             "session_id": session_id,
             "session_folder": session_folder,
@@ -26,13 +49,33 @@ class BrainHub:
         }
 
     def route_memory(self, session_filepath: str, session_title: Optional[str], session_id: str, session_folder: Optional[str]):
-        """Instructs the History Manager to hot-swap the active JSON file."""
+        """
+        Instructs the History Manager to hot-swap the active JSON file.
+
+        This method changes the active session context, loading data from the
+        specified file path.
+
+        Args:
+            session_filepath: The full path to the JSON file representing the session.
+            session_title: The title to assign to the session.
+            session_id: The ID to assign to the session.
+            session_folder: The folder path associated with the session.
+        """
         self.history_file = session_filepath
         self.history = self.new_history(session_title, session_id, session_folder)
         self.load_history_from_json(session_filepath)
 
     def add_history_message(self, role: str, content: str):
-            """Convenience method to add messages to the history from the API endpoints."""
+            """
+            Convenience method to add messages to the history from the API endpoints.
+
+            Updates the history in memory and immediately saves the updated state
+            to the active JSON file.
+
+            Args:
+                role: The role of the message (e.g., 'user', 'assistant').
+                content: The textual content of the message.
+            """
             self.history["messages"].append(
                 {"role": role, "content": content}
             )
@@ -41,7 +84,14 @@ class BrainHub:
 
 
     def load_history_from_json(self, filepath: str):
-        """Loads a specific JSON file into the History Manager."""
+        """
+        Loads a specific JSON file into the current history state.
+
+        Handles file existence checks, JSON decoding errors, and structural validation.
+
+        Args:
+            filepath: The path to the JSON file to load.
+        """
         if os.path.exists(filepath):
             import json
             try:
@@ -75,7 +125,12 @@ class BrainHub:
             self.history["last_updated"] = None # Reset last updated timestamp
 
     def save_history_to_json(self, filepath: str):
-        """Saves the current history to a JSON file."""
+        """
+        Saves the current in-memory history state to the specified JSON file.
+
+        Args:
+            filepath: The path where the history should be saved.
+        """
         import json
 
         with open(filepath, "w") as f:
@@ -85,15 +140,32 @@ class BrainHub:
    
 
     def get_timestamp(self) -> str:
-        """Generates a timestamp string for history entries."""
+        """
+        Generates a standardized ISO format timestamp string for history entries.
+
+        Returns:
+            A string representing the current time in ISO format.
+        """
         from datetime import datetime
 
         return datetime.now().isoformat()
 
     def get_brain(self, model_id: str, system_prompt: str, model_config_data: Optional[dict] = None):
         """
-        Ensures the requested model is loaded.
-        If a different model is active, it unloads it first to clear VRAM.
+        Ensures the requested model is loaded and active for interaction.
+
+        If a different model is currently active, it is unloaded first to free up
+        GPU resources before loading the new model. It also updates the system
+        prompt if the model is already loaded.
+
+        Args:
+            model_id: The identifier of the desired model.
+            system_prompt: The system-level instruction prompt for the model.
+            model_config_data: Optional dictionary containing model configuration details,
+                                which may override the model_id.
+
+        Returns:
+            The active LLM object instance from the ModelOrchestrator.
         """
         if model_config_data and "model_name" in model_config_data:
             model_id = model_config_data["model_name"]
@@ -123,7 +195,11 @@ class BrainHub:
         return self.orchestrator.llm
 
     def unload_brain(self):
-        """Clears the GPU memory by calling the model's specific unload method."""
+        """
+        Clears the GPU memory by calling the model's specific unload method.
+
+        This resets the active model state and clears the current model ID.
+        """
         if self.orchestrator.llm:
             func.log(f"BrainHub: Unloading {self.current_model_id}...")
 
@@ -133,7 +209,12 @@ class BrainHub:
             self.current_model_id = None
 
     def list_available_models(self) -> list:
-        """Scans the model-config folder for available JSON brains."""
+        """
+        Scans the model-config folder for available JSON brains.
+
+        Returns:
+            A list of model names (without the .json extension) found in the configuration directory.
+        """
         folder = self.config.get(ProgramSetting.PATHS_MODEL_CONFIGS)
         if not folder or not os.path.exists(folder):
             return []
@@ -143,7 +224,12 @@ class BrainHub:
         ]
 
     def get_stats(self) -> dict:
-        """Extracts the 'fuel gauge' stats from the active model."""
+        """
+        Extracts the 'fuel gauge' statistics from the active model.
+
+        Returns:
+            A dictionary containing usage metrics, or {"active": False} if no model is loaded.
+        """
         if not self.orchestrator.llm:
             return {"active": False}
 

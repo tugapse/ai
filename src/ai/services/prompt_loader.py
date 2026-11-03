@@ -13,12 +13,28 @@ DEFAULT_SYSTEM_PROMPT = "You are a helpful AI assistant."
 class PromptLoader:
     """
     Manages loading and processing of system prompt files.
+
+    This class is responsible for locating, reading, and injecting system prompts
+    into the AI interaction pipeline, checking explicit paths, configuration
+    directories, and built-in defaults.
     """
 
     @staticmethod
     def load_system_prompt(config: ProgramConfig, system_file_setting: str) -> str:
         """
         Reads and processes the content of a system prompt file.
+
+        Attempts to load the system prompt from several locations in order:
+        1. Explicit path provided in configuration.
+        2. Directory specified in configuration, appending .md if necessary.
+        3. A built-in default file within the repository structure if the setting is "default".
+
+        Args:
+            config: The application configuration object containing path settings.
+            system_file_setting: The string specifying the prompt file name or path.
+
+        Returns:
+            The processed and template-injected system prompt content as a string.
         """
         system_templates_dir = config.get(ProgramSetting.PATHS_SYSTEM_TEMPLATES)
         system_prompt_content = ""
@@ -83,4 +99,3 @@ class PromptLoader:
         injection_template = TemplateInjection(system_prompt_content)
         result = injection_template.replace_system_template()
         return result
-

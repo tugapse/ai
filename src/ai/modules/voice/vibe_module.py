@@ -7,10 +7,22 @@ import ai.functions as func
 
 class VibeVoiceModule(BaseVoiceModule):
     """
-    VibeVoice-Realtime-0.5B implementation.
-    Auto-detects hardware (CUDA/CPU) and uses the official Microsoft package.
+    VibeVoiceVoiceModule implements the VibeVoice-Realtime-0.5B text-to-speech model.
+
+    This module automatically detects the available hardware (CUDA or CPU) and utilizes
+    the official Microsoft VibeVoice package for high-quality, real-time audio generation.
+    It handles loading voice embeddings from specified local files.
     """
     def __init__(self, model_id="microsoft/VibeVoice-Realtime-0.5B", voice_file="pt-Spk1_man", volume=1.0, **kwargs):
+        """
+        Initializes the VibeVoice module.
+
+        Args:
+            model_id (str): The identifier for the VibeVoice model to load.
+            voice_file (str): The name of the voice profile file (e.g., "pt-Spk1_man").
+            volume (float): The playback volume multiplier.
+            **kwargs: Additional keyword arguments passed to the BaseVoiceModule.
+        """
         # Initialize the base class (starts audio queues and playback threads)
         super().__init__(sample_rate=24000, volume=volume, **kwargs)
         
@@ -26,8 +38,9 @@ class VibeVoiceModule(BaseVoiceModule):
 
     def preload(self):
         """
-        This is the method the ModuleRegistry calls.
-        It triggers the actual model loading sequence.
+        Triggers the actual model loading sequence.
+
+        This method is called by the ModuleRegistry to prepare the module for use.
         """
         func.log("VibeVoice: Preloading model components...")
         self._initialize_model()
@@ -35,6 +48,9 @@ class VibeVoiceModule(BaseVoiceModule):
     def _initialize_model(self):
         """
         Auto-detects hardware and loads the VibeVoice weights using the local package.
+
+        This method handles device selection, voice file path discovery, loading voice
+        embeddings, and loading the core model and processor components.
         """
         from vibevoice import VibeVoiceStreamingForConditionalGenerationInference, VibeVoiceStreamingProcessor # type: ignore
         from pathlib import Path
@@ -102,7 +118,16 @@ class VibeVoiceModule(BaseVoiceModule):
 
 
     def _recursive_cast(self, obj):
-        """Moves tensors and dicts to the selected device/dtype."""
+        """
+        Recursively casts objects (Tensors, dicts, lists, custom objects) to the 
+        module's selected device and data type.
+
+        Args:
+            obj: The object to cast.
+
+        Returns:
+            The casted object.
+        """
         if isinstance(obj, torch.Tensor):
             return obj.to(device=self.device, dtype=self.model_dtype if obj.is_floating_point() else None)
         elif isinstance(obj, dict):
@@ -121,7 +146,13 @@ class VibeVoiceModule(BaseVoiceModule):
 
     def _run_inference(self, text: str) -> np.ndarray:
         """
-        Converts text tokens to audio. This is the heart of the engine.
+        Converts input text into an audio waveform using the loaded VibeVoice model.
+
+        Args:
+            text (str): The text string to be synthesized into speech.
+
+        Returns:
+            np.ndarray: The generated audio waveform as a NumPy array. Returns an array of zeros if input is invalid.
         """
         if not self.model or not text.strip():
             return np.zeros(1, dtype=np.float32)

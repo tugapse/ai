@@ -14,6 +14,7 @@ from ai.agents.context_sentinel import ContextSentinel
 from ai.agents.session_manager import AgentSessionManager
 from ai.core.events import Events
 from ai.services.module_registry import ModuleRegistry
+from ai.services.process_manager import ProcessManager
 from ai.tools.mcp_bridge import MCPBridge
 from ai.tools.tool_registry import ToolRegistry
 
@@ -32,6 +33,15 @@ class AgentOrchestrator(Events):
     EVENT_AFTER_LLM_REQUEST = "after_llm_request"
 
     def __init__(self, llm_connector: LLMConnector, tool_registry: ToolRegistry, pipeline_config: Dict[str, Any], module_registry: ModuleRegistry):
+        """
+        Initializes the AgentOrchestrator with necessary components.
+
+        Args:
+            llm_connector: The connector responsible for LLM communication.
+            tool_registry: Registry holding all available tools.
+            pipeline_config: Configuration dictionary defining the agent pipeline.
+            module_registry: Registry for loading external functional modules.
+        """
         super().__init__()
         self.llm_connector = llm_connector
         self.tool_registry = tool_registry
@@ -70,6 +80,10 @@ class AgentOrchestrator(Events):
     def run_loop(self, user_prompt: str, session_id: str):
         """
         Main execution loop. Hydrates session if available, otherwise starts fresh.
+
+        Args:
+            user_prompt: The initial or ongoing prompt from the user.
+            session_id: The unique identifier for the current session.
         """
         self.session_id = session_id
         self.session_manager = AgentSessionManager(session_id)
@@ -80,12 +94,14 @@ class AgentOrchestrator(Events):
         if current_agent is STOP_SIGNAL: current_agent = MASTER_AGENT   
 
         max_iterations = self.pipeline_config.get("max_iterations", MAX_ITERATIONS)
-
+        ProcessManager.set_state("mode", "agent")
         for i in range(start_iteration, max_iterations):
             # Agent state validation at the start of the loop
             if current_agent in [None, STOP_SIGNAL]:
                 TerminalUI.log_step("Pipeline execution finished.", "SUCCESS")
                 break
+            ProcessManager.set_state("agent_turn",i)
+            ProcessManager.set_state("agent_max_turn",max_iterations)
 
             agent_mem = self.memory.get_agent_memory(current_agent)
             if not agent_mem:
@@ -114,6 +130,7 @@ class AgentOrchestrator(Events):
             payload, was_compressed = self.context_sentinel.enforce_limits(
                 current_agent, self.memory, payload, vector_memory=self.vector_memory
             )
+            ProcessManager.set_state("agent_payload", payload)
 
             if was_compressed:
                 TerminalUI.log_step(f"Sentinel: Context distilled for {current_agent}", "INFO")
@@ -144,6 +161,16 @@ class AgentOrchestrator(Events):
 
 
     def _get_saved_session(self, session_id: str, user_prompt: str)->tuple[int, str]:
+        """
+        Retrieves the state of a saved session or initializes a new one.
+
+        Args:
+            session_id: The ID of the session to load.
+            user_prompt: The current user prompt, used for seeding new sessions.
+
+        Returns:
+            A tuple containing the starting iteration count and the initial agent.
+        """
 
         current_agent = MASTER_AGENT
         start_iteration = 0
@@ -174,7 +201,17 @@ class AgentOrchestrator(Events):
         return start_iteration, current_agent or MASTER_AGENT
 
     def _capture_state(self, next_agent: str, iteration: int,user_request: str) -> Dict[str, Any]:
-        """Serializes current memory and orchestration metadata."""
+        """
+        Serializes current memory and orchestration metadata for session persistence.
+
+        Args:
+            next_agent: The agent scheduled for the next turn.
+            iteration: The iteration number after the current turn.
+            user_request: The original user request.
+
+        Returns:
+            A dictionary containing the serialized state.
+        """
         return {
             "user_request": user_request,
             "current_agent": next_agent,
@@ -186,13 +223,27 @@ class AgentOrchestrator(Events):
         }
 
     def _apply_state(self, state: Dict[str, Any]):
-        """Injects serialized state back into active managers."""
+        """
+        Injects serialized state back into active managers, restoring the pipeline state.
+
+        Args:
+            state: The dictionary containing the saved session state.
+        """
         self.memory.load_state(state.get("memory", {}))
         self.memory.context.plan = state.get("context_plan", [])
         self.memory.context.current_step_index = state.get("step_index", 0)
         self.auto_authorized_tools = set(state.get("auto_authorized_tools", []))
 
     def _assemble_agent_tools(self, agent_name: str) -> Dict[str, Callable]:
+        """
+        Assembles the set of tools available to a specific agent based on its configuration and system capabilities.
+
+        Args:
+            agent_name: The name of the agent requesting the tool set.
+
+        Returns:
+            A dictionary mapping tool names to their callable functions.
+        """
         allowed = self.agents.get(agent_name, {}).get("tools", [])
         
         if hasattr(self, "mcp_bridge"):
@@ -203,7 +254,19 @@ class AgentOrchestrator(Events):
         return {n: f for n, f in tool_pool.items() if n in allowed}
 
     def _prepare_payload(self, user_prompt: str, agent: str) -> Dict[str, Any]:
-        """Constructs the payload for the LLM, including context, history, and recent outcomes."""
+        """
+        Constructs the payload for the LLM, including context, history, and recent outcomes.
+
+        Args:
+            user_prompt: The current user prompt.
+            agent: The agent for whom the payload is being prepared.
+
+        Returns:
+            A dictionary structured for the LLM request.
+
+        Raises:
+            ValueError: If the agent's memory cannot be found.
+        """
         mem = self.memory.get_agent_memory(agent)
         if not mem :
             raise ValueError(f"Agent memory not found for {agent}")
@@ -232,6 +295,17 @@ class AgentOrchestrator(Events):
         return payload
 
     def _process_agent_response(self, response: Dict[str, Any], agent: str, config: Dict[str, Any]) -> str:
+        """
+        Processes the LLM response to determine the next action, target, or state transition.
+
+        Args:
+            response: The raw response dictionary from the LLM connector.
+            agent: The agent that generated the response.
+            config: The configuration dictionary for the current agent.
+
+        Returns:
+            The name of the next agent to execute, or the current agent if no transition occurs.
+        """
         action = response.get("action", {})
         tool_name, params = action.get("tool_name"), action.get("tool_parameters", {})
         target = str(action.get("agent_target", "")).strip().upper()
@@ -251,7 +325,7 @@ class AgentOrchestrator(Events):
         if target == "USER":
             prompt = action.get("message_to_target") or "Clarification required."
             TerminalUI.message(agent, prompt, Color.NORMAL_CYAN)
-            reply = input(f"{Color.BLUE}❯ {Color.RESET}").strip()
+            reply = input(f"{Color.BLUE} {Color.RESET}").strip()
             self.memory.add_message_to_agent(agent, {"from": "USER", "message": reply, "task": reply})
             return agent
 
@@ -269,6 +343,18 @@ class AgentOrchestrator(Events):
         return validated_target or agent
 
     def _handle_tool_execution(self, tool_name: str, params: Dict[str, Any], agent: str, config: Dict[str, Any]) -> bool:
+        """
+        Executes a tool, handling specialist overrides and authorization checks.
+
+        Args:
+            tool_name: The name of the tool to execute.
+            params: The parameters passed to the tool.
+            agent: The agent attempting to use the tool.
+            config: The agent's configuration.
+
+        Returns:
+            True if the tool executed successfully, False otherwise.
+        """
         if tool_name not in config.get("tools", []):
             self.memory.add_message_to_agent(agent, {"from": "SYSTEM", "message": f"Unauthorized tool: {tool_name}"})
             func.debug(f"Agent {agent} attempted to use unauthorized tool: {tool_name} , allowed tools: {config.get('tools', [])}", level="WARN")
@@ -276,7 +362,7 @@ class AgentOrchestrator(Events):
 
         if self.specialist_manager.is_specialist_tool(tool_name):
             TerminalUI.clear_line()
-            func.out(f"{Color.NORMAL_CYAN}◈ Specialist: {tool_name}{Color.RESET}")
+            func.out(f"{Color.NORMAL_CYAN} Specialist: {tool_name}{Color.RESET}")
             content = self.specialist_manager.invoke(tool_name, params)
             params["replace" if tool_name == "patch_file" else "content"] = content
 
@@ -309,6 +395,16 @@ class AgentOrchestrator(Events):
                     func.log(f"Registered tool '{tool_name}' from module '{module_name}'.")
 
     def _format_recent_outcomes(self, outcomes: list, length=3000) -> list:
+        """
+        Formats raw tool execution results into a readable list for the LLM context.
+
+        Args:
+            outcomes: A list of tool result records.
+            length: The maximum character length for the result string before truncation.
+
+        Returns:
+            A list of dictionaries, each containing the tool name and its JSON-serialized result.
+        """
         formatted = []
         for o in outcomes:
             raw_str = json.dumps(o["result"])
@@ -319,7 +415,16 @@ class AgentOrchestrator(Events):
 
 
     def _handle_format_error(self, agent: str, error: str) -> bool:
-        """Handles repeated parsing failures, enforcing a limit to prevent infinite loops."""
+        """
+        Handles repeated parsing failures, enforcing a limit to prevent infinite loops.
+
+        Args:
+            agent: The agent that failed to produce valid output.
+            error: The error message received from the LLM connector.
+
+        Returns:
+            True if the loop should continue (after injecting an error message), False if the loop must halt.
+        """
         self.format_error_count += 1
         
         if self.format_error_count >= 3:
@@ -338,6 +443,16 @@ class AgentOrchestrator(Events):
         return True
 
     def _gatekeeper(self, tool: str, params: Dict[str, Any]) -> bool:
+        """
+        Acts as an authorization gatekeeper for tool execution, prompting the user if necessary.
+
+        Args:
+            tool: The name of the tool being called.
+            params: The parameters associated with the tool call.
+
+        Returns:
+            True if the tool is authorized to run, False otherwise.
+        """
         if tool in self.auto_authorized_tools or tool not in ["execute_command"]: 
             TerminalUI.agent_step(f"Executing tool: {tool} with params: {params}")
             return True
@@ -351,6 +466,18 @@ class AgentOrchestrator(Events):
         return choice in ['y', 'yes']
 
     def _validate_target(self, target: str, is_empty: bool, agent: str, config: Dict[str, Any]) -> str:
+        """
+        Validates the intended transition target specified in the LLM response.
+
+        Args:
+            target: The target agent name from the LLM response.
+            is_empty: Boolean indicating if the action/target field was empty.
+            agent: The current agent.
+            config: The current agent's configuration.
+
+        Returns:
+            The validated target agent name, or the current agent if validation fails or no transition is specified.
+        """
         if target == "USER": return "USER"
         allowed = config.get("allowed_targets", [STOP_SIGNAL, "USER"])
         if target and target not in allowed:

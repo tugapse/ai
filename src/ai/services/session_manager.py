@@ -5,6 +5,7 @@ from typing import Dict, Any
 
 import ai.functions as func
 from ai.services.config_helper import ProgramConfig, ProgramSetting
+from ai.services.directory_manager import DirectoryManager
 
 class SessionManager:
     """
@@ -17,8 +18,16 @@ class SessionManager:
         """
         Generates and ensures existence of session-specific directories and file paths.
         Now attempts to resume the most recent session if it's 'warm'.
+
+        Args:
+            config: The application configuration object containing settings.
+
+        Returns:
+            A dictionary containing the generated session paths and identifiers.
         """
-        logs_dir = config.get(ProgramSetting.PATHS_LOGS)
+        directory_manager = DirectoryManager()
+        logs_dir = directory_manager.get_system_logs_directory() # config.get(ProgramSetting.PATHS_LOGS)
+        func.debug(f"SessionManager: Logs directory is set to: {logs_dir}")
         session_id_pointer = os.path.join(logs_dir, "last_session.id")
         
         session_timestamp = None
@@ -47,7 +56,7 @@ class SessionManager:
         }
 
         # --- Chat log setup ---
-        chat_log_folder = config.get(ProgramSetting.PATHS_CHAT_LOG)
+        chat_log_folder = os.path.join(directory_manager.get_system_logs_directory(), "chat")  # config.get(ProgramSetting.PATHS_CHAT_LOGS)
         if chat_log_folder:
             func.ensure_directory_exists(chat_log_folder)
             session_paths["session_chat_filepath"] = os.path.join(

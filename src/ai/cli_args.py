@@ -30,6 +30,7 @@ from ai.direct import ask
 # Agent logic
 from ai.agents.agent import AgentOrchestrator, LLMConnector, ToolRegistry, load_pipeline_config
 from ai.program import Program
+from ai.services.directory_manager import DirectoryManager
 from ai.tools.tool_loader import load_and_register_user_tools
 import ai.tools.agent_tools as agent_tools
 
@@ -41,14 +42,20 @@ class CliArgs:
     and ensures proper initialization based on the user's intent.
     """
 
-    def parse_args(self, prog, args, args_parser: argparse.ArgumentParser) -> None:
+    def parse_args(self, prog, args, args_parser: argparse.ArgumentParser, directory_manager: DirectoryManager) -> None:
         """
         The main dispatcher. Analyzes arguments to decide if JARVIS 
         acts as a Brain (Server), a Body (Client), or a Standalone agent.
+
+        :param prog: The main program instance.
+        :param args: The parsed command-line arguments.
+        :param args_parser: The argument parser object.
+        :param directory_manager: The directory management service.
+        :raises SystemExit: Exits the program upon successful execution of a specific CLI command.
         """
         # 1. System/Global Actions
-        self._check_nhandle_create_tool(args)
-        self._check_nhandle_config_generation(prog, args, args_parser) 
+        self._check_nhandle_create_tool(args, directory_manager)
+        self._check_nhandle_config_generation(prog, args, args_parser, directory_manager) 
         self._is_install(args)
         self._is_print_chat(args)
         self._is_list_models(args)
@@ -61,44 +68,51 @@ class CliArgs:
             os._exit(0)
 
         # Default to Local/Direct Task Mode
-        self._handle_local_direct_mode(prog, args)
+        self._handle_local_direct_mode(prog, args,directory_manager=directory_manager)
 
         # 3. Execution Dispatching
         if args.agent:
-            self._handle_agent_mode(prog, args)
+            self._handle_agent_mode(prog, args, directory_manager)
             os._exit(0) 
 
         self._has_message(prog, args) 
     
-    def _check_nhandle_create_tool(self, args):
-            if not args.create_tool:
-                return
+    def _check_nhandle_create_tool(self, args, directory_manager: DirectoryManager):
+        """
+        Handles the creation of a new tool skeleton file based on the provided name.
 
-            tool_name = args.create_tool
-            
-            base_name = tool_name.strip().replace(' ', '_').replace('-', '_')
-            base_name = re.sub(r'[^a-zA-Z0-9_]', '', base_name)
-            if base_name and base_name[0].isdigit():
-                base_name = '_' + base_name
+        :param args: The parsed command-line arguments containing the tool name.
+        :param directory_manager: The service responsible for managing file paths.
+        :raises SystemExit: Exits if the tool name is invalid or the file already exists.
+        """
+        if not args.create_tool:
+            return
 
-            if not base_name:
-                func.error("Invalid tool name. Please use alphanumeric characters, spaces, or hyphens.")
-                sys.exit(1)
+        tool_name = args.create_tool
+        
+        base_name = tool_name.strip().replace(' ', '_').replace('-', '_')
+        base_name = re.sub(r'[^a-zA-Z0-9_]', '', base_name)
+        if base_name and base_name[0].isdigit():
+            base_name = '_' + base_name
 
-            filename = f"{base_name}.py"
-            function_name = base_name
+        if not base_name:
+            func.error("Invalid tool name. Please use alphanumeric characters, spaces, or hyphens.")
+            sys.exit(1)
 
-            user_tools_dir = os.path.join(func.get_root_directory(), "tools")
-            func.ensure_directory_exists(user_tools_dir)
+        filename = f"{base_name}.py"
+        function_name = base_name
 
-            file_path = os.path.join(user_tools_dir, filename)
+        user_tools_dir = directory_manager.get_user_tools_directory()
+        func.ensure_directory_exists(user_tools_dir)
 
-            if os.path.exists(file_path):
-                func.error(f"Tool file already exists: {file_path}")
-                sys.exit(1)
+        file_path = os.path.join(user_tools_dir, filename)
 
-            # Using double braces {{ }} for literal braces in the generated code
-            skeleton_content = f"""
+        if os.path.exists(file_path):
+            func.error(f"Tool file already exists: {file_path}")
+            sys.exit(1)
+
+        # Using double braces {{ }} for literal braces in the generated code
+        skeleton_content = f"""
 from ai.tools.agent_tools import tool
 
 @tool
@@ -119,20 +133,27 @@ def {function_name}(argument: str) -> str:
     except Exception as e:
         return {{"status": "FAILED", "error": str(e)}}
 """
-            try:
-                with open(file_path, "w", encoding="utf-8") as f:
-                    f.write(skeleton_content.strip())
-                
-                func.out(f"{Color.GREEN}[+] Tool skeleton created successfully at: {file_path}{Color.RESET}")
-
-            except Exception as e:
-                func.error(f"Failed to create tool file: {e}")
-                sys.exit(1)
+        try:
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(skeleton_content.strip())
             
-            sys.exit(0)
+            func.out(f"{Color.GREEN}[+] Tool skeleton created successfully at: {file_path}{Color.RESET}")
+
+        except Exception as e:
+            func.error(f"Failed to create tool file: {e}")
+            sys.exit(1)
+        
+        sys.exit(0)
 
 
     def _handle_server_mode(self, prog:Program, args):
+        """
+        Initializes and starts the JARVIS server mode.
+
+        :param prog: The main program instance containing configuration and models.
+        :param args: The parsed arguments, which must contain the --server flag.
+        :raises KeyboardInterrupt: Catches Ctrl+C to gracefully shut down the server.
+        """
         if args.server:
             try:
                 orchestrator = prog.models 
@@ -155,12 +176,17 @@ def {function_name}(argument: str) -> str:
                 server.start()
                 
             except KeyboardInterrupt:
-                func.log(f"\\n{{Color.YELLOW}}[ * ] Manual override engaged. Terminating JARVIS server.{{Color.RESET}}")
+                func.log(f"\n{Color.YELLOW}[ * ] Manual override engaged. Terminating JARVIS server.{Color.RESET}")
                 sys.exit(0)
                 
-    def _handle_local_direct_mode(self, prog, args):
+    def _handle_local_direct_mode(self, prog, args,directory_manager:DirectoryManager):
         """
         The standard non-agent loop for one-shot tasks and context loading.
+        Checks for various input sources (files, images, tasks) before proceeding to ask.
+
+        :param prog: The main program instance.
+        :param args: The parsed command-line arguments.
+        :param directory_manager: The directory management service.
         """
         self._has_output_files(prog, args)
         self._has_image(prog, args) 
@@ -170,8 +196,15 @@ def {function_name}(argument: str) -> str:
         self._has_task(prog, args)
         
 
-    def _handle_agent_mode(self, prog:Program, args):
-        """Handles the execution of the agent pipeline."""
+    def _handle_agent_mode(self, prog:Program, args, directory_manager: DirectoryManager):
+        """
+        Handles the execution of the agent pipeline using a specified or default pipeline configuration.
+
+        :param prog: The main program instance.
+        :param args: The parsed command-line arguments, including task/message input.
+        :param directory_manager: The directory management service for loading user tools.
+        :raises SystemExit: Exits after the agent loop completes or fails.
+        """
         taskfile=""
         if args.task_file:
              taskfile = func.read_file(args.task_file)
@@ -206,7 +239,7 @@ def {function_name}(argument: str) -> str:
             registry.register_tool(name, tool_ref)
 
         # Dynamically load and register tools from the user-defined 'tools' directory
-        user_tools_dir = os.path.join(func.get_root_directory(), "tools")
+        user_tools_dir = directory_manager.get_user_tools_directory()   
         load_and_register_user_tools(registry, user_tools_dir)
        
         session_id = args.session_id or str(uuid.uuid4())
@@ -227,7 +260,16 @@ def {function_name}(argument: str) -> str:
         finally:
             sys.exit(0)
 
-    def _check_nhandle_config_generation(self, prog, args, parser: argparse.ArgumentParser):
+    def _check_nhandle_config_generation(self, prog, args, parser: argparse.ArgumentParser, directory_manager: DirectoryManager):
+        """
+        Generates a default model configuration file based on user input.
+
+        :param prog: The main program instance.
+        :param args: The parsed arguments containing configuration generation flags.
+        :param parser: The argument parser instance, used for error reporting.
+        :param directory_manager: The directory management service.
+        :raises SystemExit: Exits after successfully generating the config or upon failure.
+        """
         if not args.generate_config:
             return
 
@@ -238,7 +280,7 @@ def {function_name}(argument: str) -> str:
             model_type_enum = ModelType(args.model_type)
             config_filename = args.generate_config if args.generate_config.endswith(".json") else f"{args.generate_config}.json"
             
-            models_dir = prog.config.get(ProgramSetting.PATHS_MODEL_CONFIGS) or os.path.join(func.get_root_directory(), "models")
+            models_dir = directory_manager.get_system_models_directory()
             func.ensure_directory_exists(models_dir)
 
             full_filepath = os.path.join(models_dir, config_filename)
@@ -251,6 +293,12 @@ def {function_name}(argument: str) -> str:
         sys.exit(0)
 
     def _is_print_chat(self, args):
+        """
+        Prints the content of a specified chat log file to the console.
+
+        :param args: The parsed arguments containing the chat file path.
+        :raises SystemExit: Exits after printing the chat or if the file is not found.
+        """
         if not args.print_chat:
             return
         from pathlib import Path
@@ -271,6 +319,14 @@ def {function_name}(argument: str) -> str:
         sys.exit(0)
 
     def _is_install(self, args):
+        """
+        Handles the installation or updating of necessary engine components.
+
+        :param args: The parsed arguments containing the --install flag.
+        :raises FileNotFoundError: If required installer or virtual environment files are missing.
+        :raises ImportError: If the installer module cannot be loaded.
+        :raises SystemExit: Exits after installation is complete or if an error occurs.
+        """
         if args.install:
             import importlib.util
             if getattr(sys, "frozen", False):
@@ -313,17 +369,35 @@ def {function_name}(argument: str) -> str:
             sys.exit(0)
 
     def _is_list_models(self, args):
+        """
+        Lists available models. Currently provides a placeholder message.
+
+        :param args: The parsed arguments containing the --list-models flag.
+        :raises SystemExit: Exits after displaying the status message.
+        """
         if args.list_models:
             # FIXME read the user dir and list all models
             func.out("Not available at the moment: ", level="WARN")
             sys.exit(0)
 
     def _has_output_files(self, prog, args):
+        """
+        Checks for output file arguments and sets the program's output configuration.
+
+        :param prog: The main program instance.
+        :param args: The parsed command-line arguments.
+        """
         if args.output_file:
             prog.write_to_file = True
             prog.output_filename = args.output_file
 
     def _has_folder(self, prog, args):
+        """
+        Loads content from a specified directory into the chat context.
+
+        :param prog: The main program instance.
+        :param args: The parsed command-line arguments containing the directory path and extension.
+        """
         if directory := args.load_folder:
             files = func.get_files(directory, args.ext)
             for file_obj in files:
@@ -331,12 +405,25 @@ def {function_name}(argument: str) -> str:
                 prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, f"Filename: {file_obj.filename} \nContent:\n```{file_obj.content}\n"))
 
     def _has_file(self, prog, args):
+        """
+        Loads content from one or more specified files into the chat context.
+
+        :param prog: The main program instance.
+        :param args: The parsed command-line arguments containing comma-separated file paths.
+        """
         if args.file:
             for file_path in args.file.split(","):
                 text_content = func.read_file(file_path.strip())
                 prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, f"Filename: {file_path.strip()} \nContent:\n```{text_content}```"))
 
     def _has_image(self, prog, args):
+        """
+        Adds image file paths to the chat context for multimodal processing.
+
+        :param prog: The main program instance.
+        :param args: The parsed command-line arguments containing comma-separated image paths.
+        :raises FileNotFoundError: If any specified image path does not exist.
+        """
         if args.image:
             for file_path in args.image.split(","):
                 path = file_path.strip()
@@ -346,10 +433,23 @@ def {function_name}(argument: str) -> str:
                     raise FileNotFoundError(f"Image not found: {path}")
 
     def _has_task_file(self, prog, args):
+        """
+        Loads the content of a specific task file into the chat context.
+
+        :param prog: The main program instance.
+        :param args: The parsed command-line arguments containing the task file path.
+        """
         if args.task_file:
             prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, func.read_file(args.task_file)))
 
     def _has_task(self, prog, args):
+        """
+        Loads a predefined task template from the configured tasks directory into the chat context.
+
+        :param prog: The main program instance.
+        :param args: The parsed command-line arguments containing the task name (e.g., 'summary').
+        :raises FileNotFoundError: If the specified task template file does not exist.
+        """
         if args.task:
             task_name = f"{args.task.replace('.md', '')}.md"
             user_tasks_dir = prog.config.get(ProgramSetting.PATHS_TASKS_TEMPLATES) or os.path.join(func.get_root_directory(), "task")
@@ -361,6 +461,13 @@ def {function_name}(argument: str) -> str:
             prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, func.read_file(found_path)))
             
     def _has_message(self, prog, args):
+        """
+        Handles the final user message input, including piped stdin, and initiates the direct ask process.
+
+        :param prog: The main program instance.
+        :param args: The parsed command-line arguments.
+        :raises SystemExit: Exits after calling the ask function.
+        """
         has_piped_input = False
         piped_input = ""
         
@@ -390,7 +497,14 @@ def {function_name}(argument: str) -> str:
                 print_output=args.no_out != True
             )
             sys.exit(0)
+            
     def _check_nhandle_list_sessions(self, args):
+        """
+        Lists all active agent sessions found in the current working directory.
+
+        :param args: The parsed command-line arguments containing the --list-sessions flag.
+        :raises SystemExit: Exits after displaying the session list or a 'not found' message.
+        """
         if args.list_sessions:
             sessions = AgentSessionManager.list_sessions(os.getcwd())
             if not sessions:

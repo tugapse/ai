@@ -11,6 +11,10 @@ def load_and_register_user_tools(registry: "ToolRegistry", user_tools_dir: str):
     """
     Scans a directory for Python files, imports them, and registers any functions
     marked with the @_is_tool attribute.
+
+    Args:
+        registry: The ToolRegistry instance used to store discovered tools.
+        user_tools_dir: The path to the directory containing user-defined tool modules.
     """
     if not os.path.isdir(user_tools_dir):
         func.log(f"User tools directory not found: {user_tools_dir}", level="WARNING")

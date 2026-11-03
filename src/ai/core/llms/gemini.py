@@ -5,7 +5,7 @@ import subprocess
 import warnings
 import json
 
-# Silencia avisos legados de depreciação
+# Suppress legacy deprecation warnings
 warnings.filterwarnings(
     "ignore", 
     message=".*This feature is deprecated as of June 24, 2025.*", 
@@ -22,7 +22,30 @@ from ai.tools.tool_registry import ToolRegistry
 
 
 class GeminiAPIModel(BaseModel):
-    def __init__(self, model_name="gemini-2.5-flash", system_prompt="", api_key=None, use_vertex=False, project_id=None, location="us-central1", **kargs):
+    """
+    Implements the Gemini API model interface, supporting both direct API key usage 
+    and Google Vertex AI integration.
+
+    This class handles the configuration, message conversion, and execution of 
+    chat and generation requests against the Gemini models.
+    """
+    def __init__(self, model_name="gemini-2.5-flash", system_prompt="", api_key=None, use_vertex=False, project_id=None, location="global", **kargs):
+        """
+        Initializes the GeminiAPIModel.
+
+        Args:
+            model_name (str): The name of the Gemini model to use (e.g., "gemini-2.5-flash").
+            system_prompt (str): The initial system instruction for the model.
+            api_key (str, optional): The Gemini API key for direct usage. Defaults to None.
+            use_vertex (bool): If True, uses Google Vertex AI instead of the direct API.
+            project_id (str, optional): The GCP project ID when using Vertex AI. Defaults to None.
+            location (str, optional): The geographical location for Vertex AI. Defaults to "global".
+            **kargs: Additional keyword arguments for model parameters (e.g., temperature, max_new_tokens).
+        
+        Raises:
+            PermissionError: If Vertex AI is selected but Google Cloud authentication is missing.
+            ValueError: If direct API mode is selected but no API key is found.
+        """
         func.log(f"Initializing GeminiAPIModel for model: {model_name}")
         super().__init__(model_name, system_prompt, **kargs)
         
@@ -32,23 +55,23 @@ class GeminiAPIModel(BaseModel):
 
         if self.use_vertex:
             if not self._check_gcp_auth():
-                func.error("Google Cloud Auth não encontrada!")
-                raise PermissionError("Autenticação Google Cloud (ADC) necessária.")
+                func.error("Google Cloud Auth not found!")
+                raise PermissionError("Google Cloud authentication (ADC) required.")
             
             self.client = genai.Client(
                 vertexai=True,
                 project=self.project_id,
                 location=self.location
             )
-            func.log(f"Vertex AI Client pronto para {self.model_name}", level="DEBUG")
+            func.log(f"Vertex AI Client ready for {self.model_name}", level="DEBUG")
         else:
             resolved_key = api_key or os.environ.get("GEMINI_API_KEY")
             if not resolved_key:
-                func.error("GEMINI_API_KEY não encontrada!")
-                raise ValueError("Chave de API necessária para modo Gemini direto.")
+                func.error("GEMINI_API_KEY not found!")
+                raise ValueError("API key required for direct Gemini mode.")
             
             self.client = genai.Client(api_key=resolved_key)
-            func.log(f"Gemini Developer API Client pronto para {self.model_name}", level="DEBUG")
+            func.log(f"Gemini Developer API Client ready for {self.model_name}", level="DEBUG")
 
         model_params = kargs.get('model_params', {}) or {}
         self.config_kwargs = {}
@@ -65,7 +88,17 @@ class GeminiAPIModel(BaseModel):
             if val is not None:
                 self.config_kwargs[api_param] = val
 
-    def _convert_messages_to_api(self, messages: list):
+    def _convert_messages_to_api(self, messages: list) -> list:
+        """
+        Converts the internal message format (which supports system, tool, function roles) 
+        into the format required by the Google GenAI API.
+
+        Args:
+            messages (list): A list of message dictionaries in the internal format.
+
+        Returns:
+            list: A list of google.genai.types.Content objects ready for API consumption.
+        """
         if not messages:
             return []
 
@@ -106,6 +139,21 @@ class GeminiAPIModel(BaseModel):
         return api_messages
 
     def chat(self, messages: list, images: list = [], stream: bool = True, options: dict = None):
+        """
+        Initiates a chat session with the Gemini model.
+
+        Args:
+            messages (list): The history of messages for the conversation.
+            images (list, optional): A list of image paths or objects to include in the prompt. Defaults to [].
+            stream (bool, optional): If True, returns a generator for streaming responses. Defaults to True.
+            options (dict, optional): Dictionary containing runtime options like max_tokens or temperature. Defaults to None.
+
+        Yields:
+            Union[str, dict]: Streaming chunks of text or structured tool call data.
+        
+        Returns:
+            Union[str, dict]: The final response text or structured action if stream is False.
+        """
         self.stop_generation_event.clear()
         
         dynamic_system_prompt = self.system_prompt
@@ -139,6 +187,16 @@ class GeminiAPIModel(BaseModel):
         return self._generate_response_sync(contents, config)
 
     def _stream_generator(self, contents, config):
+        """
+        Generator function to stream responses from the Gemini API.
+
+        Args:
+            contents (list): The API-formatted message contents.
+            config (types.GenerateContentConfig): The configuration object for generation.
+
+        Yields:
+            Union[str, dict]: Streaming chunks of text or structured tool call data.
+        """
         full_content = ""
         sentinel_buffer = ""
         is_intercepting = False
@@ -188,6 +246,16 @@ class GeminiAPIModel(BaseModel):
             self.trigger(BaseModel.STREAMING_FINISHED_EVENT, full_content)
 
     def _generate_response_sync(self, contents, config):
+        """
+        Generates a complete, non-streaming response from the Gemini API.
+
+        Args:
+            contents (list): The API-formatted message contents.
+            config (types.GenerateContentConfig): The configuration object for generation.
+
+        Returns:
+            Union[str, dict]: The final response text or a structured action dictionary.
+        """
         resp = self.client.models.generate_content(
             model=self.model_name,
             contents=contents,
@@ -197,7 +265,13 @@ class GeminiAPIModel(BaseModel):
         action = ToolRegistry.parse_manual_tags(text)
         return action if action else text
 
-    def _check_gcp_auth(self):
+    def _check_gcp_auth(self) -> bool:
+        """
+        Checks for the presence of Google Cloud authentication credentials.
+
+        Returns:
+            bool: True if credentials are found or accessible, False otherwise.
+        """
         if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
             return True
         paths = [
@@ -211,7 +285,16 @@ class GeminiAPIModel(BaseModel):
         except Exception:
             return False
 
-    def load_images(self, images: list):
+    def load_images(self, images: list) -> list:
+        """
+        Loads image files from paths or objects and converts them into API-compatible Part objects.
+
+        Args:
+            images (list): A list of image paths (str) or PIL Image objects.
+
+        Returns:
+            list: A list of types.Part objects containing the image data.
+        """
         image_parts = []
         for img in images:
             try:
@@ -225,6 +308,13 @@ class GeminiAPIModel(BaseModel):
         return image_parts
 
     def _append_images_to_history(self, contents, images):
+        """
+        Appends loaded image parts to the appropriate user message in the conversation history.
+
+        Args:
+            contents (list): The API-formatted message contents.
+            images (list): The original list of image paths/objects.
+        """
         if not images or not contents:
             return
         image_parts = self.load_images(images)
@@ -233,8 +323,17 @@ class GeminiAPIModel(BaseModel):
                 content.parts.extend(image_parts)
                 break
 
-    def is_gpu_available(self):
+    def is_gpu_available(self) -> bool:
+        """
+        Checks if a GPU is available for computation.
+
+        Returns:
+            bool: Always returns False for this implementation.
+        """
         return False
 
     def clean_cache(self):
+        """
+        Cleans up Python garbage collection.
+        """
         gc.collect()

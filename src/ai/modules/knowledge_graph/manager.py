@@ -20,6 +20,10 @@ from ai.modules.knowledge_graph.models import (
 class KnowledgeGraphManager:
     """
     Manages the creation, refinement, and querying of the codebase knowledge graph.
+
+    This class orchestrates the entire lifecycle of the knowledge graph:
+    initial extraction from source files, iterative refinement based on
+    ambiguities, and providing interfaces for querying the resulting graph.
     """
 
     def __init__(self, db_client: Any, llm_client: Any, vectorizer_client: Any):
@@ -39,6 +43,12 @@ class KnowledgeGraphManager:
         """
         Orchestrates the end-to-end process of updating the knowledge graph from a list of files.
         (Phase 4 Implementation)
+
+        This method performs a multi-stage update: initial extraction, iterative
+        refinement of ambiguous triples, and final persistence.
+
+        Args:
+            file_paths: A list of file paths to analyze and ingest into the KG.
         """
         master_ambiguity_queue: List[AmbiguityFlag] = []
         initial_reports: List[AnalysisReport] = []
@@ -95,6 +105,13 @@ class KnowledgeGraphManager:
         """
         Analyzes a single file to extract initial triples and identify ambiguities.
         (Phase 2 Implementation)
+
+        Args:
+            file_path: The path to the source code file.
+
+        Returns:
+            An AnalysisReport containing the extracted nodes, initial triples,
+            and any identified ambiguity flags.
         """
         try:
             with open(file_path, "r", encoding="utf-8") as f:
@@ -131,6 +148,15 @@ class KnowledgeGraphManager:
         """
         Processes a batch of ambiguities to refine the knowledge in the graph.
         (Phase 3 Implementation)
+
+        This method queries the existing graph context for each flagged triple and
+        uses the LLM to determine if the ambiguity can be resolved.
+
+        Args:
+            ambiguities: A list of AmbiguityFlag objects requiring resolution.
+
+        Returns:
+            A RefinementReport detailing which triples were resolved and which remain unresolved.
         """
         resolved_triples: List[KGTriple] = []
         unresolved_flags: List[AmbiguityFlag] = []
@@ -230,6 +256,15 @@ class KnowledgeGraphManager:
         """
         Provides a public interface for querying the knowledge graph.
         (Phase 4 Implementation)
+
+        Supports both semantic search (vector-based) and structural queries (Cypher/Gremlin-like).
+
+        Args:
+            query_type: The type of query to execute ("semantic_search" or "structural_query").
+            params: A dictionary containing query-specific parameters (e.g., 'query_text', 'query').
+
+        Returns:
+            A list of KGNode or KGEdge objects matching the query criteria.
         """
         if not self.db_client:
             print("Warning: DB client not configured. Querying is disabled.")
@@ -283,6 +318,16 @@ class KnowledgeGraphManager:
         """
         Uses the LLM to generate triples and ambiguity flags from file content.
         (Phase 2 Implementation)
+
+        Args:
+            file_path: The path of the file being analyzed.
+            file_content: The full source code content of the file.
+
+        Returns:
+            A tuple containing:
+            - List[KGNode]: Nodes extracted from the file.
+            - List[KGTriple]: Initial triples extracted from the file.
+            - List[AmbiguityFlag]: Flags indicating uncertain extractions.
         """
         # In-memory cache to avoid creating duplicate nodes for the same entity within a single file analysis.
         # The key is a tuple of (node_type, node_name).
@@ -377,6 +422,13 @@ class KnowledgeGraphManager:
         """
         Generates and stores an embedding for a given KGNode.
         (Phase 3 Implementation)
+
+        This method serializes the node's metadata into a text representation,
+        generates a vector embedding using the vectorizer client, and persists
+        this embedding back into the graph database.
+
+        Args:
+            node: The KGNode instance to be embedded and stored.
         """
         if not self.vectorizer_client or not self.db_client:
             # Silently skip if clients are not configured, log this in a real app

@@ -14,7 +14,17 @@ from ai.services.ui_orchestrator import UIOrchestrator
 from ai.extras.think_parser import ThinkingAnimationHandler
 
 def _sanitize_token(token: str) -> str:
-    """Cleans and normalizes tokens for clean file output."""
+    """Cleans and normalizes tokens for clean file output.
+
+    Normalizes Unicode characters and removes characters outside the standard
+    printable ASCII range (excluding newline and tab).
+
+    Args:
+        token: The raw token string from the LLM.
+
+    Returns:
+        The sanitized and normalized token string.
+    """
     sanitized = unicodedata.normalize('NFKC', token)
     sanitized = re.sub(r'[^\x20-\x7E\n\t]', '', sanitized)
     return sanitized
@@ -30,7 +40,19 @@ def ask(
 ) -> None:
     """
     Executes a single LLM request (Direct Task).
-    Updated to use existing function constants.
+
+    This function interfaces with a specified Language Model (LLM) to generate a response.
+    It handles streaming output, logging, file writing, and user interface interaction
+    based on the provided configuration.
+
+    Args:
+        llm: The BaseModel instance representing the LLM to query.
+        input_message: The prompt to send to the LLM. Can be a single string or a list of message dictionaries.
+        write_to_file: If True, the output will be written to a file.
+        output_filename: The path to the file where the output should be saved.
+        hide_think_anim: If True, suppresses the thinking animation during processing.
+        print_output: If True, prints each token to the console as it is received.
+        stream: If True, processes the response token by token instead of waiting for the full response.
     """
     start_time = time()
     first_token_time = None

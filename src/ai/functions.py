@@ -7,6 +7,7 @@ import sys
 import socket
 import getpass
 import datetime
+import tempfile
 
 from ai.core.context_file import ContextFile
 from ai.config import ProgramConfig, ProgramSetting  # Ensure these are correctly imported
@@ -29,6 +30,9 @@ def get_system_info_prompt_concise() -> dict:
     """
     Gathers and formats essential system information into a highly concise string
     for LLM token efficiency.
+
+    Returns:
+        dict: A dictionary containing 'time' and 'os' system information.
     """
     current_time = datetime.datetime.now().isoformat(timespec='seconds') # YYYY-MM-DDTHH:MM:SS
     os_info = f"{platform.system()} {platform.release()} ({platform.machine()})"
@@ -202,6 +206,13 @@ def write_to_file(filename, content, filemode=FILE_MODE_CREATE, silent=False):
 def format_execution_time(start_time, end_time):
     """
     Formats the elapsed time between start_time and end_time into HH:MM:SS format.
+
+    Args:
+        start_time (datetime.datetime): The starting timestamp.
+        end_time (datetime.datetime): The ending timestamp.
+
+    Returns:
+        str: The formatted time string (HH:MM:SS) or "N/A".
     """
     if start_time is None or end_time is None:
         return "N/A"
@@ -219,7 +230,10 @@ def format_execution_time(start_time, end_time):
 def get_root_directory() -> str:
     """
     Retrieves the configured root directory from ProgramConfig.
-    Provides a fallback to (user home)/Ai if not configured.
+    Uses the OS temp directory by default so logs/session data are not written into the project checkout.
+
+    Returns:
+        str: The absolute path to the root directory.
     """
     # ProgramConfig.get_current() should be set by ProgramConfig.load() in main.py
     config_instance = ProgramConfig.get_current()
@@ -227,10 +241,17 @@ def get_root_directory() -> str:
     if config_instance:
         root_path = config_instance.get(ProgramSetting.ROOT_DIRECTORY)
         if root_path:
-            return os.path.abspath(root_path)
+            root_path = os.path.abspath(root_path)
+            if root_path.startswith(os.path.abspath(os.getcwd())):
+                fallback_path = os.path.join(tempfile.gettempdir(), "ai")
+                log(
+                    f"WARNING: '{ProgramSetting.ROOT_DIRECTORY}' points inside the project tree. Using fallback: {fallback_path}",
+                    level="WARNING",
+                )
+                return os.path.abspath(fallback_path)
+            return root_path
 
-    # Fallback if config is not loaded or key not found (should be handled by ProgramConfig defaults now)
-    fallback_path = os.path.join(os.path.expanduser("~"), "Ai")
+    fallback_path = os.path.join(tempfile.gettempdir(), "ai")
     log(
         f"WARNING: '{ProgramSetting.ROOT_DIRECTORY}' not found in config. Using fallback: {fallback_path}",
         level="WARNING",
@@ -242,6 +263,10 @@ def ensure_directory_exists(path: str,silent=False):
     """
     Ensures that a directory exists, creating it and any necessary parent directories if they don't exist.
     Logs a message upon creation.
+
+    Args:
+        path (str): The path of the directory to ensure.
+        silent (bool): If True, suppresses log messages about directory creation.
     """
     if not os.path.exists(path):
         try:
@@ -262,6 +287,12 @@ def ensure_directory_exists(path: str,silent=False):
 def log(text, start_line="[ * ]", level="INFO", **kargs):  # Added level for consistency
     """
     Logs an informational message to stderr, respecting PRINT_LOG setting.
+
+    Args:
+        text (str): The message content to log.
+        start_line (str): The prefix marker for the log entry.
+        level (str): The severity level of the log (e.g., "INFO", "ERROR").
+        **kargs: Additional keyword arguments passed to print.
     """
     formatted_text = get_formatted_text(text,start_line=start_line, level=level)
     
@@ -277,6 +308,12 @@ def log(text, start_line="[ * ]", level="INFO", **kargs):  # Added level for con
 def debug(text, start_line="[ # ]",  level="DEBUG", **kargs):
     """
     Logs a debug message to stderr, respecting PRINT_DEBUG setting.
+
+    Args:
+        text (str): The debug message content.
+        start_line (str): The prefix marker for the debug entry.
+        level (str): The severity level of the log.
+        **kargs: Additional keyword arguments passed to print.
     """
     formatted_text = get_formatted_text(text, start_line=start_line, level=level)
     if ACTIVE_LOG_FILENAME:
@@ -298,6 +335,12 @@ def debug(text, start_line="[ # ]",  level="DEBUG", **kargs):
 def error(text, start_line="[ !! ]",  level="ERROR", **kargs):
     """
     Logs an error message to stderr and ensures it is always printed to the console.
+
+    Args:
+        text (str): The error message content.
+        start_line (str): The prefix marker for the error entry.
+        level (str): The severity level of the log.
+        **kargs: Additional keyword arguments passed to print.
     """
     datetime_now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     line_number = sys._getframe(1).f_lineno
@@ -325,12 +368,28 @@ def error(text, start_line="[ !! ]",  level="ERROR", **kargs):
 def out(text,  level="", **kargs):
     """
     Prints output message to stdout, respecting PRINT_OUTPUT setting.
+
+    Args:
+        text (str): The message content to print.
+        level (str): The severity level for formatting.
+        **kargs: Additional keyword arguments passed to print.
     """
     formatted_text = get_formatted_text(text,level=level)
     print(formatted_text, **kargs)
     sys.stdout.flush()  # Ensure it's flushed immediately
 
 def get_formatted_text(text, level="INFO", start_line="[ * ]"):
+    """
+    Applies color formatting based on the specified log level.
+
+    Args:
+        text (str): The raw text message.
+        level (str): The severity level ("INFO", "WARNING", "ERROR", "DEBUG").
+        start_line (str): The prefix marker to include in the output.
+
+    Returns:
+        str: The text with applied ANSI color codes.
+    """
     formatted_text = text
     if level == "ERROR":
         formatted_text = f"{Color.RED}{start_line}{Color.RESET} {text}"
@@ -345,6 +404,9 @@ def get_formatted_text(text, level="INFO", start_line="[ * ]"):
 def get_logo_asci():
     """
     Returns the ASCII art logo for the application.
+
+    Returns:
+        str: The ASCII art representation of the logo.
     """
     return f"""{Color.CYAN}
       ██╗  █████╗  ██████╗  ██╗   ██╗ ██╗ ███████╗      █████╗  ██╗

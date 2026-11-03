@@ -17,7 +17,15 @@ class JarvisAiModel(BaseModel):
     """
 
     def __init__(self, model_name: Optional[str] = None, system_prompt: str = "", api_key: Optional[str] = None, **kargs: Any):
-        """Initializes the custom API endpoint model interface."""
+        """
+        Initializes the custom API endpoint model interface.
+
+        Args:
+            model_name: The name of the LLM model to use (defaults to "gpt-4o").
+            system_prompt: The initial system prompt to guide the model's behavior.
+            api_key: Optional API key for authentication (though not explicitly used in this interface).
+            **kargs: Additional keyword arguments for configuration, such as base_url, session_id, etc.
+        """
         model_name = model_name or os.environ.get("AI_MODEL_NAME", "gpt-4o")
         super().__init__(model_name, system_prompt, **kargs)
         
@@ -38,7 +46,19 @@ class JarvisAiModel(BaseModel):
         self.time_out = kargs.get("timeout", 600.0)  # Default to 10 minutes for long-running tasks
 
     def chat(self, messages: List[Dict[str, str]], images=[],stream: bool = True, options={} ) -> Union[str, Dict[str, Any], Generator[Union[str, Dict[str, Any]], None, None]]:
-        """Executes a chat completion request directly to the custom backend endpoint."""
+        """
+        Executes a chat completion request directly to the custom backend endpoint.
+
+        Args:
+            messages: A list of message dictionaries containing conversation history.
+            images: A list of image data (currently unused in payload construction).
+            stream: If True, returns a generator for streaming responses; otherwise, returns the full response string.
+            options: Additional options dictionary passed to the backend.
+
+        Returns:
+            Union[str, Dict[str, Any], Generator[Union[str, Dict[str, Any]], None, None]]: 
+            The final text response, a dictionary response, or a generator yielding chunks.
+        """
         self.stop_generation_event.clear()
         
         # Dynamic system prompt override sync matching original behavior
@@ -83,7 +103,15 @@ class JarvisAiModel(BaseModel):
             return ""
 
     def _run_streaming_chat(self, payload: Dict[str, Any]) -> Generator[str, None, None]:
-        """Handles streaming lines from the custom FastAPI server."""
+        """
+        Handles streaming lines from the custom FastAPI server.
+
+        Args:
+            payload: The request payload containing chat parameters.
+
+        Yields:
+            str: A chunk of text content as it is received from the stream.
+        """
         full_content = ""
         
         try:
@@ -118,5 +146,7 @@ class JarvisAiModel(BaseModel):
             self.trigger(BaseModel.STREAMING_FINISHED_EVENT, full_content)
 
     def clean_cache(self) -> None:
-        """Forces garbage collection to clear memory buffers."""
+        """
+        Forces garbage collection to clear memory buffers.
+        """
         gc.collect()

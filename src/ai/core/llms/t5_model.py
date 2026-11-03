@@ -127,6 +127,14 @@ class T5Model(BaseModel):
         Generates a response from the T5 model. For T5, 'chat' means processing
         the entire context to generate a single output, typically summarization or response.
         Streaming will not yield token by token but return the full response at once.
+
+        Args:
+            messages (list): A list of message dictionaries representing the conversation history.
+            images (list[str], optional): List of image paths (unused by T5 in this implementation). Defaults to None.
+            stream (bool, optional): If True, yields the final response (though T5 returns it all at once). Defaults to True.
+            options (object, optional): Dictionary containing generation parameters (e.g., max_new_tokens, temperature). Defaults to {}.
+        Yields:
+            str: The generated response text from the model.
         """
         if self.model is None or self.tokenizer is None:
             yield "Model loading failed during initialization. Check logs for details."
@@ -186,6 +194,12 @@ class T5Model(BaseModel):
         """
         Prepares the input string for T5 models by concatenating conversation messages.
         T5 models often expect a single input string for tasks like summarization.
+
+        Args:
+            messages (list): The list of message dictionaries to be formatted.
+
+        Returns:
+            dict: A dictionary containing tokenized inputs (input_ids and attention_mask).
         """
         prepared_input_parts = []
         if self.system_prompt:

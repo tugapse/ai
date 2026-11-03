@@ -30,7 +30,7 @@ class VectorMemoryModule(BaseModule):
         
         Args:
             session_id (str): The unique ID for the current session.
-            connector (Any): The LLMConnector for importance rating and reflection.
+            llm (BaseModel): The LLM instance used for operations like importance rating and reflection.
         """
         if self._instance:
             func.log("VectorMemoryModule is already initialized.", level="WARN")
@@ -50,6 +50,9 @@ class VectorMemoryModule(BaseModule):
         """
         Returns the active VectorMemory instance.
         Returns None if the module has not been initialized.
+        
+        Returns:
+            Optional[VectorMemory]: The initialized VectorMemory instance or None.
         """
         if not self._instance:
             func.log("Attempted to use VectorMemory before it was initialized.", level="ERROR")
