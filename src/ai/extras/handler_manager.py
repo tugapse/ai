@@ -7,7 +7,7 @@ from ai.extras.thinking_log_manager import ThinkingLogManager
 class HandlerManager:
     """
     Manages the pipeline of token processing handlers.
-    Simplified: Now focuses strictly on the Thinking/Animation state.
+    Simplified:Focuses strictly on the Thinking/Animation state.
     """
 
     def __init__(self,
@@ -16,6 +16,15 @@ class HandlerManager:
                  enable_thinking_display: bool = True,
                  show_thinking_animation: bool = False
                  ):
+        """
+        Initializes the HandlerManager with necessary logging and display configurations.
+
+        Args:
+            log_manager: The manager responsible for logging thinking states.
+            thinking_mode: The mode to use for displaying thinking progress (e.g., "progressbar").
+            enable_thinking_display: Whether to enable the display of thinking states.
+            show_thinking_animation: Whether to show a visual animation during thinking.
+        """
         
         # Initialize only the thinking handler
         self.thinking_handler: ThinkingAnimationHandler = ThinkingAnimationHandler(

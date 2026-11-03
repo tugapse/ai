@@ -13,9 +13,20 @@ import ai.functions as func
 class BaseVoiceModule(ABC):
     """
     Core Voice Orchestrator.
-    Updated with 'Buffer Drain' logic to prevent cutting off the end of sentences.
+
+    This abstract base class manages the entire pipeline for text-to-speech (TTS)
+    generation and audio playback. It handles threading, hardware initialization,
+    volume control, and ensures proper buffer draining to prevent audio clipping.
     """
     def __init__(self, sample_rate: int = 24000, device_index: Optional[int] = None, volume: float = 1.0):
+        """
+        Initializes the voice module components.
+
+        Args:
+            sample_rate: The desired sample rate for audio processing (default 24000 Hz).
+            device_index: Optional index of the audio output device to use.
+            volume: The playback volume multiplier (clamped between 0.0 and 2.0).
+        """
         self.sample_rate = sample_rate
         self.device_index = device_index
         self.volume = np.clip(volume, 0.0, 2.0)  # Store and sanitize volume (0x to 2x)
@@ -38,7 +49,12 @@ class BaseVoiceModule(ABC):
 
     @contextlib.contextmanager
     def _silence_stderr(self):
-        """Suppresses ALSA/JACK/PortAudio noise."""
+        """
+        Suppresses ALSA/JACK/PortAudio noise by redirecting stderr to /dev/null.
+
+        Yields:
+            None
+        """
         new_target = os.open(os.devnull, os.O_WRONLY)
         old_target = os.dup(sys.stderr.fileno())
         try:
@@ -50,6 +66,11 @@ class BaseVoiceModule(ABC):
             os.close(new_target)
 
     def _init_audio_hardware(self):
+        """
+        Initializes the PyAudio stream, attempting to find a compatible sample rate.
+
+        If initialization fails for all tested rates, it logs a critical error.
+        """
         with self._silence_stderr():
             if self.pa is None:
                 self.pa = pyaudio.PyAudio()
@@ -74,14 +95,35 @@ class BaseVoiceModule(ABC):
 
     @abstractmethod
     def _run_inference(self, text: str) -> np.ndarray:
+        """
+        Abstract method to be implemented by subclasses.
+
+        Runs the core TTS model inference on the given text.
+
+        Args:
+            text: The input string to be converted to speech.
+
+        Returns:
+            A numpy array representing the generated audio waveform, or None if generation fails.
+        """
         pass
 
     def process_token(self, text: str):
+        """
+        Adds a new piece of text to the processing queue.
+
+        Args:
+            text: The text string to be queued for TTS generation.
+        """
         if text and self._is_running:
             self._text_queue.put(text)
 
     def abort(self):
-        """Clears queues and signals threads to stop current work."""
+        """
+        Stops all ongoing generation and playback processes immediately.
+
+        Clears both the text and audio queues and signals the worker threads to terminate.
+        """
         self._abort_signal.set()
         while not self._text_queue.empty():
             try: self._text_queue.get_nowait(); self._text_queue.task_done()
@@ -92,6 +134,12 @@ class BaseVoiceModule(ABC):
         self._abort_signal.clear()
 
     def _generation_loop(self):
+        """
+        The dedicated thread loop responsible for consuming text and generating audio.
+
+        It pulls text from _text_queue, calls _run_inference, and places the resulting
+        audio data into _audio_queue.
+        """
         while self._is_running:
             try:
                 text = self._text_queue.get(timeout=0.5)
@@ -105,6 +153,12 @@ class BaseVoiceModule(ABC):
                 continue
 
     def _playback_loop(self):
+        """
+        The dedicated thread loop responsible for consuming audio and playing it via hardware.
+
+        It pulls audio from _audio_queue, handles resampling, applies volume, and writes
+        the data to the active audio stream.
+        """
         while self._is_running:
             try:
                 audio_chunk = self._audio_queue.get(timeout=0.5)
@@ -139,8 +193,11 @@ class BaseVoiceModule(ABC):
 
     def collect_audio(self):
         """
-        Wait for all text to be generated and all audio to be played.
-        Added a dynamic wait to ensure the hardware buffer drains.
+        Waits for the entire speech sequence to complete playback.
+
+        This method ensures that all queued text has been processed into audio,
+        and critically, it waits for the underlying audio hardware buffer to drain
+        completely before returning, preventing abrupt audio cuts.
         """
         # 1. Wait for the model to finish generating all chunks
         self._text_queue.join()
@@ -154,6 +211,12 @@ class BaseVoiceModule(ABC):
             time.sleep(2)
 
     def shutdown(self):
+        """
+        Gracefully stops all threads and releases all audio hardware resources.
+
+        Signals the running flag to false, sends termination signals to queues,
+        and closes the PyAudio stream and terminates the PyAudio instance.
+        """
         self._is_running = False
         self._text_queue.put(None)
         self._audio_queue.put(None)

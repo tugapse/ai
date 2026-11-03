@@ -18,9 +18,20 @@ from ai.core.events import Events
 def load_pipeline_config(prog, pipeline_file: str) -> dict:
     """
     Loads the pipeline configuration JSON file.
-    - If an absolute path is provided, it's used directly.
-    - If a relative path is provided, it's first checked relative to the project root.
-    - If not found, and it's a simple filename, it's then checked inside the 'pipelines' directory.
+
+    This function searches for the configuration file in several locations:
+    1. As a direct path if it is absolute.
+    2. Relative to the user's designated pipelines directory.
+    3. Relative to the system's designated pipelines directory.
+
+    It also verifies that all referenced prompt files exist in the system prompts directory.
+
+    Args:
+        prog: The main program object, used to access configuration and directories.
+        pipeline_file: The name or path of the pipeline configuration file (e.g., "my_pipeline.json").
+
+    Returns:
+        A dictionary containing the loaded configuration if successful, or an empty dictionary if loading fails.
     """
     directory = DirectoryManager()
     system_dir = directory.get_system_pipelines_directory()
@@ -66,6 +77,10 @@ def load_pipeline_config(prog, pipeline_file: str) -> dict:
 class Agent(Events):
     """
     A high-level agent facade that encapsulates the full agentic loop.
+
+    This class manages the initialization of all necessary componentssuch as the
+    Tool Registry, LLM Connector, and Agent Orchestratorand provides the primary
+    interface for running an agentic workflow based on a defined pipeline configuration.
     """
     def __init__(self, prog, pipeline_file: str = "default.json"):
         """
@@ -74,6 +89,9 @@ class Agent(Events):
         Args:
             prog: The main program object, providing access to config, LLM, etc.
             pipeline_file (str): Path to the agent pipeline configuration.
+        
+        Raises:
+            ValueError: If the agent pipeline configuration cannot be loaded.
         """
         super().__init__()
         self.prog = prog
@@ -100,6 +118,9 @@ class Agent(Events):
     def run(self, user_prompt: str, session_id: str = ""):
         """
         Starts the agent's execution loop with a given prompt.
+
+        This method initiates the agent's turn, handles session management (creating a new ID if none is provided),
+        and delegates the core execution to the orchestrator.
 
         Args:
             user_prompt (str): The initial user request or objective.

@@ -9,6 +9,10 @@ from ai.services.directory_manager import DirectoryManager
 class ThinkingLogManager:
     """
     Manages a log file for "thinking" content with robust None-type handling.
+
+    This class handles the creation, writing, and reading of logs related to the
+    AI's internal thought processes. It ensures thread-safe access to the log files
+    using file locking mechanisms.
     """
 
     DEFAULT_LOG_SUBDIR = os.path.join("Ai", "logs", "thinking")
@@ -20,6 +24,14 @@ class ThinkingLogManager:
         max_lock_wait_time: int = 10,
         lock_poll_interval: float = 0.1,
     ):
+        """
+        Initializes the ThinkingLogManager.
+
+        Args:
+            log_file_name: Optional custom name for the log file. Defaults to "thinking_process.log".
+            max_lock_wait_time: Maximum time in seconds to wait when acquiring a file lock.
+            lock_poll_interval: Time in seconds to pause between lock attempts.
+        """
         self.max_lock_wait_time = max_lock_wait_time
         self.lock_poll_interval = lock_poll_interval
         self._lock_fd = None
@@ -49,6 +61,13 @@ class ThinkingLogManager:
         self.lock_file_path = f"{self.log_file_path}.lock"
 
     def _acquire_write_lock(self):
+        """
+        Attempts to acquire an exclusive write lock on the log file using file system primitives.
+
+        Raises:
+            TimeoutError: If the lock cannot be acquired within max_lock_wait_time.
+            IOError: If any other file system error occurs during locking.
+        """
         start_time = time.time()
         while True:
             try:
@@ -67,6 +86,9 @@ class ThinkingLogManager:
                     raise IOError(f"Lock error: {e}")
 
     def _release_write_lock(self):
+        """
+        Releases the write lock by removing the associated lock file.
+        """
         try:
             if os.path.exists(self.lock_file_path):
                 os.remove(self.lock_file_path)
@@ -74,6 +96,12 @@ class ThinkingLogManager:
             pass
 
     def write_thinking_log(self, content: str):
+        """
+        Writes the provided content to both the specific log file and the active session log.
+
+        Args:
+            content: The string content to be appended to the logs.
+        """
         try:
             self._acquire_write_lock()
             with open(self.log_file_path, "a", encoding="utf-8") as f:
@@ -86,6 +114,12 @@ class ThinkingLogManager:
             self._release_write_lock()
 
     def write_session_header(self, tags: str = ""):
+        """
+        Writes a session start header to both the specific log file and the active session log.
+
+        Args:
+            tags: Optional string containing tags for the session header.
+        """
         try:
             self._acquire_write_lock()
             timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -101,6 +135,12 @@ class ThinkingLogManager:
             self._release_write_lock()
 
     def read_thinking_log(self) -> str:
+        """
+        Reads and returns the entire content of the specific thinking log file.
+
+        Returns:
+            The content of the log file as a string, or an empty string if the file does not exist or an error occurs.
+        """
         if not os.path.exists(self.log_file_path):
             return ""
         try:

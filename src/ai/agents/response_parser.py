@@ -5,16 +5,27 @@ import ai.functions as func
 
 class ResponseParser:
     """
-    Parses the JARVIS Plain Text Protocol (____@ tokens).
+    Parses the JARVIS Plain Text Protocol (l (____@ tokens).
     Robust against 8B model formatting quirks, such as unquoted special 
     characters and indentation drift.
     """
     def __init__(self):
+        """
+        Initializes the ResponseParser by compiling the token pattern regex.
+        """
         # Regex to find any token starting with ____@
         self.token_pattern = re.compile(r"(\s*____@[A-Za-z_:]+)")
 
     def _parse_key_value_block(self, text: str) -> Dict[str, str]:
-        """Helper to parse simple KEY: VALUE lines (used for Manifest)."""
+        """
+        Helper to parse simple KEY: VALUE lines (used for Manifest).
+
+        Args:
+            text: The raw string content containing key: value pairs.
+
+        Returns:
+            A dictionary mapping keys to their corresponding string values.
+        """
         data = {}
         for line in text.strip().split('\n'):
             if ':' in line:
@@ -27,6 +38,12 @@ class ResponseParser:
         Fixes common 8B model YAML errors:
         1. Quotes unquoted special variables (like @ROOT).
         2. Normalizes inconsistent indentation drift.
+
+        Args:
+            yaml_str: The raw YAML string potentially containing formatting errors.
+
+        Returns:
+            A string with corrected YAML formatting.
         """
         # 1. Fix unquoted @ variables (e.g., paths: @ROOT -> paths: "@ROOT")
         yaml_str = re.sub(r':\s*(@[A-Za-z0-9_/.-]+)', r': "\1"', yaml_str)
@@ -61,6 +78,13 @@ class ResponseParser:
         - Tool Name (first line of the content block)
         - INTENT (optional)
         - ARGS (YAML-style, safely sanitized)
+
+        Args:
+            tool_header: The token header string (e.g., "____@tool:read_dir").
+            content: The raw text content associated with the tool token.
+
+        Returns:
+            A dictionary containing the parsed tool name, parameters, and intent.
         """
         # 1. Grab the tool name from the very first line of the content
         content = content.strip()
@@ -98,6 +122,17 @@ class ResponseParser:
     def parse(self, raw_string: str) -> Dict[str, Any]:
         """
         Main entry point for parsing the model's raw text response.
+
+        This method splits the raw string based on proprietary tokens (____@),
+        extracts structured data like thought, notes, manifest, and tool calls,
+        and returns a standardized dictionary object.
+
+        Args:
+            raw_string: The complete, unstructured text response from the AI model.
+
+        Returns:
+            A dictionary containing the parsed components of the response,
+            or an error dictionary if parsing fails.
         """
         try:
             # 1. Split the string into segments based on the ____@ tokens

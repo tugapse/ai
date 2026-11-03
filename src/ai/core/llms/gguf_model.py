@@ -12,6 +12,7 @@ from ai.color import Color
 from ai.tools.tool_registry import ToolRegistry
 
 def _null_log_callback(level, message, user_data):
+    """A null callback function to suppress logging from llama_cpp."""
     pass
 _log_callback_type = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_char_p, ctypes.c_void_p)
 _callback_ref = _log_callback_type(_null_log_callback)
@@ -20,6 +21,9 @@ llama_log_set(_callback_ref, ctypes.c_void_p())
 class GGUFImageLLM(BaseModel):
     """
     JARVIS GGUF Engine - Inference only. Protocol injection handled externally by Orchestrator.
+
+    This class implements the LLM interface using the llama-cpp bindings for GGUF models.
+    It handles model loading, tokenization, streaming inference, and resource management.
     """
     _shared_mem_lock = threading.Lock()
     def __init__(
@@ -32,6 +36,18 @@ class GGUFImageLLM(BaseModel):
         model_params: dict = {},
         **kwargs,
     ):
+        """
+        Initializes the GGUF LLM engine.
+
+        Args:
+            model_name: The display name for the model.
+            gguf_filename: The specific filename of the GGUF model to load.
+            model_repo_id: The Hugging Face repository ID where the model is hosted.
+            system_prompt: The initial system prompt context for the model.
+            n_ctx: The maximum context window size for the model.
+            model_params: Dictionary of parameters to pass to Llama initialization (e.g., temperature).
+            **kwargs: Additional keyword arguments passed to the base class.
+        """
         super().__init__(model_name, system_prompt=system_prompt, **kwargs)
         func.log(f"Initializing GGUF: {model_name}")
         
@@ -52,6 +68,12 @@ class GGUFImageLLM(BaseModel):
         self._load_llm_params(**kwargs)
 
     def _load_llm_params(self, **kwargs) -> None:
+        """
+        Handles the process of downloading the GGUF file and initializing the Llama model object.
+
+        Args:
+            **kwargs: Additional keyword arguments passed during initialization.
+        """
         super()._load_llm_params(**kwargs)
         kwargs.pop('verbose', None)
         kwargs.pop('print_timings', None)
@@ -90,6 +112,14 @@ class GGUFImageLLM(BaseModel):
             func.error(f"Failed to load GGUF: {e}")
 
     def _generate_in_thread(self, messages: List[Dict[str, str]], gen_options: dict, output_queue: queue.Queue):
+        """
+        The target function for the generation thread. Performs streaming inference using Llama.
+
+        Args:
+            messages: The conversation history to send to the model.
+            gen_options: Dictionary containing generation parameters (e.g., max_new_tokens, temperature).
+            output_queue: Queue used to stream results back to the main thread.
+        """
         func.debug("[GGUF Engine] Stream thread started.")
         output_token_count = 0
         sentinel_buffer = ""

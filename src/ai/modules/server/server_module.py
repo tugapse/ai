@@ -18,6 +18,8 @@ class JarvisServerModule(BaseModule):
     """
     def __init__(self, host: str = "0.0.0.0", port: int = 8000, **kwargs):
         """
+        Initializes the Server Module configuration.
+
         Args:
             host (str): IP to bind the server to.
             port (int): Port for the API.

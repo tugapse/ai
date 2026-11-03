@@ -6,17 +6,35 @@ import ai.functions as func
 
 
 class DirectoryManager:
+    """
+    Manages the creation and retrieval of various necessary directories for the AI application.
 
+    This class ensures that all required system and user directories (like logs, templates,
+    tools, and pipelines) exist before the application attempts to use them.
+    """
 
     def __init__(self):
+        """
+        Initializes the DirectoryManager by setting up paths to the root, system, and user directories.
+        """
         self.root_directory = func.get_root_directory()
         self.system_directory = os.path.join(self.root_directory, "system")
         self.user_directory = os.path.join(self.root_directory,"user") 
     
     def get_user_directory(self):
+        """
+        Retrieves the path to the main user data directory.
+
+        :return: str: The path to the user directory.
+        """
         return self.user_directory
     
     def get_user_tools_directory(self):
+        """
+        Gets the path to the user's tools directory, creating it if it does not exist.
+
+        :return: str: The path to the user tools directory.
+        """
         tools_directory = os.path.join(self.user_directory, "tools")
         if not os.path.exists(tools_directory):
             os.makedirs(tools_directory)
@@ -24,6 +42,9 @@ class DirectoryManager:
         return tools_directory
     
     def _create_user_directory(self):
+        """
+        Ensures the main user directory exists, logging a message if it already exists.
+        """
         if not os.path.exists(self.user_directory):
             os.makedirs(self.user_directory)
             func.debug(f"{Color.GREEN}User directory created at: {self.user_directory}{Color.RESET}")
@@ -31,6 +52,11 @@ class DirectoryManager:
             func.debug(f"{Color.YELLOW}[ * ] User directory already exists at: {self.user_directory}{Color.RESET}")
    
     def get_system_prompts_templates_directory(self):
+        """
+        Gets the path to the system-specific prompt templates directory, creating it if necessary.
+
+        :return: str: The path to the system prompt templates directory.
+        """
         system_templates_directory = os.path.join(self.system_directory, "system-prompt")
         if not os.path.exists(system_templates_directory):
             os.makedirs(system_templates_directory)
@@ -38,6 +64,11 @@ class DirectoryManager:
         return system_templates_directory
 
     def get_system_temp_directory(self):
+        """
+        Gets the path to the system temporary files directory, creating it if necessary.
+
+        :return: str: The path to the system temp directory.
+        """
         temp_directory = os.path.join(self.system_directory, "temp")
         if not os.path.exists(temp_directory):
             os.makedirs(temp_directory)
@@ -45,6 +76,11 @@ class DirectoryManager:
         return temp_directory
     
     def get_system_logs_directory(self):
+        """
+        Gets the path to the system logs directory, creating it if necessary.
+
+        :return: str: The path to the system logs directory.
+        """
         logs_directory = os.path.join(self.system_directory, "logs")
         if not os.path.exists(logs_directory):
             os.makedirs(logs_directory)
@@ -52,6 +88,11 @@ class DirectoryManager:
         return logs_directory
 
     def get_system_agents_directory(self):
+        """
+        Gets the path to the system agents directory, creating it if necessary.
+
+        :return: str: The path to the system agents directory.
+        """
         agents_directory = os.path.join(self.system_directory, "agents")
         if not os.path.exists(agents_directory):
             os.makedirs(agents_directory)
@@ -59,6 +100,11 @@ class DirectoryManager:
         return agents_directory
 
     def get_system_templates_directory(self):
+        """
+        Gets the path to the general system templates directory, creating it if necessary.
+
+        :return: str: The path to the system templates directory.
+        """
         templates_directory = os.path.join(self.system_directory, "templates")
         if not os.path.exists(templates_directory):
             os.makedirs(templates_directory)
@@ -66,15 +112,35 @@ class DirectoryManager:
         return templates_directory
 
     def get_system_models_directory(self):
+        """
+        Gets the path to the system models directory.
+
+        :return: str: The path to the system models directory.
+        """
         return os.path.join(self.system_directory, "models")
 
     def get_system_dir(self):
+        """
+        Retrieves the path to the main system directory.
+
+        :return: str: The path to the system directory.
+        """
         return self.system_directory
 
     def get_root_dir(self):
-            return self.root_directory
+        """
+        Retrieves the path to the application's root directory.
+
+        :return: str: The path to the root directory.
+        """
+        return self.root_directory
    
     def get_pid_directory(self):
+        """
+        Gets the path to the process ID (PID) directory, creating it if necessary.
+
+        :return: str: The path to the PID directory.
+        """
         pid_directory = os.path.join(self.system_directory, "pids")
         if not os.path.exists(pid_directory):
             os.makedirs(pid_directory)
@@ -82,6 +148,11 @@ class DirectoryManager:
         return pid_directory
 
     def get_system_pipelines_directory(self):
+        """
+        Gets the path to the system pipelines directory, creating it if necessary.
+
+        :return: str: The path to the system pipelines directory.
+        """
         pipelines_directory = os.path.join(self.system_directory, "pipelines")
         if not os.path.exists(pipelines_directory):
             os.makedirs(pipelines_directory)
@@ -89,6 +160,11 @@ class DirectoryManager:
         return pipelines_directory
 
     def get_user_pipelines_directory(self):
+        """
+        Gets the path to the user's pipelines directory, creating it if necessary.
+
+        :return: str: The path to the user pipelines directory.
+        """
         directory = os.path.join(self.user_directory, "pipelines")
         if not os.path.exists(directory):
             os.makedirs(directory)
@@ -97,10 +173,13 @@ class DirectoryManager:
 
  
     def get_user_models_directory(self):
+        """
+        Gets the path to the user's models configuration directory, creating it if necessary.
+
+        :return: str: The path to the user models directory.
+        """
         directory = os.path.join(self.user_directory, "models")
         if not os.path.exists(directory):
             os.makedirs(directory)
             func.debug(f"{Color.GREEN}User model config directory created at: {directory}{Color.RESET}")
         return directory
-
-    

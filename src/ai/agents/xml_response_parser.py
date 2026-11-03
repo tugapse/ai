@@ -5,10 +5,35 @@ from typing import Dict, Any, Optional
 import ai.functions as func
 
 class ResponseParser:
+    """
+    Parses a raw string containing an AI response, which is expected to be wrapped
+    in <response> tags and structured either as XML or JSON within its content.
+
+    This class handles the extraction of structured data like thought processes,
+    manifests, and tool action parameters from the raw input.
+    """
     def __init__(self, parameter_mode: str = "xml"):
+        """
+        Initializes the ResponseParser.
+
+        Args:
+            parameter_mode: Specifies how to interpret tool_parameters. Can be "xml" or "json".
+        """
         self.parameter_mode = parameter_mode
 
     def _extract_params(self, element: Optional[ET.Element]) -> Dict[str, Any]:
+        """
+        Extracts parameters from an XML element based on the configured parameter_mode.
+
+        If mode is "json", it attempts to parse the element's text content as JSON.
+        If mode is "xml", it iterates over child tags to build a dictionary.
+
+        Args:
+            element: The XML element containing the parameters.
+
+        Returns:
+            A dictionary containing the extracted parameters. Returns an error dict if JSON parsing fails.
+        """
         if element is None:
             return {}
 
@@ -35,7 +60,19 @@ class ResponseParser:
         return params
 
     def _sanitize_block(self, xml_string: str, tag: str) -> str:
-        """Extracts a block, escapes rogue characters, and returns the rebuilt string."""
+        """
+        Extracts a specific XML block, escapes potentially rogue characters (< and >)
+        within its content, and returns the rebuilt string.
+
+        This is used as a salvage operation when initial XML parsing fails.
+
+        Args:
+            xml_string: The full XML string to search within.
+            tag: The name of the tag whose content needs sanitization.
+
+        Returns:
+            The XML string with the specified block's content safely escaped.
+        """
         pattern = re.compile(f"<{tag}>(.*?)</{tag}>", re.DOTALL)
         match = pattern.search(xml_string)
         
@@ -48,6 +85,20 @@ class ResponseParser:
         return xml_string[:match.start(1)] + safe_content + xml_string[match.end(1):]
 
     def parse(self, raw_string: str) -> Dict[str, Any]:
+        """
+        Parses the raw string containing the AI response to extract structured data.
+
+        It first attempts standard XML parsing. If that fails, it attempts a
+        salvage operation by sanitizing specific tags before re-parsing.
+
+        Args:
+            raw_string: The complete string received from the AI agent.
+
+        Returns:
+            A dictionary containing the parsed results, including status, thought,
+            manifest, action details, and the response to the user.
+            If parsing fails, the status will be "FAILED" with an error message.
+        """
         try:
             start = raw_string.find("<response>")
             end = raw_string.rfind("</response>")
@@ -67,6 +118,7 @@ class ResponseParser:
                 root = ET.fromstring(xml_block)
 
             def get_text(tag):
+                """Helper function to safely retrieve text content from a specific tag."""
                 node = root.find(tag)
                 return (node.text or "").strip() if node is not None else ""
 

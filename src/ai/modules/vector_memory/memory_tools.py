@@ -20,6 +20,9 @@ class MemoryTools:
     def get_tools(self) -> Dict[str, Callable]:
         """
         Maps tool names to their corresponding instance methods for the tool registry.
+
+        Returns:
+            Dict[str, Callable]: A dictionary mapping tool names to callable methods.
         """
         return { 
             "query_memory": self.query_memory, 
@@ -35,6 +38,9 @@ class MemoryTools:
         INPUTS:
             query (str): A detailed semantic search string (e.g., 'What was the specific bug in the audio driver?').
             top_k (int, optional): Number of memory fragments to retrieve. Defaults to 3.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing the status, results, and query details.
         """
         func.log("Tool execution: query_memory")
         
@@ -75,6 +81,9 @@ class MemoryTools:
         
         INPUTS: 
             None required. 
+
+        Returns:
+            Dict[str, Any]: A dictionary indicating the success or failure of the reflection process.
         """
         func.log("Tool execution: trigger_reflection")
         

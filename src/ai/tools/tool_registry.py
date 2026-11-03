@@ -5,23 +5,52 @@ import ai.functions as func
 
 
 class ToolRegistry:
+    """
+    Manages the registration, retrieval, and execution of available tools (functions).
+
+    This class implements the Singleton pattern to ensure only one instance
+    of the tool registry exists application-wide, providing a centralized
+    point of access for all callable functions exposed to the AI agent.
+    """
     _instance = None
     _tools: Dict[str, Callable]
 
     def __new__(cls):
+        """
+        Controls the instantiation of the class, ensuring it adheres to the Singleton pattern.
+        """
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._tools = {}
         return cls._instance
 
     def __init__(self):
+        """
+        Initializes the ToolRegistry instance.
+        """
         pass
 
     def register_tool(self, name: str, func_ref: Callable):
+        """
+        Registers a callable function with a unique name in the registry.
+
+        Args:
+            name: The unique string identifier for the tool.
+            func_ref: The actual callable function object to be registered.
+        """
         self._tools[name] = func_ref
         func.debug(f"Tool registered: {name}", level="WARN")
 
     def get_tool_info(self, name: str) -> str:
+        """
+        Retrieves a formatted string containing the name and documentation of a registered tool.
+
+        Args:
+            name: The name of the tool to query.
+
+        Returns:
+            A formatted string describing the tool, or a message indicating it is not found.
+        """
         if name not in self._tools:
             return f"- {name}: No description available."
 
@@ -30,6 +59,16 @@ class ToolRegistry:
         return f"- {name}:\n  {indented_doc}"
 
     def execute_tool(self, name: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Executes a registered tool function with the provided parameters.
+
+        Args:
+            name: The name of the tool to execute.
+            params: A dictionary containing keyword arguments for the tool function.
+
+        Returns:
+            A dictionary containing the execution status and result or error.
+        """
         if name not in self._tools:
             return {"status": "FAILED", "error": f"Tool '{name}' does not exist."}
 
@@ -42,14 +81,28 @@ class ToolRegistry:
             return {"status": "FAILED", "error": str(e)}
 
     def get_all_tools(self) -> dict:
-        """Returns the full dictionary of registered tool functions."""
+        """
+        Returns the full dictionary of registered tool functions.
+
+        Returns:
+            A dictionary mapping tool names (str) to their callable references (Callable).
+        """
         return self._tools  # or self._tools, whichever dict holds your functions
 
     @staticmethod
     def parse_docstring_to_schema(func_name: str, func_ref: Callable) -> dict:
         """
         Dynamically translates Python docstrings into an LLM-friendly JSON Schema.
-        Enforces a mandatory 'intent' property for latent reasoning.
+
+        This method parses the docstring, extracts descriptions, and infers parameter types
+        from the 'Args:' section. It enforces a mandatory 'intent' property for latent reasoning.
+
+        Args:
+            func_name: The name of the function being documented.
+            func_ref: The callable function object whose docstring is to be parsed.
+
+        Returns:
+            A dictionary conforming to a schema structure suitable for LLM tool definition.
         """
         doc = func_ref.__doc__ or "No description provided."
         lines = [line.strip() for line in doc.strip().split("\n")]
@@ -112,8 +165,17 @@ class ToolRegistry:
     @staticmethod
     def format_tools_for_prompt(all_tools: dict) -> str:
         """
-        Constructs the system access manual using a generic protocol.
-        Safely handles missing keys for legacy or hardcoded tool schemas.
+        Constructs the system access manual using a generic protocol format.
+
+        This method iterates over all registered tools, converts their Python docstrings
+        into standardized JSON Schemas, and formats them into a readable string
+        suitable for inclusion in the system prompt provided to the LLM.
+
+        Args:
+            all_tools: A dictionary containing all registered tool names and their callable references.
+
+        Returns:
+            A multi-line string containing the complete tool access manual.
         """
         if not all_tools:
             return ""
@@ -139,7 +201,19 @@ class ToolRegistry:
 
     @staticmethod
     def parse_manual_tags(text: str) -> Optional[dict]:
-        """Standardized regex parser for catching tool triggers in the stream."""
+        """
+        Standardized regex parser for catching tool triggers in the streaming text output.
+
+        This method attempts to parse tool calls from various proprietary or standardized
+        formats (YAML, J.A.R.V.I.S. tags, Gemma artifacts). It handles complex nested structures
+        and quote escaping to reliably extract the tool name and arguments.
+
+        Args:
+            text: The raw text chunk received from the LLM stream.
+
+        Returns:
+            A dictionary representing a function call if successfully parsed, or None if no tool call is detected or parsing fails.
+        """
 
         # 1. YAML Format parser via ResponseParser
         if "____@tool_end" in text:

@@ -18,6 +18,12 @@ class SessionManager:
         """
         Generates and ensures existence of session-specific directories and file paths.
         Now attempts to resume the most recent session if it's 'warm'.
+
+        Args:
+            config: The application configuration object containing settings.
+
+        Returns:
+            A dictionary containing the generated session paths and identifiers.
         """
         directory_manager = DirectoryManager()
         logs_dir = directory_manager.get_system_logs_directory() # config.get(ProgramSetting.PATHS_LOGS)

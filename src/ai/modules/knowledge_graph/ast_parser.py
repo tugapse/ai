@@ -3,7 +3,11 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Type
 
 class ASTParser(ABC):
-    """Abstract base class for AST parsers."""
+    """Abstract base class for AST parsers.
+
+    Defines the interface for any parser capable of converting source code
+    into an Abstract Syntax Tree (AST) and representing that AST as a dictionary.
+    """
 
     @abstractmethod
     def parse(self, source_code: str) -> ast.AST:
@@ -32,7 +36,11 @@ class ASTParser(ABC):
         pass
 
 class PythonASTParser(ASTParser):
-    """Concrete AST parser for Python."""
+    """Concrete AST parser for Python.
+
+    Implements the ASTParser interface specifically for Python source code,
+    using Python's built-in 'ast' module for parsing.
+    """
 
     def parse(self, source_code: str) -> ast.AST:
         """
@@ -49,7 +57,7 @@ class PythonASTParser(ASTParser):
     def to_dict(self, node: ast.AST) -> Dict[str, Any]:
         """
         Converts a Python AST node to a dictionary representation.
-        This is a recursive function.
+        This is a recursive function that traverses the AST structure.
 
         Args:
             node: The AST node.
@@ -82,6 +90,9 @@ _parsers: Dict[str, Type[ASTParser]] = {
 def get_parser(language: str) -> ASTParser:
     """
     Factory function to get a parser for a given language.
+
+    This function acts as a registry lookup, returning an initialized
+    parser object based on the specified language identifier.
 
     Args:
         language: The programming language (e.g., "python").

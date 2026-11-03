@@ -6,7 +6,23 @@ from ai.modules.vector_memory.vector_memory import SentenceTransformerEmbeddingP
 
 
 class RAGChromaDBProvider(ChromaDBProvider):
+    """
+    A specialized provider for interacting with ChromaDB specifically for RAG applications.
+
+    This class wraps the ChromaDB client to ensure it is initialized correctly
+    for persistent storage and collection management required by the RAG engine.
+    """
     def __init__(self, path: str, collection_name: str):
+        """
+        Initializes the RAG ChromaDB connection.
+
+        Args:
+            path (str): The file path where the ChromaDB persistent storage resides.
+            collection_name (str): The name of the collection to use or create.
+
+        Raises:
+            ImportError: If the 'chromadb' library is not installed.
+        """
         try:
             import chromadb
         except ImportError:
@@ -18,7 +34,22 @@ class RAGChromaDBProvider(ChromaDBProvider):
 
 
 class RAGEmbeddingProvider(SentenceTransformerEmbeddingProvider):
+    """
+    A specialized provider for generating embeddings using Sentence Transformers.
+
+    This class loads the specified SentenceTransformer model to convert text chunks
+    into dense vector representations suitable for vector database storage.
+    """
     def __init__(self, model_name: str = 'all-MiniLM-L6-v2'):
+        """
+        Initializes the embedding model.
+
+        Args:
+            model_name (str): The name of the SentenceTransformer model to load.
+        
+        Raises:
+            ImportError: If the 'sentence-transformers' library is not installed.
+        """
         try:
             from sentence_transformers import SentenceTransformer
         except ImportError:
@@ -29,7 +60,17 @@ class RAGEmbeddingProvider(SentenceTransformerEmbeddingProvider):
 
 
 def _chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]:
-    """Internal helper to split text into overlapping chunks."""
+    """
+    Internal helper to split text into overlapping chunks based on word count.
+
+    Args:
+        text (str): The full text content to be chunked.
+        chunk_size (int): The target number of words per chunk.
+        overlap (int): The number of words to overlap between consecutive chunks.
+
+    Returns:
+        List[str]: A list of text chunks.
+    """
     words = text.split()
     chunks = []
     i = 0
@@ -58,12 +99,16 @@ def ingest_text(
 ) -> None:
     """
     Ingest raw text into a RAG collection, chunking it and applying the provided metadata.
-    
+
+    This function processes large documents by splitting them into manageable chunks,
+    generating vector embeddings for each chunk, and storing them in the specified
+    ChromaDB collection along with associated metadata.
+
     Args:
         text (str): The raw text to ingest.
-        metadata (Dict[str, Any]): Metadata to attach to every chunk.
+        metadata (Dict[str, Any]): Metadata to attach to every chunk (e.g., source file, document ID).
         collection_name (str): The name of the collection to write embeddings to.
-        db_path (str): Path to the persistent database storage.
+        db_path (str): Path to the persistent database storage. Defaults to a path derived from the root directory.
         chunk_size (int): Number of words per chunk.
         chunk_overlap (int): Number of overlapping words between chunks.
     """
@@ -101,7 +146,11 @@ def retrieve_context(
 ) -> List[Dict[str, Any]]:
     """
     Retrieve relevant context from the RAG database with simple reranking and filtering.
-    
+
+    This function takes a natural language query, converts it into a vector, and searches
+    the ChromaDB collection for the most semantically similar chunks. It then filters
+    these results based on a minimum similarity score and a maximum cumulative token limit.
+
     Args:
         query (str): The search query.
         collection_name (str): The name of the collection to query.

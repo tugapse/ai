@@ -9,16 +9,55 @@ from ai.color import Color
 from ai.tools.tool_registry import ToolRegistry
 
 class CustomStoppingCriteria:
+    """
+    Custom stopping criteria used during model generation.
+
+    This class checks a threading.Event to determine if generation should stop,
+    allowing external control over the generation loop.
+    """
     def __init__(self, stop_event: threading.Event):
+        """
+        Initializes the stopping criteria.
+
+        Args:
+            stop_event: The threading.Event object used to signal termination.
+        """
         self.stop_event = stop_event
 
     def __call__(self, input_ids: 'torch.LongTensor', scores: 'torch.FloatTensor', **kwargs) -> bool:
+        """
+        Checks if the stop event is set.
+
+        Args:
+            input_ids: The input token IDs.
+            scores: The scores tensor.
+            **kwargs: Additional keyword arguments passed to the criteria.
+
+        Returns:
+            True if the stop event is set, indicating generation should stop.
+        """
         return self.stop_event.is_set()
 
 class HFEngineMixin:
-    """Isolates the threading orchestration, inference parameters extraction, and chat iteration loops."""
+    """
+    Isolates the threading orchestration, inference parameters extraction, and chat iteration loops
+    for Hugging Face model interactions.
+    """
 
     def _extract_generation_params(self, options: dict) -> tuple:
+        """
+        Extracts and standardizes generation parameters from the provided options dictionary.
+
+        It sets defaults for common generation parameters like max_new_tokens,
+        do_sample, top_k, top_p, and temperature, and determines the appropriate
+        EOS/PAD token ID.
+
+        Args:
+            options: A dictionary containing user-specified generation options.
+
+        Returns:
+            A tuple containing (max_new_tokens, do_sample, top_k, top_p, temperature, eos_token_id).
+        """
         gen_options = self.options.copy()
         gen_options.update(options)
 
@@ -38,6 +77,20 @@ class HFEngineMixin:
         return max_new_tokens, do_sample, top_k, top_p, temperature, eos_token_id
 
     def _generate_in_thread(self, model, tokenizer, generation_kwargs, error_queue, streamer, stop_event: threading.Event):
+        """
+        Executes the model generation process in a separate thread.
+
+        This method wraps model.generate() with error handling and integrates
+        the CustomStoppingCriteria to allow external thread control.
+
+        Args:
+            model: The loaded Hugging Face model instance.
+            tokenizer: The loaded Hugging Face tokenizer instance.
+            generation_kwargs: Dictionary of arguments passed to model.generate.
+            error_queue: A queue to place error messages if generation fails.
+            streamer: The TextIteratorStreamer used for streaming output.
+            stop_event: The threading.Event used to signal the thread to stop.
+        """
         func.debug("_generate_in_thread started.")
         try:
             generation_kwargs["stopping_criteria"] = StoppingCriteriaList(
@@ -66,6 +119,14 @@ class HFEngineMixin:
             stop_event.clear()
 
     def join_generation_thread(self, timeout: float = None):
+        """
+        Waits for the background generation thread to complete execution.
+
+        If the thread is still running after the specified timeout, a warning is logged.
+
+        Args:
+            timeout: The maximum time in seconds to wait for the thread to join. Defaults to None (wait indefinitely).
+        """
         if self._generation_thread and self._generation_thread.is_alive():
             func.log("Waiting for HuggingFace LLM generation thread to finish...")
             self._generation_thread.join(timeout=timeout)
@@ -74,6 +135,19 @@ class HFEngineMixin:
         self.stop_generation_event.clear()
 
     def _generate_response(self, input_data, options: dict = {}):
+        """
+        Synchronously generates a response from the loaded LLM using Hugging Face methods.
+
+        This method prepares generation arguments, optionally injects TurboQuantCache
+        for optimized inference, and calls model.generate().
+
+        Args:
+            input_data: The input data required for generation (e.g., tokenized input).
+            options: A dictionary of optional generation parameters to override defaults.
+
+        Returns:
+            The decoded string response from the model.
+        """
         if self.model is None or self.tokenizer is None:
             return "Model not loaded."
 
@@ -106,10 +180,31 @@ class HFEngineMixin:
         return response
 
     def list(self):
+        """
+        Lists available Hugging Face models.
+
+        Currently provides a static message indicating where to find models.
+
+        Returns:
+            A list containing a descriptive message.
+        """
         func.log("Hugging Face models are available on huggingface.co/models. You can search there for available models.")
         return []
 
     def pull(self, model_name, stream=True):
+        """
+        Downloads and loads a specified Hugging Face model and tokenizer.
+
+        Args:
+            model_name: The identifier of the model to pull from Hugging Face.
+            stream: If True, yields status messages during the pull process; otherwise, returns a single message.
+
+        Yields:
+            A status message if stream is True.
+
+        Returns:
+            A status message string if stream is False.
+        """
         from transformers import AutoModelForCausalLM, AutoTokenizer
         func.log(f"Attempting to 'pull' (download/load) Hugging Face model: {model_name}")
         try:

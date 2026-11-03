@@ -1,4 +1,3 @@
-
 class Events:
     """
     This class manages events in an AI system.

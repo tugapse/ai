@@ -34,4 +34,3 @@ class EventBinder:
                 event_name=BaseModel.STREAMING_FINISHED_EVENT,
                 listener=llm_stream_finished_callback,
             )
-
