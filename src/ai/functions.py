@@ -241,17 +241,10 @@ def get_root_directory() -> str:
     if config_instance:
         root_path = config_instance.get(ProgramSetting.ROOT_DIRECTORY)
         if root_path:
-            root_path = os.path.abspath(root_path)
-            if root_path.startswith(os.path.abspath(os.getcwd())):
-                fallback_path = os.path.join(tempfile.gettempdir(), "ai")
-                log(
-                    f"WARNING: '{ProgramSetting.ROOT_DIRECTORY}' points inside the project tree. Using fallback: {fallback_path}",
-                    level="WARNING",
-                )
-                return os.path.abspath(fallback_path)
-            return root_path
+            return os.path.abspath(root_path)
 
-    fallback_path = os.path.join(tempfile.gettempdir(), "ai")
+    # Fallback if config is not loaded or key not found (should be handled by ProgramConfig defaults now)
+    fallback_path = os.path.join(os.path.expanduser("~"), "Ai")
     log(
         f"WARNING: '{ProgramSetting.ROOT_DIRECTORY}' not found in config. Using fallback: {fallback_path}",
         level="WARNING",
