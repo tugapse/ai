@@ -1,41 +1,41 @@
 ## 1. Overview & Purpose
 | Component | Source File |
 | :--- | :--- |
-| **BrainHub** | [src/ai/modules/server/brain_hub.py](/AgentDocs/ai/modules/server/brain_hub.py) |
+| **BrainHub** | [src/ai/modules/server/brain_hub.py](/src/ai/modules/server/brain_hub.py) |
 
-The `BrainHub` class serves as the central coordination engine for the AI's cognitive operations within the server module. It is responsible for managing the lifecycle of Large Language Models (LLMs), handling session-based memory persistence, and maintaining the active state of the "brain" during user interactions.
+The `BrainHub` class serves as the central coordination engine for the AI server module. It is responsible for managing the lifecycle of Large Language Models (LLMs), handling session-based conversation history, and maintaining the state of the active "brain" (the currently loaded model).
 
-By acting as a high-level controller, it bridges the gap between model orchestration and history management. It ensures that model swaps are handled gracefully (including GPU resource management via unloading) and that conversation history is consistently synchronized between in-memory structures and persistent JSON storage.
+By acting as a mediator between the [ModelOrchestrator](/AgentDocs/ai/services/model_orchestrator.md) and the persistent storage mechanisms, it ensures that model swapping is handled safely (freeing GPU resources) and that conversation context is correctly loaded from or saved to JSON-based history files. It functions as a high-level controller within the server architecture, bridging the gap between raw model execution and session management.
 
 ## 2. Public API & Interfaces
 
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| `BrainHub(config: ProgramConfig)` | Class | Initializes the hub with global configuration, setting up the `ModelOrchestrator` and default history. |
-| `new_history(session_title: Optional[str], session_id: str, session_folder: Optional[str])` | Method | Returns a new dictionary structure representing a fresh session state. |
-| `route_memory(session_filepath: str, session_title: Optional[str], session_id: str, session_folder: Optional[str])` | Method | Hot-swaps the active session context by loading a specific JSON file into memory. |
-| `add_history_message(role: str, content: str)` | Method | Appends a message to the current history and immediately persists the change to disk. |
-| `load_history_from_json(filepath: str)` | Method | Loads and validates a JSON file, populating the current history state or resetting it on failure. |
-| `save_history_to_json(filepath: str)` | Method | Serializes the current in-memory history to a JSON file. |
-| `get_timestamp()` | Method | Returns a current ISO-formatted timestamp string. |
-| `get_brain(model_id: str, system_prompt: str, model_config_data: Optional[dict] = None)` | Method | Manages model loading/swapping. Returns the active LLM instance from the orchestrator. |
-| `unload_brain()` | Method | Explicitly unloads the current model to free up system/GPU resources. |
-| `list_available_models()` | Method | Scans the configuration directory for available model JSON files. |
-| `get_stats()` | Method | Returns usage metrics (tokens, context window, usage percentage) for the active model. |
+| `BrainHub(config: ProgramConfig)` | Class | Initializes the hub with global configuration, setting up the orchestrator and default history. |
+| `new_history(session_title: Optional[str], session_id: str, session_folder: Optional[str])` | Method | Returns a fresh dictionary structure representing a new session state. |
+| `route_memory(session_filepath: str, session_title: Optional[str], session_id: str, session_folder: Optional[str])` | Method | Performs a "hot-swap" of the active session by loading a specific JSON history file. |
+| `add_history_message(role: str, content: str)` | Method | Appends a new message to the in-memory history and persists the update to the filesystem. |
+| `load_history_from_json(filepath: str)` | Method | Reads a JSON file and populates the current history state with validation. |
+| `save_history_to_json(filepath: str)` | Method | Serializes the current in-memory history state to a JSON file. |
+| `get_timestamp()` | Method | Returns the current system time in ISO format. |
+| `get_brain(model_id: str, system_prompt: str, model_config_data: Optional[dict] = None)` | Method | Manages model loading/unloading. Returns the active LLM instance, swapping models if the requested `model_id` differs from the current one. |
+| `unload_brain()` | Method | Explicitly unloads the current LLM from the orchestrator to clear GPU memory. |
+| `list_available_models()` | Method | Scans the configuration directory for available `.json` model definitions. |
+| `get_stats()` | Method | Retrieves real-time token usage and context window statistics from the active model. |
 
 ## 3. Implementation Details & Side Effects
-- **Core Logic:** The component utilizes a state-machine approach to model management. When `get_brain` is called with a different `model_id` than the `current_model_id`, it triggers an `unload_brain` sequence to prevent memory overflow before loading the new model via the `ModelOrchestrator`. History management is handled via dictionary manipulation and JSON serialization.
+- **Core Logic:** The component manages state transitions for both the conversation (history) and the hardware (LLM loading). When `get_brain` is called, it performs a check: if a different model is active, it calls `unload_brain` to prevent memory overflow before loading the new model via the `ModelOrchestrator`. History management uses a dictionary-based structure that is synchronized with the filesystem via `json` serialization.
 - **Side Effects:** 
-    - **Filesystem:** Reads and writes JSON files for session history and model configurations.
-    - **Hardware:** Interacts with GPU/System memory through model loading and unloading via the orchestrator.
-    - **Logging:** Extensive use of `func.log` for tracking model swaps, memory loads, and errors.
+    - **Filesystem:** Reads and writes JSON files to disk for session history and model configurations.
+    - **Hardware/GPU:** Triggers model loading and unloading processes which significantly impact GPU VRAM usage.
+    - **Logging:** Uses `ai.functions.log` to record state changes, errors, and model swaps.
 - **Error Handling:** 
-    - Implements validation for JSON structure during loading; if a file is corrupted or lacks the required `messages` key, it resets the history to a clean state rather than crashing.
-    - Uses `try-except` blocks for `json.JSONDecodeError` to handle corrupted session files.
+    - If a history file is missing, corrupted (invalid JSON), or has an incorrect schema (missing `messages` list), the component logs a warning/error and resets the in-memory history to a "fresh" state rather than crashing.
+    - Model loading errors are delegated to the `ModelOrchestrator`.
 
 ## 4. Dependencies & Configuration
 **Environment & Configuration:**
-- Uses `ProgramConfig` to retrieve system paths, specifically for model configuration directories via `ProgramSetting.PATHS_MODEL_CONFIGS`.
+- `ProgramConfig`  Used to retrieve system paths and settings via `ProgramSetting`.
 
 **Module Dependencies:**
 - **Standard/External:** `os`, `typing`, `json`, `datetime`.

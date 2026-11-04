@@ -206,9 +206,10 @@ def run():
     # debugging flags for development purposes
     # args.remote     = "http://0.0.0.0:9999"
     # args.list_sessions = True
-    # args.agent      = True
     # args.model      = "gemini/gemini-25"
     # args.msg        = "explain this program"
+    # args.agent      = True
+    # args.overwrite_config = True
     # args.pipeline   = "gemini" 
 
     check_dependencies()

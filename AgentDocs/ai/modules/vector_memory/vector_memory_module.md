@@ -1,39 +1,37 @@
 ## 1. Overview & Purpose
 | Component | Source File |
 | :--- | :--- |
-| **VectorMemoryModule** | [src/ai/modules/vector_memory/vector_memory_module.py](/AgentDocs/ai/modules/vector_memory/vector_memory_module.md) |
+| **VectorMemoryModule** | [src/ai/modules/vector_memory/vector_memory_module.py](/src/ai/modules/vector_memory/vector_memory_module.py) |
 
-The `VectorMemoryModule` acts as a lifecycle wrapper for the `VectorMemory` system. It is designed to integrate the vector-based long-term memory capabilities into the broader module management ecosystem, allowing the system to defer the heavy instantiation of the memory engine until a specific session context is provided.
+The `VectorMemoryModule` acts as a lifecycle wrapper for the `VectorMemory` system. It is designed to integrate the vector-based memory capabilities into the broader module management framework, specifically allowing the `ModuleRegistry` to manage the component's existence without requiring immediate instantiation of the heavy underlying memory engine.
 
-This component serves as a bridge between the `ModuleRegistry` (via `BaseModule`) and the actual `VectorMemory` implementation. By providing a standardized way to initialize, access, and shut down the memory system, it ensures that session-specific identifiers and LLM instances are correctly injected into the memory lifecycle.
+This module solves the problem of session-specific initialization. Because vector memory requires a specific `session_id` and an active LLM instance to perform operations like importance rating and reflection, the module allows for a two-stage setup: configuration during module registration and full initialization during session activation. It serves as a bridge between the high-level module management system and the low-level [VectorMemory](/AgentDocs/ai/modules/vector_memory/vector_memory.md) implementation.
 
 ## 2. Public API & Interfaces
 
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| `VectorMemoryModule` | Class | A `BaseModule` implementation that manages the lifecycle of a `VectorMemory` instance. |
-| `__init__(db_path: str, **kwargs)` | Method | Initializes the wrapper with a database path and optional configuration parameters. |
-| `initialize(session_id: str, llm: BaseModel)` | Method | Creates the underlying `VectorMemory` instance using the provided session ID and LLM. |
-| `get_instance() -> Optional[VectorMemory]` | Method | Returns the active `VectorMemory` instance or `None` if not yet initialized. |
-| `shutdown()` | Method | Clears the active `VectorMemory` instance and performs cleanup. |
+| `VectorMemoryModule` | Class | A `BaseModule` implementation that manages the lifecycle and access to a `VectorMemory` instance. |
+| `__init__(db_path: str, **kwargs)` | Method | Configures the module with a database path and additional parameters. Does not instantiate the memory engine. |
+| `initialize(session_id: str, llm: BaseModel)` | Method | Creates the actual `VectorMemory` instance using the provided `session_id` and [BaseModel](/AgentDocs/ai/core/llms/base_llm.md) instance. |
+| `get_instance()` | Method | Returns the active `VectorMemory` instance. Returns `None` and logs an error if called before `initialize()`. |
+| `shutdown()` | Method | Cleans up the module by setting the internal `VectorMemory` instance to `None`. |
 
 ## 3. Implementation Details & Side Effects
-- **Core Logic:** The module implements a lazy-initialization pattern. The `__init__` method stores configuration (`db_path` and `kwargs`), but the actual `VectorMemory` object is only instantiated when `initialize()` is explicitly called. This allows the module to be registered in the system before a user session is active.
+- **Core Logic:** The module implements a lazy-initialization pattern. The `__init__` method stores configuration (`db_path` and `kwargs`), while the `initialize` method performs the actual heavy lifting of instantiating the [VectorMemory](/AgentDocs/ai/modules/vector_memory/vector_memory.md) object. It includes a guard clause to prevent multiple initializations for the same module instance.
 - **Side Effects:** 
-    - **Filesystem:** Interacts with the filesystem via the `db_path` to manage persistent vector databases.
-    - **Logging:** Uses `ai.functions.log` to report initialization status, warnings (if double-initialized), and errors (if accessing an uninitialized instance).
-- **Error Handling:** 
-    - If `initialize()` is called on an already active module, it logs a `WARN` level message and aborts.
-    - If `get_instance()` is called before initialization, it logs an `ERROR` level message and returns `None`.
+    - **Logging:** Uses `ai.functions.log` to record initialization status, warnings for double-initialization, errors for premature access, and shutdown events.
+    - **Filesystem:** The underlying `VectorMemory` (instantiated via this module) interacts with the filesystem at the provided `db_path`.
+- **Error Handling:** If `get_instance()` is called before the module has been initialized, it logs an `ERROR` level message via `func.log` and returns `None`.
 
 ## 4. Dependencies & Configuration
 **Environment & Configuration:**
-- No environment variables are directly accessed within this module; configuration is passed via `db_path` and `kwargs` during instantiation.
+- No direct environment variables are required by this module; it relies on the `db_path` passed during instantiation.
 
 **Module Dependencies:**
 - **Standard/External:** `typing`
 - **Internal:**
     - [ai.functions](/AgentDocs/ai/functions.md)
-    - [ai.modules.base_module](/AgentDocs/ai/modules/base_module.md)
-    - [ai.core.llms.base_llm](/AgentDocs/ai/core/llms/base_llm.md)
-    - [ai.modules.vector_memory.vector_memory](/AgentDocs/ai/modules/vector_memory/vector_memory.md)
+    - [ai.modules.base_module.BaseModule](/AgentDocs/ai/modules/base_module.md)
+    - [ai.core.llms.base_llm.BaseModel](/AgentDocs/ai/core/llms/base_llm.md)
+    - [ai.modules.vector_memory.vector_memory.VectorMemory](/AgentDocs/ai/modules/vector_memory/vector_memory.md)

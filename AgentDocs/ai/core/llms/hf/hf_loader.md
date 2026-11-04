@@ -1,41 +1,36 @@
 ## 1. Overview & Purpose
 | Component | Source File |
 | :--- | :--- |
-| **HFModelLoaderMixin** | [src/ai/core/llms/hf/hf_loader.py](/AgentDocs/ai/core/llms/hf/hf_loader.md) |
+| **HFModelLoaderMixin** | [src/ai/core/llms/hf/hf_loader.py](/src/ai/core/llms/hf/hf_loader.py) |
 
-The `HFModelLoaderMixin` is a specialized utility designed to isolate the complexities of initializing Large Language Models (LLMs) and their associated tokenizers from the Hugging Face Hub. It provides a standardized interface for managing model loading, hardware-specific configurations, and quantization strategies.
+The `HFModelLoaderMixin` is a specialized component designed to isolate the complexities of initializing Large Language Models (LLMs) and their associated tokenizers from the Hugging Face Hub. It provides a standardized mechanism for handling hardware-specific configurations, such as CUDA initialization and device mapping, alongside advanced loading techniques like quantization.
 
-This component acts as a middle layer within the LLM orchestration logic, specifically handling the heavy lifting of downloading, caching, and configuring model weights and quantization parameters (such as AWQ or BitsAndBytes). It is intended to be mixed into classes that require robust Hugging Face integration, ensuring that hardware acceleration (CUDA) and memory optimizations are applied consistently.
+This mixin serves as a core utility within the LLM loading pipeline. It is intended to be mixed into classes that require robust Hugging Face integration, ensuring that quantization methods (AWQ or BitsAndBytes), local cache checks, and automatic downloading are handled consistently across different model implementations.
 
 ## 2. Public API & Interfaces
 
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| `HFModelLoaderMixin` | Class | A mixin class providing `_load_llm_params` to automate the loading of Hugging Face models, tokenizers, and quantization configurations. |
+| `HFModelLoaderMixin` | Class | A mixin providing `_load_llm_params` to handle model and tokenizer initialization, quantization configuration, and device management. |
 
 ## 3. Implementation Details & Side Effects
-- **Core Logic:** The primary logic resides in `_load_llm_params`. It follows a multi-step workflow:
-    1. **Initialization:** Calls the superclass loading method and initializes PyTorch CUDA.
-    2. **Quantization Configuration:** Determines the quantization strategy based on `self.quantization_method` and `self.quantization_bits`. It supports `awq` (native loading) and `bitsandbytes` (4-bit or 8-bit NF4/int8 quantization).
-    3. **Local Cache Check:** Attempts to load the tokenizer and model using `local_files_only=True` to minimize network overhead.
-    4. **Fallback Download:** If local loading fails, it automatically switches to downloading the assets from the Hugging Face Hub.
-    5. **Tokenizer Patching:** Ensures the tokenizer has a valid `pad_token` by defaulting to the `eos_token` if necessary.
+- **Core Logic:** The primary logic resides in `_load_llm_params`. It first calls the superclass method to set up the base environment. It then determines the quantization strategy: if "awq" is specified, it prepares for native AWQ loading; otherwise, it attempts to configure `BitsAndBytesConfig` for 4-bit or 8-bit quantization if the `bitsandbytes` library is available. The loader implements a two-stage attempt: first trying to load from the local cache (`local_files_only=True`), and upon failure, falling back to downloading from the Hugging Face Hub (`local_files_only=False`).
 - **Side Effects:** 
-    - **Network:** Downloads model weights and tokenizer files from the Hugging Face Hub if not found in the local cache.
-    - **Filesystem:** Interacts with the local Hugging Face cache directory.
-    - **Hardware/Memory:** Initializes CUDA, clears GPU cache via `torch.cuda.empty_cache()`, and allocates significant VRAM/RAM for model weights.
+    - **Network:** Downloads model weights and tokenizer files from Hugging Face if not found in the local cache.
+    - **Filesystem:** Writes downloaded models to the local Hugging Face cache directory.
+    - **Hardware/Memory:** Initializes PyTorch CUDA and performs `torch.cuda.empty_cache()` to manage GPU VRAM.
 - **Error Handling:** 
-    - Catches `ImportError` if `bitsandbytes` is missing, falling back to non-quantized loading.
-    - Catches general exceptions during quantization config creation and falls back to standard loading.
-    - Uses a broad `try-except` block to handle the transition from local-only loading to remote downloading.
+    - Gracefully handles missing `bitsandbytes` by falling back to non-quantized loading.
+    - Catches exceptions during `BitsAndBytesConfig` creation to prevent initialization failure.
+    - Uses a broad exception catch during the local cache check to trigger the remote download fallback mechanism.
 
 ## 4. Dependencies & Configuration
 **Environment & Configuration:**
-- `self.model_name`  The identifier for the model on the Hugging Face Hub.
-- `self.quantization_method`  String indicating the method (e.g., "awq", "bnb").
-- `self.quantization_bits`  Integer (4 or 8) specifying the bit-depth for quantization.
+- `self.model_name`  The Hugging Face repository ID or local path.
+- `self.quantization_method`  String determining the quantization strategy (e.g., "awq").
+- `self.quantization_bits`  Integer (4 or 8) specifying the bit-depth for BNB quantization.
 - `self.options`  Dictionary containing `tokenizer_kwargs` for tokenizer customization.
-- `self.device_map`  Configuration for how model layers are distributed across devices.
+- `self.device_map`  Mapping configuration for distributing model layers across devices.
 
 **Module Dependencies:**
 - **Standard/External:** `sys`, `torch`, `requests`, `huggingface_hub`, `transformers`, `bitsandbytes`.

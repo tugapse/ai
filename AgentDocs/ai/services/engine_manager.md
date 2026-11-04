@@ -1,36 +1,36 @@
 ## 1. Overview & Purpose
 | Component | Source File |
 | :--- | :--- |
-| **EngineManager** | [src/ai/services/engine_manager.py](/AgentDocs/ai/services/engine_manager.md) |
+| **EngineManager** | [src/ai/services/engine_manager.py](/src/ai/services/engine_manager.py) |
 
-The `EngineManager` class is responsible for the lifecycle management of Large Language Model (LLM) configurations and their corresponding runtime instances. It provides a centralized interface for verifying if specific AI engines (such as Ollama, OpenAI, or GGUF-based loaders) are installed on the host system, generating default configuration schemas, and persisting these settings to the filesystem.
+The `EngineManager` class is responsible for managing the lifecycle of model configurations and the instantiation of various Large Language Model (LLM) engines. It serves as a factory and validation layer, ensuring that the required underlying software engines (such as Ollama, HuggingFace, or OpenAI) are correctly installed and configured before attempting to initialize a model.
 
-Within the broader application architecture, this component acts as a factory and validation layer between raw configuration files and the active model instances used by the agent. It ensures that before any model instantiation attempt occurs, the required environment dependencies are met, preventing runtime crashes during "lazy imports" of heavy model libraries.
+Within the broader application architecture, this component acts as a service layer that bridges high-level model requests with low-level engine implementations. It handles the translation of configuration dictionaries into concrete `BaseModel` instances, managing specialized initialization logic for different model types such as GGUF, Gemini, and Causal LMs.
 
 ## 2. Public API & Interfaces
 
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| `is_engine_installed(module_type, module_name="")` | Static Method | Checks `installed_engines.json` to verify if a specific `ModelType` or `EngineType` is marked as installed. |
-| `generate_default_config(model_name, model_type)` | Static Method | Returns a dictionary containing standard default parameters (temperature, top_p, etc.) for a given `ModelType`. |
+| `is_engine_installed(module_type, module_name="")` | Static Method | Validates if a specific `ModelType` or `EngineType` is marked as installed in the `installed_engines.json` configuration file. |
+| `generate_default_config(model_name, model_type)` | Static Method | Returns a dictionary containing default hyperparameters (temperature, top_p, etc.) for a given model type. |
 | `load_config(filepath)` | Static Method | Reads and parses a JSON configuration file from the specified path. |
-| `save_config(config, filepath)` | Static Method | Serializes a configuration dictionary to a JSON file at the specified path. |
-| `load_model_instance(model_config, system_prompt, tool_registry)` | Static Method | The primary entry point for model creation. Validates the engine status and returns an instantiated `BaseModel` subclass. |
+| `save_config(config, filepath)` | Static Method | Serializes a configuration dictionary to a JSON file. |
+| `load_model_instance(model_config, system_prompt, tool_registry)` | Static Method | The primary entry point for model creation. It validates the engine status and returns an instantiated `BaseModel` subclass. |
 
 ## 3. Implementation Details & Side Effects
-- **Core Logic:** The manager uses a mapping system to translate `ModelType` and `EngineType` enums into string IDs used within a local `installed_engines.json` file. When loading models, it performs a conditional dispatch (factory pattern) to private helper methods (e.g., `_create_ollama_model`, `_create_gguf_model`) based on the configuration's `model_type`.
+- **Core Logic:** The manager uses a mapping system to correlate `ModelType` and `EngineType` enums to specific keys in a local JSON configuration file. When loading a model, it performs a "lazy" check of the engine status. It uses specialized private methods (e.g., `_create_gguf_model`, `_create_ollama_model`) to handle the unique parameter requirements of different backends. For GGUF models, it specifically manages `llama_cpp` logging via `ctypes` to suppress or redirect C-level output.
 - **Side Effects:** 
-    - **Filesystem:** Reads from and writes to JSON configuration files. It also searches for `installed_engines.json` in multiple locations (environment variable path, executable directory, or project root).
-    - **Logging:** Uses `ai.functions` to log status updates and errors to the console/system logs.
-    - **C-Types/FFI:** In `_create_gguf_model`, it uses `ctypes` to interface with `llama_cpp` to redirect internal C-level logging to a Python callback.
+    - **Filesystem:** Reads from and writes to JSON configuration files. It attempts to locate `installed_engines.json` relative to the executable or the project root.
+    - **Environment:** Checks the `AI_ENGINE_STATUS_FILE` environment variable to determine the configuration path.
+    - **Logging:** Interacts with the internal `ai.functions` logging system to record configuration loading and instantiation successes or failures.
 - **Error Handling:** 
     - Throws `FileNotFoundError` if a requested config file is missing.
-    - Throws `ValueError` if the model configuration is malformed or if the required engine is not marked as installed.
-    - Implements a "fail-safe" mechanism in `is_engine_installed` that returns `False` on unexpected exceptions during file reading.
+    - Throws `json.JSONDecodeError` for malformed configuration files.
+    - Throws `ValueError` if the engine is not installed, if the model type is unknown, or if mandatory fields (like `gguf_filename`) are missing.
 
 ## 4. Dependencies & Configuration
 **Environment & Configuration:**
-- `AI_ENGINE_STATUS_FILE`  An optional environment variable defining the absolute path to the `installed_engines.json` configuration file.
+- `AI_ENGINE_STATUS_FILE`  An optional environment variable specifying the absolute path to the `installed_engines.json` file.
 
 **Module Dependencies:**
 - **Standard/External:** `json`, `os`, `sys`, `typing`, `ctypes`, `llama_cpp`.

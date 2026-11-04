@@ -1,34 +1,35 @@
 ## 1. Overview & Purpose
 | Component | Source File |
 | :--- | :--- |
-| **JarvisServerModule** | [src/ai/modules/server/server_module.py](/AgentDocs/ai/modules/server/server_module.md) |
+| **JarvisServerModule** | [src/ai/modules/server/server_module.py](/src/ai/modules/server/server_module.py) |
 
-The `JarvisServerModule` serves as a high-level wrapper for the JARVIS Brain Server, providing a standardized interface that adheres to the system's module lifecycle. Its primary responsibility is to manage the lifecycle of a FastAPI-based web server, allowing the AI's core intelligence to be exposed via a network interface.
+The `JarvisServerModule` serves as a high-level wrapper for the JARVIS Brain Server, providing a standardized interface that adheres to the system's module lifecycle. Its primary responsibility is to manage the instantiation, execution, and graceful termination of a FastAPI-based web server that exposes the AI's capabilities via a network interface.
 
-Within the broader architecture, this component acts as a bridge between the internal model orchestration logic and external consumers. It encapsulates the initialization of the `BrainHub`, the creation of the FastAPI application, and the management of the Uvicorn server process running in a background thread.
+Within the broader architecture, this component acts as a controller for the server subsystem. It bridges the gap between the core model orchestration logic and the network layer by wrapping a [BrainHub](/AgentDocs/ai/modules/server/brain_hub.md) and an application instance created via [create_app](/AgentDocs/ai/modules/server/app.md). It ensures that the API runs in a non-blocking background thread, allowing the main program to continue its execution while the "Neural Link" remains active.
 
 ## 2. Public API & Interfaces
 
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| `JarvisServerModule` | Class | The main module class responsible for managing the Brain Server lifecycle. |
-| `__init__(host, port, **kwargs)` | Method | Initializes the server configuration with a specific host and port. |
-| `initialize(config, orchestrator, history_manager)` | Method | Sets up the `BrainHub`, creates the FastAPI app via `create_app`, and configures the Uvicorn server. |
-| `start()` | Method | Spawns a daemon thread to run the Uvicorn server, preventing it from blocking the main application thread. |
-| `get_instance()` | Method | Returns the currently active `BrainHub` instance. |
-| `shutdown()` | Method | Signals the Uvicorn server to exit and triggers the unloading of the brain to release VRAM. |
+| `JarvisServerModule(host, port, **kwargs)` | Class | The main module class. Initializes server configuration including binding IP and port. |
+| `initialize(config, orchestrator, history_manager)` | Method | Prepares the [BrainHub](/AgentDocs/ai/modules/server/brain_hub.md), links the orchestrator, and sets up the `uvicorn` server configuration. |
+| `start()` | Method | Spawns a daemon thread to run the `uvicorn` server, preventing the main process from blocking. |
+| `get_instance()` | Method | Returns the active `BrainHub` instance currently managed by the module. |
+| `shutdown()` | Method | Triggers a graceful exit for the `uvicorn` server and calls `unload_brain()` on the `BrainHub` to release VRAM. |
 
 ## 3. Implementation Details & Side Effects
-- **Core Logic:** The module implements a lifecycle pattern (initialize $\rightarrow$ start $\rightarrow$ shutdown). It uses `BrainHub` to wrap the `ModelOrchestrator` and passes this hub into `create_app` to inject intelligence into the API endpoints. The server itself is executed within a `threading.Thread` marked as `daemon=True` to ensure it does not prevent the main process from exiting.
+- **Core Logic:** The module follows a strict lifecycle: `__init__` (config) $\rightarrow$ `initialize` (dependency injection and app creation) $\rightarrow$ `start` (threading) $\rightarrow$ `shutdown` (cleanup). It utilizes `uvicorn.Server` to manage the ASGI lifecycle, specifically using the `should_exit` flag for controlled shutdowns.
 - **Side Effects:** 
-    - **Network:** Binds to a specified IP and port to listen for incoming HTTP requests.
-    - **Resource Management:** Explicitly calls `unload_brain()` during shutdown to manage VRAM/memory usage.
-    - **Concurrency:** Spawns a new system thread for the Uvicorn event loop.
-- **Error Handling:** Logs errors via `func.log` or `func.error` if the server is started without being initialized. It includes checks to prevent double-initialization.
+    - **Network:** Binds to a specified host and port to listen for incoming HTTP requests.
+    - **Concurrency:** Spawns a new `threading.Thread` to run the server.
+    - **Resource Management:** Directly impacts GPU/System memory by triggering model unloading via the `BrainHub` during shutdown.
+- **Error Handling:** 
+    - Logs a warning if `initialize` is called on an already initialized module.
+    - Logs an error if `start` is attempted before `initialize` has successfully configured the server.
 
 ## 4. Dependencies & Configuration
 **Environment & Configuration:**
-- `host` (str)  The IP address to bind the server to (defaults to `0.0.0.0`).
+- `host` (str)  The IP address to bind the server to (defaults to `"0.0.0.0"`).
 - `port` (int)  The network port for the API (defaults to `8000`).
 
 **Module Dependencies:**

@@ -1,35 +1,34 @@
 ## 1. Overview & Purpose
 | Component | Source File |
 | :--- | :--- |
-| **Agent** | [src/ai/agents/agent.py](/AgentDocs/ai/agents/agent.md) |
+| **Agent** | [src/ai/agents/agent.py](/src/ai/agents/agent.py) |
 
 The `Agent` component serves as a high-level facade that encapsulates the entire agentic execution loop. It is responsible for orchestrating the lifecycle of an agentic workflow, from loading pipeline configurations to managing the interaction between the Large Language Model (LLM) and available tools.
 
-Within the broader system architecture, this component acts as the primary entry point for running autonomous workflows. It integrates several core subsystems, including the [ToolRegistry](/AgentDocs/ai/tools/tool_registry.md), [LLMConnector](/AgentDocs/ai/agents/llm_connector.md), and [AgentOrchestrator](/AgentDocs/ai/agents/agent_orchestrator.md), providing a simplified interface for the rest of the application to trigger complex, multi-step reasoning tasks.
+Within the broader system architecture, this component acts as the primary interface for running complex, multi-step agentic tasks. It integrates several core subsystems, including the [ToolRegistry](/AgentDocs/ai/tools/tool_registry.md), [LLMConnector](/AgentDocs/ai/agents/llm_connector.md), and [AgentOrchestrator](/AgentDocs/ai/agents/agent_orchestrator.md), providing a unified entry point for user prompts and session management.
 
 ## 2. Public API & Interfaces
 
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| `load_pipeline_config(prog, pipeline_file: str) -> dict` | Function | Searches for and parses a JSON pipeline configuration file. It validates that all referenced prompt files exist within the system prompt templates directory. |
-| `Agent(prog, pipeline_file: str = "default.json")` | Class | The main agent facade. Initializes the tool registry, LLM connector, and orchestrator based on a provided configuration. |
-| `Agent.run(user_prompt: str, session_id: str = "")` | Method | Executes the agent's reasoning loop. It manages session creation via UUID if no `session_id` is provided and triggers lifecycle events. |
+| `load_pipeline_config(prog, pipeline_file: str) -> dict` | Function | Searches for and loads a JSON pipeline configuration. It validates that all referenced prompt files exist within the system prompts directory. |
+| `Agent(prog, pipeline_file: str = "default.json")` | Class | The main agentic controller. Initializes the tool registry, LLM connector, and orchestrator. Inherits from [Events](/AgentDocs/ai/core/events.md). |
+| `Agent.run(user_prompt: str, session_id: str = "")` | Method | Initiates the agent's execution loop. Handles session ID generation (via UUID) and delegates the loop to the orchestrator. |
 
 ## 3. Implementation Details & Side Effects
-- **Core Logic:** 
-    - **Configuration Loading:** The `load_pipeline_config` function implements a hierarchical search strategy for JSON files, checking absolute paths, user-specific pipeline directories, and system-wide pipeline directories (via [DirectoryManager](/AgentDocs/ai/services/directory_manager.md)).
-    - **Orchestration:** The `Agent` class initializes an [AgentOrchestrator](/AgentDocs/ai/agents/agent_orchestrator.md) which handles the actual loop. The `Agent` class also acts as an event proxy, forwarding specific orchestrator events (like `EVENT_BEFORE_LLM_REQUEST`) to its own event listeners inherited from [Events](/AgentDocs/ai/core/events.md).
-    - **Session Management:** If a `session_id` is not provided during `run()`, a new `uuid4` is generated to maintain stateful continuity for that specific turn.
+- **Core Logic:** The component follows a facade pattern. Upon initialization, it loads a JSON configuration that defines the agent's behavior and prompt templates. It then sets up an [AgentOrchestrator](/AgentDocs/ai/agents/agent_orchestrator.md) to handle the actual reasoning loop. The `Agent` class also acts as an event proxy, capturing events from the orchestrator (such as `EVENT_BEFORE_LLM_REQUEST`) and re-triggering them at the agent level.
 - **Side Effects:** 
-    - **Filesystem Access:** Reads pipeline JSON configurations and prompt template files.
-    - **Logging:** Logs session initialization and errors via [func.log](/AgentDocs/ai/functions.md) and [func.error](/AgentDocs/ai/functions.md).
+    - **Filesystem:** Reads pipeline configuration files and prompt templates from the disk via [DirectoryManager](/AgentDocs/ai/services/directory_manager.md).
+    - **Logging:** Uses [func.log](/AgentDocs/ai/functions.md) to record session starts and errors.
+    - **Network/LLM:** Triggers LLM requests through the [LLMConnector](/AgentDocs/ai/agents/llm_connector.md).
 - **Error Handling:** 
-    - Throws a `ValueError` if the pipeline configuration fails to load during initialization.
-    - Returns an empty dictionary and logs an error if the configuration file is missing or if prompt files referenced within the config are not found on disk.
+    - Throws a `ValueError` if the pipeline configuration fails to load.
+    - Uses `func.error` to report missing configuration files or missing prompt templates during the loading phase.
+    - Returns an empty dictionary if JSON parsing fails.
 
 ## 4. Dependencies & Configuration
 **Environment & Configuration:**
-- No specific environment variables are explicitly required by this file, though it relies on the `prog` object (typically [Program](/AgentDocs/ai/program.md)) to provide access to global configurations and directories.
+- No direct environment variables are accessed within this file; it relies on the `prog` object to provide access to system configurations and directory paths.
 
 **Module Dependencies:**
 - **Standard/External:** `os`, `sys`, `json`, `uuid`.

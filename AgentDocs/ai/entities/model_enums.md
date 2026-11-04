@@ -1,24 +1,22 @@
 ## 1. Overview & Purpose
 | Component | Source File |
 | :--- | :--- |
-| **model_enums** | [src/ai/entities/model_enums.py](/AgentDocs/ai/entities/model_enums.md) |
+| **model_enums** | [src/ai/entities/model_enums.py](/src/ai/entities/model_enums.py) |
 
-This component provides a centralized collection of enumeration types used to categorize and identify various aspects of the AI ecosystem within the application. It serves as a single source of truth for defining supported LLM engines, model architectures, and hardware inference backends.
+This component provides a centralized set of enumeration types used to categorize and identify different types of Large Language Model (LLM) engines, model architectures, and hardware backends. It ensures type safety and consistency across the application when selecting or configuring AI models.
 
-By using these enums, the system ensures type safety and consistency across different modules, such as the [engine_manager](/AgentDocs/ai/services/engine_manager.md), [model_orchestrator](/AgentDocs/ai/services/model_orchestrator.md), and various model implementations like [ollama_model](/AgentDocs/ai/core/llms/ollama_model.md) or [gemini](/AgentDocs/ai/core/llms/gemini.md). It acts as a foundational data model layer that prevents string-based errors when routing requests to specific computational backends or model types.
+As a data model component, it serves as a foundational reference for various services and orchestrators. It is used by components such as [src/ai/services/engine_manager.md](/src/ai/services/engine_manager.md) to identify supported engines and [src/ai/services/model_orchestrator.md](/src/ai/services/model_orchestrator.md) to manage different model architectures and inference backends.
 
 ## 2. Public API & Interfaces
 
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| `EngineType` | Enum | Defines supported LLM execution engines, including `HUGGINGFACE`, `OLLAMA`, `GGUF`, `VOICE_ENGINE`, `VECTOR_MEMORY`, `GEMINI_API`, `GEMINI_VERTEX`, `SERVER`, and `CLIENT`. |
-| `ModelType` | Enum | Defines architectural types of models, such as `CAUSAL_LM`, `SEQ2SEQ_LM`, `OLLAMA`, `GGUF`, `GEMINI`, `OPEN_AI`, and `JARVIS`. Includes custom `__str__` and `__repr__` implementations. |
-| `InferenceBackend` | Enum | Defines the hardware computational backends: `GPU_CUDA` (cuda), `GPU_AMD` (amd), and `CPU` (cpu). |
+| `EngineType` | Enum | Defines supported LLM engines, including providers like `HUGGINGFACE`, `OLLAMA`, `GEMINI_API`, and specialized modules like `VOICE_ENGINE` or `VECTOR_MEMORY`. |
+| `ModelType` | Enum | Defines architectural categories for models, such as `CAUSAL_LM`, `SEQ2SEQ_LM`, `OLLAMA`, `GGUF`, `GEMINI`, `OPEN_AI`, and the custom `JARVIS`. Includes custom `__str__` and `__repr__` implementations. |
+| `InferenceBackend` | Enum | Defines the computational hardware used for inference, specifically `GPU_CUDA`, `GPU_AMD`, and `CPU`. |
 
 ## 3. Implementation Details & Side Effects
-Structural definitions only; no complex logic or side effects. The `ModelType` enum implements custom string representation logic:
-- `__str__`: Returns the underlying string value of the enum member.
-- `__repr__`: Returns the name of the enum member.
+Structural definitions only; no complex logic or side effects.
 
 ## 4. Dependencies & Configuration
 **Environment & Configuration:**
@@ -28,4 +26,4 @@ No environment variables or external configurations required.
 - **Standard/External:** 
     - `enum.Enum`
 - **Internal:** 
-    No internal imports present in this file.
+    No internal dependencies.

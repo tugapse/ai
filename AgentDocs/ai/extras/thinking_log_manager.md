@@ -1,34 +1,36 @@
 ## 1. Overview & Purpose
 | Component | Source File |
 | :--- | :--- |
-| **ThinkingLogManager** | [src/ai/extras/thinking_log_manager.py](/AgentDocs/ai/extras/thinking_log_manager.md) |
+| **ThinkingLogManager** | [src/ai/extras/thinking_log_manager.py](/src/ai/extras/thinking_log_manager.py) |
 
-The `ThinkingLogManager` is a specialized utility designed to capture, persist, and manage the internal "thought processes" of the AI. It provides a structured way to log the reasoning steps that occur between user input and final output, which is critical for debugging, auditing, and observing the agent's cognitive flow.
+The `ThinkingLogManager` is a specialized utility designed to capture and persist the internal "thought processes" of the AI. It provides a structured way to record the reasoning steps, intermediate logic, and metadata generated during agent operations, ensuring that these transient cognitive traces are preserved for debugging, auditing, or session reconstruction.
 
-This component acts as a filesystem utility within the broader AI architecture. It ensures that thinking logs are stored in a dedicated directory structure and provides thread-safe writing capabilities through a file-locking mechanism, preventing data corruption when multiple processes or threads attempt to log reasoning simultaneously.
+This component acts as a filesystem-based logging service within the broader application architecture. It integrates with the system's directory management logic to ensure logs are stored in appropriate locations and implements a custom file-locking mechanism to maintain data integrity during concurrent write operations.
 
 ## 2. Public API & Interfaces
 
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| `ThinkingLogManager` | Class | The primary controller for managing thinking log files. Supports custom filenames, lock timeouts, and poll intervals. |
-| `write_thinking_log(content: str)` | Method | Appends a string of content to both the specific log file and the global active session log. |
-| `write_session_header(tags: str = "")` | Method | Writes a timestamped session start header to the log files, optionally including metadata tags. |
-| `read_thinking_log() -> str` | Method | Retrieves the full text content of the current thinking log file. |
+| `ThinkingLogManager` | Class | Manages lifecycle, writing, and reading of AI thinking logs with thread-safe file locking. |
+| `ThinkingLogManager(log_file_name=None, max_lock_wait_time=10, lock_poll_interval=0.1)` | Constructor | Initializes the manager with an optional custom filename and configurable lock timeout/polling settings. |
+| `write_thinking_log(content: str)` | Method | Appends string content to both the specific log file and the global active session log. |
+| `write_session_header(tags: str = "")` | Method | Writes a timestamped session header to the specific log file and overwrites the active session log with the new header. |
+| `read_thinking_log() -> str` | Method | Retrieves the full text content of the specific thinking log file. |
 
 ## 3. Implementation Details & Side Effects
-- **Core Logic:** The manager uses a file-based locking mechanism (`.lock` files) to ensure exclusive write access. It utilizes `os.open` with `O_CREAT | O_EXCL` to atomically create lock files. If a lock is held by another process, the manager enters a polling loop until `max_lock_wait_time` is reached.
+- **Core Logic:** The class implements a primitive advisory locking mechanism using `os.open` with `O_CREAT | O_EXCL`. This ensures that only one process/thread can write to the log files at a time. If a lock file (`.lock`) exists, the manager polls at a defined interval until the lock is released or a timeout occurs.
 - **Side Effects:** 
-    - **Filesystem:** Creates directories and files within the system log path. It writes to two locations: a specific log file (e.g., `thinking_process.log`) and a shared `active_thinking_process.log`.
-    - **I/O:** Performs blocking file I/O operations during write and read cycles.
+    - **Filesystem:** Creates directories via `os.makedirs`, creates/appends to `.log` files, and creates/deletes `.lock` files.
+    - **I/O:** Performs synchronous file writes and reads.
 - **Error Handling:** 
-    - Throws `TimeoutError` if a file lock cannot be acquired within the configured duration.
-    - Throws `IOError` for unexpected filesystem failures.
-    - Internal `write` methods catch these errors and print a warning to the console to prevent the main AI execution loop from crashing due to logging failures.
+    - Throws `TimeoutError` if a file lock cannot be acquired within the `max_lock_wait_time`.
+    - Throws `IOError` for general filesystem failures during locking.
+    - Catches `TimeoutError` and `IOError` during write operations to prevent log failures from crashing the main AI execution flow, printing an error message to stdout instead.
+    - Returns an empty string in `read_thinking_log` if the file is missing or unreadable.
 
 ## 4. Dependencies & Configuration
 **Environment & Configuration:**
-- No specific environment variables are required; however, the directory structure is determined by the system's log configuration via `DirectoryManager`.
+- No direct environment variables are consumed; configuration is derived from the filesystem and initialized via class arguments.
 
 **Module Dependencies:**
 - **Standard/External:** `os`, `time`, `errno`, `datetime`.

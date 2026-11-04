@@ -1,31 +1,32 @@
 ## 1. Overview & Purpose
 | Component | Source File |
 | :--- | :--- |
-| **sessions router** | [src/ai/modules/server/routers/sessions.py](/AgentDocs/ai/modules/server/routers/sessions.md) |
+| **Session Router** | [src/ai/modules/server/routers/sessions.py](/src/ai/modules/server/routers/sessions.py) |
 
-This component provides a FastAPI router responsible for managing the lifecycle and retrieval of saved AI sessions. It exposes a RESTful API that allows clients to list available sessions, retrieve specific session contents, update session data (either full content or just the title), and delete session files.
+This component provides a FastAPI router that exposes RESTful endpoints for managing AI interaction sessions. It acts as the interface between external clients and the underlying session persistence logic, allowing for the listing, retrieval, updating, and deletion of session data.
 
-As a controller within the server module, it acts as the interface between external HTTP requests and the internal session management logic. It relies heavily on the `session_manager` attached to the FastAPI application state to perform actual filesystem or database operations, ensuring a separation of concerns between API routing and data persistence.
+The router serves as a controller within the server module architecture. It relies on the `session_manager` attached to the FastAPI application state to perform all disk or database operations. By abstracting these operations behind standard HTTP methods (GET, PUT, DELETE), it enables remote management of conversation histories and session states.
 
 ## 2. Public API & Interfaces
 
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| `get_sessions` | Function | `GET /api/v1/sessions`. Retrieves a list of sessions, optionally filtered by a `session_folder` path. |
-| `get_session_content` | Function | `GET /api/v1/sessions/{session_path:path}`. Returns the full content of a session located at the specified path. |
-| `update_session_content` | Function | `PUT /api/v1/sessions/{session_path:path}`. Overwrites the content of an existing session using the `UpdateSessionRequest` payload. |
-| `update_session_title` | Function | `PUT /api/v1/sessions/{session_path:path}/title`. Updates only the title metadata of a session using the `UpdateSessionRequest` payload. |
-| `delete_session` | Function | `DELETE /api/v1/sessions/{session_path:path}`. Permanently removes the session file at the specified path. |
+| `get_sessions` | Function | `GET /api/v1/sessions`. Retrieves a list of available sessions, optionally filtered by a sub-folder path. |
+| `get_session_content` | Function | `GET /api/v1/sessions/{session_path:path}`. Retrieves the full content of a specific session file via its path. |
+| `update_session_content` | Function | `PUT /api/v1/sessions/{session_path:path}`. Overwrites the entire content of a session using the provided `UpdateSessionRequest` payload. |
+| `update_session_title` | Function | `PUT /api/v1/sessions/{session_path:path}/title`. Updates only the title metadata of a session. |
+| `delete_session` | Function | `DELETE /api/v1/sessions/{session_path:path}`. Permanently removes a session file from the system. |
 
 ## 3. Implementation Details & Side Effects
-- **Core Logic:** The router functions as a thin wrapper around the `session_manager`. It extracts the `session_manager` from `request.app.state`, validates the presence of the manager, and maps service-layer exceptions (like `SessionNotFoundError` or `SessionInvalidPathError`) to appropriate HTTP status codes (404, 400, or 500).
+- **Core Logic:** The router delegates all business logic to `request.app.state.session_manager`. It extracts the manager from the application state, validates the presence of required payload fields (like `session_content` or `session_title`), and maps service-layer exceptions to appropriate HTTP status codes.
 - **Side Effects:** 
-    - **Filesystem Interaction:** Through the `session_manager`, this router triggers reads, writes, and deletions of session files on the host system.
-    - **State Access:** Reads from the FastAPI `app.state` to access the shared `session_manager` instance.
+    - **Filesystem/Persistence:** The `update_session_content`, `update_session_title`, and `delete_session` endpoints trigger write or delete operations via the session manager.
+    - **Network:** Responds to HTTP requests and returns JSON payloads.
 - **Error Handling:** 
-    - `404 Not Found`: Raised when a requested session path does not exist.
-    - `400 Bad Request`: Raised when a provided path is invalid or required payload fields (like `session_content` or `session_title`) are missing.
-    - `500 Internal Server Error`: Raised if the `session_manager` is unconfigured or if an unhandled exception occurs during I/O operations.
+    - `404 Not Found`: Raised when a requested `session_path` does not exist.
+    - `400 Bad Request`: Raised when the provided path is invalid or required payload fields are missing.
+    - `500 Internal Server Error`: Raised if the `session_manager` is unconfigured or if an unexpected exception occurs during processing.
+    - Maps `SessionNotFoundError` and `SessionInvalidPathError` from the service layer to specific HTTP responses.
 
 ## 4. Dependencies & Configuration
 **Environment & Configuration:**

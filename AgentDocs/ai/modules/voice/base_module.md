@@ -1,32 +1,34 @@
 ## 1. Overview & Purpose
 | Component | Source File |
 | :--- | :--- |
-| **BaseVoiceModule** | [src/ai/modules/voice/base_module.py](/AgentDocs/ai/modules/voice/base_module.md) |
+| **BaseVoiceModule** | [src/ai/modules/voice/base_module.py](/src/ai/modules/voice/base_module.py) |
 
-The `BaseVoiceModule` serves as the core orchestrator for the text-to-speech (TTS) and audio playback pipeline. It provides a standardized framework for managing asynchronous audio generation and hardware-level playback, ensuring that audio streams are processed without clipping or synchronization issues.
+The `BaseVoiceModule` is an abstract base class that serves as the core orchestrator for text-to-speech (TTS) generation and audio playback. It is designed to manage the complexities of asynchronous audio processing, including threading, hardware initialization, and buffer management, to ensure smooth, uninterrupted speech output.
 
-This component acts as an abstract foundation within the voice module subsystem. It is responsible for managing high-level concerns such as thread orchestration (generation vs. playback), hardware initialization via PyAudio, volume normalization, and buffer management. Subclasses are expected to implement the specific inference logic required to convert text into raw audio waveforms.
+This component acts as a foundational layer within the voice module subsystem. It provides a standardized pipeline where text is queued, converted to audio waveforms via an abstract inference method, and subsequently played through audio hardware. By handling low-level concerns like sample rate resampling and volume scaling, it allows specific TTS implementations to focus solely on model inference.
 
 ## 2. Public API & Interfaces
 
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| `BaseVoiceModule(sample_rate, device_index, volume)` | Class | Abstract base class for voice modules. Initializes generation and playback threads. |
-| `process_token(text: str)` | Method | Adds a string of text to the internal processing queue for subsequent TTS generation. |
-| `abort()` | Method | Immediately clears all text and audio queues and signals worker threads to stop current tasks. |
-| `collect_audio()` | Method | A blocking call that waits for all queued text to be generated and for the hardware buffer to finish playing. |
+| `BaseVoiceModule(sample_rate=24000, device_index=None, volume=1.0)` | Class | Abstract base class for voice modules. Initializes generation and playback threads. |
+| `process_token(text: str)` | Method | Adds a string of text to the internal `_text_queue` for asynchronous TTS processing. |
+| `abort()` | Method | Immediately stops all ongoing generation and playback by clearing queues and signaling worker threads. |
+| `collect_audio()` | Method | A blocking call that waits for all queued text to be generated and for the hardware buffer to fully drain. |
 | `shutdown()` | Method | Gracefully terminates worker threads and releases all PyAudio hardware resources. |
 
 ## 3. Implementation Details & Side Effects
-- **Core Logic:** The module utilizes two dedicated daemon threads: a `_generation_loop` that consumes text from a queue and executes `_run_inference`, and a `_playback_loop` that consumes resulting audio chunks, performs linear interpolation resampling if the hardware rate differs from the target rate, applies volume scaling, and writes to the audio stream.
+- **Core Logic:** The module operates using two dedicated daemon threads:
+    - **Generation Loop:** Consumes text from `_text_queue`, executes the subclass-specific `_run_inference` method, and pushes the resulting `numpy` arrays into `_audio_queue`.
+    - **Playback Loop:** Consumes audio chunks from `_audio_queue`, performs linear interpolation resampling if the hardware `active_sample_rate` differs from the source `sample_rate`, applies volume scaling, and writes the raw bytes to the PyAudio stream.
 - **Side Effects:** 
-    - **Hardware Interaction:** Directly initializes and controls audio output hardware via `pyaudio`.
-    - **System I/O:** Temporarily redirects `stderr` to `/dev/null` using low-level file descriptor manipulation (`os.dup2`) to suppress driver-level noise during hardware initialization.
-    - **Threading:** Spawns multiple background threads that persist until `shutdown()` is called.
+    - **Hardware Interaction:** Directly initializes and controls audio output devices via `pyaudio`.
+    - **Standard Error Redirection:** Temporarily redirects `stderr` to `/dev/null` during hardware initialization to suppress driver-level noise (ALSA/JACK/PortAudio).
+    - **Logging:** Utilizes `ai.functions` for system logging.
 - **Error Handling:** 
-    - Includes a fallback mechanism in `_init_audio_hardware` that iterates through common sample rates (target, 44100, 48000) if the primary rate fails.
-    - If no compatible sample rate is found, it logs a critical error via `func.log`.
-    - Uses a `_silence_stderr` context manager to prevent system-level audio driver warnings from polluting the standard error stream.
+    - If no compatible sample rate (tested against the requested rate, 44100, and 48000) is found during hardware initialization, it logs a critical error via `func.log`.
+    - Uses a `_silence_stderr` context manager to prevent driver warnings from polluting the console.
+    - Includes a "tail" wait in `collect_audio` (2 seconds) to prevent audio clipping caused by hardware buffer latency.
 
 ## 4. Dependencies & Configuration
 **Environment & Configuration:**

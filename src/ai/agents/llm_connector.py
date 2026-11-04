@@ -74,18 +74,10 @@ class LLMConnector:
             return {"status": "FAILED", "error": f"Prompt error: {e}"}
 
         if agent_config:
-            allowed_tools = agent_config.get("tools", [])
-            tool_descriptions = agent_config.get("tool_descriptions", "")
-            allowed_targets = agent_config.get("allowed_targets", ["STOP"])
-            
-            injection = [
-                "\n\n--- DYNAMIC CONSTRAINTS ---",
-                f"AVAILABLE TOOLS:\n{tool_descriptions}" if allowed_tools else "AVAILABLE TOOLS: None.",
-                f"ALLOWED AGENT TARGETS: {', '.join(allowed_targets)}",
-
-            ]
-            system_content += "\n".join(injection) 
+            system_content = system_content.replace("{{TOOLS}}", self.load_tools_descriptions(agent_config))
             self.llm.system_prompt = system_content
+
+        self.llm.system_prompt = self.load_system_prompt_agent_output_rules(self.llm.system_prompt)
 
 
         messages = [
@@ -107,6 +99,30 @@ class LLMConnector:
                 func.out(raw_Content)
         return parsed
 
+    def load_tools_descriptions(self, agent_config):
+        allowed_tools = agent_config.get("tools", [])
+        tool_descriptions = agent_config.get("tool_descriptions", "")
+        allowed_targets = agent_config.get("allowed_targets", ["STOP"])
+            
+        injection = [
+                "\n\n--- DYNAMIC CONSTRAINTS ---",
+                f"AVAILABLE TOOLS:\n{tool_descriptions}" if allowed_tools else "AVAILABLE TOOLS: None.",
+                f"ALLOWED AGENT TARGETS: {', '.join(allowed_targets)}",
+            ]
+        return "\n".join(injection)
+    
+    def load_system_prompt_agent_output_rules(self, system_content):
+        directory_manager = DirectoryManager()
+        agent_output_rules_path = os.path.join(directory_manager.get_system_dir(), "inject", "agent-out.md")
+        if os.path.exists(agent_output_rules_path):
+            with open(agent_output_rules_path, "r", encoding="utf-8") as f:
+                agent_output_rules = f.read()
+            return system_content.replace("{{AGENT_OUTPUT_RULES}}", agent_output_rules)
+        
+        func.debug("Agent output rules file not found. Proceeding without injecting rules.")
+        return system_content.replace("{{AGENT_OUTPUT_RULES}}", "")
+
+    
     def send_raw_request(self, payload: Dict[str, Any], system_prompt: str = "") -> str:
         """
         Bypasses structured parsing for raw code/text generation.

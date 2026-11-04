@@ -1,50 +1,50 @@
 ## 1. Overview & Purpose
 | Component | Source File |
 | :--- | :--- |
-| **VectorMemory** | [/src/ai/modules/vector_memory/vector_memory.py](/AgentDocs/ai/modules/vector_memory/vector_memory.md) |
+| **VectorMemory** | [src/ai/modules/vector_memory/vector_memory.py](/src/ai/modules/vector_memory/vector_memory.py) |
 
-The `VectorMemory` component provides a long-term memory system for AI agents by utilizing vector embeddings and a vector database. It is responsible for transforming raw text into high-dimensional vectors, storing them with rich metadata, and performing intelligent retrieval based on a weighted scoring mechanism that considers relevance, importance, and recency.
+The `VectorMemory` component provides a long-term memory system for the agent, utilizing vector embeddings and a vector database to store, retrieve, and synthesize information. It solves the problem of information decay and context window limitations by allowing the agent to persist observations and reflections, then retrieve them based on semantic relevance, importance, and recency.
 
-This component serves as a core cognitive layer within the application architecture. It enables the agent to move beyond short-term context windows by providing a persistent "knowledge base" of past interactions and observations. It integrates with the LLM layer to perform "reflection"a process where recent memories are synthesized into high-level, actionable insights that are then re-archived as permanent knowledge.
+This component acts as a core cognitive service within the application architecture. It integrates with [BaseModel](/AgentDocs/ai/core/llms/base_llm.md) for semantic reasoning (rating importance and synthesizing insights) and utilizes [MemoryTools](/AgentDocs/ai/modules/vector_memory/memory_tools.md) to expose memory management capabilities to the agent.
 
 ## 2. Public API & Interfaces
 
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| `VectorMemory` | Class | The primary controller for the memory lifecycle. Manages embedding, storage, retrieval, and reflection. |
-| `VectorMemory.__init__(...)` | Method | Initializes the system with a `session_id`, optional `llm`, and weights for scoring (`recency`, `importance`, `relevance`). |
-| `VectorMemory.add_memory(content, source, memory_type)` | Method | Processes, embeds, and stores a new memory in the vector database. |
-| `VectorMemory.retrieve_memories(query, top_k)` | Method | Performs a similarity search and returns a ranked list of memory contents based on weighted scores. |
-| `VectorMemory.trigger_reflection(lookback_k)` | Method | Synthesizes recent memories into high-level insights using the LLM and stores them as new 'reflection' memories. |
-| `EmbeddingProvider` | Abstract Class | Interface for text-to-vector conversion. |
+| `EmbeddingProvider` | Abstract Class | Interface for generating vector embeddings from text. |
 | `LanguageModelProvider` | Abstract Class | Interface for LLM-based tasks like importance rating and synthesis. |
-| `VectorDBProvider` | Abstract Class | Interface for vector database operations (upsert/query). |
+| `VectorDBProvider` | Abstract Class | Interface for interacting with a Vector Database (upsert/query). |
 | `SentenceTransformerEmbeddingProvider` | Class | Implementation of `EmbeddingProvider` using `sentence-transformers`. |
 | `LLMProvider` | Class | Implementation of `LanguageModelProvider` using a `BaseModel`. |
-| `ChromaDBProvider` | Class | Implementation of `VectorDBProvider` using `ChromaDB`. |
+| `ChromaDBProvider` | Class | Implementation of `VectorDBProvider` using `chromadb`. |
+| `VectorMemory` | Class | The primary controller managing the memory lifecycle. |
+| `VectorMemory.add_memory()` | Method | Embeds and stores content with metadata (source, type, importance). |
+| `VectorMemory.retrieve_memories()` | Method | Performs a weighted search (recency, importance, relevance) to return ranked memories. |
+| `VectorMemory.trigger_reflection()` | Method | Synthesizes recent memories into high-level insights via the LLM. |
 
 ## 3. Implementation Details & Side Effects
 - **Core Logic:** 
-    - **Scoring Algorithm:** Retrieval uses a multi-factor ranking system: `final_score = (W_r * recency) + (W_i * importance) + (W_v * relevance)`. Recency is calculated using an exponential decay model based on the time elapsed since the memory was last accessed.
-    - **Reflection Loop:** The `trigger_reflection` method pulls a broad window of recent memories, sends them to the LLM with a synthesis prompt, and iterates through the resulting bullet points to save them as new memories of type `reflection`.
-    - **Hashing:** Memory IDs are generated using SHA-256 hashes of the content to ensure uniqueness and idempotency.
-- **Side Effects:**
-    - **Filesystem:** Writes persistent vector data to the specified `db_path` via ChromaDB. It also writes LLM interaction logs to `/logs/memory_output_active.md`.
-    - **Network/Process:** Executes LLM calls via the `ask` function, which may involve external API calls or local model inference.
-- **Error Handling:**
-    - If `sentence-transformers` or `chromadb` are missing, an `ImportError` is raised during initialization.
+    - **Retrieval Scoring:** Uses a weighted sum algorithm: `(recency_weight * recency) + (importance_weight * importance) + (relevance_weight * relevance)`. Recency is calculated using an exponential decay model based on the `last_accessed_at` timestamp.
+    - **Reflection:** Pulls a large slice of recent memories and uses a specialized LLM prompt to extract new facts and preferences, which are then re-inserted into the database as `reflection` type memories.
+    - **Embedding:** Uses `SentenceTransformer` to convert text into high-dimensional vectors for semantic search.
+- **Side Effects:** 
+    - **Filesystem:** Writes persistent vector data to the specified `db_path` via ChromaDB.
+    - **Filesystem:** Writes LLM execution logs to `{root_directory}/logs/memory_output_active.md`.
+    - **Network/LLM:** Makes calls to the underlying LLM provider via [ask](/AgentDocs/ai/direct.md).
+- **Error Handling:** 
+    - If `sentence-transformers` or `chromadb` are missing, an `ImportError` is raised or logged.
     - LLM importance rating failures default to a score of `5`.
-    - LLM execution failures are caught, logged via `func.error`, and return empty strings to prevent system crashes.
+    - LLM execution failures are caught, logged via `func.error`, and return an empty string.
 
 ## 4. Dependencies & Configuration
 **Environment & Configuration:**
-- No specific environment variables are explicitly required by this module, though the `db_path` and `session_id` are passed during instantiation.
+- No specific environment variables are required, though `db_path` is configurable during initialization.
 
 **Module Dependencies:**
 - **Standard/External:** `os`, `time`, `re`, `hashlib`, `typing`, `abc`, `sentence-transformers`, `chromadb`.
-- **Internal:**
-    - [/ai/functions](/AgentDocs/ai/functions.md)
-    - [/ai/chat/chat.md](/AgentDocs/ai/chat/chat.md)
-    - [/ai/core/llms/base_llm.md](/AgentDocs/ai/core/llms/base_llm.md)
-    - [/ai/direct.md](/AgentDocs/ai/direct.md)
-    - [/ai/modules/vector_memory/memory_tools.md](/AgentDocs/ai/modules/vector_memory/memory_tools.md)
+- **Internal:** 
+    - [ai.functions](/AgentDocs/ai/functions.md)
+    - [ai.chat.chat.ChatRoles](/AgentDocs/ai/chat/chat.md)
+    - [ai.core.llms.base_llm.BaseModel](/AgentDocs/ai/core/llms/base_llm.md)
+    - [ai.direct.ask](/AgentDocs/ai/direct.md)
+    - [ai.modules.vector_memory.memory_tools.MemoryTools](/AgentDocs/ai/modules/vector_memory/memory_tools.md)

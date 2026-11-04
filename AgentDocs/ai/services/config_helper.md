@@ -1,33 +1,34 @@
 ## 1. Overview & Purpose
 | Component | Source File |
 | :--- | :--- |
-| **CliConfig** | [src/ai/services/config_helper.py](/AgentDocs/ai/services/config_helper.md) |
+| **CliConfig** | [src/ai/services/config_helper.py](/src/ai/services/config_helper.py) |
 
-The `CliConfig` component provides a mechanism to bridge command-line interface (CLI) arguments with the application's central configuration system. It is specifically designed to parse `argparse.Namespace` objects and apply those overrides to a `ProgramConfig` instance, ensuring that user-provided flags take precedence over default settings.
+The `CliConfig` component is responsible for bridging command-line interface (CLI) arguments with the application's central configuration system. It provides a mechanism to override default program settings using values parsed from `argparse.Namespace` objects, allowing users to dynamically modify the runtime behavior of the AI system without altering configuration files.
 
-This component acts as a controller within the configuration lifecycle, sitting between the CLI entry point and the core program settings. It facilitates dynamic runtime adjustments for critical parameters such as model selection, system prompt paths, and logging verbosity, which are essential for controlling the behavior of the AI agent via the terminal.
+This component acts as a controller within the configuration management layer. It intercepts user-provided argumentssuch as model selection, system prompt paths, and logging verbosityand applies them to a [ProgramConfig](/AgentDocs/ai/program.md) instance. It ensures that CLI overrides take precedence over standard settings, facilitating flexible execution via the terminal.
 
 ## 2. Public API & Interfaces
 
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| `CliConfig.apply_cli_args_to_config(config, args)` | Static Method | Takes a `ProgramConfig` instance and an optional `argparse.Namespace`. It mutates the `config` object by setting values based on the provided arguments (e.g., `model`, `system`, `system_file`, `print_log`, `print_debug`, `no_out`). |
+| `CliConfig.apply_cli_args_to_config(config, args)` | Static Method | Takes a `ProgramConfig` instance and an optional `argparse.Namespace`. It iterates through available arguments (model, system, system_file, print_log, print_debug, no_out) and updates the `config` object accordingly. |
 
 ## 3. Implementation Details & Side Effects
-- **Core Logic:** The method iterates through a predefined set of expected CLI arguments. For complex arguments like `--system`, it attempts to resolve a file path by combining the configured system templates directory with the provided name. For boolean-like flags (e.g., `--no_out`), it performs logical inversion to map the CLI intent to the internal `ProgramSetting` state.
+- **Core Logic:** The method `apply_cli_args_to_config` performs conditional checks on the `args` namespace. For filesystem-related arguments like `--system` or `--system-file`, it validates the existence of the file using `os.path.exists` before updating the configuration. It also performs boolean inversion for the `no_out` argument to map it to the `PRINT_OUTPUT` setting.
 - **Side Effects:** 
-    - **State Mutation:** Directly modifies the provided `ProgramConfig` instance.
-    - **Global State Mutation:** Updates `func.LOCK_LOG` and `func.LOCK_DEBUG` within the `ai.functions` module to synchronize logging behavior with the new configuration.
-    - **Filesystem Access:** Uses `os.path.exists` to validate the existence of system prompt files before applying overrides.
-- **Error Handling:** Rather than raising exceptions for missing files, the component logs a warning via `func.log` and ignores the invalid CLI override, allowing the program to proceed with default settings.
+    - **Filesystem Access:** Reads the filesystem to verify the existence of system prompt files.
+    - **State Mutation:** Directly mutates the provided `ProgramConfig` instance.
+    - **Global State Mutation:** Updates global flags `func.LOCK_LOG` and `func.LOCK_DEBUG` within the [ai.functions](/AgentDocs/ai/functions.md) module based on the resulting configuration.
+    - **Logging:** Triggers debug and warning logs via [ai.functions](/AgentDocs/ai/functions.md).
+- **Error Handling:** Instead of raising exceptions for missing files (e.g., when a user provides an invalid `--system` path), the component logs a warning using `func.log` and ignores the override, allowing the program to continue with default settings.
 
 ## 4. Dependencies & Configuration
 **Environment & Configuration:**
-- No environment variables are directly accessed by this component; it relies on the state of the passed `ProgramConfig`.
+- No environment variables are directly accessed by this component; it relies on the provided `ProgramConfig` and `argparse.Namespace`.
 
 **Module Dependencies:**
 - **Standard/External:** `os`, `argparse`, `typing`.
-- **Internal:** 
-    - [ai.functions](/AgentDocs/ai/functions.md) (Used for logging, debugging, and global lock management).
-    - [ai.program.ProgramConfig](/AgentDocs/ai/program.md) (The target object for configuration updates).
-    - [ai.program.ProgramSetting](/AgentDocs/ai/program.md) (Enumeration of keys used for configuration setting).
+- **Internal:**
+    - [ai.functions](/AgentDocs/ai/functions.md)  Used for debugging, logging, and setting global lock flags.
+    - [ai.program.ProgramConfig](/AgentDocs/ai/program.md)  The target object for configuration updates.
+    - [ai.program.ProgramSetting](/AgentDocs/ai/program.md)  The enumeration used to identify specific configuration keys.

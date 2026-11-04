@@ -1,31 +1,30 @@
 ## 1. Overview & Purpose
 | Component | Source File |
 | :--- | :--- |
-| **FastAPI Application Factory** | [src/ai/modules/server/app.py](/AgentDocs/ai/modules/server/app.md) |
+| **JARVIS Neural Hub Server** | [src/ai/modules/server/app.py](/src/ai/modules/server/app.py) |
 
-This component serves as the central orchestration point for the JARVIS Neural Hub web server. It is responsible for initializing the FastAPI application instance, configuring middleware, mounting static frontend assets, and wiring core business logic services into the application state.
+The `app.py` module serves as the central orchestration point for the JARVIS Neural Hub's FastAPI web server. Its primary responsibility is to initialize the web application, wire together essential backend servicessuch as session management, prompt management, and chat servicesand expose them via RESTful API endpoints.
 
-The module acts as the primary entry point for the server-side API, providing endpoints for chat completions, health monitoring, and session/prompt management. It integrates several critical services, including the [ChatService](/AgentDocs/ai/modules/server/services/chat.md), [SessionManager](/AgentDocs/ai/modules/server/services/session_manager.md), and [PromptManager](/AgentDocs/ai/modules/server/services/prompt_manager.md), ensuring they are available to the request handlers via `app.state`.
+Within the broader architecture, this component acts as the primary interface between the internal AI logic and external clients (such as web frontends or mobile applications). It manages the lifecycle of the API, configures middleware for CORS and MIME type handling, and mounts static assets to serve the frontend application.
 
 ## 2. Public API & Interfaces
 
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| `create_app(brain_hub: BrainHub, config: Dict[str, Any])` | Function | Initializes and returns a fully configured `FastAPI` instance. It wires `BrainHub`, `SessionManager`, `PromptManager`, and `ChatService` into the app state and mounts routers and static files. |
+| `create_app(brain_hub: BrainHub, config: Dict[str, Any])` | Function | Initializes, configures, and returns a `FastAPI` instance with all necessary managers and services injected into `app.state`. |
 
 ## 3. Implementation Details & Side Effects
-- **Core Logic:** The function `create_app` follows a dependency injection pattern where `BrainHub` and a configuration dictionary are passed in to initialize the server's internal state. It defines two primary API routes: `/api/v1/chat/completions` (and `/api/v1/chat`) for handling AI interactions, and `/api/health` for system status. It also dynamically mounts a frontend directory if it exists on the filesystem.
+- **Core Logic:** The `create_app` function performs dependency injection by instantiating `SessionManager`, `PromptManager`, and `ChatService`. These instances are attached to `app.state` to ensure they are accessible throughout the application lifecycle. It also integrates external routers for specific domains (sessions and prompts) and sets up a static file mount for the frontend.
 - **Side Effects:** 
-    - **Filesystem:** Reads from the filesystem to locate session roots, prompt roots, and frontend static files.
-    - **Network:** Configures CORS middleware to allow cross-origin requests from any origin (`*`).
-    - **Logging:** Utilizes `ai.functions` to log initialization progress and debug incoming chat requests.
+    - **Filesystem:** Accesses and reads from the filesystem to initialize session and prompt directories based on the root directory provided by `ai.functions`.
+    - **Network:** Starts a web server (via FastAPI) to listen for incoming HTTP requests.
+    - **Logging:** Utilizes `ai.functions` to log initialization sequences and debug information.
 - **Error Handling:** 
-    - Throws an `HTTPException` (500) if a request is made to the chat endpoint but the `ChatService` has not been properly initialized in the application state.
-    - Relies on the [MIMETypeFixerMiddleware](/AgentDocs/ai/modules/server/middleware.md) to handle potential header issues during static file serving.
+    - Throws an `HTTPException` (500) if a request is made to the chat endpoints but the `ChatService` has not been correctly initialized in the application state.
 
 ## 4. Dependencies & Configuration
 **Environment & Configuration:**
-- `config`  A dictionary passed to `create_app` containing global configuration settings required by the [ChatService](/AgentDocs/ai/modules/server/services/chat.md).
+- `config` (Dict)  A dictionary passed to `create_app` containing global configuration settings required by the `ChatService`.
 
 **Module Dependencies:**
 - **Standard/External:** `pathlib`, `json`, `fastapi`, `typing`.

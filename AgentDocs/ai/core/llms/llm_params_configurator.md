@@ -1,25 +1,25 @@
 ## 1. Overview & Purpose
 | Component | Source File |
 | :--- | :--- |
-| **LLMParamsConfigurator** | [src/ai/core/llms/llm_params_configurator.py](/AgentDocs/ai/core/llms/llm_params_configurator.md) |
+| **LLMParamsConfigurator** | [src/ai/core/llms/llm_params_configurator.py](/src/ai/core/llms/llm_params_configurator.py) |
 
-The `LLMParamsConfigurator` is a utility class designed to standardize and transform Large Language Model (LLM) generation parameters across different backend ecosystems. It acts as a translation layer that ensures user-provided configuration settings are correctly mapped to the specific naming conventions and requirements of various model loaders.
+The `LLMParamsConfigurator` class is designed to standardize and transform Large Language Model (LLM) generation parameters across different model ecosystems. It acts as a translation layer that accepts a unified set of parameter keys and maps them to the specific naming conventions required by various backend libraries.
 
-This component serves as a critical bridge within the LLM orchestration layer. It is primarily used to prepare parameter dictionaries for specialized model implementations, such as [huggingface_model.py](/AgentDocs/ai/core/llms/huggingface_model.md) or [gguf_model.py](/AgentDocs/ai/core/llms/gguf_model.md), ensuring that high-level user intents (like "max tokens") are converted into library-specific arguments (like "max_new_tokens" for Hugging Face).
+This component serves as a utility within the LLM orchestration layer. It ensures that user-provided configurations are compatible with specific model types, such as Hugging Face Transformers or GGUF-based loaders (e.g., llama.cpp), preventing runtime errors caused by unsupported parameter names in different model implementations.
 
 ## 2. Public API & Interfaces
 
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| `LLMParamsConfigurator` | Class | Manages available LLM properties and provides mapping logic for different model types. |
-| `prepare_llm_params(model_type: str, user_params: dict = {})` | Method | Takes a `model_type` ('huggingface' or 'gguf') and a dictionary of `user_params`. Returns a new dictionary with keys mapped to the target library's conventions and invalid parameters filtered out. |
+| `LLMParamsConfigurator()` | Class | Initializes the configurator with a set of available properties and model-specific compatibility mappings. |
+| `prepare_llm_params(model_type: str, user_params: dict = {})` | Method | Maps and filters `user_params` to the target `model_type` (e.g., 'huggingface' or 'gguf'). Returns a dictionary of valid, renamed parameters. |
 
 ## 3. Implementation Details & Side Effects
-- **Core Logic:** The class maintains an internal registry of `available_properties` representing the "source of truth" for supported parameters. It uses a nested dictionary, `model_param_compatibility`, to define how these internal keys map to target library keys (e.g., mapping `stop_sequences` to `stop_strings` for Hugging Face). The `prepare_llm_params` method iterates through user input, validates keys against the available properties, and performs the translation if a mapping exists for the requested `model_type`.
-- **Side Effects:** This component performs no I/O operations. It communicates warnings to `stdout` via `print` statements when encountering unknown parameters or parameters not supported by the specific `model_type`.
+- **Core Logic:** The class maintains an internal registry of `available_properties` (the "source of truth" for valid parameters) and `model_param_compatibility` (a nested mapping of source keys to target library keys). The `prepare_llm_params` method iterates through user-provided input, validates each key against the available properties, and then performs a lookup in the compatibility map to rename the key for the target ecosystem.
+- **Side Effects:** This component performs minimal side effects, primarily issuing `print` warnings to the standard output when unknown parameters are provided or when a parameter is valid but not supported by the specific `model_type` requested.
 - **Error Handling:** 
-    - Raises `ValueError` if a `model_type` is requested that is not defined in `self.model_param_compatibility`.
-    - Silently ignores (with a warning) parameters that are not recognized in the core `available_properties` list.
+    - Raises a `ValueError` if the requested `model_type` is not found in the `model_param_compatibility` dictionary.
+    - Gracefully handles unknown or unsupported parameters by printing a warning and omitting them from the returned dictionary rather than raising an exception.
 
 ## 4. Dependencies & Configuration
 **Environment & Configuration:**

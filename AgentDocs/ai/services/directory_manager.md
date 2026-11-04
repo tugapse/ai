@@ -1,18 +1,18 @@
 ## 1. Overview & Purpose
 | Component | Source File |
 | :--- | :--- |
-| **DirectoryManager** | [src/ai/services/directory_manager.py](/AgentDocs/ai/services/directory_manager.md) |
+| **DirectoryManager** | [src/ai/services/directory_manager.py](/src/ai/services/directory_manager.py) |
 
-The `DirectoryManager` is a service responsible for the lifecycle management of the application's filesystem structure. It ensures that all necessary directories required for system operations (such as logs, templates, and agents) and user-specific data (such as tools and pipelines) are present and accessible before the application attempts to perform I/O operations.
+The `DirectoryManager` class is responsible for the automated lifecycle management of the application's filesystem structure. It ensures that all necessary directories for system operations (logs, templates, agents, etc.) and user-specific data (tools, pipelines, models) are present and accessible before the application attempts to perform I/O operations.
 
-This component acts as a foundational utility within the service layer of the AI application. By centralizing directory creation and path resolution, it prevents runtime errors related to missing paths and provides a consistent organizational structure for both system-level assets and user-generated content.
+Within the broader application architecture, this component acts as a foundational utility service. It centralizes path resolution logic, preventing hardcoded strings throughout the codebase and providing a unified interface for retrieving and initializing the directory hierarchy required by various other services and modules.
 
 ## 2. Public API & Interfaces
 
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| `DirectoryManager()` | Class | Initializes the manager by resolving the root, system, and user directory paths via [func.get_root_directory](/AgentDocs/ai/functions.md). |
-| `get_user_directory()` | Method | Returns the string path to the main user data directory. |
+| `DirectoryManager()` | Class | Initializes the manager by resolving the root, system, and user directory paths. |
+| `get_user_directory()` | Method | Returns the path to the main user data directory. |
 | `get_user_tools_directory()` | Method | Returns the path to the user's tools directory, creating it if it does not exist. |
 | `get_system_prompts_templates_directory()` | Method | Returns the path to the system-specific prompt templates directory, creating it if necessary. |
 | `get_system_temp_directory()` | Method | Returns the path to the system temporary files directory, creating it if necessary. |
@@ -28,16 +28,16 @@ This component acts as a foundational utility within the service layer of the AI
 | `get_user_models_directory()` | Method | Returns the path to the user's models configuration directory, creating it if necessary. |
 
 ## 3. Implementation Details & Side Effects
-- **Core Logic:** The class uses `os.path.join` to construct hierarchical paths starting from a root directory provided by [func.get_root_directory](/AgentDocs/ai/functions.md). Most getter methods implement a "get-or-create" pattern: they check for the existence of a directory using `os.path.exists()` and invoke `os.makedirs()` if the directory is missing.
-- **Side Effects:** This component performs significant filesystem mutations. It creates multiple directories on the host system. Additionally, it utilizes [func.debug](/AgentDocs/ai/functions.md) to log directory creation events to the console, utilizing [Color](/AgentDocs/ai/color.md) for formatted output.
-- **Error Handling:** The class relies on standard `os` module behavior; it does not implement custom exception handling for permission errors or disk space issues, assuming the environment allows for directory creation.
+- **Core Logic:** The class uses `os.path.join` to construct a hierarchical directory structure based on a root directory retrieved via `func.get_root_directory()`. Most "get" methods implement a "get-or-create" pattern: they check for the existence of a directory using `os.path.exists()` and invoke `os.makedirs()` if the directory is missing.
+- **Side Effects:** This component performs significant filesystem mutations. It creates directories on the host system. Additionally, it triggers debug logging via `func.debug()` whenever a new directory is created or when an existing directory is detected during a creation attempt.
+- **Error Handling:** The class relies on standard `os` module behavior; it does not implement custom exception handling for filesystem permission errors or disk space issues.
 
 ## 4. Dependencies & Configuration
 **Environment & Configuration:**
 - No environment variables or external configurations required.
 
 **Module Dependencies:**
-- **Standard/External:** `os`, `shutil`.
+- **Standard/External:** `os`, `shutil`
 - **Internal:** 
-    - [Color](/AgentDocs/ai/color.md)
-    - [func](/AgentDocs/ai/functions.md)
+    - [ai.color](/AgentDocs/ai/color.md)
+    - [ai.functions](/AgentDocs/ai/functions.md)

@@ -1,22 +1,22 @@
 ## 1. Overview & Purpose
 | Component | Source File |
 | :--- | :--- |
-| **Hugging Face LLM Integration** | [src/ai/core/llms/hf/__init__.py](/AgentDocs/ai/core/llms/hf/__init__.py) |
+| **Hugging Face LLM Integration Package** | [src/ai/core/llms/hf/__init__.py](/src/ai/core/llms/hf/__init__.py) |
 
-This package serves as the primary entry point for the Hugging Face integration within the LLM core. It centralizes the exposure of specialized mixins and abstractions required to interface with Hugging Face models, ensuring a consistent API for model loading, engine execution, and pipeline management.
+This package serves as the initialization layer for the Hugging Face LLM integration within the AI core. It provides a unified entry point for accessing the specialized mixins required to operate Hugging Face models, ensuring that engine logic, model loading procedures, and pipeline abstractions are easily accessible to other system components.
 
-The module acts as a structural bridge within the broader LLM architecture, providing the necessary components to extend base LLM capabilities with Hugging Face-specific logic. It facilitates the orchestration of model lifecycle events, from initial weight loading via the loader to runtime inference through the engine and pipeline abstractions.
+The module acts as a structural gateway within the broader LLM orchestration layer. By exposing `HFEngineMixin`, `HFModelLoaderMixin`, and `HFPipelineMixin`, it allows the system to implement Hugging Face-specific capabilities while maintaining a consistent interface compatible with the general LLM architecture defined in [ai/core/llms/__init__.md](/AgentDocs/ai/core/llms/__init__.md).
 
 ## 2. Public API & Interfaces
 
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| `HFEngineMixin` | Class | Provides engine-level capabilities and execution logic specifically for Hugging Face model implementations. |
-| `HFModelLoaderMixin` | Class | Handles the complexities of downloading, caching, and loading Hugging Face model weights and configurations. |
-| `HFPipelineMixin` | Class | Offers high-level pipeline abstractions for streamlined inference tasks using Hugging Face transformers. |
+| `HFEngineMixin` | Class | Provides core execution logic and engine capabilities specific to Hugging Face models. |
+| `HFModelLoaderMixin` | Class | Provides specialized logic for downloading, caching, and loading models from the Hugging Face Hub. |
+| `HFPipelineMixin` | Class | Provides high-level pipeline abstractions for streamlined model inference and task handling. |
 
 ## 3. Implementation Details & Side Effects
-Structural definitions only; no complex logic or side effects. This file functions as a package initializer to facilitate clean imports of the core Hugging Face mixins.
+Structural definitions only; no complex logic or side effects. This file serves strictly as a package initializer to facilitate clean imports of the core Hugging Face mixins.
 
 ## 4. Dependencies & Configuration
 **Environment & Configuration:**

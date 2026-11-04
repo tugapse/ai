@@ -1,30 +1,28 @@
 ## 1. Overview & Purpose
 | Component | Source File |
 | :--- | :--- |
-| **Command Executor** | [src/ai/chat/command_executor.py](/AgentDocs/ai/chat/command_executor.md) |
+| **Command Executor** | [src/ai/chat/command_executor.py](/src/ai/chat/command_executor.py) |
 
-This module provides a framework for executing system commands, supporting both synchronous and asynchronous execution patterns. It is designed to encapsulate command logic and provide a standardized way to handle execution results and errors through callbacks.
+This module provides a structured framework for executing system commands, supporting both synchronous and asynchronous execution patterns. It is designed to abstract the complexities of command execution and provide a consistent interface for handling results and errors through a callback mechanism.
 
-The component serves as a utility within the chat orchestration layer, allowing the system to trigger external processes or system-level commands without blocking the primary execution flow. It is particularly useful for implementing agentic capabilities where the AI needs to interact with the underlying operating system.
+The component serves as a utility within the chat subsystem, likely utilized by agents or chat controllers to interact with the underlying operating system. By providing an `AsyncExecutor`, it allows the system to perform long-running shell operations without blocking the main execution thread, which is critical for maintaining responsiveness in an AI-driven chat environment.
 
 ## 2. Public API & Interfaces
 
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| `ExecutorResult` | Class | A data container representing the outcome of a command, holding either the `result` or an `error` exception. |
+| `ExecutorResult` | Class | A data container representing the outcome of a command, containing the `result` (any) and an optional `error` (Exception). |
 | `CommandExecutor` | Class | An abstract base class for command execution. Requires implementation of `run()` and `output_requested()`. |
-| `AsyncExecutor` | Class | A subclass of `CommandExecutor` that implements non-blocking execution using Python threads. |
-| `CommandExecutor.run(*args, **kargs)` | Method | Abstract method to initiate command execution. |
-| `CommandExecutor.output_requested()` | Method | Abstract method to determine if the command's output should be captured. |
-| `AsyncExecutor.run(auto_start=True, wait=False, **kargs)` | Method | Executes the command in a background thread. Optionally waits for completion. |
-| `AsyncExecutor.terminate()` | Method | Resets the internal thread reference. |
+| `AsyncExecutor` | Class | A concrete implementation of `CommandExecutor` that runs commands within a separate `threading.Thread`. |
+| `AsyncExecutor.run()` | Method | Spawns a new thread to execute the command. Supports `auto_start` and `wait` parameters. |
+| `AsyncExecutor.terminate()` | Method | Sets the internal thread reference to `None`. |
 
 ## 3. Implementation Details & Side Effects
-- **Core Logic:** The `AsyncExecutor` utilizes the `threading.Thread` class to offload command execution. It wraps the execution logic in a `try...except` block within `_run_thread`, ensuring that any exceptions encountered during the process are captured and passed to the `finished_callback` via an `ExecutorResult` object.
+- **Core Logic:** The `AsyncExecutor` utilizes the `threading.Thread` class to wrap the command execution logic. It executes the command within a `_run_thread` method, which captures any exceptions and packages both the result and potential errors into an `ExecutorResult` object. This object is then passed to a user-provided `finished_callback`.
 - **Side Effects:** 
-    - **Threading:** Spawns new system threads when `AsyncExecutor.run` is called with `auto_start=True`.
-    - **System Commands:** While the current implementation contains a `FIXME` placeholder simulating success, the intended use case involves executing arbitrary system commands which can modify the filesystem or interact with the network.
-- **Error Handling:** Errors occurring within the execution thread are caught and encapsulated in the `error` attribute of the `ExecutorResult` passed to the callback, preventing the background thread from crashing the main application silently.
+    - **Threading:** Spawns new OS-level threads when `run()` is called with `auto_start=True`.
+    - **System Execution:** While the current implementation contains a `FIXME` placeholder that simulates success, the intended design is to execute system-level commands which may interact with the filesystem or network.
+- **Error Handling:** The `_run_thread` method contains a broad `try...except` block that catches all `Exception` types during execution, ensuring that the `finished_callback` is always triggered even if the command fails.
 
 ## 4. Dependencies & Configuration
 **Environment & Configuration:**
@@ -32,6 +30,6 @@ The component serves as a utility within the chat orchestration layer, allowing 
 
 **Module Dependencies:**
 - **Standard/External:** 
-    - `threading.Thread`: Used for asynchronous execution logic.
+    - `threading.Thread`: Used for asynchronous execution.
 - **Internal:** 
-    - No internal module dependencies identified.
+    - No internal module imports detected.

@@ -26,23 +26,5 @@ You are strictly FORBIDDEN from wrapping your response in Markdown code blocks. 
 
 IMPORTANT: For the `<content>` parameter inside `<tool_parameters>`, you MUST wrap your code in <![CDATA[ ... ]]> tags to preserve formatting and prevent escaping errors.
 
-<response>
-  <thought><![CDATA[ 1. Your reasoning... 2. Deductions... 3. Next move...]]></thought>
-  <manifest>
-    <phase>[current fase]</phase>
-    <current_priority>[What I am currently focusing on]</current_priority>
-  </manifest>
-  <notes><![CDATA[Scratchpad for persisting memories between turns.]]></notes>
-  <action>
-    <tool_name>tool_name_or_null</tool_name>
-     <tool_parameters>
-      <!-- Put ONLY the parameters required by the specific tool here -->
-      <paths>["@ROOT/path/to/dir1", "@ROOT/path/to/dir2"]</paths>
-      <depth>1</depth>
-      <content><![CDATA[FULL CODE HERE]]></content>
-    </tool_parameters>
-    <!-- Target MASTER, "USER", or "STOP" -->
-    <agent_target>MASTER</agent_target>
-  </action>
-  <response_to_user>[Inform the user with High-level summary of progress].</response_to_user>
-</response>
+{{TOOLS}}
+{{AGENT_OUTPUT_RULES}}

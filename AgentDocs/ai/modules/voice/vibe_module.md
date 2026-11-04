@@ -1,33 +1,40 @@
 ## 1. Overview & Purpose
 | Component | Source File |
 | :--- | :--- |
-| **VibeVoiceModule** | [src/ai/modules/voice/vibe_module.py](/AgentDocs/ai/modules/voice/vibe_module.py) |
+| **VibeVoiceModule** | [src/ai/modules/voice/vibe_module.py](/src/ai/modules/voice/vibe_module.py) |
 
-The `VibeVoiceModule` implements the VibeVoice-Realtime-0.5B text-to-speech (TTS) model. It is designed to provide high-quality, real-time audio generation by leveraging the official Microsoft VibeVoice package, supporting both CUDA-accelerated and CPU-based inference.
+The `VibeVoiceModule` implements the VibeVoice-Realtime-0.5B text-to-speech (TTS) model. Its primary responsibility is to transform text input into high-quality, real-time audio waveforms using the official Microsoft VibeVoice streaming architecture.
 
-This module serves as a specialized implementation of the voice synthesis interface within the broader audio subsystem. It integrates into the application architecture by extending [BaseVoiceModule](/AgentDocs/ai/modules/voice/base_module.md), allowing it to be managed by the `ModuleRegistry` and utilized for converting text prompts into playable audio waveforms.
+This component functions as a specialized audio generation engine within the voice module subsystem. It integrates with the broader application by extending [BaseVoiceModule](/src/ai/modules/voice/base_module.md), handling hardware acceleration (CUDA/CPU) detection, voice profile management, and the complex orchestration of model weights and processors required for low-latency speech synthesis.
 
 ## 2. Public API & Interfaces
 
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| `VibeVoiceModule` | Class | The primary TTS implementation. Accepts `model_id`, `voice_file`, and `volume` during initialization. |
+| `VibeVoiceModule` | Class | The primary TTS engine. Initializes with a `model_id`, `voice_file`, and `volume`. |
 | `preload()` | Method | Triggers the asynchronous loading of model weights, processors, and voice embeddings. |
+| `_run_inference(text: str)` | Method | Internal core logic that converts a string into a `np.ndarray` audio waveform. |
 
 ## 3. Implementation Details & Side Effects
-- **Core Logic:** The module performs automatic hardware detection to select the optimal `torch.dtype` (float16 for CUDA, float32 for CPU). It implements a recursive casting mechanism (`_recursive_cast`) to ensure that complex nested structures, such as voice embeddings and model inputs, are correctly moved to the target device and precision. Inference is performed using a streaming processor that utilizes cached voice embeddings to maintain persona consistency.
+- **Core Logic:** 
+    - **Hardware Auto-detection:** Automatically selects between `cuda` (using `float16`) and `cpu` (using `float32`) based on availability.
+    - **Voice Profile Discovery:** Recursively searches the filesystem for an `assets/voices` directory to locate `.pt` voice embedding files. It includes a fallback mechanism to select the first available voice if the preferred file is missing.
+    - **Recursive Casting:** Implements `_recursive_cast` to ensure all tensors within complex nested structures (dicts, lists, or custom objects) are moved to the correct device and data type.
+    - **Inference Pipeline:** Uses a `VibeVoiceStreamingProcessor` to process text with cached prompts, followed by a `torch.amp.autocast` context for optimized generation via the `VibeVoiceStreamingForConditionalGenerationInference` model.
 - **Side Effects:** 
-    - **Filesystem:** Searches the local directory tree for an `assets/voices` directory to locate `.pt` voice profile files.
-    - **Hardware:** Utilizes GPU resources if CUDA is available.
-    - **Logging:** Emits diagnostic logs via [ai.functions](/AgentDocs/ai/functions.md) regarding hardware initialization, file discovery, and audio peak amplitudes.
-- **Error Handling:** If the preferred `voice_file` is not found, the module attempts to fall back to the first available `.pt` file in the detected voice directory. If no voice files are found, it logs a warning. If inference is attempted without a loaded model or valid text, it returns a zeroed NumPy array to prevent pipeline crashes.
+    - **Filesystem Access:** Reads voice embedding files (`.pt`) from the local disk.
+    - **Hardware Utilization:** Allocates significant VRAM/RAM for loading the 0.5B parameter model.
+    - **Logging:** Emits status and diagnostic logs (including peak amplitude) via the internal logging utility.
+- **Error Handling:** 
+    - If the preferred voice file is not found, it attempts to find any valid `.pt` file in the voice directory.
+    - If the model or input text is invalid/empty, it returns a zeroed NumPy array to prevent downstream pipeline crashes.
 
 ## 4. Dependencies & Configuration
 **Environment & Configuration:**
-- No environment variables or external configurations required.
+- No direct environment variables are required, though hardware capability (CUDA) dictates runtime behavior.
 
 **Module Dependencies:**
 - **Standard/External:** `os`, `torch`, `copy`, `numpy`, `pathlib`, `vibevoice` (external package).
 - **Internal:** 
-    - [BaseVoiceModule](/AgentDocs/ai/modules/voice/base_module.md)
-    - [ai.functions](/AgentDocs/ai/functions.md)
+    - [ai.modules.voice.base_module](/src/ai/modules/voice/base_module.md)
+    - [ai.functions](/src/ai/functions.md)

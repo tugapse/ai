@@ -1,17 +1,17 @@
 ## 1. Overview & Purpose
 | Component | Source File |
 | :--- | :--- |
-| **Knowledge Graph Module** | [src/ai/modules/knowledge_graph/__init__.py](/AgentDocs/ai/modules/knowledge_graph/__init__.py) |
+| **Knowledge Graph Module** | [src/ai/modules/knowledge_graph/__init__.py](/src/ai/modules/knowledge_graph/__init__.py) |
 
-This module serves as the public entry point for the Knowledge Graph subsystem. Its primary responsibility is to provide a clean, encapsulated interface for the rest of the application to interact with graph-based data structures, abstracting away the internal submodule organization.
+This component serves as the public entry point for the Knowledge Graph module. Its primary responsibility is to provide a clean, abstracted interface for the rest of the application by exposing the core `KnowledgeGraph` class, shielding consumers from the internal submodule structure.
 
-Within the broader application architecture, this component acts as a high-level API layer for the knowledge management capabilities. It facilitates the exposure of the core `KnowledgeGraph` logic, allowing other modules to perform entity extraction, relationship mapping, and structured data retrieval through a unified interface.
+Within the broader application architecture, this module acts as a specialized data management layer. It is designed to facilitate structured information storage and retrieval, likely working in conjunction with other AI services to maintain relational context and semantic connections between entities.
 
 ## 2. Public API & Interfaces
 
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| `KnowledgeGraph` | Class | The primary interface for managing and querying the knowledge graph structure. |
+| `KnowledgeGraph` | Class | The primary interface for interacting with the knowledge graph system, imported from the `.graph` submodule. |
 
 ## 3. Implementation Details & Side Effects
 Structural definitions only; no complex logic or side effects.

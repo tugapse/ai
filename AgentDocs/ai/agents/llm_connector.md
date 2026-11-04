@@ -1,42 +1,36 @@
 ## 1. Overview & Purpose
 | Component | Source File |
 | :--- | :--- |
-| **LLMConnector** | [src/ai/agents/llm_connector.py](/AgentDocs/ai/agents/llm_connector.md) |
+| **LLMConnector** | [src/ai/agents/llm_connector.py](/src/ai/agents/llm_connector.py) |
 
-The `LLMConnector` class serves as the primary communication gateway between the agentic framework and the underlying Large Language Model (LLM). It abstracts the complexities of prompt management, constraint injection, and response parsing, providing a unified interface for both structured (XML-based) and raw text interactions.
+The `LLMConnector` class serves as the primary communication interface between the agentic framework and the underlying Large Language Model (LLM). It is responsible for managing the lifecycle of a request, including loading system prompts from the filesystem, injecting dynamic constraints such as tool descriptions and agent targets, and ensuring that the model's output adheres to expected formats.
 
-This component sits within the agent layer of the architecture, acting as a bridge between high-level agent logic and the low-level LLM implementations defined in [BaseModel](/AgentDocs/ai/core/llms/base_llm.md). It ensures that agents operate within defined boundaries by dynamically injecting tool descriptions and target constraints into system prompts before execution.
+Within the broader architecture, this component acts as a bridge between high-level agent logic and the low-level LLM implementations defined in [BaseModel](/AgentDocs/ai/core/llms/base_llm.md). It facilitates both structured XML-based communication for complex agentic reasoning and raw text generation for simpler tasks, ensuring that responses are consistently parsed and handled via [ResponseParser](/AgentDocs/ai/agents/xml_response_parser.md).
 
 ## 2. Public API & Interfaces
 
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| `LLMConnector(llm_instance, parameter_mode="xml")` | Class | Initializes the connector with a specific [BaseModel](/AgentDocs/ai/core/llms/base_llm.md) instance and sets the communication mode. |
-| `get_context_limit()` | Method | Returns the maximum context window size supported by the configured LLM. |
-| `get_max_tokens()` | Method | Returns the maximum number of tokens the LLM can generate in a single response. |
-| `send_request(json_input, system_prompt_path, agent_config=None)` | Method | Sends a structured request. Loads a system prompt from a file, injects dynamic constraints from `agent_config`, and returns a parsed dictionary via [ResponseParser](/AgentDocs/ai/agents/xml_response_parser.md). |
-| `send_raw_request(payload, system_prompt="")` | Method | Executes a direct LLM call for raw text/code generation, bypassing the XML parsing logic. Returns a raw string. |
+| `LLMConnector(llm_instance: BaseModel, parameter_mode: str = "xml")` | Class | Initializes the connector with a specific LLM instance and sets the communication mode. |
+| `get_context_limit() -> int` | Method | Returns the maximum context window size supported by the configured LLM. |
+| `get_max_tokens() -> int` | Method | Returns the maximum number of tokens the LLM can generate in a single response. |
+| `send_request(json_input: Dict[str, Any], system_prompt_path: str, agent_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]` | Method | Sends a structured request to the LLM. It loads a system prompt, injects tools/targets if provided, and returns a parsed dictionary containing the LLM's response. |
+| `send_raw_request(payload: Dict[str, Any], system_prompt: str = "") -> str` | Method | Bypasses XML parsing to provide a direct instruction/context interface, returning a raw string response. |
 
 ## 3. Implementation Details & Side Effects
-- **Core Logic:** 
-    - For structured requests, the class performs "Dynamic Constraint Injection." It reads a base system prompt from the filesystem and appends tool definitions and allowed targets if an `agent_config` is provided. 
-    - It constructs a message list using [ChatRoles](/AgentDocs/ai/chat/chat.md) and delegates the actual execution to the `ask` function.
-    - Responses are passed through [ResponseParser](/AgentDocs/ai/agents/xml_response_parser.md) to extract structured data.
+- **Core Logic:** The component uses a template-based injection system. It searches for placeholders like `{{TOOLS}}` and `{{AGENT_OUTPUT_RULES}}` within system prompts to inject dynamic runtime constraints. For structured requests, it wraps the user input in `<context>` XML tags and utilizes a `ResponseParser` to validate the LLM's output.
 - **Side Effects:** 
-    - **Filesystem I/O:** Reads system prompt files from the provided path.
-    - **Filesystem I/O:** Writes LLM output to a temporary markdown file (`llm_output_active.md`) within the directory managed by [DirectoryManager](/AgentDocs/ai/services/directory_manager.md).
-    - **Filesystem I/O:** Deletes the temporary output file if an execution error occurs.
-- **Error Handling:** 
-    - Catches file reading errors during prompt loading, returning a `FAILED` status dictionary.
-    - Catches LLM execution errors via `ask`, logging the error through [func.error](/AgentDocs/ai/functions.md) and cleaning up temporary files.
-    - If XML parsing fails but raw content is available, it outputs the raw content to the console via [func.out](/AgentDocs/ai/functions.md).
+    - **Filesystem:** Reads system prompt files from disk and reads agent output rules from the directory managed by [DirectoryManager](/AgentDocs/ai/services/directory_manager.md).
+    - **Filesystem:** Writes LLM outputs to a temporary file (`llm_output_active.md`) within the system logs directory to ensure reliable data retrieval during streaming or execution.
+    - **Logging:** Uses `func.debug`, `func.error`, and `func.out` for operational telemetry.
+- **Error Handling:** If a prompt file cannot be read, the `send_request` method catches the exception and returns a dictionary with a `FAILED` status. If XML parsing fails, the component attempts to fallback to the raw content and logs an error.
 
 ## 4. Dependencies & Configuration
 **Environment & Configuration:**
-- No specific environment variables are required by this component directly, though it relies on the underlying LLM configuration.
+- No direct environment variables are accessed within this module; it relies on the filesystem structure managed by [DirectoryManager](/AgentDocs/ai/services/directory_manager.md).
 
 **Module Dependencies:**
-- **Standard/External:** `os`, `typing`
+- **Standard/External:** `os`, `typing`.
 - **Internal:**
     - [ai.functions](/AgentDocs/ai/functions.md)
     - [ai.agents.xml_response_parser](/AgentDocs/ai/agents/xml_response_parser.md)

@@ -1,28 +1,31 @@
 ## 1. Overview & Purpose
 | Component | Source File |
 | :--- | :--- |
-| **SessionManager** | [src/ai/services/session_manager.py](/AgentDocs/ai/services/session_manager.md) |
+| **SessionManager** | [src/ai/services/session_manager.py](/src/ai/services/session_manager.py) |
 
-The `SessionManager` is responsible for the lifecycle management of application sessions, specifically focusing on the generation and persistence of session-specific file paths and unique identifiers. It provides a mechanism to ensure that logs, chat histories, and "thinking" traces are organized into distinct, timestamped directories and files, preventing data collision between different execution runs.
+The `SessionManager` is responsible for managing session-specific lifecycles, specifically the generation and persistence of session identifiers, timestamps, and associated file paths. It provides a mechanism to ensure that rapid sequential calls to the system can resume a "warm" session (defined as a session started within the last 5 minutes) rather than creating redundant new sessions.
 
-This component acts as a foundational service within the application architecture, providing the necessary filesystem context for other services to record activity. It implements a "warm session" resumption logic, allowing the system to recover the same session ID if a new process is started within a 5-minute window of the previous session's last modification.
+In the broader application architecture, this component acts as a service layer utility that coordinates filesystem organization for logs and workspaces. It ensures that chat histories, LLM thinking logs, and error logs are consistently mapped to a specific temporal session ID, facilitating organized debugging and state persistence.
 
 ## 2. Public API & Interfaces
 
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| `SessionManager.initialize_session_paths(config: ProgramConfig)` | Static Method | Generates a dictionary of session-specific paths (chat logs, thinking logs, etc.) and ensures required directories exist. It attempts to resume a session if a `last_session.id` file exists and is less than 300 seconds old. |
+| `SessionManager` | Class | A utility class containing static methods for managing session state and filesystem paths. |
+| `initialize_session_paths(config: ProgramConfig)` | Static Method | Generates a session ID (either by resuming a warm session or creating a new one) and returns a dictionary containing paths for chat logs, thinking logs, and workspace directories. |
 
 ## 3. Implementation Details & Side Effects
-- **Core Logic:** The manager uses a two-stage persistence check. It first looks for a `last_session.id` file in the system logs directory. If the file's modification time is within 300 seconds (5 minutes), it reuses that timestamp as the current `session_timestamp`. Otherwise, it generates a new timestamp using the format `%Y%m%d_%H%M%S` and writes it to the pointer file. It then constructs absolute paths for chat history, thinking logs, and various error/log files.
+- **Core Logic:** The class implements a two-stage persistence check. It first looks for a `last_session.id` file within the system logs directory. If the file exists and its modification time is less than 300 seconds (5 minutes) old, the existing ID is reused. Otherwise, a new timestamp-based ID is generated using `datetime.now()`.
 - **Side Effects:** 
-    - **Filesystem:** Creates directories via `os.makedirs` and `func.ensure_directory_exists`. Writes the session ID to `last_session.id`.
-    - **Global State Mutation:** Mutates global variables within the `ai.functions` module, specifically updating `func.ACTIVE_ERROR_FILENAME`, `func.SESSION_ERROR_FILENAME`, `func.ACTIVE_LOG_FILENAME`, and `func.SESSION_LOG_FILENAME`.
-- **Error Handling:** If the chat log path is not configured, it logs a warning via `func.log` but continues execution. It relies on `DirectoryManager` to provide valid base paths.
+    - **Filesystem Writes:** Creates/updates `last_session.id` in the logs directory.
+    - **Directory Creation:** Ensures existence of `chat` and `thinking` subdirectories within the logs path.
+    - **Global State Mutation:** Updates global variables within the `ai.functions` module, specifically `ACTIVE_ERROR_FILENAME`, `SESSION_ERROR_FILENAME`, `ACTIVE_LOG_FILENAME`, and `SESSION_LOG_FILENAME`.
+    - **Filesystem Creation:** Creates a `logs` subdirectory to house session-specific error and log files.
+- **Error Handling:** If the chat log path is not successfully retrieved via the directory manager, it logs a warning using `func.log` but continues execution.
 
 ## 4. Dependencies & Configuration
 **Environment & Configuration:**
-- `ProgramConfig`  An object passed to the initialization method containing application settings used to derive directory structures.
+- `ProgramConfig`  Used to retrieve application settings, although much of the directory logic is currently delegated to the `DirectoryManager`.
 
 **Module Dependencies:**
 - **Standard/External:** `os`, `time`, `datetime`, `typing`.

@@ -1,56 +1,44 @@
 ## 1. Overview & Purpose
 | Component | Source File |
 | :--- | :--- |
-| **Chat Service Orchestrator** | [src/ai/modules/server/services/chat.py](/AgentDocs/ai/modules/server/services/chat.md) |
+| **Chat Service Orchestrator** | [src/ai/modules/server/services/chat.py](/src/ai/modules/server/services/chat.py) |
 
-The `chat.py` module provides the high-level orchestration logic required to handle chat completion requests within the server module. It acts as the primary coordinator between incoming API requests, session management, memory routing, and the Large Language Model (LLM) execution engine.
+The `chat.py` module provides the high-level orchestration logic for handling chat completion requests within the server module. It serves as the primary bridge between incoming API requests and the underlying AI capabilities, managing the lifecycle of a single chat interaction from session routing to final response delivery.
 
-Its primary responsibility is to manage the lifecycle of a single chat interaction: resolving the correct session directory, routing memory context via the `BrainHub`, resolving system prompts using the `PromptLoader`, and dispatching the request to either a streaming or synchronous response handler. It serves as the bridge between the raw HTTP layer (FastAPI) and the core AI logic.
+The component is responsible for resolving session paths, routing memory context via the [BrainHub](/ai/modules/server/brain_hub.md), resolving system prompts using the [PromptLoader](/ai/services/prompt_loader.md), and managing both streaming (SSE) and synchronous LLM responses. It ensures that user messages are correctly formatted and persisted into the session history.
 
 ## 2. Public API & Interfaces
 
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| `ChatSessionRouter` | Class | Manages directory resolution and memory routing for specific chat sessions. |
-| `ChatSessionRouter.build_session_path()` | Method | Calculates the filesystem path for a session based on `ChatCompletionRequest`. |
-| `ChatSessionRouter.route_memory()` | Method | Instructs `BrainHub` to point its memory context to a specific JSON session file. |
-| `ChatMessageFormatter` | Class | Utility for converting raw message objects into standard LLM dictionary formats. |
-| `ChatMessageFormatter.format_messages()` | Static Method | Transforms a list of messages and extracts the most recent user content. |
-| `ChatResponseHandler` | Class | Manages the execution of LLM calls, supporting both SSE streaming and standard JSON responses. |
-| `ChatResponseHandler.stream_response()` | Async Method | Returns a `StreamingResponse` yielding Server-Sent Events (SSE) for real-time text generation. |
-| `ChatResponseHandler.non_stream_response()` | Method | Executes a synchronous LLM call and returns a complete dictionary response. |
-| `ChatService` | Class | The top-level service class that orchestrates the full chat workflow. |
-| `ChatService.chat_completion()` | Async Method | The main entry point that coordinates routing, brain resolution, and response handling. |
+| `ChatSessionRouter` | Class | Manages the identification and directory routing of chat sessions based on request parameters. |
+| `ChatMessageFormatter` | Class | A utility class that transforms raw message objects into standardized dictionary formats for LLM consumption. |
+| `ChatResponseHandler` | Class | Manages the execution of LLM calls, handling both `StreamingResponse` generation and standard synchronous dictionary responses. |
+| `ChatService` | Class | The primary orchestrator that integrates routing, prompt resolution, brain configuration, and response handling. |
+| `ChatService.chat_completion()` | Method | The main entry point for processing a [ChatCompletionRequest](/ai/modules/server/schemas.md). Returns a `StreamingResponse` or a dictionary. |
 
 ## 3. Implementation Details & Side Effects
-
-### Core Logic
-- **Session Management:** Uses `ChatSessionRouter` to ensure session files are stored in the correct subdirectories. It defaults to an `ACTIVE_SESSION` from the config if no ID is provided.
-- **Brain Resolution:** The `ChatService._resolve_brain` method prepares the `BrainHub` by loading specific model configurations and resolving system prompts (which can be literal strings or references to files via `PromptLoader`).
-- **Response Generation:** 
-    - **Streaming:** Uses an internal `event_generator` to wrap LLM chunks into SSE `data: {...}` payloads. It manually accumulates the full response to save it to history upon completion.
-    - **Non-Streaming:** Collects all chunks from the LLM and returns a single JSON-compatible dictionary.
-- **History Persistence:** After every successful interaction (streaming or non-streaming), the assistant's response is added to the `BrainHub` history and persisted to the filesystem via `save_history_to_json`.
-
-### Side Effects
-- **Filesystem:** Creates directories via `os.makedirs` and writes/updates `.json` session files.
-- **Logging:** Extensive use of `func.log` and `func.debug` for operational visibility.
-- **Network:** Returns `StreamingResponse` (SSE) for streaming requests.
-
-### Error Handling
-- **LLM Availability:** Throws `fastapi.HTTPException` (503 Service Unavailable) if the `BrainHub` orchestrator has no initialized LLM.
-- **Inference Failures:** Catches exceptions during non-streaming inference and re-raises them as `fastapi.HTTPException` (500 Internal Server Error).
-- **Streaming Errors:** Catches exceptions within the generator and yields an error payload via the SSE stream.
+- **Core Logic:** 
+    - **Session Routing:** Uses `ChatSessionRouter` to construct filesystem paths for session JSON files, ensuring directories exist via `os.makedirs`.
+    - **Brain Resolution:** The `ChatService` resolves the requested model and system prompt (via `PromptLoader`), then instructs the [BrainHub](/ai/modules/server/brain_hub.md) to load the appropriate configuration.
+    - **Response Generation:** `ChatResponseHandler` checks LLM availability via the `BrainHub` orchestrator. For streaming, it uses an asynchronous generator to yield Server-Sent Events (SSE) formatted as JSON payloads.
+- **Side Effects:**
+    - **Filesystem:** Creates directories and writes/updates session JSON files to store chat history.
+    - **Logging/Debugging:** Utilizes `ai.functions` for logging and debugging output.
+    - **Network:** Generates `StreamingResponse` objects intended for HTTP/SSE transport.
+- **Error Handling:**
+    - Throws `fastapi.HTTPException` with status `503` if the LLM is not initialized.
+    - Throws `fastapi.HTTPException` with status `500` if inference or non-streaming execution fails.
+    - Catches exceptions during streaming to yield error payloads within the SSE stream.
 
 ## 4. Dependencies & Configuration
-
 **Environment & Configuration:**
-- `config["ACTIVE_SESSION"]`  Used by `ChatSessionRouter` as a fallback session ID if none is provided in the request.
+- `ACTIVE_SESSION`  (Via `config` dict) Fallback session ID if no ID is provided in the request.
 
 **Module Dependencies:**
 - **Standard/External:** `pathlib`, `os`, `json`, `typing`, `fastapi`.
 - **Internal:**
-    - [ai.functions](/AgentDocs/ai/functions.md)
-    - [ai.modules.server.brain_hub](/AgentDocs/ai/modules/server/brain_hub.md)
-    - [ai.modules.server.schemas](/AgentDocs/ai/modules/server/schemas.md)
-    - [ai.services.prompt_loader](/AgentDocs/ai/services/prompt_loader.md)
+    - [ai.functions](/ai/functions.md)
+    - [ai.modules.server.brain_hub](/ai/modules/server/brain_hub.md)
+    - [ai.modules.server.schemas](/ai/modules/server/schemas.md)
+    - [ai.services.prompt_loader](/ai/services/prompt_loader.md)

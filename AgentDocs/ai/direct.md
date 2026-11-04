@@ -1,29 +1,29 @@
 ## 1. Overview & Purpose
 | Component | Source File |
 | :--- | :--- |
-| **Direct AI Interface** | [src/ai/direct.py](/src/ai/direct.py) |
+| **Direct AI Task Handler** | [src/ai/direct.py](/src/ai/direct.py) |
 
-The `direct.py` module provides a high-level interface for executing single, direct LLM requests without the overhead of a full agentic loop. It is designed to simplify the process of querying a language model while maintaining support for advanced features like streaming, real-time UI feedback, and automated file logging.
+The `direct.py` module provides a high-level interface for executing single, direct LLM requests without the overhead of a full agentic loop. It is designed to facilitate straightforward "prompt-in, response-out" interactions while managing the complexities of streaming, UI feedback, and output persistence.
 
-This component acts as a controller within the broader application architecture, bridging the gap between raw LLM capabilities and the user interface. It orchestrates the interaction between the [BaseModel](/ai/core/llms/base_llm.md) implementation, the [UIOrchestrator](/ai/services/ui_orchestrator.md), and the [ThinkingAnimationHandler](/ai/extras/think_parser.md) to ensure a seamless and informative user experience during model inference.
+This component acts as a controller within the AI service layer. It orchestrates the interaction between a specific LLM implementation, the user interface via [UIOrchestrator](/ai/services/ui_orchestrator.md), and the system's logging and file-writing utilities. It is primarily used for tasks where a single response is required rather than iterative reasoning or tool use.
 
 ## 2. Public API & Interfaces
 
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| `ask(llm, input_message, write_to_file=False, output_filename=None, hide_think_anim=False, print_output=True, stream=True)` | Function | Executes a single LLM request. It manages the lifecycle of the request, including token sanitization, UI animation, real-time printing, and optional file persistence. |
+| `ask(llm, input_message, write_to_file=False, output_filename=None, hide_think_anim=False, print_output=True, stream=True)` | Function | Executes a single LLM request. It handles token sanitization, streaming output to the console, and optional file writing. |
 
 ## 3. Implementation Details & Side Effects
-- **Core Logic:** The function `ask` initializes the UI environment and prepares the message payload (converting a single string to a structured message if necessary). It iterates over the generator returned by `llm.chat`. Each raw token is passed through `_sanitize_token`, which uses Unicode normalization (NFKC) and regex to strip non-printable ASCII characters. The sanitized tokens are then processed by a UI handler to determine how they should be displayed or stored.
+- **Core Logic:** The module utilizes a streaming loop to consume tokens from the provided `BaseModel` instance. Each raw token is passed through `_sanitize_token`, which applies `NFKC` Unicode normalization and strips non-printable ASCII characters (excluding tabs and newlines). The sanitized content is then processed by a `handler` (retrieved from the UI orchestrator) to determine how it should be displayed to the user versus how it should be stored.
 - **Side Effects:** 
-    - **Filesystem:** Creates directories if they do not exist and writes/appends content to the specified `output_filename`. It also initializes a log file `active_thinking_process.log` via the UI orchestrator.
-    - **Console I/O:** Prints processed tokens to the standard output in real-time if `print_output` is enabled.
-    - **Network/LLM:** Initiates a network or local process request to the provided LLM instance.
-- **Error Handling:** Specifically catches `KeyboardInterrupt` to allow for graceful task abortion, logging a notification to the user via [func.log](/ai/functions.md).
+    - **Filesystem:** Creates directories if `write_to_file` is enabled and `output_filename` is provided. It writes content to the specified file using append mode. It also initializes a log file `active_thinking_process.log` via the UI orchestrator.
+    - **Console/UI:** Prints tokens to the standard output and manages "thinking" animations via the `ThinkingAnimationHandler`.
+    - **Logging:** Records execution latency (first token latency and total execution time) and task status to the system logs.
+- **Error Handling:** Specifically catches `KeyboardInterrupt` to allow for a graceful abort of the task, logging `[!] Task aborted.` before cleaning up the UI state.
 
 ## 4. Dependencies & Configuration
 **Environment & Configuration:**
-- `ProgramConfig`  Loaded via [ProgramConfig.get_current()](/ai/config.md) to configure the UI and execution environment.
+- No specific environment variables are directly accessed in this module, though it relies on `ProgramConfig` for system-wide settings.
 
 **Module Dependencies:**
 - **Standard/External:** `os`, `re`, `unicodedata`, `time`, `typing`.

@@ -1,37 +1,37 @@
 ## 1. Overview & Purpose
 | Component | Source File |
 | :--- | :--- |
-| **Base LLM Module** | [src/ai/core/llms/base_llm.py](/AgentDocs/ai/core/llms/base_llm.md) |
+| **Base LLM Framework** | [src/ai/core/llms/base_llm.py](/src/ai/core/llms/base_llm.py) |
 
-The `base_llm.py` module provides the foundational abstraction layer for all Large Language Model (LLM) implementations within the system. It defines the standardized interfaces, state management protocols, and lifecycle hooks required to integrate diverse inference backendsranging from local PyTorch/CUDA models to remote API-based servicesinto a unified execution framework.
+The `base_llm.py` module provides the foundational abstraction layer for all Large Language Model (LLM) integrations within the system. It defines the standard interface, state management protocols, and lifecycle hooks required to implement diverse inference backends, ranging from local GGUF models to remote API-based services.
 
-This component serves as the core architectural template for the LLM subsystem. It is responsible for managing conversation history, constructing system prompts with real-time environmental context, handling token usage telemetry, and implementing a sentinel-based interception mechanism for tool calls. By providing a consistent `BaseModel` interface, it enables higher-level orchestrators to interact with various models without concern for specific backend implementation details.
+Its primary responsibility is to standardize how the application interacts with models, handling complex tasks such as token usage tracking, system prompt enrichment, conversation template application, and tool call interception during streaming. By providing an abstract `BaseModel` class, it ensures that higher-level services can interact with any model implementation through a consistent API, regardless of the underlying hardware or provider.
 
 ## 2. Public API & Interfaces
 
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| `TokenCountInfo` | Class | Tracks and calculates real-time token usage metadata, including prompt counts and context window percentages. |
-| `ModelParams` | Class | Encapsulates generation configurations such as temperature, top_p, top_k, and context window constraints. |
-| `BaseModel` | Class | The abstract base class for all LLM implementations. Defines methods for chat, structured generation, and resource management. |
-| `BaseModel.chat()` | Method | Abstract method to process conversations and return textual streams or full responses. |
-| `BaseModel.generate_structured()` | Method | Abstract method to force model output to conform to a specific JSON schema. |
-| `BaseModel.unload()` | Method | Abstract method to purge model allocations from hardware (VRAM/RAM). |
-| `BaseModel.create_message()` | Static Method | Utility to construct structured message dictionaries (role/content). |
+| `TokenCountInfo` | Class | Tracks real-time token metadata, including prompt counts, context window usage, and output tokens. |
+| `ModelParams` | Class | Encapsulates generation configurations (e.g., temperature, top_p, max_new_tokens) and provides dictionary serialization. |
+| `BaseModel` | Class | The abstract base class for all LLM implementations. Defines lifecycle methods, event handling, and input preparation. |
+| `BaseModel.chat()` | Method | Abstract interface for processing conversations and returning textual responses or streams. |
+| `BaseModel.generate_structured()` | Method | Abstract interface for forcing model output to conform to a specific JSON schema. |
+| `BaseModel.unload()` | Method | Abstract interface for purging model resources from hardware (VRAM/RAM). |
+| `BaseModel.create_message()` | Static Method | Utility to construct structured message dictionaries with `role` and `content`. |
 
 ## 3. Implementation Details & Side Effects
 - **Core Logic:** 
-    - **Context Building:** The `check_system_prompt` and `_prepare_input` methods handle the transformation of raw message lists into model-ready formats, supporting both standard chat templates and legacy text-based concatenation.
-    - **Tool Interception:** The `handle_sentinel` method implements a streaming interceptor that monitors incoming text chunks for specific trigger prefixes (e.g., `, `____`, `<|`) to detect and parse agent tool calls via the `ToolRegistry`.
-    - **Hardware Management:** The `init_pytorch_cuda` and `clean_cache` methods manage the transition between CPU and GPU backends and handle memory flushing.
-- **Side Effects:** 
-    - **Memory Management:** Calls `gc.collect()` and `torch.cuda.empty_cache()` to manipulate system and VRAM availability.
-    - **Logging:** Utilizes `functions.log` to report hardware detection and system status.
-    - **Threading:** Uses `threading.Event` and background threads to manage non-blocking generation streams.
+    - **Context Management:** The `check_system_prompt` method dynamically injects system-level metadata (time, OS) and handles role-remapping if `override_system_by_user_template` is enabled.
+    - **Streaming Interception:** `handle_sentinel` implements a stateful buffer mechanism to detect specific syntax markers (e.g., `, `____` or `<|`) within streamed chunks, allowing the system to intercept and parse tool calls via the `ToolRegistry`.
+    - **Input Preparation:** `_prepare_input` utilizes tokenizer chat templates if available; otherwise, it falls back to a manual string formatting loop.
+- **Side Effects:**
+    - **Hardware Interaction:** `init_pytorch_cuda` and `clean_cache` interact with GPU drivers and VRAM via `torch`.
+    - **Memory Management:** Explicitly invokes `gc.collect()` and `torch.cuda.empty_cache()` to manage hardware resources.
+    - **Threading:** Uses `threading.Event` to signal and manage background generation threads.
 - **Error Handling:** 
-    - Raises `ValueError` if a tokenizer is accessed before being defined.
-    - Raises `NotImplementedError` in `BaseModel` for methods that must be overridden by subclasses.
-    - Raises `RuntimeError` if a subclass fails to implement the required `unload` logic.
+    - Throws `ValueError` if a tokenizer is accessed before being defined.
+    - Throws `NotImplementedError` for abstract methods in `BaseModel`.
+    - Throws `RuntimeError` if a subclass fails to implement the required `unload` method.
 
 ## 4. Dependencies & Configuration
 **Environment & Configuration:**

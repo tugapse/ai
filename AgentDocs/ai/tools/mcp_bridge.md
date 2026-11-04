@@ -3,37 +3,37 @@
 | :--- | :--- |
 | **MCPBridge** | [src/ai/tools/mcp_bridge.py](/src/ai/tools/mcp_bridge.py) |
 
-The `MCPBridge` component facilitates communication between the JARVIS agent and external Model Context Protocol (MCP) servers. It manages the lifecycle of asynchronous connections to multiple backend systems via standard I/O streams, effectively acting as a translation layer between the agent's tool-calling interface and the MCP protocol.
+The `MCPBridge` class serves as a dynamic integration layer between the JARVIS agent and external Model Context Protocol (MCP) servers. It solves the problem of heterogeneous tool interfaces by abstracting multiple specialized MCP servers into a single, unified "Gateway" tool per server. This allows the agent to interact with diverse backend systems through a standardized, flattened interface without needing to understand the underlying JSON-RPC complexities of each individual server.
 
-Instead of exposing every individual tool from an MCP server to the agent, this component implements a "Gateway" pattern. It wraps all tools from a single server into one unified, flattened function. This reduces the cognitive load on the LLM by providing a single interface per server, where the agent specifies an `action` (either `list_tools` or `execute`) to interact with the underlying capabilities.
+In the broader system architecture, this component acts as a tool provider within the `ai.tools` ecosystem. It manages the lifecycle of asynchronous connections to external processes via standard I/O, handles real-time schema discovery, and performs automatic type-casting of agent-provided arguments to ensure compatibility with the target MCP server's requirements.
 
 ## 2. Public API & Interfaces
 
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| `MCPBridge(tool_registry)` | Class | Initializes the bridge with a reference to a [tool_registry](/AgentDocs/ai/tools/tool_registry.md) to register the generated gateway tools. |
-| `load_from_config(filepath: str)` | Method | Reads a JSON configuration file containing MCP server definitions (command, args, enabled status) and initiates connections. |
+| `MCPBridge(tool_registry)` | Class | Initializes the bridge with a provided registry for tool injection. Starts a background `asyncio` event loop in a dedicated thread. |
+| `load_from_config(filepath: str)` | Method | Parses a JSON configuration file to identify, enable, and connect to multiple MCP servers defined in the `mcpServers` key. |
 | `connect_server(server_name: str, command: str, args: List[str], description: str)` | Method | Synchronously triggers the asynchronous connection process for a specific MCP server. |
 
 ## 3. Implementation Details & Side Effects
 - **Core Logic:** 
-    - **Lifecycle Management:** Uses an `AsyncExitStack` within a dedicated background `asyncio` event loop running in a daemon thread to manage long-lived `stdio_client` and `ClientSession` contexts.
-    - **Gateway Injection:** For every connected server, it generates a `gateway_wrapper` function. This function uses a custom docstring to instruct the agent on how to use the `action` and `command` parameters.
-    - **Type Casting:** When executing a tool, the bridge performs "Universal Type Casting" by inspecting the MCP server's `inputSchema`. It converts incoming string or loosely typed arguments from the agent into the specific types (integer, number, boolean, array, object) required by the MCP server.
-    - **Tool Discovery:** Provides a `list_tools` action that parses the MCP server's tool definitions into a human-readable string format optimized for LLM context windows.
+    - **Connection Management:** Uses `AsyncExitStack` to manage the lifecycles of `stdio_client` transports and `ClientSession` objects.
+    - **Gateway Abstraction:** For every connected server, it generates a `gateway_wrapper` function. This wrapper uses a "flattened" signature, teaching the LLM to pass arguments via `action` (`list_tools` or `execute`) and `command` parameters.
+    - **Type Casting:** During tool execution, the bridge performs "Universal Type Casting" by inspecting the MCP server's `inputSchema`. It converts raw input (often strings from the LLM) into `integer`, `number`, `boolean`, `array`, or `object` types as required by the schema.
+    - **Thread Bridging:** Uses `asyncio.run_coroutine_threadsafe` to bridge synchronous calls from the main application thread to the dedicated background `asyncio` loop.
 - **Side Effects:** 
-    - **Process Management:** Spawns and manages external child processes via `stdio_client`.
-    - **Network/IO:** Communicates via standard input/output streams with external processes.
-    - **Concurrency:** Starts a background thread to run a persistent `asyncio` event loop.
+    - **Process Spawning:** Executes external commands/processes defined in the configuration.
+    - **I/O Streams:** Establishes and maintains bidirectional communication via standard I/O (stdin/stdout) with child processes.
+    - **Registry Mutation:** Automatically registers new tools into the provided `tool_registry`.
 - **Error Handling:** 
-    - Captures connection failures and configuration errors, logging them via [func.log](/AgentDocs/ai/functions.md).
-    - Returns structured error dictionaries (`{"status": "FAILED", "error": "..."}`) to the agent if tool execution fails or if type mismatches occur during parameter casting.
+    - Catches configuration loading errors and connection failures, logging them via `ai.functions`.
+    - Returns structured error dictionaries (`{"status": "FAILED", "error": "..."}`) to the agent when tool execution fails or type mismatches occur, preventing the bridge from crashing the main loop.
 
 ## 4. Dependencies & Configuration
 **Environment & Configuration:**
-- Requires a JSON configuration file (path provided to `load_from_config`) containing an `mcpServers` object with `command`, `args`, and optional `enabled` or `description` keys.
+- No specific environment variables are required, but the component relies on a JSON configuration file passed to `load_from_config`. The config must follow the structure: `{"mcpServers": {"name": {"command": "...", "args": [...], "enabled": true, "description": "..."}}}`.
 
 **Module Dependencies:**
 - **Standard/External:** `asyncio`, `threading`, `json`, `os`, `contextlib`, `typing`, `mcp` (Model Context Protocol SDK).
 - **Internal:** 
-    - [ai.functions](/AgentDocs/ai/functions.md) (Logging and utility functions).
+    - [ai.functions](/AgentDocs/ai/functions.md)

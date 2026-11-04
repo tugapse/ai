@@ -1,25 +1,25 @@
 ## 1. Overview & Purpose
 | Component | Source File |
 | :--- | :--- |
-| **Events** | [src/ai/core/events.py](/AgentDocs/ai/core/events.md) |
+| **Events** | [src/ai/core/events.py](/src/ai/core/events.py) |
 
-The `Events` class provides a centralized event management system designed to facilitate decoupled communication between different parts of the AI system. It implements a basic observer pattern, allowing various components to register interest in specific named events and receive notifications when those events are triggered.
+The `Events` class provides a centralized pub/sub (publisher/subscriber) mechanism for managing asynchronous-style notifications within the AI system. It allows different parts of the application to communicate without direct coupling by registering listeners to specific event names and triggering those listeners when relevant actions occur.
 
-This component serves as a core utility within the `ai/core` layer. It is responsible for managing the lifecycle of system events, including registration, unregistration, and dispatching. It also maintains state flags such as `terminate` and `running_command` to coordinate high-level execution flow and prevent race conditions during command execution.
+This component serves as a core utility within the system architecture, facilitating decoupled communication between services and modules. It is particularly useful for managing lifecycle states, such as command execution status and system termination signals, ensuring that various observers can react to state changes in real-time.
 
 ## 2. Public API & Interfaces
 
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| `Events()` | Class | The primary event manager class. Initializes the event registry and state flags. |
-| `trigger(event_name: str, data=None)` | Method | Dispatches a named event to all registered listeners, passing the optional `data` payload to each. |
-| `add_event(event_name: str, listener)` | Method | Registers a new event name (if it doesn't exist) and appends a callback function (listener) to that event. |
-| `remove_event(event_name: str, listener)` | Method | Removes a specific callback function from the listener list of a given event. |
+| `Events` | Class | Manages event registration, listener attachment, and event triggering. |
+| `trigger(event_name: str, data=None)` | Method | Executes all registered listener functions associated with the specified `event_name`, passing the provided `data` to each. |
+| `add_event(event_name: str, listener)` | Method | Registers a new event name (if it doesn't exist) and appends a callback function (`listener`) to that event's subscriber list. |
+| `remove_event(event_name: str, listener)` | Method | Removes a specific callback function from the listener list of the specified `event_name`. |
 
 ## 3. Implementation Details & Side Effects
-- **Core Logic:** The system utilizes a dictionary (`self.events`) where keys are strings representing event names and values are lists of callable objects (listeners). When `trigger` is called, the class iterates through the list associated with the `event_name` and executes each listener with the provided `data`.
-- **Side Effects:** This component mutates the internal state of the `Events` instance. It does not interact with external I/O, the network, or the filesystem directly.
-- **Error Handling:** The implementation uses defensive checks (e.g., `if event_name in self.events`) to prevent `KeyError` exceptions during unregistration or triggering. It does not explicitly catch exceptions thrown by the listeners themselves; an exception in a listener will propagate up the call stack and potentially interrupt the triggering process.
+- **Core Logic:** The class utilizes a dictionary (`self.events`) where keys are strings representing event names and values are lists of callable objects (listeners). The `trigger` method iterates through these lists to execute callbacks. It includes internal helper methods `_register_event` and `_unregister_event` to manage the dictionary structure safely.
+- **Side Effects:** This component does not interact with external I/O, the network, or the filesystem directly. However, it facilitates side effects by executing arbitrary listener functions, which may perform any action defined by the subscriber.
+- **Error Handling:** The implementation uses defensive checks (e.g., `if event_name in self.events`) to prevent `KeyError` exceptions during unregistration or triggering. It does not implement custom exception types.
 
 ## 4. Dependencies & Configuration
 **Environment & Configuration:**

@@ -1,29 +1,30 @@
 ## 1. Overview & Purpose
 | Component | Source File |
 | :--- | :--- |
-| **CliArgs** | [src/ai/cli_args.py](/AgentDocs/ai/cli_args.md) |
+| **CliArgs** | [src/ai/cli_args.py](/src/ai/cli_args.py) |
 
-The `CliArgs` component serves as the primary entry-point orchestrator for the JARVIS command-line interface. Its fundamental responsibility is to parse user input and dispatch the application into one of three distinct operational modes: **Server Mode** (acting as a central "Brain"), **Agent Mode** (executing autonomous pipelines), or **Local/Direct Mode** (performing one-shot tasks or chat interactions).
+The `CliArgs` component serves as the primary entry point orchestrator for the JARVIS command-line interface. Its fundamental responsibility is to parse user input and dispatch the application into one of three distinct operational modes: Server (Brain), Agent (Body), or Local/Direct (Standalone).
 
-Within the broader system architecture, this module acts as a high-level controller that bridges the gap between the operating system's shell and the core application logic. It manages the initialization of complex services such as the [AgentOrchestrator](/AgentDocs/ai/agents/agent_orchestrator.md), [BrainHub](/AgentDocs/ai/modules/server/brain_hub.md), and various directory management services, ensuring that the correct environment and configuration are loaded before execution begins.
+As a high-level controller within the application architecture, it coordinates the initialization of complex subsystems based on CLI flags. This includes setting up the [AgentOrchestrator](/AgentDocs/ai/agents/agent_orchestrator.md) for autonomous tasks, initializing the [JarvisServerModule](/AgentDocs/ai/modules/server/server_module.md) for networked operations, or managing context loading for direct, one-shot interactions via [ask](/AgentDocs/ai/direct.md).
 
 ## 2. Public API & Interfaces
 
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| `parse_args(prog, args, args_parser, directory_manager)` | Method | The central dispatcher. Analyzes parsed arguments to trigger mode-specific handlers (Server, Agent, or Local) and may exit the process upon completion. |
+| `parse_args(prog, args, args_parser, directory_manager)` | Method | The main dispatcher. Analyzes parsed arguments to trigger mode-specific logic (Server, Agent, or Local) and handles system-level commands like tool creation or config generation. |
 
 ## 3. Implementation Details & Side Effects
-- **Core Logic:** The module uses a tiered dispatching strategy. It first checks for global system actions (tool creation, config generation, installation, etc.). It then attempts to identify if the user requested a persistent server. If not, it evaluates if the user wants an autonomous agent loop. Finally, it falls back to a "Direct Ask" mode which processes files, images, and text prompts for immediate LLM interaction.
+- **Core Logic:** The component uses a tiered dispatching strategy. It first evaluates global/system actions (e.g., `--create-tool`, `--install`, `--generate-config`). If no system action is triggered, it checks for `--server` mode to start the neural hub. If `--agent` is present, it initializes an autonomous pipeline. Otherwise, it defaults to a "Local Direct Mode" which aggregates context from files, folders, images, and task templates before initiating a direct prompt.
 - **Side Effects:** 
-    - **Filesystem:** Creates new Python files for tool skeletons, generates JSON configuration files, reads various input files/folders, and writes chat logs or output files.
-    - **Process Management:** Frequently uses `os._exit(0)` or `sys.exit()` to terminate the program after completing a specific CLI command. It can also trigger external subprocesses for engine installation.
-    - **Network:** In Server Mode, it initializes a network listener via the [JarvisServerModule](/AgentDocs/ai/modules/server/server_module.md).
-- **Error Handling:** The module utilizes `func.error` for user-facing error reporting and `traceback.format_exc()` within the agent loop to provide debugging context. It raises `FileNotFoundError` when requested task templates or images are missing.
+    - **Filesystem:** Creates new Python tool skeletons in the user tools directory, generates JSON model configurations, and reads/writes various task and chat files.
+    - **Process Management:** Can trigger subprocesses for engine installation and uses `os._exit(0)` to terminate the process after specific command executions.
+    - **Network:** Starts a server listener when in Server Mode.
+    - **Standard I/O:** Handles piped input from `sys.stdin`.
+- **Error Handling:** Employs `sys.exit(1)` for fatal CLI errors (e.g., invalid tool names, missing task files, or failed configuration generation) and uses `traceback` to report orchestrator failures in Agent mode.
 
 ## 4. Dependencies & Configuration
 **Environment & Configuration:**
-- No specific environment variables are explicitly parsed within this module, but it heavily relies on [ProgramConfig](/AgentDocs/ai/config.md) and [ProgramSetting](/AgentDocs/ai/config.md) to resolve paths and server parameters.
+- No specific environment variables are explicitly parsed within this module, though it heavily relies on the `ProgramConfig` loaded into the `prog` instance.
 
 **Module Dependencies:**
 - **Standard/External:** `argparse`, `os`, `sys`, `subprocess`, `pathlib`, `uuid`, `traceback`, `re`, `typing`.
@@ -32,12 +33,10 @@ Within the broader system architecture, this module acts as a high-level control
     - [BrainHub](/AgentDocs/ai/modules/server/brain_hub.md)
     - [ModelConfigManager](/AgentDocs/ai/model_config_manager.md)
     - [ProgramConfig](/AgentDocs/ai/config.md)
-    - [ProgramSetting](/AgentDocs/ai/config.md)
     - [ModelType](/AgentDocs/ai/entities/model_enums.md)
     - [ChatRoles](/AgentDocs/ai/chat/chat.md)
     - [BaseModel](/AgentDocs/ai/core/llms/base_llm.md)
     - [Color](/AgentDocs/ai/color.md)
-    - [format_text](/AgentDocs/ai/color.md)
     - [ask](/AgentDocs/ai/direct.md)
     - [AgentOrchestrator](/AgentDocs/ai/agents/agent_orchestrator.md)
     - [LLMConnector](/AgentDocs/ai/agents/llm_connector.md)

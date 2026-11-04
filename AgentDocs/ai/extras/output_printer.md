@@ -1,38 +1,38 @@
 ## 1. Overview & Purpose
 | Component | Source File |
 | :--- | :--- |
-| **OutputPrinter** | [src/ai/extras/output_printer.py](/AgentDocs/ai/extras/output_printer.md) |
+| **OutputPrinter** | [src/ai/extras/output_printer.py](/src/ai/extras/output_printer.py) |
 
-The `OutputPrinter` component is responsible for managing the real-time display of Large Language Model (LLM) output tokens to the console. It provides abstraction over how tokens are presented to the user, allowing for different streaming behaviors such as immediate token printing, line-buffered printing, or chunked printing based on token counts.
+The `OutputPrinter` class is a specialized utility designed to manage the streaming display of Large Language Model (LLM) output tokens to the console. It provides controlled buffering mechanisms to prevent fragmented or jittery text output, which is common during real-time token streaming.
 
-This component serves as a utility within the UI/presentation layer of the application. It is designed to smooth out the visual experience of streaming text, preventing "jittery" console updates by buffering content until specific logical boundaries (like newlines or token thresholds) are met. It is particularly useful when integrating with modules that require synchronized text output, such as voice modules or terminal-based UIs.
+This component acts as a presentation layer utility within the broader AI orchestration system. It is primarily used to transform raw, individual token streams into more readable formatssuch as printing only complete lines or grouping tokens into specific chunksthereby improving the user experience during live inference.
 
 ## 2. Public API & Interfaces
 
 | Entity | Type | Description |
 | :--- | :--- | :--- |
-| `OutputPrinter(print_mode: str = "token", tokens_per_print: int = 5)` | Class | Initializes the printer with a specific mode (`token`, `line`, `every_x_tokens`, or `line_or_x_tokens`) and a buffer threshold. |
-| `process_and_print(token_to_display: str) -> None` | Method | Processes a single token and immediately outputs it to the console via `func.out` if the buffering criteria are met. |
-| `flush_buffers() -> None` | Method | Forces the printing of any remaining content currently held in the internal buffers. |
-| `process_token(token_to_display: str) -> str \| None` | Method | Internal logic handler that manages buffer accumulation and returns a string only when a print threshold is reached. |
-| `flush() -> str \| None` | Method | Returns the remaining buffered content as a string (clearing buffers) to allow other modules (e.g., Voice Modules) to capture the final text stream. |
+| `OutputPrinter(print_mode: str = "token", tokens_per_print: int = 5)` | Class | Initializes the printer with a specific mode (`token`, `line`, `every_x_tokens`, or `line_or_x_tokens`) and a buffering threshold. |
+| `process_and_print(token_to_display: str) -> None` | Method | Processes a single token and immediately outputs it to the console via `func.out` if the buffering logic allows. |
+| `flush_buffers() -> None` | Method | Forcefully prints any content remaining in the internal buffers to ensure no text is lost at the end of a stream. |
+| `process_token(token_to_display: str) -> str \| None` | Method | The core logic engine that determines if a token (or group of tokens) satisfies the current `print_mode` requirements to be returned for printing. |
+| `flush() -> str \| None` | Method | Returns the remaining buffered content as a string without clearing it immediately (intended for downstream consumption like Voice Modules), while also handling buffer cleanup. |
 
 ## 3. Implementation Details & Side Effects
-- **Core Logic:** The class maintains internal state via `line_buffer`, `token_buffer`, and `buffered_token_count`. Depending on the `print_mode`, it implements different accumulation strategies:
-    - `token`: Zero buffering; returns input immediately.
-    - `line`: Accumulates text until a `\n` character is detected, then returns the accumulated lines.
-    - `every_x_tokens`: Accumulates text until `buffered_token_count` reaches `tokens_per_print`.
-    - `line_or_x_tokens`: A hybrid mode that triggers an output if either a newline is detected or the token threshold is reached.
+- **Core Logic:** The component utilizes internal string buffers (`line_buffer`, `token_buffer`) and a counter (`buffered_token_count`) to manage state. 
+    - `token` mode: Immediate pass-through.
+    - `line` mode: Buffers text until a newline character `\n` is detected, then returns all preceding lines.
+    - `every_x_tokens` mode: Buffers text until the `buffered_token_count` reaches `tokens_per_print`.
+    - `line_or_x_tokens` mode: A hybrid approach that triggers an output if either a newline is detected OR the token count threshold is met.
 - **Side Effects:** 
-    - Performs synchronous I/O operations by calling `func.out` with `flush=True` to write to the standard output.
-    - Logs warnings to the console via `func.log` if an invalid `print_mode` is provided.
-- **Error Handling:** If an unknown `print_mode` is passed during initialization, the component defaults to `token` mode and logs a warning via the internal function utility.
+    - Performs synchronous I/O by calling `func.out` with `flush=True` during `process_and_print` and `flush_buffers`.
+    - Mutates internal buffer states during token processing.
+- **Error Handling:** If an invalid `print_mode` is provided, the component logs a warning via `func.log` and falls back to the `token` mode (immediate pass-through) to prevent stream interruption.
 
 ## 4. Dependencies & Configuration
 **Environment & Configuration:**
 - No environment variables or external configurations required.
 
 **Module Dependencies:**
-- **Standard/External:** Python standard library.
+- **Standard/External:** None identified.
 - **Internal:**
-    - [ai.functions](/AgentDocs/ai/functions.md)  Used for outputting text (`out`) and logging warnings (`log`).
+    - [ai.functions](/AgentDocs/ai/functions.md)
