@@ -1,37 +1,36 @@
-# TASK: AUTOMATED RELEASE PREPARATION (GITFLOW)
+# TASK: AUTOMATED RELEASE PREPARATION (VERSION & CHANGELOG)
 
 **OBJECTIVE:**
-Act as an autonomous Release Manager. Your goal is to prepare the next software version from the `develop` branch, strictly following Gitflow conventions and Semantic Versioning (SemVer).
+Automate the version bumping and changelog generation for the upcoming release. Modify project configurations and documentation using patch operations based on the current Git state.
 
-**INITIAL CONTEXT:**
-Assume the current repository is on the `develop` branch and that all features to be included in the release are already integrated.
-
----
-
-## PHASE 1: Inspection and Versioning
-1. **Discover Current Version:** Inspect Git tags or read project configuration files (e.g., `package.json`, `pyproject.toml`, `.csproj`, `Cargo.toml`) to identify the latest released version.
-2. **Analyze Changes (Diff/Commits):** Evaluate the commit messages or diffs since the last tag/version.
-3. **Calculate "Bump":** Determine the required SemVer increment type (Major, Minor, or Patch) based on the detected changes (e.g., *breaking changes* = Major, *new features* = Minor, *bug fixes* = Patch).
-
-## PHASE 2: Gitflow (Branch Creation)
-1. Execute the necessary Git command to create and checkout a new release branch using the exact format: `release/v[NEW_VERSION]`.
-   - Example: `git checkout -b release/v1.2.0`
-
-## PHASE 3: File and Documentation Update
-1. **Update Configuration Files:** Apply the version bump to the project's manifest files (e.g., change from `1.1.0` to `1.2.0` in `package.json`, etc.).
-2. **Manage CHANGELOG.md:**
-   - Check if the `CHANGELOG.md` file exists in the project root. If it does not exist, create it.
-   - Format the recent changes (commits/diffs) into a new release block at the top of the file.
-   - Categorize the release notes (e.g., `### ✨ Features`, `### 🐛 Bug Fixes`, `### 🔧 Chores`).
-
-## PHASE 4: Preparation Commit
-1. If the tests pass successfully (or after user confirmation), stage the modified files (version configs and `CHANGELOG.md`).
-2. Commit these changes to the release branch with a standardized message.
-   - Example: `chore(release): bump version to v1.2.0 and update changelog`
+**PREREQUISITES:**
+The working directory is already on the target release branch (e.g., `release/v[NEW_VERSION]`). All code changes for this release are already committed to this branch.
 
 ---
 
-**STRICT CONSTRAINTS:**
-- Do not merge into `main` or `master`. Your task ends with the release branch created, updated, and tested, ready for review.
-- Do not invent features in the Changelog; base it strictly on the Git history.
-- If the tests fail in Phase 4, report the error immediately and abort Phase 5.
+## 1. Resolve Target Version
+- Parse the branch name to determine the target release version (e.g., extract `1.2.0` from `release/v1.2.0`). 
+- If the branch name does not specify a version, calculate the next Semantic Version (Major, Minor, or Patch) based on the commit history since the last Git tag.
+
+## 2. Patch Version Configurations
+- Scan the repository for standard package manifests (`package.json`, `pyproject.toml`, `Cargo.toml`, `.csproj`, etc.).
+- Update the version string in these files to match the target version.
+- **PATCH REQUIREMENT:** You must use an edit, patch, or line-replacement tool to modify only the specific lines containing the version. Do not use full-file write tools.
+
+## 3. Generate or Update Changelog
+- Locate `CHANGELOG.md` in the project root. If it does not exist, initialize it.
+- Parse the commit messages and diffs added since the previous release tag.
+- Draft a new release block with the header format: `## [vX.Y.Z] - YYYY-MM-DD`.
+- Group the parsed commits into standard categories:
+  - `### ✨ Features`
+  - `### 🐛 Bug Fixes`
+  - `### 🔧 Maintenance`
+  - `### ⚠️ Breaking Changes`
+- **PATCH REQUIREMENT:** You must use an edit or line-insertion tool to prepend this new block at the top of the historical entries in `CHANGELOG.md`. Do not read and rewrite the entire file from scratch.
+
+---
+
+**EXECUTION CONSTRAINTS:**
+- **TOOLING EFFICIENCY:** Always prioritize non-destructive editing/patching tools over full-file overwrites. 
+- **SCOPE LIMIT:** Do not execute Git commands that alter the working tree state (no `checkout`, `branch`, or `commit`). Do not attempt to run test suites. 
+- **DATA INTEGRITY:** Changelog entries must strictly reflect the actual Git commit history. Do not hallucinate features, embellish notes, or invent changes.

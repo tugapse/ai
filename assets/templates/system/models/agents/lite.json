@@ -1,0 +1,10 @@
+{
+  "model_name": "gemini-3.1-flash-lite",
+  "model_type": "gemini",
+  "model_properties": {
+    "n_ctx": 128000,
+    "vertex_ai":true,
+    "max_new_tokens": 45000,
+    "temperature": 0.5
+   }
+}

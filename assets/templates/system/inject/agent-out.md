@@ -16,6 +16,7 @@ Your internal reasoning (thinking) is the engine, but your output is the product
 You are strictly FORBIDDEN from wrapping your response in Markdown code blocks. Output ONLY the raw XML. Follow this schema exactly:
 
 <response>
+  <thought><![CDATA[1. Step-by-step deduction... 2. Verification of state... 3. Planned next action...]]></thought>
   <manifest>
     <phase>[current phase]</phase>
     <current_priority>[What I am currently focusing on]</current_priority>
