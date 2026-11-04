@@ -24,8 +24,8 @@ ui_info()     { echo -e "${CYAN}${NC} $1"; }
 ui_warn()     { echo -e "${YELLOW}${NC} $1"; }
 ui_error()    { echo -e "${RED}${NC} $1"; }
 ui_success()  { echo -e "${GREEN}${NC} $1"; }
-ui_divider()  { echo -e "${CYAN}────────────────────────────────────────────────${NC}"; }
-ui_property() { printf "${BOLD}%-15s:${NC} %b\n" "$1" "$2"; }
+ui_divider()  { echo -e "${CYAN}------------------------------------------------------------${NC}"; }
+ui_property() { printf "${BOLD}%-22s:${NC} %b\n" "$1" "$2"; }
 
 ui_confirm()  {
     echo -ne "\n${YELLOW}${BOLD} $1 (y/N): ${NC}"
@@ -38,8 +38,7 @@ AI_ENGINE=${AI_ENGINE:-ai}
 AI_ENGINE_DEFAULT_MODEL="${AI_ENGINE_DEFAULT_MODEL:-custom/task/create-project-doc}"
 AI_ENGINE_DEFAULT_REMOTE_MODEL="${AI_ENGINE_DEFAULT_REMOTE_MODEL:-custom/task/create-project-doc-remote}"
 
-
-# Runtime state
+# Runtime state variables
 TEMP_LIST=""
 TOTAL_FILES=0
 MANIFEST=""
@@ -63,21 +62,17 @@ cleanup() {
 }
 trap cleanup SIGINT SIGTERM
 
-
 check_environment() {
     if ! command -v "$AI_ENGINE" >/dev/null 2>&1; then
-        ui_error "Executable '$AI_ENGINE' not found. Please install it and ensure it's in your PATH. You can set the AI_ENGINE environment variable if necessary."
+        ui_error "Executable '$AI_ENGINE' not found. Please ensure it's in your PATH."
         exit 1
     fi
 
     if ! command -v git >/dev/null 2>&1; then
         ui_warn "'git' command not found. Git diff mode will be unavailable."
     fi
-
 }
 
-
-# --- UTILITY FUNCTIONS ---
 sanitize_path() {
     realpath -m "$1" 2>/dev/null || echo "$1"
 }
@@ -109,12 +104,12 @@ show_help() {
 }
 
 check_thermal_throttle() {
-    if [[ "$TEMP_THRESHOLD" -gt 40 ]]; then
+    if command -v rs-temp >/dev/null 2>&1 && [[ "$TEMP_THRESHOLD" -gt 40 ]]; then
         local temp_output=$(rs-temp -s)
         local temps=$(echo "$temp_output" | grep -oE '[0-9]+(\.[0-9]+)?')
         for t in $temps; do
             if (( $(echo "$t > $TEMP_THRESHOLD" | bc -l) )); then
-                ui_warn "Thermal limit: ${RED}${t}°C${NC} > ${TEMP_THRESHOLD}°C. Pausing for ${SLEEP_TIME}s..."
+                ui_warn "Thermal limit: ${RED}${t}C${NC} > ${TEMP_THRESHOLD}C. Pausing for ${SLEEP_TIME}s..."
                 sleep "$SLEEP_TIME"
                 check_thermal_throttle
                 break
@@ -123,7 +118,6 @@ check_thermal_throttle() {
     fi
 }
 
-# --- MODULE 1: MANIFEST & QUEUE GENERATOR ---
 generate_queue() {
     TEMP_LIST=$(mktemp)
     
@@ -135,7 +129,6 @@ generate_queue() {
             exit 1
         fi
 
-        # Identify files changed in current branch since divergence from target
         git -C "$SRC_DIR" diff --name-only "$DIFF_TARGET"... | \
             grep "\.$EXT$" | \
             while read -r line; do
@@ -145,18 +138,22 @@ generate_queue() {
                 fi
             done || true
     else
-        ui_info "Performing full scan for ${CYAN}*.$EXT${NC} files..."
+        ui_info "Performing full scan for ${CYAN}*.$EXT${NC} files in $SRC_DIR..."
         find "$SRC_DIR" -type f -name "*.$EXT" > "$TEMP_LIST"
     fi
 
     TOTAL_FILES=$(wc -l < "$TEMP_LIST")
     [ "$TOTAL_FILES" -eq 0 ] && ui_error "No files found to process." && exit 1
     
+    local src_root=$(basename "$SRC_DIR")
     local doc_root=$(basename "$DST_DIR")
-    MANIFEST=$(sed "s|^$SRC_DIR/|/$doc_root/|; s|\.$EXT$|.$CLEAN_OUT|" "$TEMP_LIST" | paste -sd ',' -)
+    
+    # Criar um MANIFEST com o formato [src_dir/ficheiro -> /doc_dir/ficheiro] para guiar o LLM
+    MANIFEST=$(sed "s|^$SRC_DIR/||" "$TEMP_LIST" | while read -r rel; do
+        echo "[$src_root/$rel -> /$doc_root/${rel%.$EXT}.$CLEAN_OUT]"
+    done | paste -sd ',' - | sed 's/,/, /g')
 }
 
-# --- MODULE 2: SERVER ORCHESTRATOR ---
 start_ai_server() {
     ui_info "Launching background AI Server with model: ${CYAN}$AI_ENGINE_DEFAULT_MODEL${NC}..."
     $AI_ENGINE --server -md "$AI_ENGINE_DEFAULT_MODEL" > /dev/null 2>&1 &
@@ -170,13 +167,18 @@ start_ai_server() {
     echo -e " ${GREEN}Ready!${NC}"
 }
 
-# --- MODULE 3: SINGLE FILE PROCESSOR ---
 process_single_file() {
     local file="$1"
     local current_step="$2"
     local turn_start=$(date +%s.%N)
     local rel_path="${file#$SRC_DIR/}"
     local target_file="$DST_DIR/${rel_path%.$EXT}.$CLEAN_OUT"
+    
+    # Variáveis cruciais para o LLM ver os caminhos como "src/..." e "/docs/..."
+    local src_root=$(basename "$SRC_DIR")
+    local doc_root=$(basename "$DST_DIR")
+    local relative_file="$src_root/$rel_path"
+    local doc_file_path="/$doc_root/${rel_path%.$EXT}.$CLEAN_OUT"
     
     mkdir -p "$(dirname "$target_file")"
 
@@ -187,23 +189,39 @@ process_single_file() {
         local completed=$((current_step - 1))
         local avg_sec=$(echo "scale=4; $elapsed / $completed" | bc)
         local remaining=$((TOTAL_FILES - completed))
-        local eta_min=$(echo "scale=2; (($TOTAL_FILES - $completed) * $avg_sec) / 60" | bc)
+        local eta_min=$(echo "scale=2; ($remaining * $avg_sec) / 60" | bc)
         eta_str="${GREEN}${eta_min}m${NC}"
     fi
 
     ui_info "[${BOLD}${CYAN}$current_step/$TOTAL_FILES${NC}] Processing: ${BOLD}$rel_path${NC} (ETA: $eta_str)"
 
+    check_thermal_throttle
+
     local task="create-code-documentation"
-    local  model=AI_ENGINE_DEFAULT_MODEL
+    local model="$AI_ENGINE_DEFAULT_MODEL"
     if [[ "$USE_SERVER" == true ]]; then
         model="$AI_ENGINE_DEFAULT_REMOTE_MODEL"
     fi
-    local ai_args=(-md "$model" -o "$target_file" --task "$task" --system task --file "$file" --msg "MANIFEST: $MANIFEST")
+
+    # Passamos o contexto exato deste ficheiro junto com o manifest
+    local ai_context="CURRENT SOURCE: $relative_file | CURRENT TARGET: $doc_file_path | MANIFEST: $MANIFEST"
+    
+    # Em vez de passar a variável "$file" (caminho absoluto), passamos o "$relative_file"
+    local ai_args=(-md "$model" -o "$target_file" --task "$task" --system task --file "$relative_file" --msg "$ai_context")
     [[ -n "$SILENT_FLAG" ]] && ai_args+=("$SILENT_FLAG")
 
-    if ! $AI_ENGINE "${ai_args[@]}" < /dev/null ; then
-        ui_error "Failed to document: $rel_path"
-        exit 1
+    rm -f "$target_file"
+
+    # CRÍTICO: Executar o LLM a partir da pasta 'pai' (dirname do $SRC_DIR) numa subshell. 
+    # Isto garante que o LLM só tem acesso visual e de disco a "src/..." e nunca aos caminhos completos.
+    if ! (cd "$(dirname "$SRC_DIR")" && $AI_ENGINE "${ai_args[@]}" < /dev/null 2> >(grep -v "Warning: Input is not a terminal (fd=0)" >&2)); then
+        ui_error "Failed to document: $rel_path (Process returned non-zero exit code)"
+        return 1
+    fi
+
+    if [ ! -s "$target_file" ]; then
+        ui_error "Failed to generate documentation: $target_file is missing or empty"
+        return 1
     fi
 
     local turn_end=$(date +%s.%N)
@@ -213,13 +231,13 @@ process_single_file() {
     ui_divider
 }
 
-# --- MAIN EXECUTION ---
 main() {
     TEMP_THRESHOLD=80
     SLEEP_TIME=30
     SILENT_FLAG=""
     REMOTE_TARGET="http://0.0.0.0:9999"
     USE_SERVER=false
+    
     pos_args=()
 
     while [[ $# -gt 0 ]]; do
@@ -251,40 +269,50 @@ main() {
     OUT_EXT="${pos_args[3]:-.md}"
     CLEAN_OUT="${OUT_EXT#.}"
 
+    check_environment
     generate_queue
     
     ui_section "INITIALIZING DOCUMENTATION ENGINE"
     ui_property "Scan Mode" "$([ "$DIFF_MODE" == true ] && echo -e "${CYAN}Git Diff ($DIFF_TARGET)${NC}" || echo -e "Full Directory")"
-    ui_property "Execution" "$([ "$USE_SERVER" == true ] && echo -e "${CYAN}Persistent Server${NC}" || echo -e "Standard Local")"
-    ui_property "AI Model" "$AI_ENGINE_DEFAULT_MODEL"
-    ui_property "Source" "$SRC_DIR"
-    ui_property "Destination" "$DST_DIR"
-    ui_property "Manifest Root" "/$(basename "$DST_DIR")/"
-    [[ "$USE_SERVER" == true ]] && ui_property "Remote" "$REMOTE_TARGET"
-    ui_property "Thermal Lim" "${YELLOW}${TEMP_THRESHOLD}°C${NC}"
-    ui_property "Queue" "${BOLD}$TOTAL_FILES files${NC}"
-    
-    if ! ui_confirm "Begin documentation workflow?"; then
+    ui_property "Execution" "$([ "$DIFF_MODE" == true ] && echo -e "${CYAN}Incremental Documentation${NC}" || echo -e "Full Scan")"
+    ui_property "Source Directory" "$SRC_DIR"
+    ui_property "Destination Directory" "$DST_DIR"
+    ui_property "Output Extension" "$OUT_EXT"
+    ui_property "AI Engine" "$AI_ENGINE"
+    ui_property "Model Used" "$AI_ENGINE_DEFAULT_MODEL"
+    ui_property "Files to Process" "$TOTAL_FILES"
+    ui_property "Server Mode" "$([ "$USE_SERVER" == true ] && echo -e "${GREEN}Enabled${NC}" || echo -e "Disabled")"
+    ui_property "Thermal Threshold" "$TEMP_THRESHOLD"
+    ui_property "Sleep Time" "$SLEEP_TIME"
+
+    if ! ui_confirm "Do you want to proceed with documentation generation?"; then
+        ui_warn "Operation aborted by user."
+        [ -f "$TEMP_LIST" ] && rm -f "$TEMP_LIST"
         exit 0
     fi
 
-    [[ "$USE_SERVER" == true ]] && start_ai_server
-    
-    ENGINE_START_TIME=$(date +%s.%N)
-    local current=0
-    while IFS= read -r file; do
-        check_thermal_throttle
-        (( ++current ))
-        process_single_file "$file" "$current"
-    done < "$TEMP_LIST"
+    if [ "$USE_SERVER" == true ]; then
+        start_ai_server
+    fi
 
-    local total_dur=$(echo "scale=2; ($(date +%s.%N) - $ENGINE_START_TIME) / 60" | bc)
-    ui_section "DOCUMENTATION COMPLETE"
-    ui_property "Total Time" "${GREEN}${total_dur}m${NC}"
-    
-    cleanup 
+    if [ "$TOTAL_FILES" -gt 0 ]; then
+        ui_section "STARTING DOCUMENTATION GENERATION"
+        ENGINE_START_TIME=$(date +%s.%N)
+        
+        local current=1
+        while IFS= read -r file_path; do
+            [ -z "$file_path" ] && continue
+            if ! process_single_file "$file_path" "$current"; then
+                ui_error "Aborting process due to error on file: $file_path"
+                [ -f "$TEMP_LIST" ] && rm -f "$TEMP_LIST"
+                exit 1
+            fi
+            current=$((current + 1))
+        done < "$TEMP_LIST"
+    fi
+
+    ui_success "Documentation generation complete."
+    [ -f "$TEMP_LIST" ] && rm -f "$TEMP_LIST"
 }
 
-
-check_environment
 main "$@"

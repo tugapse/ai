@@ -1,0 +1,233 @@
+#!/usr/bin/env bash
+
+# ==============================================================================
+# File:        ai-create-code-comments-folder
+# Description: Batch AI Code Commenting Runner for Directories
+# Author:      Fábio Almeida
+# Date:        2026-11-02
+# Project:     Just A Reasoning Virtual Intelligent Sentinel Agentic Interface
+# ==============================================================================
+# Recursively finds eligible files and processes them in batch using
+# ai-create-code-comments. Requires the -y argument for direct auto-acceptance;
+# otherwise, it prompts the user for confirmation after counting the total files.
+# ==============================================================================
+
+
+
+COLOR_HEADER='\033[38;2;43;174;178m'
+COLOR_SECTION='\033[38;2;79;168;227m'
+COLOR_ARG='\033[38;2;54;188;175m'
+COLOR_FLAG='\033[38;2;227;155;68m'
+COLOR_ERR='\033[38;2;230;70;70m'
+COLOR_MUTED='\033[38;2;90;105;120m'
+COLOR_RESET='\033[0m'
+
+handle_sigint() {
+    tput cnorm 2>/dev/null || true
+    echo -e "${COLOR_ERR}\nBatch execution interrupted by the user.${COLOR_RESET}" >&2
+    exit 130
+}
+
+trap handle_sigint SIGINT SIGTERM
+
+show_help() {
+    local script_name
+    script_name="$(basename "$0")"
+
+    echo -e "${COLOR_HEADER}AI BATCH CODE COMMENT GENERATOR HELP${COLOR_RESET}"
+    echo -e "${COLOR_HEADER}--------------------------------------------------${COLOR_RESET}"
+    echo -e "${COLOR_SECTION}Usage:${COLOR_RESET} ${script_name} [flags] <directory>"
+    echo ""
+    echo -e "${COLOR_SECTION}Positional Arguments:${COLOR_RESET}"
+    echo -e "  ${COLOR_ARG}<directory>${COLOR_RESET}             Target directory with files to document"
+    echo ""
+    echo -e "${COLOR_SECTION}Flags:${COLOR_RESET}"
+    echo -e "  ${COLOR_FLAG}-y,  --yes${COLOR_RESET}              Accept and start processing without prompting"
+    echo -e "  ${COLOR_FLAG}-e,  --ext <extension>${COLOR_RESET}  Filter by extension (e.g. py, ts, sh, js)"
+    echo -e "  ${COLOR_FLAG}-na, --no-animation${COLOR_RESET}     Disable spinner animations"
+    echo -e "  ${COLOR_FLAG}-h,  --help${COLOR_RESET}             Show this help menu"
+    echo ""
+}
+
+format_seconds() {
+    local total_sec="$1"
+    local mins=$(( total_sec / 60 ))
+    local secs=$(( total_sec % 60 ))
+    if [[ $mins -gt 0 ]]; then
+        printf "%dm %02ds" "$mins" "$secs"
+    else
+        printf "%ds" "$secs"
+    fi
+}
+
+target_dir=""
+filter_ext=""
+auto_accept=false
+extra_flags=()
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        -y|--yes)
+            auto_accept=true
+            shift
+            ;;
+        -e|--ext)
+            if [[ $# -lt 2 || -z "$2" ]]; then
+                echo -e "${COLOR_ERR}Error:${COLOR_RESET} --ext requires the extension argument." >&2
+                exit 1
+            fi
+            filter_ext="${2#.}"
+            shift 2
+            ;;
+        -na|--no-animation)
+            extra_flags+=("-na")
+            shift
+            ;;
+        -*)
+            echo -e "${COLOR_ERR}Error:${COLOR_RESET} Unknown option '$1'." >&2
+            show_help
+            exit 1
+            ;;
+        *)
+            if [[ -z "$target_dir" ]]; then
+                target_dir="$1"
+            else
+                echo -e "${COLOR_ERR}Error:${COLOR_RESET} Unexpected argument '$1'." >&2
+                exit 1
+            fi
+            shift
+            ;;
+    esac
+done
+
+if [[ -z "$target_dir" ]]; then
+    echo -e "${COLOR_ERR}Error:${COLOR_RESET} No directory provided." >&2
+    show_help
+    exit 1
+fi
+
+if [[ ! -d "$target_dir" ]]; then
+    echo -e "${COLOR_ERR}Error:${COLOR_RESET} Directory '${target_dir}' not found." >&2
+    exit 1
+fi
+
+RUNNER_BIN="ai-create-code-comments"
+if ! command -v "$RUNNER_BIN" &>/dev/null; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    if [[ -x "${SCRIPT_DIR}/ai-create-code-comments" ]]; then
+        RUNNER_BIN="${SCRIPT_DIR}/ai-create-code-comments"
+    else
+        echo -e "${COLOR_ERR}Error:${COLOR_RESET} 'ai-create-code-comments' not found in PATH or in ${SCRIPT_DIR}." >&2
+        exit 1
+    fi
+fi
+
+RUNNER_REALPATH="$(realpath "$(command -v "$RUNNER_BIN" 2>/dev/null || echo "$RUNNER_BIN")")"
+CURRENT_SCRIPT_REALPATH="$(realpath "$0")"
+
+find_cmd=(find "$target_dir" -type d \( -name ".git" -o -name "node_modules" -o -name "__pycache__" -o -name ".venv" -o -name "dist" -o -name "build" \) -prune -o -type f)
+
+if [[ -n "$filter_ext" ]]; then
+    find_cmd+=(-name "*.${filter_ext}")
+fi
+
+find_cmd+=(-print0)
+
+mapfile -d '' raw_files < <("${find_cmd[@]}" | sort -z)
+
+files=()
+for f in "${raw_files[@]}"; do
+    f_real="$(realpath "$f")"
+    if [[ "$f_real" -ef "$CURRENT_SCRIPT_REALPATH" || "$f_real" -ef "$RUNNER_REALPATH" ]]; then
+        continue
+    fi
+    files+=("$f")
+done
+
+total_files="${#files[@]}"
+
+if [[ "$total_files" -eq 0 ]]; then
+    if [[ -n "$filter_ext" ]]; then
+        echo -e "${COLOR_FLAG}!${COLOR_RESET} No files with extension '.${filter_ext}' found in '${target_dir}'."
+    else
+        echo -e "${COLOR_FLAG}!${COLOR_RESET} No eligible files to process in '${target_dir}'."
+    fi
+    exit 0
+fi
+
+echo -e "${COLOR_HEADER}AI Batch Code Documentation Engine${COLOR_RESET}"
+echo -e "${COLOR_MUTED}--------------------------------------------------${COLOR_RESET}"
+echo -e "Target Folder : ${COLOR_ARG}${target_dir}${COLOR_RESET}"
+if [[ -n "$filter_ext" ]]; then
+    echo -e "Filter Ext    : ${COLOR_FLAG}.${filter_ext}${COLOR_RESET}"
+fi
+echo -e "Files Found   : ${COLOR_FLAG}${total_files}${COLOR_RESET}"
+echo -e "${COLOR_MUTED}--------------------------------------------------${COLOR_RESET}"
+
+# Interactive confirmation if the user did not pass -y explicitly
+if [[ "$auto_accept" == false ]]; then
+    echo ""
+    echo -ne "${COLOR_FLAG}?${COLOR_RESET} Do you want to start documenting ${COLOR_FLAG}${total_files}${COLOR_RESET} file(s)? [y/N]: "
+    read -r -n 1 confirm
+    echo ""
+    case "$confirm" in
+        [yY])
+            echo ""
+            ;;
+        *)
+            echo -e "${COLOR_FLAG}!${COLOR_RESET} Operation cancelled by the user. No files were changed."
+            exit 0
+            ;;
+    esac
+else
+    echo ""
+fi
+
+batch_start=$(date +%s)
+current_idx=0
+total_duration=0
+
+for file in "${files[@]}"; do
+    current_idx=$(( current_idx + 1 ))
+
+    if [[ "$current_idx" -gt 1 && "$total_duration" -gt 0 ]]; then
+        avg_time=$(( total_duration / (current_idx - 1) ))
+        remaining_files=$(( total_files - current_idx + 1 ))
+        eta_seconds=$(( avg_time * remaining_files ))
+        eta_str=$(format_seconds "$eta_seconds")
+    else
+        eta_str="calculating..."
+    fi
+
+    echo -e "${COLOR_SECTION}[${current_idx}/${total_files}]${COLOR_RESET} ${COLOR_ARG}${file}${COLOR_RESET} ${COLOR_MUTED}(ETA: ${eta_str})${COLOR_RESET}"
+
+    file_start=$(date +%s)
+    real_file="$(realpath "$file")"
+
+    runner_exit=0
+    "$RUNNER_BIN" -y -s "${extra_flags[@]}" "$real_file" || runner_exit=$?
+
+    if [[ $runner_exit -eq 130 ]]; then
+        handle_sigint
+    elif [[ $runner_exit -ne 0 ]]; then
+        echo -e "${COLOR_ERR}✖ Failed:${COLOR_RESET} ${file}" >&2
+    fi
+
+    file_end=$(date +%s)
+    file_elapsed=$(( file_end - file_start ))
+    total_duration=$(( total_duration + file_elapsed ))
+done
+
+batch_end=$(date +%s)
+total_time=$(format_seconds $(( batch_end - batch_start )))
+
+echo ""
+echo -e "${COLOR_MUTED}--------------------------------------------------${COLOR_RESET}"
+echo -e "${COLOR_ARG}✔${COLOR_RESET} Batch completed: ${COLOR_FLAG}${total_files}${COLOR_RESET} files processed in ${COLOR_ARG}${total_time}${COLOR_RESET}."
+
+exit 0
+}
