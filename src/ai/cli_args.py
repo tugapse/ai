@@ -205,11 +205,21 @@ def {function_name}(argument: str) -> str:
         :param directory_manager: The directory management service for loading user tools.
         :raises SystemExit: Exits after the agent loop completes or fails.
         """
-        taskfile=""
+        taskfile = ""
+        _task = ""
         if args.task_file:
              taskfile = func.read_file(args.task_file)
-             
-        user_input = taskfile or args.task or ""
+        
+        if args.task:
+            task_name = f"{args.task.replace('.md', '')}.md"
+            user_tasks_dir = os.path.join( directory_manager.get_user_directory(), "task")
+            found_path = os.path.join(user_tasks_dir, task_name)
+            
+            if not os.path.exists(found_path):
+                raise FileNotFoundError(f"Task template '{args.task}' not found.")
+            _task = func.read_file(found_path)
+
+        user_input = taskfile or _task 
         if not sys.stdin.isatty():
             piped_input = sys.stdin.read().strip()
             if piped_input:
@@ -452,7 +462,7 @@ def {function_name}(argument: str) -> str:
         """
         if args.task:
             task_name = f"{args.task.replace('.md', '')}.md"
-            user_tasks_dir = prog.config.get(ProgramSetting.PATHS_TASKS_TEMPLATES) or os.path.join(func.get_root_directory(), "task")
+            user_tasks_dir = os.path.join( DirectoryManager().get_user_directory(), "task")
             found_path = os.path.join(user_tasks_dir, task_name)
             
             if not os.path.exists(found_path):
