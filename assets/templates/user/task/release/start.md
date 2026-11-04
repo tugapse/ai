@@ -24,13 +24,7 @@ Assume the current repository is on the `develop` branch and that all features t
    - Format the recent changes (commits/diffs) into a new release block at the top of the file.
    - Categorize the release notes (e.g., `### ✨ Features`, `### 🐛 Bug Fixes`, `### 🔧 Chores`).
 
-## PHASE 4: Testing and Quality Validation
-1. **Detect Tech Stack:** Inspect the project to deduce the appropriate test suite (e.g., `pytest` for Python, `ng test` or `jest` for Angular/TS, `dotnet test` for C#, `cargo test` for Rust).
-2. **CRITICAL INTERACTION RULE:** 
-   - If the test framework is **100% obvious** through the configuration files (e.g., there is a "test" script in `package.json`), run the tests autonomously.
-   - If there is **any ambiguity** or you cannot find clear evidence of how to start the tests, **STOP EXECUTION** and ask the user explicitly: *"I could not detect the test suite with 100% certainty. What is the command I should use to run the tests in this project?"*. Wait for the user's response before proceeding.
-
-## PHASE 5: Preparation Commit
+## PHASE 4: Preparation Commit
 1. If the tests pass successfully (or after user confirmation), stage the modified files (version configs and `CHANGELOG.md`).
 2. Commit these changes to the release branch with a standardized message.
    - Example: `chore(release): bump version to v1.2.0 and update changelog`
