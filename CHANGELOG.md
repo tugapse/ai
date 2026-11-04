@@ -1,5 +1,39 @@
 # Changelog
 
+## [v3.4.0] - 2026-11-04
+
+###  Features
+- Update operational protocols, add new model configurations for Gemini and Gemma, and enhance XML response parsing
+- Add initial templates for action plan and thought process; update gemma4 model configuration
+- Enhance operational protocols and add new model configuration for Gemini and Gemma
+- Add automated release preparation task following Gitflow conventions
+- Add clear_pycache.sh script and update DirectoryManager instantiation in tests
+- Introduce multi-agent orchestration system with defined roles
+- Introduce DirectoryManager and ProcessManager; enhance process handling and directory management
+- Update AI engine configuration and enhance timeout settings in JarvisAiModel
+- Refactor session management; replace SessionVault with AgentSessionManager and update related components
+- Introduce AgentOrchestrator and enhance MCP server integration; add TCP client tool and update response parser
+- Update README and scripts; enhance build process and dependency management
+- Add .gitattributes and update .gitignore; enhance Windows CLI integration tests and error handling
+- Add compile and launcher scripts; update .gitignore and README for new build process
+
+###  Bug Fixes
+- Simplify root directory retrieval and update fallback path handling
+- Update default location parameter in GeminiAPIModel constructor to 'global'
+- Fix windows scripts and error output
+
+###  Maintenance
+- Refactor AI Tools Documentation and Enhance LLM Connector
+- Update docs draft
+- Enhance documentation across services and tools
+- Improve dependency installer and engine management; enhance GPU detection and update Gemini API integration
+- Update docs
+- Enhance agent orchestration and session management
+- Rename memory module to vector_memory
+- Rename hydrate method to get_session in SessionVault; update related references in MessageOrchestrator
+- Reorganize MDs
+- Update script shebang and improve UI functions; add documentation for tools and modules
+
 ## v3.3.0
 
 - Refactor CLI integration test model configuration: update model name and properties for gemma4
