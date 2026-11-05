@@ -19,14 +19,39 @@ class DirectoryManager:
         """
         self.root_directory = func.get_root_directory()
         self.system_directory = os.path.join(self.root_directory, "system")
-        self.user_directory = os.path.join(self.root_directory,"user") 
-    
+        self.user_directory = self.root_directory
+        self.legacy_user_directory = os.path.join(self.root_directory, "user")
+
     def get_user_directory(self):
         """
         Retrieves the path to the main user data directory.
 
+        The runtime stores task/system/tool assets under the configured root directory,
+        while a nested legacy `user/` folder may remain for compatibility with older
+        setups. Prefer the active root directory when it contains the expected assets,
+        and only fall back to the legacy folder if the root is effectively empty.
+
         :return: str: The path to the user directory.
         """
+        root_markers = [
+            os.path.join(self.root_directory, "task"),
+            os.path.join(self.root_directory, "system"),
+            os.path.join(self.root_directory, "tools"),
+            os.path.join(self.root_directory, "pipelines"),
+        ]
+        if any(os.path.exists(path) for path in root_markers):
+            return self.root_directory
+
+        if os.path.isdir(self.legacy_user_directory):
+            legacy_markers = [
+                os.path.join(self.legacy_user_directory, "task"),
+                os.path.join(self.legacy_user_directory, "system"),
+                os.path.join(self.legacy_user_directory, "tools"),
+                os.path.join(self.legacy_user_directory, "pipelines"),
+            ]
+            if any(os.path.exists(path) for path in legacy_markers):
+                return self.legacy_user_directory
+
         return self.user_directory
     
     def get_user_tools_directory(self):
