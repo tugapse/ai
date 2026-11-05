@@ -94,9 +94,10 @@ class TerminalUI:
             is_updating (bool, optional): If True, prepends carriage return and clear line for in-place updates. Defaults to True.
         """
         prefix = "\r\033[K" if is_updating else ""
+        message = len(task) > 80 and task[:80] + "..." or task
         func.out(
             f"{prefix}\n{TerminalUI.ACCENT}{TerminalUI.ICON_AGENT} {Color.BOLD}{agent_name}{TerminalUI.RESET} "
-            f"{TerminalUI.TEXT}is working on: {TerminalUI.WARN}{task}{TerminalUI.RESET}", 
+            f"{TerminalUI.TEXT}is working on: {TerminalUI.WARN}{message}{TerminalUI.RESET}", 
             flush=True
         )
 
@@ -110,7 +111,7 @@ class TerminalUI:
             target (str): The target entity or resource.
             command (str, optional): The specific command being requested. Defaults to "".
         """
-        func.out(f"\n{Color.BLUE} {Color.BG_YELLOW}AUTHORIZATION REQUIRED{Color.BLUE} ")
+        func.out(f"\n{Color.BLUE} {Color.YELLOW}AUTHORIZATION REQUIRED{Color.RESET} ")
         func.out(f" {Color.NORMAL_CYAN}TOOL:   {Color.BLUE}{tool_name}")
         if command:
             func.out(f" {Color.NORMAL_CYAN}CMD: {Color.BLUE}{command}")

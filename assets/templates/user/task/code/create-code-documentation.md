@@ -1,61 +1,59 @@
-# TASK: ATOMIC CODE COMPONENT ARCHITECTURE (MANIFEST-AWARE)
+# TASK: CODE COMPONENT DOCUMENTATION (MANIFEST-AWARE)
 
 **OBJECTIVE:**
-Deconstruct the provided source code into a high-density technical map. You MUST use the provided **MANIFEST** for all internal cross-linking to ensure repository-absolute resolution.
+Generate pragmatic, developer-focused Markdown documentation for the provided source code. You MUST use the provided **MANIFEST** for all internal documentation cross-linking to ensure repository-absolute resolution.
 
-**STRICT LINKING RULE**: 
-Every internal link must use the REPO-ABSOLUTE path provided in the MANIFEST.
-- **FORBIDDEN**: [file](subfolder/file.md) (Relative)
-- **MANDATORY**: [file](/subfolder/file.md) (Absolute)
-- **MANDATORY**:when providing a link for the src file [FILE_NAME_WITHOUT_EXT] (abs_link_to_actual_src_file.original_ext: replace with the correct path, look for the 'Source folder', 'Docs folder' and the file EXT on the manifest to know what parts need to change)
+**STRICT LINKING RULES:**
+Every internal link must use the exact REPO-ABSOLUTE path provided in the MANIFEST, prefixed with a leading `/`.
+- **FORBIDDEN (Relative):** [file](subfolder/file.md)
+- **MANDATORY (Absolute):** [file](/subfolder/file.md)
+- **UNMAPPED INTERNAL IMPORTS:** If an internal module is imported in the code but does not exist in the MANIFEST, format it as inline code (e.g., `ai.utils`) without a link. Never guess or invent paths.
+- **EXCEPTION FOR SOURCE FILE:** In the "Source File" column of the Overview table, do NOT use the manifest `.md` path. Link directly to the actual source code file by prefixing the `CURRENT_SOURCE` path with a leading `/` (e.g., [src/main.py](/src/main.py)).
+- **NO BACKTICKS ON LINKS:** Never wrap markdown links in backticks or code blocks. Always output them as pure Markdown text.
 
-**DOCUMENTATION STRUCTURE:**
+---
 
-## 1. Architectural Role
-| Name | Source file |
+## OUTPUT FORMAT & SECTIONS
+
+Follow the exact Markdown structure below:
+
+## 1. Overview & Purpose
+| Component | Source File |
 | :--- | :--- |
-| [Component Name] | [path/filename](/abs/path/to/src/file.ext)|
-| [Component Name] | One liner introducing the class/module/code|
+| **[Component Name]** | [CURRENT_SOURCE](/CURRENT_SOURCE) |
 
-Provide a detailed overview of the component's purpose and its strategic position within the system across two or three paragraphs.
+Write a concise, two-paragraph explanation of what this component does and why it exists:
+- Paragraph 1: Explain the specific problem this code solves and its primary responsibility.
+- Paragraph 2: Explain where this component fits into the broader application architecture (e.g., data model, utility, UI component, controller, or service). When referencing other internal components, link them using their MANIFEST path, like [Component Name](/path/from/manifest.md).
 
-**Functional Mission**
-Define the primary responsibility of this file. What specific problem does it solve, and what is its core "mission" in the codebase? Ensure the component name is bolded on its first mention.
-
-**System Context & Integration**
-Describe how this component interacts with the rest of the architecture. Focus on its role in the broader execution flow, its significance to downstream modules, and how it handles the transition of data or state.
-
-- **INTERNAL REFERENCES**: When referencing other components, look up their REPO-ABSOLUTE path in the MANIFEST and use the format: `[Component Name](/path/from/manifest.md)`.
-
-## 2. Environment & Configuration
-**Environment Lookups:**
-- `VARIABLE_NAME` (via `method/config_key`) — Brief purpose.
-*If none identified, write "No environment lookups identified."*
-
-**Hardcoded Constants:**
-- `CONSTANT_NAME` (Default: `value`) — Brief purpose.
-*If none identified, write "No hardcoded constants identified."*
-
-## 3. Interface & API Surface
-| Entity | Type | Functional Responsibility |
+## 2. Public API & Interfaces
+| Entity | Type | Description |
 | :--- | :--- | :--- |
-| `name` | Class/Func | Specific functional contribution. |
+| `name()` | Function / Class / Method | Brief description of inputs, return values, and behavior. |
 
-## 4. Execution Logic & Flow
-Map the internal logic using a step-by-step sequence:
-- **Initialization**: Initial state, properties, or setup requirements.
-- **Data Path**: Trace transformation (Input → Processing → Output).
-- **Conditional Branching**: Key decision points or error handling pivots.
+*(Instruction: List only public classes, functions, or types exposed by this file. If no public entities exist, omit the table and write only: "This file contains no public exports.")*
 
-## 5. Resource Dependencies
-- **Standard Libraries**: (e.g., `os`, `sys`, `json`)
-- **Internal Modules**: 
-    - **MATCHING**: Match imports against the provided **MANIFEST**. 
-    - **REPO-ABSOLUTE FORMAT**: Use [module_name](/path/to/file.md). The path MUST start with the leading `/`.
-- **External Packages**: (e.g., `requests`, `numpy`, `fastapi`)
+## 3. Implementation Details & Side Effects
+- **Core Logic:** Brief summary of the internal algorithm, state flow, or data transformation without repeating the code line-by-line.
+- **Side Effects:** Explicitly state if the code interacts with the network, reads/writes to the filesystem, spawns processes, or mutates external/global state. (If none, write "None").
+- **Error Handling:** Document any specific exceptions raised, caught, or fallback mechanisms used.
 
-**STRICT 8B CONSTRAINTS:**
-- **NO PROSE**: Start directly with H2 headers. No conversational filler or "Here is the analysis."
-- **MANIFEST VERBATIM**: Use the MANIFEST paths exactly as provided. Do not modify or truncate them.
-- **IDENTIFIER INTEGRITY**: Names of classes, functions, and variables must match the code exactly.
-- **TRUTH-BOUNDED**: For files with no internal logic (e.g., empty files or simple exports), write: "Direct exports or structural definitions only; no internal logic flow."
+*(Instruction: For simple definitions, interfaces, or empty files, omit the bullets above and write only: "Structural definitions only; no complex logic or side effects.")*
+
+## 4. Dependencies & Configuration
+**Environment & Configuration:**
+- `ENV_VAR_NAME` — Brief purpose and default behavior if unset.
+
+*(Instruction: If no environment variables or external configs are used, omit the bullet above and write only: "No environment variables or external configurations required.")*
+
+**Module Dependencies:**
+- **Standard/External:** List key standard library or third-party packages used (e.g., `os`, `json`, `requests`). (If none, write "None").
+- **Internal:** Match internal project imports against the MANIFEST using repo-absolute links, like [module_name](/path/to/file.md). Use inline code without a link if absent from the MANIFEST.
+
+---
+
+**STRICT GENERATION CONSTRAINTS:**
+- Output raw Markdown only. Do NOT wrap the entire response in a markdown code block (` ```markdown `).
+- Start the response directly with `## 1. Overview & Purpose`. No preamble, greetings, or concluding remarks.
+- Never output instructional placeholders, guidelines, or parenthetical instruction notes in the final text.
+- Class, method, and variable names must match the source code identically.

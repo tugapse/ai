@@ -8,32 +8,11 @@ class ResponseParser:
     """
     Parses a raw string containing an AI response, which is expected to be wrapped
     in <response> tags and structured either as XML or JSON within its content.
-
-    This class handles the extraction of structured data like thought processes,
-    manifests, and tool action parameters from the raw input.
     """
     def __init__(self, parameter_mode: str = "xml"):
-        """
-        Initializes the ResponseParser.
-
-        Args:
-            parameter_mode: Specifies how to interpret tool_parameters. Can be "xml" or "json".
-        """
         self.parameter_mode = parameter_mode
 
     def _extract_params(self, element: Optional[ET.Element]) -> Dict[str, Any]:
-        """
-        Extracts parameters from an XML element based on the configured parameter_mode.
-
-        If mode is "json", it attempts to parse the element's text content as JSON.
-        If mode is "xml", it iterates over child tags to build a dictionary.
-
-        Args:
-            element: The XML element containing the parameters.
-
-        Returns:
-            A dictionary containing the extracted parameters. Returns an error dict if JSON parsing fails.
-        """
         if element is None:
             return {}
 
@@ -59,20 +38,25 @@ class ResponseParser:
                 
         return params
 
+    def _preprocess_xml(self, xml_string: str) -> str:
+        """
+        Cleans common LLM XML formatting errors and safely strips CDATA wrappers
+        before attempting standard XML parsing.
+        """
+        xml_string = xml_string.replace('\xa0', ' ')
+        xml_string = re.sub(r'</\s*([a-zA-Z0-9_]+)\s*>', r'</\1>', xml_string)
+        xml_string = re.sub(r'<\s*([a-zA-Z0-9_]+)\s*>', r'<\1>', xml_string)
+
+        def escape_cdata(match):
+            content = match.group(1)
+            return content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            
+        xml_string = re.sub(r'<!\[CDATA\[(.*?)\]\]>', escape_cdata, xml_string, flags=re.DOTALL)
+        xml_string = re.sub(r'&(?!(?:[a-zA-Z]+|#[0-9]+|#x[0-9a-fA-F]+);)', '&amp;', xml_string)
+
+        return xml_string
+
     def _sanitize_block(self, xml_string: str, tag: str) -> str:
-        """
-        Extracts a specific XML block, escapes potentially rogue characters (< and >)
-        within its content, and returns the rebuilt string.
-
-        This is used as a salvage operation when initial XML parsing fails.
-
-        Args:
-            xml_string: The full XML string to search within.
-            tag: The name of the tag whose content needs sanitization.
-
-        Returns:
-            The XML string with the specified block's content safely escaped.
-        """
         pattern = re.compile(f"<{tag}>(.*?)</{tag}>", re.DOTALL)
         match = pattern.search(xml_string)
         
@@ -84,41 +68,53 @@ class ResponseParser:
         
         return xml_string[:match.start(1)] + safe_content + xml_string[match.end(1):]
 
+    def _sanitize_tool_params(self, xml_string: str) -> str:
+        """
+        Escapes rogue < and > characters inside individual <tool_parameters> child tags
+        (e.g., bash redirects like 2>/dev/null or code snippets in patch parameters)
+        when the model forgets to wrap them in CDATA.
+        """
+        if self.parameter_mode == "json":
+            return self._sanitize_block(xml_string, "tool_parameters")
+
+        def sanitize_inner(match):
+            inner = match.group(1)
+            sanitized = re.sub(
+                r"<([a-zA-Z0-9_]+)>(.*?)</\1>",
+                lambda m: f"<{m.group(1)}>{m.group(2).replace('<', '&lt;').replace('>', '&gt;')}</{m.group(1)}>",
+                inner,
+                flags=re.DOTALL
+            )
+            return f"<tool_parameters>{sanitized}</tool_parameters>"
+
+        return re.sub(r"<tool_parameters>(.*?)</tool_parameters>", sanitize_inner, xml_string, flags=re.DOTALL)
+
     def parse(self, raw_string: str) -> Dict[str, Any]:
-        """
-        Parses the raw string containing the AI response to extract structured data.
-
-        It first attempts standard XML parsing. If that fails, it attempts a
-        salvage operation by sanitizing specific tags before re-parsing.
-
-        Args:
-            raw_string: The complete string received from the AI agent.
-
-        Returns:
-            A dictionary containing the parsed results, including status, thought,
-            manifest, action details, and the response to the user.
-            If parsing fails, the status will be "FAILED" with an error message.
-        """
         try:
             start = raw_string.find("<response>")
             end = raw_string.rfind("</response>")
 
             if start == -1 or end == -1:
-                return {"status": "FAILED", "error": f"Missing response boundaries.", "response_to_user": raw_string}
+                return {"status": "FAILED", "error": "Missing response boundaries.", "response_to_user": raw_string}
 
             xml_block = raw_string[start : end + 11].strip()
+            xml_block = self._preprocess_xml(xml_block)
 
             try:
                 root = ET.fromstring(xml_block)
             except ET.ParseError:
-                func.log("[ResponseParser] Initial XML parsing failed, attempting salvage operation...")
+                func.log("[ResponseParser] Initial XML parsing failed, attempting block sanitization...")
                 xml_block = self._sanitize_block(xml_block, "thought")
                 xml_block = self._sanitize_block(xml_block, "notes")
                 xml_block = self._sanitize_block(xml_block, "response_to_user")
-                root = ET.fromstring(xml_block)
+                xml_block = self._sanitize_tool_params(xml_block)
+                
+                try:
+                    root = ET.fromstring(xml_block)
+                except ET.ParseError as e:
+                    return {"status": "FAILED", "error": f"Malformed XML (Salvage Failed): {str(e)}"}
 
             def get_text(tag):
-                """Helper function to safely retrieve text content from a specific tag."""
                 node = root.find(tag)
                 return (node.text or "").strip() if node is not None else ""
 
@@ -138,7 +134,5 @@ class ResponseParser:
                 "response_to_user": get_text("response_to_user")
             }
 
-        except ET.ParseError as e:
-            return {"status": "FAILED", "error": f"Malformed XML (Salvage Failed): {str(e)}"}
         except Exception as e:
             return {"status": "FAILED", "error": f"System Error: {str(e)}"}

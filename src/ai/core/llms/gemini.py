@@ -30,22 +30,6 @@ class GeminiAPIModel(BaseModel):
     chat and generation requests against the Gemini models.
     """
     def __init__(self, model_name="gemini-2.5-flash", system_prompt="", api_key=None, use_vertex=False, project_id=None, location="global", **kargs):
-        """
-        Initializes the GeminiAPIModel.
-
-        Args:
-            model_name (str): The name of the Gemini model to use (e.g., "gemini-2.5-flash").
-            system_prompt (str): The initial system instruction for the model.
-            api_key (str, optional): The Gemini API key for direct usage. Defaults to None.
-            use_vertex (bool): If True, uses Google Vertex AI instead of the direct API.
-            project_id (str, optional): The GCP project ID when using Vertex AI. Defaults to None.
-            location (str, optional): The geographical location for Vertex AI. Defaults to "global".
-            **kargs: Additional keyword arguments for model parameters (e.g., temperature, max_new_tokens).
-        
-        Raises:
-            PermissionError: If Vertex AI is selected but Google Cloud authentication is missing.
-            ValueError: If direct API mode is selected but no API key is found.
-        """
         func.log(f"Initializing GeminiAPIModel for model: {model_name}")
         super().__init__(model_name, system_prompt, **kargs)
         
@@ -90,14 +74,8 @@ class GeminiAPIModel(BaseModel):
 
     def _convert_messages_to_api(self, messages: list) -> list:
         """
-        Converts the internal message format (which supports system, tool, function roles) 
-        into the format required by the Google GenAI API.
-
-        Args:
-            messages (list): A list of message dictionaries in the internal format.
-
-        Returns:
-            list: A list of google.genai.types.Content objects ready for API consumption.
+        Converts the internal message format into the format required by the Google GenAI API,
+        remaining completely agnostic to the upper-layer prompting protocol.
         """
         if not messages:
             return []
@@ -108,62 +86,55 @@ class GeminiAPIModel(BaseModel):
             if role == 'system':
                 continue
 
+            parts_to_add = []
+            v_role = "user" if role in ['user', 'tool', 'function'] else "model"
+
             if role in ['tool', 'function']:
                 text = f"[SYSTEM RESULT FOR TOOL '{m.get('name', 'unknown')}']\n{m.get('content')}"
-                if api_messages and api_messages[-1].role == "user":
-                    api_messages[-1].parts.append(types.Part.from_text(text=f"\n{text}"))
-                else:
-                    api_messages.append(types.Content(role="user", parts=[types.Part.from_text(text=text)]))
+                parts_to_add.append(text)
+            else:
+                if m.get('content'):
+                    parts_to_add.append(str(m.get('content')))
+                
+                if role in ['assistant', 'model'] and m.get('tool_calls'):
+                    for call in m['tool_calls']:
+                        name = call['function']['name']
+                        args = call['function']['arguments']
+                        args_str = json.dumps(args) if isinstance(args, dict) else args
+                        parts_to_add.append(f"____@tool call:{name}{args_str}")
+
+            if not parts_to_add:
                 continue
 
-            if role == 'assistant' and m.get('tool_calls'):
-                for call in m['tool_calls']:
-                    name = call['function']['name']
-                    args = call['function']['arguments']
-                    args_str = json.dumps(args) if isinstance(args, dict) else args
-                    text = f"____@tool call:{name}{args_str}"
-                    
-                    if api_messages and api_messages[-1].role == "model":
-                        api_messages[-1].parts.append(types.Part.from_text(text=f"\n{text}"))
-                    else:
-                        api_messages.append(types.Content(role="model", parts=[types.Part.from_text(text=text)]))
-                continue
+            combined_text = "\n".join(parts_to_add)
 
-            if m.get('content'):
-                v_role = "user" if role == "user" else "model"
-                if api_messages and api_messages[-1].role == v_role:
-                    api_messages[-1].parts.append(types.Part.from_text(text=f"\n{m.get('content')}"))
-                else:
-                    api_messages.append(types.Content(role=v_role, parts=[types.Part.from_text(text=m.get('content'))]))
+            if api_messages and api_messages[-1].role == v_role:
+                prev_text = api_messages[-1].parts[0].text
+                api_messages[-1].parts[0] = types.Part.from_text(text=f"{prev_text}\n\n{combined_text}")
+            else:
+                api_messages.append(types.Content(role=v_role, parts=[types.Part.from_text(text=combined_text)]))
             
         return api_messages
 
     def chat(self, messages: list, images: list = [], stream: bool = True, options: dict = None):
-        """
-        Initiates a chat session with the Gemini model.
-
-        Args:
-            messages (list): The history of messages for the conversation.
-            images (list, optional): A list of image paths or objects to include in the prompt. Defaults to [].
-            stream (bool, optional): If True, returns a generator for streaming responses. Defaults to True.
-            options (dict, optional): Dictionary containing runtime options like max_tokens or temperature. Defaults to None.
-
-        Yields:
-            Union[str, dict]: Streaming chunks of text or structured tool call data.
-        
-        Returns:
-            Union[str, dict]: The final response text or structured action if stream is False.
-        """
         self.stop_generation_event.clear()
         
-        dynamic_system_prompt = self.system_prompt
+        # 1. Garantir que o self.system_prompt NUNCA é descartado
+        system_parts = [str(self.get_system_info())]
+        if self.system_prompt:
+            system_parts.append(str(self.system_prompt))
+            
         for m in messages:
-            if m.get('role') == 'system':
-                dynamic_system_prompt = m.get('content')
-                break
-        
-        if dynamic_system_prompt:
-            dynamic_system_prompt = f"{self.get_system_info()}\n{dynamic_system_prompt}"
+            if m.get('role') == 'system' and m.get('content'):
+                content_str = str(m.get('content'))
+                if content_str not in system_parts:
+                    system_parts.append(content_str)
+            
+        dynamic_system_prompt = "\n\n".join(system_parts)
+
+        # DEBUG CRÍTICO: Verificar se as regras de XML estão mesmo presentes no prompt!
+        has_xml_rules = "<response>" in dynamic_system_prompt
+        func.log(f"[GEMINI DEBUG] System Prompt Length: {len(dynamic_system_prompt)} chars | Has <response> tag: {has_xml_rules}", level="DEBUG")
 
         contents = self._convert_messages_to_api(messages)
         self._append_images_to_history(contents, images)
@@ -187,16 +158,6 @@ class GeminiAPIModel(BaseModel):
         return self._generate_response_sync(contents, config)
 
     def _stream_generator(self, contents, config):
-        """
-        Generator function to stream responses from the Gemini API.
-
-        Args:
-            contents (list): The API-formatted message contents.
-            config (types.GenerateContentConfig): The configuration object for generation.
-
-        Yields:
-            Union[str, dict]: Streaming chunks of text or structured tool call data.
-        """
         full_content = ""
         sentinel_buffer = ""
         is_intercepting = False
@@ -246,16 +207,6 @@ class GeminiAPIModel(BaseModel):
             self.trigger(BaseModel.STREAMING_FINISHED_EVENT, full_content)
 
     def _generate_response_sync(self, contents, config):
-        """
-        Generates a complete, non-streaming response from the Gemini API.
-
-        Args:
-            contents (list): The API-formatted message contents.
-            config (types.GenerateContentConfig): The configuration object for generation.
-
-        Returns:
-            Union[str, dict]: The final response text or a structured action dictionary.
-        """
         resp = self.client.models.generate_content(
             model=self.model_name,
             contents=contents,
@@ -266,12 +217,6 @@ class GeminiAPIModel(BaseModel):
         return action if action else text
 
     def _check_gcp_auth(self) -> bool:
-        """
-        Checks for the presence of Google Cloud authentication credentials.
-
-        Returns:
-            bool: True if credentials are found or accessible, False otherwise.
-        """
         if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
             return True
         paths = [
@@ -286,15 +231,6 @@ class GeminiAPIModel(BaseModel):
             return False
 
     def load_images(self, images: list) -> list:
-        """
-        Loads image files from paths or objects and converts them into API-compatible Part objects.
-
-        Args:
-            images (list): A list of image paths (str) or PIL Image objects.
-
-        Returns:
-            list: A list of types.Part objects containing the image data.
-        """
         image_parts = []
         for img in images:
             try:
@@ -308,13 +244,6 @@ class GeminiAPIModel(BaseModel):
         return image_parts
 
     def _append_images_to_history(self, contents, images):
-        """
-        Appends loaded image parts to the appropriate user message in the conversation history.
-
-        Args:
-            contents (list): The API-formatted message contents.
-            images (list): The original list of image paths/objects.
-        """
         if not images or not contents:
             return
         image_parts = self.load_images(images)
@@ -324,16 +253,7 @@ class GeminiAPIModel(BaseModel):
                 break
 
     def is_gpu_available(self) -> bool:
-        """
-        Checks if a GPU is available for computation.
-
-        Returns:
-            bool: Always returns False for this implementation.
-        """
         return False
 
     def clean_cache(self):
-        """
-        Cleans up Python garbage collection.
-        """
         gc.collect()
