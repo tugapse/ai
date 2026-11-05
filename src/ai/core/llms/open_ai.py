@@ -79,12 +79,18 @@ class OpenAIAPIModel(BaseModel):
         self._load_llm_params(**kargs)
         
     def _load_llm_params(self, **kargs) -> None:
+        """
+        Initializes internal token tracking metrics based on provided configuration.
+
+        Args:
+            **kargs: Configuration arguments passed during initialization.
+        """
         # Telemetry Initialization
         out_tokens = self.options.get("max_completion_tokens") or self.options.get("max_tokens") or 2048
         self.token_info_count.max_output_tokens = out_tokens
         self.token_info_count.max_context_window = kargs.get("n_ctx", BaseModel.CONTEXT_WINDOW_128K)
         
-    # NOTE: Inheriting format_tools_for_prompt() from BaseModel to inject the ____@tool text protocol.
+    # NOTE: Inheriting format_tools_for_prompt() from BaseModel to inject thethe ____@tool text protocol.
 
     def _convert_messages(self, messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
         """
@@ -131,6 +137,16 @@ class OpenAIAPIModel(BaseModel):
         """
         Executes a pure-text chat completion request to the configured API provider.
         Native API tool passing is deliberately bypassed to enforce the Sentinel Protocol.
+
+        Args:
+            messages (List[Dict[str, str]]): The conversation history to send to the LLM.
+            tools (Optional[List[Dict[str, Any]]]): List of available tools (currently bypassed for protocol enforcement).
+            stream (bool): If True, returns a generator for streaming responses; otherwise, returns the final text/action.
+            options (Optional[Dict[str, Any]]): Additional LLM configuration options.
+
+        Returns:
+            Union[str, Dict[str, Any], Generator[Union[str, Dict[str, Any]], None, None]]: 
+            The final text response, a detected tool action dictionary, or a generator yielding streamed chunks.
         """
         self.stop_generation_event.clear()
         
@@ -183,6 +199,12 @@ class OpenAIAPIModel(BaseModel):
     def _run_streaming_chat(self, formatted_msgs: List[Dict[str, str]]) -> Generator[Union[str, Dict[str, Any]], None, None]:
         """
         Handles the streaming logic, including telemetry retrieval and Sentinel text interception.
+
+        Args:
+            formatted_msgs (List[Dict[str, str]]): The conversation history formatted for the API.
+
+        Yields:
+            Union[str, Dict[str, Any]]: Chunks of text or detected tool action objects during streaming.
         """
         request_kwargs = {**self.options}
         request_kwargs["stream_options"] = {"include_usage": True}
@@ -257,6 +279,9 @@ class OpenAIAPIModel(BaseModel):
     def _update_token_metrics(self, usage: Any) -> None:
         """
         Updates the internal telemetry tracker with the latest usage data from the API.
+
+        Args:
+            usage (Any): The usage object returned by the API call.
         """
         self.token_info_count.prompt_count = usage.prompt_tokens
         self.token_info_count.printed_tokens_count = usage.completion_tokens

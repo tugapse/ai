@@ -13,9 +13,15 @@ C_BLUE = "\033[94m"
 C_CYAN = "\033[96m"
 C_END = "\033[0m"
 
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-CONFIG_FILE = os.path.join(BASE_DIR, "installed_engines.json")
-VENV_DIR = os.path.join(BASE_DIR, ".venv")
+BASE_DIR = os.environ.get(
+    "AI_PROJECT_ROOT",
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..")),
+)
+CONFIG_FILE = os.environ.get(
+    "AI_ENGINE_STATUS_FILE",
+    os.path.join(BASE_DIR, "installed_engines.json"),
+)
+VENV_DIR = os.environ.get("AI_VENV_PATH", os.path.join(BASE_DIR, ".venv"))
 
 SYSTEM_REQS = {
     "gguf": {
@@ -26,6 +32,7 @@ SYSTEM_REQS = {
     },
     "voice_engine": {
         "binary": "portaudio",
+        "header": "/usr/include/portaudio.h",
         "generic": "PortAudio, libsndfile",
         "debian": "portaudio19-dev libsndfile1",
         "arch": "portaudio libsndfile"
@@ -58,11 +65,9 @@ class SystemDiagnostics:
 
     @staticmethod
     def detect_cuda_version():
-        """Automatically fetch system CUDA version via nvidia-smi."""
         try:
             result = subprocess.run(["nvidia-smi"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
-            lines = result.stdout.splitlines()
-            for line in lines[:3]:
+            for line in result.stdout.splitlines()[:3]:
                 match = re.search(r"CUDA\s+(?:UMD\s+)?Version\s*:\s*([0-9]+\.[0-9]+)", line, re.IGNORECASE)
                 if match:
                     return match.group(1)
@@ -77,12 +82,15 @@ class SystemDiagnostics:
             return True
 
         binary_to_check = req["binary"]
-        has_binary = shutil.which(binary_to_check)
-        
-        if engine_id in ["gguf", "vector_memory"] and not has_binary:
-            has_binary = shutil.which("gcc") or shutil.which("g++")
+        has_dep = shutil.which(binary_to_check) is not None
 
-        if not has_binary:
+        if not has_dep and "header" in req:
+            has_dep = os.path.exists(req["header"])
+
+        if engine_id in ["gguf", "vector_memory"] and not has_dep:
+            has_dep = bool(shutil.which("gcc") or shutil.which("g++"))
+
+        if not has_dep:
             distro = SystemDiagnostics.get_distro()
             print(f"\n{C_RED}{C_BOLD}[!] SYSTEM DEPENDENCY MISSING: {engine_id.upper()}{C_END}")
             print(f"{C_CYAN}This engine requires system-level packages to compile or run.{C_END}")
@@ -93,7 +101,7 @@ class SystemDiagnostics:
                 print(f"{C_YELLOW}Please run:{C_END} {C_BOLD}sudo pacman -S {req['arch']}{C_END}")
             else:
                 print(f"{C_YELLOW}Requirement Names:{C_END} {C_BOLD}{req['generic']}{C_END}")
-                print(f"Please install these using your system's package manager.")
+                print("Please install these using your system's package manager.")
             
             choice = input(f"\n{C_BOLD}Proceed with pip install anyway? (y/n): {C_END}").lower()
             return choice == 'y'
@@ -101,11 +109,10 @@ class SystemDiagnostics:
 
 ENGINES = [
     {"id": "gguf", "name": "Llama-CPP GGUF", "deps": ["llama-cpp-python", "huggingface-hub", "numpy"]},
-    {"id": "transformers", "name": "Transformers (HF)", "deps": ["torch", "transformers", "accelerate", "huggingface-hub", "bitsandbytes", "autoawq", "turboquant", "gptqmodel" ]},
+    {"id": "transformers", "name": "Transformers (HF)", "deps": ["torch", "transformers", "accelerate", "huggingface-hub", "bitsandbytes", "autoawq", "turboquant", "gptqmodel"]},
     {"id": "ollama", "name": "Ollama (Local API)", "deps": ["ollama", "requests"]},
     {"id": "openai", "name": "OpenAI (Cloud API)", "deps": ["openai"]},
-    {"id": "gemini_api", "name": "Gemini (API Key)", "deps": ["google-generativeai"]},
-    {"id": "gemini_vertex", "name": "Gemini (Vertex AI)", "deps": ["google-cloud-aiplatform"]},
+    {"id": "gemini", "name": "Gemini (API Key & Vertex AI)", "deps": ["google-genai", "pillow"]},
     {"id": "server_hub", "name": "Neural Hub (Main PC Server)", "deps": ["fastapi", "uvicorn", "pydantic", "python-multipart"]},
     {"id": "client_link", "name": "Neural Link (Tiny PC Client)", "deps": ["requests", "pydantic"]},
     {"id": "vector_memory", "name": "Long Term Memory (ChromaDB)", "deps": ["sentence-transformers", "chromadb"]},
@@ -125,13 +132,31 @@ def load_config():
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, "r") as f:
-                return json.load(f)
-        except: return {}
+                config = json.load(f)
+                # Auto-migrate legacy gemini_api / gemini_vertex status if "gemini" isn't set yet
+                if "gemini" not in config:
+                    legacy_installed = (
+                        config.get("gemini_api", {}).get("installed", False) or
+                        config.get("gemini_vertex", {}).get("installed", False)
+                    )
+                    if legacy_installed:
+                        config["gemini"] = {"installed": True}
+                return config
+        except Exception:
+            return {}
     return {}
 
 def save_config(config):
     with open(CONFIG_FILE, "w") as f:
         json.dump(config, f, indent=4)
+
+def update_engine_status(config, engine_id, is_installed):
+    config[engine_id] = {"installed": is_installed}
+    # Keep legacy keys synced in installed_engines.json so existing loaders never break
+    if engine_id == "gemini":
+        config["gemini_api"] = {"installed": is_installed}
+        config["gemini_vertex"] = {"installed": is_installed}
+    save_config(config)
 
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -241,12 +266,15 @@ def run_pip(engine, config, venv_python, action):
         other_deps = set()
         for e in ENGINES:
             if e['id'] != engine['id'] and current_config.get(e['id'], {}).get("installed"):
-                other_deps.update(e['deps'])
+                other_deps.update(re.split(r'[><=@\[]', d)[0].strip() for d in e['deps'])
         
-        to_remove = [d for d in deps if d not in other_deps]
+        to_remove = [
+            re.split(r'[><=@\[]', d)[0].strip()
+            for d in deps
+            if re.split(r'[><=@\[]', d)[0].strip() not in other_deps
+        ]
         if not to_remove:
-            config[engine['id']] = {"installed": False}
-            save_config(config)
+            update_engine_status(config, engine['id'], False)
             print(f"{C_YELLOW}>>> Dependencies shared. Registry updated without uninstallation.{C_END}")
             input("\nPress Enter to continue...")
             return
@@ -255,8 +283,7 @@ def run_pip(engine, config, venv_python, action):
     try:
         print(f"\n{C_BLUE}>>> Executing {action} for {engine['name']}...{C_END}")
         subprocess.run(cmd, env=env, check=True)
-        config[engine['id']] = {"installed": (action == "install")}
-        save_config(config)
+        update_engine_status(config, engine['id'], action == "install")
         print(f"\n{C_GREEN}>>> Success!{C_END}")
     except Exception as e:
         print(f"\n{C_RED}>>> Error: {e}{C_END}")

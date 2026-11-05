@@ -3,6 +3,7 @@ import subprocess
 import json
 import difflib
 from typing import Dict, Any, List, Optional
+import socket
 
 PROJECT_ROOT = os.getcwd()
 
@@ -18,6 +19,15 @@ def tool(func):
 def _resolve_path(params: Dict[str, Any]) -> str:
     """
     Resolves a path with strict type-safety to prevent 'normalize' crashes.
+
+    Args:
+        params: A dictionary containing path keys ('path', 'filepath', or 'location').
+
+    Returns:
+        str: The absolute, normalized path within the project root.
+
+    Raises:
+        PermissionError: If the resolved path attempts to access outside the project boundaries.
     """
     # 1. Extraction with fallback
     raw_path = params.get("path") or params.get("filepath") or params.get("location") or "."
@@ -44,7 +54,15 @@ def _resolve_path(params: Dict[str, Any]) -> str:
     return absolute_target
 
 def _sanitize_output_path(full_path: str) -> str:
-    """Converts absolute system paths back into the @ROOT format."""
+    """
+    Converts absolute system paths back into the @ROOT format for LLM consumption.
+
+    Args:
+        full_path: The absolute path obtained from the filesystem.
+
+    Returns:
+        str: The path represented in the @ROOT format, or "EXTERNAL_PATH" if outside the project.
+    """
     try:
         full_path = os.path.abspath(full_path)
         if full_path.startswith(PROJECT_ROOT):
@@ -57,7 +75,15 @@ def _sanitize_output_path(full_path: str) -> str:
         return "@ROOT/unknown"
 
 def ensure_list(input_val: Any) -> List[str]:
-    """Helper to ensure input is a list."""
+    """
+    Helper to ensure input is a list of strings, handling various input formats (str, list, JSON string).
+
+    Args:
+        input_val: The value to check and convert.
+
+    Returns:
+        List[str]: A list containing the string representations of the input.
+    """
     if isinstance(input_val, list):
         return input_val
     if isinstance(input_val, str):
@@ -81,10 +107,13 @@ def execute_command(**kwargs) -> Dict[str, Any]:
     Use the '@ROOT' token in commands to refer to the absolute path of the project base directory.
     
     Args:
-        intent (str): Clear reasoning of why this tool is being called and the expected outcome. Required.
+        **kwargs: Dictionary containing command parameters.
         command (str): The raw shell command to execute. Required.
         path (str): The directory path to run the command in. Defaults to '@ROOT'.
         timeout (int): Maximum execution time in seconds. Defaults to 180.
+
+    Returns:
+        Dict[str, Any]: A dictionary containing the execution status, stdout, stderr, and returncode.
     """
     command = kwargs.get("command")
     if not command:
@@ -122,13 +151,15 @@ def read_dir(**kwargs) -> Dict[str, Any]:
     Use the '@ROOT' token to refer to the absolute path of the project base directory.
     
     Args:
-        intent (str): Clear reasoning of why this tool is being called and the expected outcome. Required.
-        paths (str | List[str]): A single path string or a list of paths to inspect. Defaults to '@ROOT'.
+        path (str | List[str]): A single path string or a list of paths to inspect. Defaults to '@ROOT'.
         depth (int): How many levels deep to recursively list folders. Defaults to 0 (current directory only).
+
+    Returns:
+        Dict[str, Any]: A dictionary containing the status and the results structure.
     """
     try:
         path_input = kwargs.get("paths", kwargs.get("path", "@ROOT"))
-        paths = ensure_list(path_input)
+        path = ensure_list(path_input)
         depth = int(kwargs.get("depth", 0))
         results = {}
         had_errors = False
@@ -148,7 +179,7 @@ def read_dir(**kwargs) -> Dict[str, Any]:
                     res["folders"][d] = "[Sub-entries hidden. Increase depth to see.]"
             return res
 
-        for p in paths:
+        for p in path:
             try:
                 target = _resolve_path({"path": p})
                 if not os.path.isdir(target):
@@ -161,7 +192,7 @@ def read_dir(**kwargs) -> Dict[str, Any]:
 
         if had_errors:
             error_summary = "One or more paths could not be read."
-            if len(paths) == 1:
+            if len(path) == 1:
                 error_summary = next(iter(results.values()))
             return {"status": "FAILED", "error": error_summary, "results": results}
 
@@ -174,17 +205,19 @@ def read_file(**kwargs) -> Dict[str, Any]:
     Retrieves the full UTF-8 text content of one or more specific files.
     
     Args:
-        intent (str): Clear reasoning of why this tool is being called and the expected outcome. Required.
-        paths (str | List[str]): A single file path or a list of file paths to read. Required.
+        path (str | List[str]): A single file path or a list of file paths to read. Required.
+
+    Returns:
+        Dict[str, Any]: A dictionary containing the status and the content of the read files.
     """
     try:
-        path_input = kwargs.get("paths", kwargs.get("path", []))
-        paths = ensure_list(path_input)
+        path_input = kwargs.get("path")
+        path = ensure_list(path_input)
         
         results = {}
         had_errors = False
 
-        for p in paths:
+        for p in path:
             try:
                 full_path = _resolve_path({"path": p})
                 if not os.path.isfile(full_path):
@@ -199,7 +232,7 @@ def read_file(**kwargs) -> Dict[str, Any]:
         
         if had_errors:
             error_summary = "One or more files could not be read."
-            if len(paths) == 1:
+            if len(path) == 1:
                 error_summary = next(iter(results.values()))
             return {"status": "FAILED", "error": error_summary, "files": results}
 
@@ -213,9 +246,11 @@ def write_file(**kwargs) -> Dict[str, Any]:
     Automatically creates necessary parent directories.
     
     Args:
-        intent (str): Clear reasoning of why this tool is being called and the expected outcome. Required.
         path (str): The destination file path to write to. Required.
         content (str): The raw text or code to write into the file. MANDATORY: Use the YAML pipe (|) for all multi-line content. Required.
+
+    Returns:
+        Dict[str, Any]: A dictionary indicating the success status and the sanitized path.
     """
     try:
         full_path = _resolve_path(kwargs)
@@ -234,11 +269,13 @@ def smart_search(**kwargs) -> Dict[str, Any]:
     Paginates results to prevent context window overflow (50 items per page).
     
     Args:
-        intent (str): Clear reasoning of why this tool is being called and the expected outcome. Required.
         pattern (str): The search keyword or regex pattern to look for. Required.
         path (str): The base directory to search within. Defaults to '@ROOT'.
         exclude_dirs (List[str]): Additional directory names to ignore during the search.
         page (int): The page number for paginated results. Defaults to 1.
+
+    Returns:
+        Dict[str, Any]: A dictionary containing the search status, pagination info, and matched results.
     """
     import re
     import math
@@ -350,10 +387,12 @@ def patch_file(**kwargs) -> Dict[str, Any]:
     Surgically replaces a specific block of text within a file without overwriting the entire file.
     
     Args:
-        intent (str): Clear reasoning of why this tool is being called and the expected outcome. Required.
         path (str): The exact path to the file to modify. Required.
         search (str): The exact string block currently in the file to find. MANDATORY: Use the YAML pipe (|). Required.
         replace (str): The new string block to insert. MANDATORY: Use the YAML pipe (|). Required.
+
+    Returns:
+        Dict[str, Any]: A dictionary indicating the success status, path, and a summary of the diff.
     """
     try:
         full_path = _resolve_path(kwargs)
@@ -396,6 +435,55 @@ def patch_file(**kwargs) -> Dict[str, Any]:
     except Exception as e:
         return {"status": "FAILED", "error": str(e)}
 
+@tool
+def tcp_client_tool(**kwargs) -> Dict[str, Any]:
+    """
+    Connects to a generic TCP server and sends data.
+
+    Args:
+        host (str): The hostname or IP address of the TCP server. Required.
+        port (int): The port number of the TCP server. Required.
+        data_to_send (str): The data to send to the TCP server. Required.
+
+    Returns:
+        Dict[str, Any]: A dictionary detailing the connection status, sent message, and received response.
+    """
+    host = kwargs.get("host")
+    port = kwargs.get("port")
+    data_to_send = kwargs.get("data_to_send")
+
+    if not host or not port or not data_to_send:
+        return {"status": "FAILED", "error": "Host, port, and data_to_send are required for tcp_client_tool."}
+
+    try:
+        port = int(port)
+        if not (0 < port < 65536):
+            raise ValueError("Port must be between 1 and 65535.")
+    except ValueError as e:
+        return {"status": "FAILED", "error": f"Invalid port: {e}"}
+
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(10)  # 10-second timeout for connection and subsequent operations
+            sock.connect((host, port))
+            sock.sendall(data_to_send.encode('utf-8'))
+
+            # Attempt to receive a response, up to 4096 bytes
+            response_data = sock.recv(4096)
+            response_message = response_data.decode('utf-8', errors='ignore')
+
+        return {
+            "status": "SUCCESS",
+            "message": f"Data sent to {host}:{port}.",
+            "response": response_message.strip()
+        }
+    except socket.timeout:
+        return {"status": "FAILED", "error": f"Connection to {host}:{port} timed out."}
+    except ConnectionRefusedError:
+        return {"status": "FAILED", "error": f"Connection to {host}:{port} refused. Is the server running?"}
+    except Exception as e:
+        return {"status": "FAILED", "error": f"An error occurred: {e}"}
+
 # --- REGISTRY ---
 AVAILABLE_TOOLS = {
     "read_dir": read_dir,
@@ -404,4 +492,5 @@ AVAILABLE_TOOLS = {
     "patch_file": patch_file,
     "execute_command": execute_command,
     "smart_search": smart_search,
+    "tcp_client_tool": tcp_client_tool,
 }

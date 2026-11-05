@@ -11,12 +11,23 @@ from ai.program import ProgramConfig, ProgramSetting
 class CliConfig:
     """
     Applies command-line arguments to the ProgramConfig instance.
+
+    This class is responsible for reading arguments parsed from the command line
+    and updating the central ProgramConfig object with user-specified settings.
     """
 
     @staticmethod
     def apply_cli_args_to_config(config: ProgramConfig, args: Optional[argparse.Namespace]):
         """
         Applies command-line argument values to the program configuration.
+
+        If args is None, no changes are made to the configuration.
+
+        :param config: The ProgramConfig instance to be modified.
+        :type config: ProgramConfig
+        :param args: The namespace object containing parsed command-line arguments.
+        :type args: Optional[argparse.Namespace]
+        :return: None
         """
         if not args:
             return
@@ -56,4 +67,3 @@ class CliConfig:
         
         func.LOCK_LOG = not config.get(ProgramSetting.PRINT_LOG)
         func.LOCK_DEBUG = not config.get(ProgramSetting.PRINT_DEBUG)
-

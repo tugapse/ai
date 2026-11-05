@@ -1,6 +1,7 @@
 import json
 import os
 import pytest
+import sys
 from unittest.mock import MagicMock, patch, mock_open, ANY
 
 # Imports adjusted for PYTHONPATH=src
@@ -73,6 +74,45 @@ class TestEngineManager:
         """Test when installed_engines.json does not exist."""
         assert EngineManager.is_engine_installed(ModelType.OLLAMA) is False
 
+    def test_is_engine_installed_frozen_uses_project_status_file(self, tmp_path, monkeypatch):
+        """Test frozen builds read engine status beside the executable's project."""
+        project_root = tmp_path / "project"
+        executable_dir = project_root / "dist"
+        bundle_dir = tmp_path / "bundle"
+        executable_dir.mkdir(parents=True)
+        bundle_dir.mkdir()
+        (project_root / "installed_engines.json").write_text(
+            '{"gguf": {"installed": true}}',
+            encoding="utf-8",
+        )
+        (bundle_dir / "installed_engines.json").write_text(
+            '{"gguf": {"installed": false}}',
+            encoding="utf-8",
+        )
+
+        monkeypatch.setattr(sys, "frozen", True, raising=False)
+        monkeypatch.setattr(sys, "_MEIPASS", str(bundle_dir), raising=False)
+        monkeypatch.setattr(sys, "executable", str(executable_dir / "ai.exe"))
+
+        assert EngineManager.is_engine_installed(ModelType.GGUF) is True
+
+    def test_is_engine_installed_frozen_uses_bundled_status_fallback(self, tmp_path, monkeypatch):
+        """Test frozen builds fall back to their bundled engine status."""
+        executable_dir = tmp_path / "dist"
+        bundle_dir = tmp_path / "bundle"
+        executable_dir.mkdir()
+        bundle_dir.mkdir()
+        (bundle_dir / "installed_engines.json").write_text(
+            '{"gguf": {"installed": true}}',
+            encoding="utf-8",
+        )
+
+        monkeypatch.setattr(sys, "frozen", True, raising=False)
+        monkeypatch.setattr(sys, "_MEIPASS", str(bundle_dir), raising=False)
+        monkeypatch.setattr(sys, "executable", str(executable_dir / "ai.exe"))
+
+        assert EngineManager.is_engine_installed(ModelType.GGUF) is True
+
     @patch('os.path.exists', return_value=True)
     def test_is_engine_installed_gemini_vertex(self, mock_exists):
         """Test special logic for Gemini Vertex AI."""
@@ -89,3 +129,13 @@ class TestEngineManager:
         
         with pytest.raises(ValueError, match="missing 'model_name' or 'model_type'"):
             EngineManager.load_model_instance({"model_type": "ollama"}, "prompt", None)
+
+    @patch.object(EngineManager, "is_engine_installed", return_value=False)
+    def test_load_model_instance_engine_not_installed(self, _mock_is_engine_installed):
+        """Test the missing-engine path reports the expected error."""
+        with pytest.raises(ValueError, match="engine not installed"):
+            EngineManager.load_model_instance(
+                {"model_name": "test", "model_type": "ollama"},
+                "prompt",
+                None,
+            )

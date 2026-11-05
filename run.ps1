@@ -1,18 +1,29 @@
 $ErrorActionPreference = "Stop"
 
-$FOLDER = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
+$FOLDER = if ($env:AI_PROJECT_ROOT) {
+    $env:AI_PROJECT_ROOT
+} elseif ($PSScriptRoot) {
+    $PSScriptRoot
+} else {
+    (Get-Location).Path
+}
 
 # Ensure absolute module imports (e.g., 'import src.ai') resolve correctly
 $env:PYTHONPATH = $FOLDER
 $env:PYTHONUNBUFFERED = "1"
+$env:PYTHONUTF8 = "1"
 
-$VENV_PATH = Join-Path -Path $FOLDER -ChildPath ".venv"
+$VENV_PATH = if ($env:AI_VENV_PATH) {
+    $env:AI_VENV_PATH
+} else {
+    Join-Path -Path $FOLDER -ChildPath ".venv"
+}
 $VENV_PYTHON = Join-Path -Path $VENV_PATH -ChildPath "Scripts\python.exe"
 $MAIN_SCRIPT = Join-Path -Path $FOLDER -ChildPath "src\ai\main.py"
 
 # Enforce virtual environment usage to prevent missing dependency errors
 if (-not (Test-Path -LiteralPath $VENV_PYTHON)) {
-    Write-Host "[!] Virtual environment not found. Please run .\build.ps1 first." -ForegroundColor Red
+    Write-Host "[!] Python virtual environment not found. Place .venv beside ai.exe or set AI_VENV_PATH." -ForegroundColor Red
     exit 1
 }
 

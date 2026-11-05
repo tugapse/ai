@@ -21,6 +21,13 @@ class PromptAccessError(PromptError):
 
 
 class PromptManager:
+    """
+    Manages the lifecycle of prompt files, allowing for listing, loading,
+    saving, and deleting prompts within a specified root directory.
+
+    This class enforces strict path validation to prevent directory traversal
+    outside the designated prompt storage area.
+    """
     def __init__(self, root_dir: Path, logger: Optional[Any] = None):
         """
         Initialize the prompt manager.
@@ -33,6 +40,12 @@ class PromptManager:
         self.logger = logger
 
     def _log(self, message: str) -> None:
+        """
+        Logs a message using the configured logger if one is provided.
+
+        Args:
+            message: The string message to log.
+        """
         if callable(self.logger):
             try:
                 self.logger(message)
@@ -43,6 +56,15 @@ class PromptManager:
         """
         Resolve a prompt path to an absolute Markdown file within the root_dir.
         This prevents directory traversal outside the root.
+
+        Args:
+            prompt_path: The path string relative to the root directory.
+
+        Returns:
+            The absolute Path object pointing to the resolved prompt file.
+
+        Raises:
+            InvalidPathError: If the path contains '..' or resolves outside the root_dir.
         """
         # Ensure the path is relative and does not contain '..'
         if ".." in prompt_path.split(os.path.sep):
@@ -61,6 +83,16 @@ class PromptManager:
         """
         List all prompts (as files) under the root directory.
         Optionally filter by a sub-folder.
+
+        Args:
+            sub_folder: Optional string specifying a subdirectory to search within.
+
+        Returns:
+            A list of dictionaries, where each dictionary contains the name, 
+            path, and last modified time of a found prompt.
+        
+        Raises:
+            PromptAccessError: If there is an IO error while reading the directory.
         """
         search_root_dir = self.root_dir
         if sub_folder:
@@ -92,6 +124,16 @@ class PromptManager:
     def load_prompt(self, prompt_path: str) -> str:
         """
         Load a single prompt by its path.
+
+        Args:
+            prompt_path: The path string identifying the prompt file.
+
+        Returns:
+            The full content of the prompt file as a string.
+
+        Raises:
+            PromptNotFoundError: If the specified prompt file does not exist.
+            PromptAccessError: If there is an error reading the file.
         """
         resolved_file_path = self._resolve_prompt_path(prompt_path)
 
@@ -108,6 +150,13 @@ class PromptManager:
     def save_prompt(self, prompt_path: str, content: str) -> None:
         """
         Save (or overwrite) a prompt file with the provided content.
+
+        Args:
+            prompt_path: The path string where the prompt should be saved.
+            content: The string content to write to the file.
+
+        Raises:
+            PromptAccessError: If there is an error creating or writing the file.
         """
         resolved_file_path = self._resolve_prompt_path(prompt_path)
         try:
@@ -118,22 +167,55 @@ class PromptManager:
             raise PromptAccessError(f"Failed to save prompt {prompt_path}: {e}")
 
     def read_prompt(self, prompt_path: str) -> str:
-        """Backward-compatible alias for load_prompt."""
+        """
+        Backward-compatible alias for load_prompt.
+
+        Args:
+            prompt_path: The path string identifying the prompt file.
+
+        Returns:
+            The full content of the prompt file as a string.
+        """
         return self.load_prompt(prompt_path)
 
     def create_prompt(self, prompt_path: str, content: str) -> Dict[str, str]:
-        """Backward-compatible alias for saving a new prompt file."""
+        """
+        Backward-compatible alias for saving a new prompt file.
+
+        Args:
+            prompt_path: The path string for the new prompt.
+            content: The content to save in the new prompt.
+
+        Returns:
+            A dictionary confirming the creation message.
+        """
         self.save_prompt(prompt_path, content)
         return {"message": f"Prompt '{prompt_path}' created successfully."}
 
     def update_prompt(self, prompt_path: str, content: str) -> Dict[str, str]:
-        """Backward-compatible alias for updating an existing prompt file."""
+        """
+        Backward-compatible alias for updating an existing prompt file.
+
+        Args:
+            prompt_path: The path string of the prompt to update.
+            content: The new content to overwrite the existing prompt with.
+
+        Returns:
+            A dictionary confirming the update message.
+        """
         self.save_prompt(prompt_path, content)
         return {"message": f"Prompt '{prompt_path}' updated successfully."}
 
     def delete_prompt(self, prompt_path: str) -> None:
         """
         Delete a specific prompt file.
+
+        Args:
+            prompt_path: The path string of the prompt file to delete.
+
+        Raises:
+            PromptNotFoundError: If the specified prompt file does not exist.
+            PromptAccessError: If there is an error deleting the file.
         """
         resolved_file_path = self._resolve_prompt_path(prompt_path)
         if not resolved_file_path.exists() or not resolved_file_path.is_file():

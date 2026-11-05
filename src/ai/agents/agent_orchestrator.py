@@ -1,0 +1,489 @@
+import os
+import copy
+import json
+from typing import Callable, Dict, Any, Optional, List
+
+from ai.agents.llm_connector import LLMConnector
+import ai.functions as func
+from ai.config import ProgramConfig, ProgramSetting
+from ai.color import Color
+from ai.agents.terminal_ui import TerminalUI
+from ai.agents.specialist_manager import SpecialistManager
+from ai.agents.memory_manager import AgentMemory, MemoryManager
+from ai.agents.context_sentinel import ContextSentinel
+from ai.agents.session_manager import AgentSessionManager
+from ai.core.events import Events
+from ai.services.module_registry import ModuleRegistry
+from ai.services.process_manager import ProcessManager
+from ai.tools.mcp_bridge import MCPBridge
+from ai.tools.tool_registry import ToolRegistry
+
+MAX_ITERATIONS = 100
+MANAGER_AGENT_ROLE = "management"
+
+STOP_SIGNAL = "STOP"
+MASTER_AGENT = "MASTER"
+
+class AgentOrchestrator(Events):
+    """
+    Orchestrates multi-agent execution, routing, and state management.
+    Integrates short-term context protection and long-term session persistence.
+    """
+    EVENT_BEFORE_LLM_REQUEST = "before_llm_request"
+    EVENT_AFTER_LLM_REQUEST = "after_llm_request"
+
+    def __init__(self, llm_connector: LLMConnector, tool_registry: ToolRegistry, pipeline_config: Dict[str, Any], module_registry: ModuleRegistry):
+        """
+        Initializes the AgentOrchestrator with necessary components.
+
+        Args:
+            llm_connector: The connector responsible for LLM communication.
+            tool_registry: Registry holding all available tools.
+            pipeline_config: Configuration dictionary defining the agent pipeline.
+            module_registry: Registry for loading external functional modules.
+        """
+        super().__init__()
+        self.llm_connector = llm_connector
+        self.tool_registry = tool_registry
+        self.pipeline_config = pipeline_config
+        self.module_registry = module_registry
+        
+        self.agents = pipeline_config.get("agents", {})
+        self.auto_authorized_tools = set()
+        self.format_error_count = 0
+
+        # Specialized Managers
+        self.specialist_manager = SpecialistManager(
+            self.llm_connector, 
+            {"generate_doc": "Technical Writer. Deep-dive documentation."}
+        )
+        self.context_sentinel = ContextSentinel(
+            self.llm_connector, 
+            threshold=0.9, 
+            max_tokens=self.llm_connector.get_context_limit(),
+            buffer=self.llm_connector.get_max_tokens()
+        )
+        self.mcp_bridge = MCPBridge(self.tool_registry)
+        
+        # Load external servers from config
+        mcp_config = os.path.join(func.get_root_directory() , "mcp/mcp_servers.json")
+        self.mcp_bridge.load_from_config(mcp_config)
+        
+        # Memory State
+        self.memory = MemoryManager(list(self.agents.keys()))
+        self.vector_memory = None
+        
+        # Session State (Initialized in run_loop)
+        self.session_manager = None
+        self.session_id = None
+
+    def run_loop(self, user_prompt: str, session_id: str):
+        """
+        Main execution loop. Hydrates session if available, otherwise starts fresh.
+
+        Args:
+            user_prompt: The initial or ongoing prompt from the user.
+            session_id: The unique identifier for the current session.
+        """
+        self.session_id = session_id
+        self.session_manager = AgentSessionManager(session_id)
+        self._initialize_modules()
+
+        start_iteration, current_agent = self._get_saved_session(session_id=session_id, user_prompt=user_prompt)
+        
+        if current_agent is STOP_SIGNAL: current_agent = MASTER_AGENT   
+
+        max_iterations = self.pipeline_config.get("max_iterations", MAX_ITERATIONS)
+        ProcessManager.set_state("mode", "agent")
+        for i in range(start_iteration, max_iterations):
+            # Agent state validation at the start of the loop
+            if current_agent in [None, STOP_SIGNAL]:
+                TerminalUI.log_step("Pipeline execution finished.", "SUCCESS")
+                break
+            ProcessManager.set_state("agent_turn",i)
+            ProcessManager.set_state("agent_max_turn",max_iterations)
+
+            agent_mem = self.memory.get_agent_memory(current_agent)
+            if not agent_mem:
+                # This can happen if an invalid agent is targeted.
+                func.error(f"Agent '{current_agent}' not found in memory or is invalid. Stopping.")
+                break
+
+            # Context Update
+            for msg in reversed(agent_mem.messages_received):
+                if msg.get("from") != "SYSTEM":
+                    agent_mem.current_task = msg.get("task") or msg.get("message")
+                    break
+
+            TerminalUI.status(current_agent, agent_mem.manifest.get("current_priority", agent_mem.current_task))
+
+            # Assemble Tools and Prepare Payload
+            agent_config = copy.deepcopy(self.agents.get(current_agent, {}))
+            if not agent_config:
+                func.error(f"Agent {current_agent} undefined.")
+                break
+
+            active_tools = self._assemble_agent_tools(current_agent)
+            agent_config["tool_descriptions"] = "\n".join([self.tool_registry.get_tool_info(name) for name in active_tools.keys()])
+
+            payload = self._prepare_payload(user_prompt, current_agent)
+            payload, was_compressed = self.context_sentinel.enforce_limits(
+                current_agent, self.memory, payload, vector_memory=self.vector_memory
+            )
+            ProcessManager.set_state("agent_payload", payload)
+
+            if was_compressed:
+                TerminalUI.log_step(f"Sentinel: Context distilled for {current_agent}", "INFO")
+
+            self.trigger("before_llm_request", {"agent": current_agent, "payload_preview": {k: v for k, v in payload.items() if k not in ['messages_received', 'conversation_history']}})
+            response = self.llm_connector.send_request(payload, agent_config["prompt_file_path"], agent_config=agent_config)
+            self.trigger("after_llm_request", {"agent": current_agent, "response": response})
+
+            if response.get("status") == "FAILED":
+                if not self._handle_format_error(current_agent, response.get("error") or "Unknown parsing error."):
+                    break
+                continue
+
+            self.format_error_count = 0
+            
+            # Process Response and Route
+            next_agent = self._process_agent_response(response, current_agent, agent_config)
+
+            # PERSISTENCE: Commit state before moving to the next iteration
+            self.session_manager.commit(self._capture_state(next_agent, i + 1, user_prompt))
+
+            if next_agent == "DONE":
+                func.log(f"Cycle complete for {current_agent}. Clearing memory.", level="WARN")
+                self.memory.clear(current_agent)
+                next_agent = MASTER_AGENT
+
+            current_agent = next_agent
+
+
+    def _get_saved_session(self, session_id: str, user_prompt: str)->tuple[int, str]:
+        """
+        Retrieves the state of a saved session or initializes a new one.
+
+        Args:
+            session_id: The ID of the session to load.
+            user_prompt: The current user prompt, used for seeding new sessions.
+
+        Returns:
+            A tuple containing the starting iteration count and the initial agent.
+        """
+
+        current_agent = MASTER_AGENT
+        start_iteration = 0
+
+        if  self.session_manager:         
+            session_state = self.session_manager.get_session()
+            if session_state:
+                TerminalUI.header(f"Resuming Session: {session_id}", "Sentinel Architect")
+                self._apply_state(session_state)
+                current_agent = session_state.get("current_agent", self.pipeline_config.get("entry_point"))
+                start_iteration = session_state.get("iteration", 0)
+
+                # State integrity check: If the hydrated agent isn't in the current pipeline, reset to entry point.
+                if current_agent not in self.agents and current_agent not in [STOP_SIGNAL, "USER", "DONE"]:
+                    func.log(f"Stale agent '{current_agent}' in session. Resetting to entry point.", level="WARN")
+                    current_agent = self.pipeline_config.get("entry_point")
+
+                func.log(f"Orchestrator: State re-inflated. Resuming as {current_agent} at iteration {start_iteration}")
+            else:
+                TerminalUI.header("Pipeline Execution Start", "Agent Orchestrator")
+                current_agent = self.pipeline_config.get("entry_point", MASTER_AGENT)
+                start_iteration = 0
+                # Seed initial objective only for new sessions
+                self.memory.add_message_to_agent(current_agent, {
+                    "from": "USER", "message": user_prompt, "task": user_prompt
+                })
+
+        return start_iteration, current_agent or MASTER_AGENT
+
+    def _capture_state(self, next_agent: str, iteration: int,user_request: str) -> Dict[str, Any]:
+        """
+        Serializes current memory and orchestration metadata for session persistence.
+
+        Args:
+            next_agent: The agent scheduled for the next turn.
+            iteration: The iteration number after the current turn.
+            user_request: The original user request.
+
+        Returns:
+            A dictionary containing the serialized state.
+        """
+        return {
+            "user_request": user_request,
+            "current_agent": next_agent,
+            "iteration": iteration,
+            "memory": self.memory.serialize(),
+            "context_plan": self.memory.context.plan,
+            "step_index": self.memory.context.current_step_index,
+            "auto_authorized_tools": list(self.auto_authorized_tools)
+        }
+
+    def _apply_state(self, state: Dict[str, Any]):
+        """
+        Injects serialized state back into active managers, restoring the pipeline state.
+
+        Args:
+            state: The dictionary containing the saved session state.
+        """
+        self.memory.load_state(state.get("memory", {}))
+        self.memory.context.plan = state.get("context_plan", [])
+        self.memory.context.current_step_index = state.get("step_index", 0)
+        self.auto_authorized_tools = set(state.get("auto_authorized_tools", []))
+
+    def _assemble_agent_tools(self, agent_name: str) -> Dict[str, Callable]:
+        """
+        Assembles the set of tools available to a specific agent based on its configuration and system capabilities.
+
+        Args:
+            agent_name: The name of the agent requesting the tool set.
+
+        Returns:
+            A dictionary mapping tool names to their callable functions.
+        """
+        allowed = self.agents.get(agent_name, {}).get("tools", [])
+        
+        if hasattr(self, "mcp_bridge"):
+            allowed.extend(self.mcp_bridge.server_schemas.keys())
+        
+        tool_pool = copy.copy(self.tool_registry.get_all_tools())
+            
+        return {n: f for n, f in tool_pool.items() if n in allowed}
+
+    def _prepare_payload(self, user_prompt: str, agent: str) -> Dict[str, Any]:
+        """
+        Constructs the payload for the LLM, including context, history, and recent outcomes.
+
+        Args:
+            user_prompt: The current user prompt.
+            agent: The agent for whom the payload is being prepared.
+
+        Returns:
+            A dictionary structured for the LLM request.
+
+        Raises:
+            ValueError: If the agent's memory cannot be found.
+        """
+        mem = self.memory.get_agent_memory(agent)
+        if not mem :
+            raise ValueError(f"Agent memory not found for {agent}")
+        
+        known_files = [
+            res["parameters"].get("path")
+            for res in self.memory.context.tool_results
+            if res["tool"] == "write_file" and res["result"].get("status") == "SUCCESS"
+        ]
+        is_mgr = self.agents.get(agent, {}).get("role") == MANAGER_AGENT_ROLE
+        
+        payload = {
+            "objective": user_prompt if is_mgr else (mem.messages_received[-1].get("message", "Continue.") if mem.messages_received else "Continue."),
+            "agent_notes": mem.notes,
+            "messages_received": mem.messages_received,
+            "conversation_history": mem.history[-10:],
+            "plan": self.memory.context.plan, # FIXME We are not fetching the plan from the response nor injecting it into the payload.
+            "current_step": self.memory.context.current_step_index,
+            "recent_outcomes": self._format_recent_outcomes(self.memory.context.tool_results[-3:]),
+            "context": {"files_in_project": list(set(filter(None, known_files)))}
+        }
+        
+        if self.vector_memory and len(mem.messages_received) % 4 == 0:
+            query = mem.current_task or user_prompt
+            payload["long_term_memory"] = "\n- ".join(self.vector_memory.retrieve_memories(query, top_k=5))
+        return payload
+
+    def _process_agent_response(self, response: Dict[str, Any], agent: str, config: Dict[str, Any]) -> str:
+        """
+        Processes the LLM response to determine the next action, target, or state transition.
+
+        Args:
+            response: The raw response dictionary from the LLM connector.
+            agent: The agent that generated the response.
+            config: The configuration dictionary for the current agent.
+
+        Returns:
+            The name of the next agent to execute, or the current agent if no transition occurs.
+        """
+        action = response.get("action", {})
+        tool_name, params = action.get("tool_name"), action.get("tool_parameters", {})
+        target = str(action.get("agent_target", "")).strip().upper()
+
+        if thought := response.get("thought"):
+            if ProgramConfig.get_current().get(ProgramSetting.AGENT_THOUGHT, False): 
+                TerminalUI.message(agent, thought, Color.DIM)
+
+        msg = response.get("response_to_user", "")
+        if msg:
+            # if self.vector_memory: self.vector_memory.add_memory(msg, agent, "communication")
+            TerminalUI.message(agent, msg, Color.NORMAL_WHITE)
+
+        self.memory.update_agent_history_and_notes(agent, response)
+        self.memory.check_stagnation(tool_name, params)
+
+        if target == "USER":
+            prompt = action.get("message_to_target") or "Clarification required."
+            TerminalUI.message(agent, prompt, Color.NORMAL_CYAN)
+            reply = input(f"{Color.BLUE} {Color.RESET}").strip()
+            self.memory.add_message_to_agent(agent, {"from": "USER", "message": reply, "task": reply})
+            return agent
+
+        is_empty = not tool_name or str(tool_name).upper() == "NULL"
+        validated_target = self._validate_target(target, is_empty, agent, config)
+
+        if not is_empty and validated_target != STOP_SIGNAL:
+            if not self._handle_tool_execution(tool_name, params, agent, config):
+                return agent
+
+        msg_to_target = action.get("message_to_target")
+        if msg_to_target and validated_target not in [STOP_SIGNAL, agent]:
+            self.memory.add_message_to_agent(validated_target, {"from": agent, "message": msg_to_target, "task": action.get("task_for_target", "")})
+
+        return validated_target or agent
+
+    def _handle_tool_execution(self, tool_name: str, params: Dict[str, Any], agent: str, config: Dict[str, Any]) -> bool:
+        """
+        Executes a tool, handling specialist overrides and authorization checks.
+
+        Args:
+            tool_name: The name of the tool to execute.
+            params: The parameters passed to the tool.
+            agent: The agent attempting to use the tool.
+            config: The agent's configuration.
+
+        Returns:
+            True if the tool executed successfully, False otherwise.
+        """
+        if tool_name not in config.get("tools", []):
+            self.memory.add_message_to_agent(agent, {"from": "SYSTEM", "message": f"Unauthorized tool: {tool_name}"})
+            func.debug(f"Agent {agent} attempted to use unauthorized tool: {tool_name} , allowed tools: {config.get('tools', [])}", level="WARN")
+            return False
+
+        if self.specialist_manager.is_specialist_tool(tool_name):
+            TerminalUI.clear_line()
+            func.out(f"{Color.NORMAL_CYAN} Specialist: {tool_name}{Color.RESET}")
+            content = self.specialist_manager.invoke(tool_name, params)
+            params["replace" if tool_name == "patch_file" else "content"] = content
+
+        if not self._gatekeeper(tool_name, params):
+            self.memory.add_message_to_agent(agent, {"from": "USER", "message": "Access Denied."})
+            return False
+
+        result = self.tool_registry.execute_tool(tool_name, params)
+        self.memory.record_tool_result(agent, tool_name, params, result)
+        return True
+
+    def _initialize_modules(self):
+        """
+        Initializes all registered modules, centralizing their tools in the ToolRegistry.
+        """
+        for module_name, mod in self.module_registry.items():
+            if not mod:
+                continue
+
+            instance = mod.get_instance()
+
+            if module_name == "vector_memory":
+                self.vector_memory = instance
+                func.log(f"VectorMemory: {'CONNECTED' if self.vector_memory else 'DISABLED'}")
+
+            if instance and hasattr(instance, 'tools') and hasattr(instance.tools, 'get_tools'):
+                module_tools = instance.tools.get_tools()
+                for tool_name, tool_func in module_tools.items():
+                    self.tool_registry.register_tool(tool_name, tool_func)
+                    func.log(f"Registered tool '{tool_name}' from module '{module_name}'.")
+
+    def _format_recent_outcomes(self, outcomes: list, length=3000) -> list:
+        """
+        Formats raw tool execution results into a readable list for the LLM context.
+
+        Args:
+            outcomes: A list of tool result records.
+            length: The maximum character length for the result string before truncation.
+
+        Returns:
+            A list of dictionaries, each containing the tool name and its JSON-serialized result.
+        """
+        formatted = []
+        for o in outcomes:
+            raw_str = json.dumps(o["result"])
+            # TODO: Consider more intelligent truncation that preserves JSON structure or key info instead of naive character cut-off
+            # final_res = (raw_str[:length] + "... [TRUNCATED]") if len(raw_str) > length else raw_str
+            formatted.append({"tool": o["tool"], "result": raw_str})
+        return formatted
+
+
+    def _handle_format_error(self, agent: str, error: str) -> bool:
+        """
+        Handles repeated parsing failures, enforcing a limit to prevent infinite loops.
+
+        Args:
+            agent: The agent that failed to produce valid output.
+            error: The error message received from the LLM connector.
+
+        Returns:
+            True if the loop should continue (after injecting an error message), False if the loop must halt.
+        """
+        self.format_error_count += 1
+        
+        if self.format_error_count >= 3:
+            TerminalUI.header("Sentinel loop error!", f"{agent} stuck in format loop.")
+            # In a non-interactive test environment, we can't ask for input.
+            # We will log the error and break the loop.
+            func.error(f"Agent {agent} failed to produce valid output 3 times. Halting loop.")
+            return False
+
+        error_msg = (
+            f"PARSING FAILURE: {error}. "
+            "Your previous output contained invalid structure. "
+            "You must discard that attempt and rewrite your response. "
+        )
+        self.memory.add_message_to_agent(agent, {"from": "SYSTEM", "message": error_msg})
+        return True
+
+    def _gatekeeper(self, tool: str, params: Dict[str, Any]) -> bool:
+        """
+        Acts as an authorization gatekeeper for tool execution, prompting the user if necessary.
+
+        Args:
+            tool: The name of the tool being called.
+            params: The parameters associated with the tool call.
+
+        Returns:
+            True if the tool is authorized to run, False otherwise.
+        """
+        if tool in self.auto_authorized_tools or tool not in ["execute_command"]: 
+            TerminalUI.agent_step(f"Executing tool: {tool} with params: {params}")
+            return True
+        
+        TerminalUI.auth_request(tool, params.get('path') or "@ROOT", params.get('command', ""))
+        choice = input("Allow? ( y / n / (a)ll): ").lower().strip()
+        
+        # TODO: Improve the mechanism to remember user choices for specific tools or paths to avoid repeated prompts in the same session.
+        if choice == 'all' or choice == 'a': self.auto_authorized_tools.add(tool); return True
+        
+        return choice in ['y', 'yes']
+
+    def _validate_target(self, target: str, is_empty: bool, agent: str, config: Dict[str, Any]) -> str:
+        """
+        Validates the intended transition target specified in the LLM response.
+
+        Args:
+            target: The target agent name from the LLM response.
+            is_empty: Boolean indicating if the action/target field was empty.
+            agent: The current agent.
+            config: The current agent's configuration.
+
+        Returns:
+            The validated target agent name, or the current agent if validation fails or no transition is specified.
+        """
+        if target == "USER": return "USER"
+        allowed = config.get("allowed_targets", [STOP_SIGNAL, "USER"])
+        if target and target not in allowed:
+            self.memory.add_message_to_agent(agent, {"from": "SYSTEM", "message": f"Invalid transition target: {target}"})
+            return agent
+        if is_empty and not target:
+            self.memory.add_message_to_agent(agent, {"from": "SYSTEM", "message": "Instruction: Call a tool or transition."})
+            return agent
+        return target

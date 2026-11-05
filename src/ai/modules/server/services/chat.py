@@ -13,11 +13,36 @@ from ai.services.prompt_loader import PromptLoader
 
 
 class ChatSessionRouter:
+    """
+    Manages the routing and identification of chat sessions.
+
+    This class is responsible for determining the correct directory and file path
+    for a given chat session based on the request parameters and global configuration.
+    """
     def __init__(self, session_root_dir: Path, config: Dict[str, Any]):
+        """
+        Initializes the ChatSessionRouter.
+
+        Args:
+            session_root_dir: The root directory where all chat sessions are stored.
+            config: Global configuration dictionary.
+        """
         self.session_root_dir = Path(session_root_dir).resolve()
         self.config = config or {}
 
-    def build_session_path(self, request: ChatCompletionRequest):
+    def build_session_path(self, request: ChatCompletionRequest) -> tuple[Path, Path, str]:
+        """
+        Determines the full path and ID for the target session.
+
+        Args:
+            request: The ChatCompletionRequest containing session details.
+
+        Returns:
+            A tuple containing:
+            - session_dir: The directory where the session file resides.
+            - session_file: The full Path object to the session JSON file.
+            - target_session_id: The determined ID of the session.
+        """
         session_dir = self.session_root_dir
         if request.session_folder:
             session_dir = session_dir / request.session_folder
@@ -36,6 +61,15 @@ class ChatSessionRouter:
         session_file: Path,
         target_session_id: str,
     ):
+        """
+        Routes the memory context to the specified session file within the BrainHub.
+
+        Args:
+            brain_hub: The BrainHub instance responsible for memory management.
+            request: The chat request containing session metadata.
+            session_file: The path to the session file.
+            target_session_id: The ID of the session being routed to.
+        """
         brain_hub.route_memory(
             str(session_file),
             session_title=getattr(request, "session_title", None),
@@ -48,8 +82,23 @@ class ChatSessionRouter:
 
 
 class ChatMessageFormatter:
+    """
+    Utility class for formatting raw message objects into a standardized list
+    suitable for LLM API calls.
+    """
     @staticmethod
-    def format_messages(messages: List[Any]):
+    def format_messages(messages: List[Any]) -> tuple[List[Dict[str, str]], str]:
+        """
+        Converts a list of message objects into a list of dictionaries and extracts the last user message content.
+
+        Args:
+            messages: A list of message objects (expected to have role and content attributes).
+
+        Returns:
+            A tuple containing:
+            - formatted_messages: A list of dictionaries in the format [{"role": str, "content": str}].
+            - last_user_message: The content string of the last message sent by the user.
+        """
         formatted_messages = [{"role": m.role, "content": m.content} for m in messages]
         last_user_message = (
             formatted_messages[-1]["content"] if formatted_messages else "N/A"
@@ -58,10 +107,29 @@ class ChatMessageFormatter:
 
 
 class ChatResponseHandler:
+    """
+    Handles the execution and formatting of the LLM response, supporting both
+    streaming and non-streaming modes.
+    """
     def __init__(self, brain_hub: BrainHub):
+        """
+        Initializes the ChatResponseHandler.
+
+        Args:
+            brain_hub: The BrainHub instance used to interact with the LLM and manage history.
+        """
         self.brain_hub = brain_hub
 
     def _ensure_llm_available(self, context: str):
+        """
+        Checks if the LLM component within the BrainHub orchestrator is initialized.
+
+        Args:
+            context: A string describing the context (e.g., "streaming", "non-streaming").
+
+        Raises:
+            HTTPException: If the LLM is not initialized, returning a 503 Service Unavailable.
+        """
         if self.brain_hub.orchestrator.llm is None:
             func.log(f"LLM not initialized for {context}.", level="ERROR")
             raise HTTPException(status_code=503, detail="LLM not initialized.")
@@ -69,6 +137,18 @@ class ChatResponseHandler:
     async def stream_response(
         self, formatted_messages: List[Dict[str, str]]
     ) -> StreamingResponse:
+        """
+        Generates a streaming HTTP response by calling the LLM in streaming mode.
+
+        The response yields Server-Sent Events (SSE) data chunks. After completion,
+        it saves the full assistant response to the history.
+
+        Args:
+            formatted_messages: The list of messages to send to the LLM.
+
+        Returns:
+            A StreamingResponse object configured for text/event-stream.
+        """
         func.log("Initiating streaming response for chat completion.")
         self._ensure_llm_available("streaming")
 
@@ -100,6 +180,17 @@ class ChatResponseHandler:
         return StreamingResponse(event_generator(), media_type="text/event-stream")
 
     def non_stream_response(self, formatted_messages: List[Dict[str, str]]):
+        """
+        Generates a standard, non-streaming HTTP response by calling the LLM synchronously.
+
+        The full response is returned immediately, and the assistant's reply is saved to history.
+
+        Args:
+            formatted_messages: The list of messages to send to the LLM.
+
+        Returns:
+            A dictionary representing the final chat completion response structure.
+        """
         func.log("Initiating non-streaming response for chat completion.")
         self._ensure_llm_available("non-streaming")
 
@@ -124,15 +215,23 @@ class ChatResponseHandler:
 class ChatService:
     """
     High-level chat orchestration service.
-    - Routes memory to a session file
-    - Chooses brain/model and system prompt
-    - Feeds user messages to the LLM
-    - Streams or returns non-streaming responses
+
+    This service manages the entire lifecycle of a chat interaction:
+    routing memory to the correct session, resolving the appropriate model and system prompt,
+    feeding messages to the LLM, and handling the final streaming or synchronous response.
     """
 
     def __init__(
         self, brain_hub: BrainHub, session_root_dir: Path, config: Dict[str, Any]
     ):
+        """
+        Initializes the ChatService.
+
+        Args:
+            brain_hub: The BrainHub instance managing models and memory.
+            session_root_dir: The root directory for session storage.
+            config: Global configuration settings.
+        """
         self.brain_hub = brain_hub
         self.session_router = ChatSessionRouter(session_root_dir, config)
         self.message_formatter = ChatMessageFormatter()
@@ -141,9 +240,16 @@ class ChatService:
     def _resolve_system_prompt(self, system_prompt: Optional[str]) -> Optional[str]:
         """
         Resolves the system prompt content, supporting both direct text and file/template references.
-        - If the system prompt is empty or None, returns an empty string.
-        - If the system prompt is a reference to a file or template, attempts to load it using PromptLoader.
-        - If loading fails or the content is empty, treats the system prompt as literal text and returns it.
+
+        If the prompt is empty, an empty string is returned. If it references a file or template,
+        PromptLoader attempts to load it. If loading fails or the content is empty, the literal
+        prompt text is used.
+
+        Args:
+            system_prompt: The raw system prompt string, which may contain references.
+
+        Returns:
+            The fully resolved system prompt content as a string, or None if the input was None.
         """
         if not system_prompt:
             return ""
@@ -166,10 +272,13 @@ class ChatService:
 
     def _resolve_brain(self, request: ChatCompletionRequest):
         """
-        Resolves the brain/model for the chat session based on the request.
-        - Extracts the requested model/brain from the request (defaulting to "default   if not specified).
-        - Resolves the system prompt content using the _resolve_system_prompt method.
-        - Instructs the BrainHub to load the appropriate brain/model with the resolved system prompt.
+        Resolves the brain/model for the chat session based on the request parameters.
+
+        This method determines the model ID, resolves the system prompt, and instructs
+        the BrainHub to load the necessary brain configuration before inference.
+
+        Args:
+            request: The ChatCompletionRequest containing model and prompt specifications.
         """
 
         # print(request)
@@ -189,9 +298,20 @@ class ChatService:
     async def chat_completion(self, request: ChatCompletionRequest):
         """
         Main entry point for handling chat completion requests.
-        - Routes memory to session file
-        - Resolves brain/model and system prompt
-        - Delegates to response handler for streaming or non-streaming response
+
+        This orchestrates the entire chat flow: memory routing, brain resolution,
+        message formatting, and finally, calling the appropriate response handler
+        (streaming or non-streaming).
+
+        Args:
+            request: The ChatCompletionRequest containing all necessary input data.
+
+        Returns:
+            Either a StreamingResponse (if stream=True) or a dictionary (if stream=False).
+
+        Raises:
+            HTTPException: If the BrainHub or LLM is not initialized (503), or if
+                            inference fails (500).
         """
         func.log(
             f"Chat completion request received. Stream: {getattr(request, 'stream', False)}, Model: {getattr(request, 'model', 'default')}"

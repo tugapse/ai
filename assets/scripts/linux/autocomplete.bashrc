@@ -69,22 +69,22 @@ _ai_completion() {
             return
             ;;
         --task|-t)
-            options="$(ls "$AI_ASSISTANT_DIRECTORY/task" 2>/dev/null | grep .md | sed 's/\\.md//' | tr "\\n"  " " )"
+            options="$(ls "$AI_ASSISTANT_DIRECTORY/user/task" 2>/dev/null | grep .md | sed 's/\\.md//' | tr "\\n"  " " )"
             COMPREPLY=( $(compgen -W "${options}" -- "${cur}") )
             return
             ;;
         --model|-md)
-            options="$(ls "$AI_ASSISTANT_DIRECTORY/model-config" 2>/dev/null | grep .json | sed 's/\\.json//' | tr "\\n"  " " )"
+            options="$(ls "$AI_ASSISTANT_DIRECTORY/system/models" 2>/dev/null | grep .json | sed 's/\\.json//' | tr "\\n"  " " )"
             COMPREPLY=( $(compgen -W "${options}" -- "${cur}") )
             return
             ;;
         --pipeline)
-            options="$(ls "$AI_ASSISTANT_DIRECTORY/pipelines" 2>/dev/null | grep .json | sed 's/\\.json//' | tr "\\n"  " " )"
+            options="$(ls "$AI_ASSISTANT_DIRECTORY/system/pipelines" 2>/dev/null | grep .json | sed 's/\\.json//' | tr "\\n"  " " )"
             COMPREPLY=( $(compgen -W "${options}" -- "${cur}") )
             return
             ;;
         --system|-s)
-            options="$(ls "$AI_ASSISTANT_DIRECTORY/system" 2>/dev/null | grep .md | sed 's/\\.md//' | tr "\\n"  " " )"
+            options="$(ls "$AI_ASSISTANT_DIRECTORY/system/system-prompt" 2>/dev/null | grep .md | sed 's/\\.md//' | tr "\\n"  " " )"
             COMPREPLY=( $(compgen -W "${options}" -- "${cur}") )
             return
             ;;

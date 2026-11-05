@@ -11,6 +11,8 @@ class ContextSentinel:
 
     def __init__(self, connector: Any, threshold: float = 0.8, max_tokens: int = 20000, buffer: int = 1024):
         """
+        Initializes the ContextSentinel.
+
         Args:
             connector (Any): LLM connector for 'raw' distillation requests.
             threshold (float): Percentage of context used to trigger compression.
@@ -25,7 +27,19 @@ class ContextSentinel:
 
     def enforce_limits(self, agent_name: str, memory_manager: Any, payload: Dict[str, Any], vector_memory: Optional[Any] = None) -> Tuple[Dict[str, Any], bool]:
         """
-        Calculates pressure and performs in-place memory surgery if over threshold.
+        Calculates context pressure based on payload size and performs in-place memory surgery if the threshold is exceeded.
+
+        If pressure is high, it summarizes heavy tool outputs into technical facts, archives these facts to Vector Memory,
+        and prunes the conversation history to maintain context efficiency.
+
+        Args:
+            agent_name (str): The name of the agent whose context is being monitored.
+            memory_manager (Any): The manager responsible for retrieving and updating agent memory.
+            payload (Dict[str, Any]): The current state payload containing context data.
+            vector_memory (Optional[Any]): Optional vector memory store for archiving distilled facts.
+
+        Returns:
+            Tuple[Dict[str, Any], bool]: A tuple containing the potentially modified payload and a boolean indicating if compression/pruning occurred.
         """
         # Heuristic: 4 characters per token
         est_tokens = len(json.dumps(payload)) / 3.2
@@ -33,14 +47,13 @@ class ContextSentinel:
         pressure = est_tokens / delta if delta > 0 else 1
 
         if delta <= 0:
-            func.log("DELTA  WAS ZERO ", level="WARN")
             return payload, False
 
 
         if pressure < self.threshold:
             return payload, False
 
-        func.out(f"{Color.YELLOW}◈ Sentinel: Pressure {pressure:.1%}. Archiving facts to LTM...{Color.RESET}")
+        func.out(f"{Color.YELLOW} Sentinel: Pressure {pressure:.1%}. Archiving facts to LTM...{Color.RESET}")
 
         agent_memory = memory_manager.get_agent_memory(agent_name)
 
@@ -77,7 +90,18 @@ class ContextSentinel:
         return payload, True
 
     def _summarize_data(self, raw_result: Any) -> str:
-        """Sequential LLM call to convert implementation code into technical facts."""
+        """
+        Converts complex tool output into a dense, technical fact sheet using a sequential LLM call.
+
+        This method prompts the LLM to act as a technical analyst, extracting key facts,
+        preserving signatures, and explicitly deleting raw source code from the output.
+
+        Args:
+            raw_result (Any): The raw, verbose output from a tool execution.
+
+        Returns:
+            str: A plain text summary containing distilled technical facts.
+        """
         prompt = {
             "instruction": (
                 "ACT AS A TECHNICAL ANALYST. Summarize the tool output into a dense fact sheet. "

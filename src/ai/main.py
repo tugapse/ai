@@ -11,6 +11,9 @@ import gc
 import re
 from pathlib import Path
 
+from ai.services.directory_manager import DirectoryManager
+from ai.services.process_manager import ProcessManager
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Core imports
@@ -27,10 +30,16 @@ def get_project_version() -> str:
     the pyproject.toml file, reads its content, and extracts the version
     string. It provides a fallback version if the file or version key
     cannot be found.
+
+    :return: The project version string or a fallback identifier.
+    :rtype: str
     """
     try:
-        # Assumes pyproject.toml is at the project root, three levels up from src/ai/main.py
-        pyproject_path = Path(__file__).resolve().parent.parent.parent / "pyproject.toml"
+        bundle_root = getattr(sys, "_MEIPASS", None)
+        if bundle_root:
+            pyproject_path = Path(bundle_root) / "pyproject.toml"
+        else:
+            pyproject_path = Path(__file__).resolve().parent.parent.parent / "pyproject.toml"
 
         if not pyproject_path.exists():
             return "0.0.0-dev (pyproject.toml not found)"
@@ -50,17 +59,15 @@ def get_project_version() -> str:
         return "0.0.0-dev (fallback)"
 
 __version__ = get_project_version()
-__logo = f"""{Color.CYAN}
-      ██╗  █████╗  ██████╗  ██╗   ██╗ ██╗ ███████╗      █████╗  ██╗
-      ██║ ██╔══██╗ ██╔══██╗ ██║   ██║ ██║ ██╔════╝     ██╔══██╗ ██║
-      ██║ ███████║ ██████╔╝ ██║   ██║ ██║ ███████╗     ███████║ ██║
- ██   ██║ ██╔══██║ ██╔══██╗ ╚██╗ ██╔╝ ██║ ╚════██║     ██╔══██║ ██║
- ╚█████╔╝ ██║  ██║ ██║  ██║  ╚████╔╝  ██║ ███████║     ██║  ██║ ██║
-  ╚════╝  ╚═╝  ╚═╝ ╚═╝  ╚═╝   ╚═══╝   ╚═╝ ╚══════╝     ╚═╝  ╚═╝ ╚═╝
-{Color.RESET}"""
+__logo = func.get_logo_asci()
 
 def check_dependencies():
-    """Diagnostic boot check for JARVIS dependencies."""
+    """
+    Diagnostic boot check for JARVIS dependencies.
+
+    Checks for the presence of core required Python modules. If any are missing,
+    it prints an error message to the console and exits the program.
+    """
     core_deps = [
         ("colorama", "colorama"),
         ("prompt_toolkit", "prompt_toolkit"),
@@ -78,7 +85,12 @@ def check_dependencies():
         sys.exit(1)
 
 def hack_warnings():
-    """Suppresses library-specific noise."""
+    """
+    Suppresses library-specific noise and warnings during runtime.
+
+    Sets environment variables and configures logging/warnings filters
+    to reduce console clutter from third-party libraries.
+    """
     os.environ['TQDM_DISABLE'] = '1'
     os.environ['BITSANDBYTES_NOWELCOME'] = '1'
     os.environ["TRANSFORMERS_VERBOSITY"] = "error"
@@ -86,12 +98,25 @@ def hack_warnings():
     warnings.filterwarnings("ignore", category=FutureWarning)
 
 class JarvisHelpFormatter(argparse.RawDescriptionHelpFormatter):
+    """
+    Custom formatter for argparse to ensure help messages are displayed cleanly
+    and descriptions are aligned correctly.
+    """
     def __init__(self, prog):
         # Increased max_help_position to 50 to keep descriptions aligned
         super().__init__(prog, max_help_position=50, width=110)
 
 def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
-    """Defines and parses flags for the JARVIS ecosystem."""
+    """
+    Defines and parses flags for the JARVIS ecosystem.
+
+    Sets up the main argument parser, including groups for Cognitive Protocols,
+    Asset Management, Autonomous Operations, Distributed Architecture,
+    System Debug, and Model Configuration.
+
+    :return: A tuple containing the ArgumentParser instance and the parsed Namespace object.
+    :rtype: tuple[argparse.ArgumentParser, argparse.Namespace]
+    """
     
     description=f"""
 
@@ -134,6 +159,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     agent_group.add_argument("--task-file", "-tf", type=str, help="Load directive from file")
     agent_group.add_argument("--pipeline", "-ppl", type=str, help="Execute multi-stage instruction pipeline")
     agent_group.add_argument("--session-id", type=str, help="LTM (Long Term Memory) session key")
+    agent_group.add_argument("--list-sessions","-ls", action="store_true", help="List all available sessions for current working directory")
     agent_group.add_argument("--output-file", "-o", type=str, help="Designate clean output stream (temp-file mode)")
 
     # 4. Distributed Architecture
@@ -167,13 +193,23 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
 
 
 def run():
+    """
+    Main execution function for the JARVIS system.
+
+    Handles argument parsing, dependency checks, configuration loading,
+    initialization of core managers (DirectoryManager, ProcessManager),
+    and manages the main program loop or maintenance tasks.
+    """
     parser, args = load_args()
+
 
     # debugging flags for development purposes
     # args.remote     = "http://0.0.0.0:9999"
-    # args.agent      = True
+    # args.list_sessions = True
     # args.model      = "gemini/gemini-25"
     # args.msg        = "explain this program"
+    # args.agent      = True
+    # args.overwrite_config = True
     # args.pipeline   = "gemini" 
 
     check_dependencies()
@@ -190,6 +226,11 @@ def run():
     is_server = getattr(args, 'server', False)
 
     def shutdown_handler(signum, frame):
+        """
+        Signal handler for graceful shutdown upon receiving SIGINT or SIGTERM.
+
+        Calls the program's shutdown method, performs garbage collection, and exits.
+        """
         func.log(f"\n{Color.YELLOW}[ * ] Signal {signum} received. Initiating graceful shutdown...{Color.RESET}")
         prog.shutdown()
         gc.collect()
@@ -199,8 +240,12 @@ def run():
     signal.signal(signal.SIGTERM, shutdown_handler)
     if args.show_logo:
         func.log(f"\n{__logo}", start_line="")
-
+    
+    directory_manager = DirectoryManager()
+    process_manager = ProcessManager(directory_manager)
+    
     try:
+        process_manager.start()  
         if getattr(args, 'debug_console', False): 
             func.ALLOW_CLEAR_CONSOLE = False
             prog.config.set(ProgramSetting.PRINT_LOG, True)
@@ -213,7 +258,7 @@ def run():
 
         maintenance_keys = ['install',  'overwrite_config', 'generate_config', 'server', 'print_chat', 'list_models', 'create_tool']
         if any(getattr(args, key, None) for key in maintenance_keys):
-            cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
+            cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser,directory_manager=directory_manager)
             if is_server:
                 func.log(f"{Color.GREEN}[  ] Neural Hub is online. Press Ctrl+C to shut down.{Color.RESET}")
                 if prog.modules:
@@ -224,8 +269,9 @@ def run():
         prog.init_config(args=args)
         prog.init_program()
 
-        cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser)
-
+        cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser,directory_manager=directory_manager)
+        
+        
         prog.run()
         
     except Exception as e:
@@ -238,6 +284,7 @@ def run():
     finally:
         if not is_server:
             prog.shutdown()
+        process_manager.shutdown()
 
 if __name__ == "__main__":
     sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))

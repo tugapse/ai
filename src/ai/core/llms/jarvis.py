@@ -17,12 +17,20 @@ class JarvisAiModel(BaseModel):
     """
 
     def __init__(self, model_name: Optional[str] = None, system_prompt: str = "", api_key: Optional[str] = None, **kargs: Any):
-        """Initializes the custom API endpoint model interface."""
+        """
+        Initializes the custom API endpoint model interface.
+
+        Args:
+            model_name: The name of the LLM model to use (defaults to "gpt-4o").
+            system_prompt: The initial system prompt to guide the model's behavior.
+            api_key: Optional API key for authentication (though not explicitly used in this interface).
+            **kargs: Additional keyword arguments for configuration, such as base_url, session_id, etc.
+        """
         model_name = model_name or os.environ.get("AI_MODEL_NAME", "gpt-4o")
         super().__init__(model_name, system_prompt, **kargs)
         
         # Configuration routing pointing to the custom backend server
-        self.base_url = kargs.get("base_url") or os.environ.get("AI_API_BASE_URL", "http://127.0.0.1:8000")
+        self.base_url = kargs.get("base_url") or os.environ.get("AI_API_BASE_URL", "http://0.0.0.0:9999")
         self.endpoint = f"{self.base_url.rstrip('/')}/api/v1/chat/completions"
         
         # Session state details used by ChatSessionRouter on the backend
@@ -35,9 +43,22 @@ class JarvisAiModel(BaseModel):
         out_tokens = kargs.get('max_new_tokens', 2048)
         self.token_info_count.max_output_tokens = out_tokens
         self.token_info_count.max_context_window = kargs.get("n_ctx", BaseModel.CONTEXT_WINDOW_128K)
+        self.time_out = kargs.get("timeout", 600.0)  # Default to 10 minutes for long-running tasks
 
     def chat(self, messages: List[Dict[str, str]], images=[],stream: bool = True, options={} ) -> Union[str, Dict[str, Any], Generator[Union[str, Dict[str, Any]], None, None]]:
-        """Executes a chat completion request directly to the custom backend endpoint."""
+        """
+        Executes a chat completion request directly to the custom backend endpoint.
+
+        Args:
+            messages: A list of message dictionaries containing conversation history.
+            images: A list of image data (currently unused in payload construction).
+            stream: If True, returns a generator for streaming responses; otherwise, returns the full response string.
+            options: Additional options dictionary passed to the backend.
+
+        Returns:
+            Union[str, Dict[str, Any], Generator[Union[str, Dict[str, Any]], None, None]]: 
+            The final text response, a dictionary response, or a generator yielding chunks.
+        """
         self.stop_generation_event.clear()
         
         # Dynamic system prompt override sync matching original behavior
@@ -65,7 +86,7 @@ class JarvisAiModel(BaseModel):
             if stream:
                 return self._run_streaming_chat(payload)
             else:
-                with httpx.Client(timeout=60.0) as client:
+                with httpx.Client(timeout=self.time_out) as client:
                     response = client.post(self.endpoint, json=payload)
                     response.raise_for_status()
                     data = response.json()
@@ -82,11 +103,19 @@ class JarvisAiModel(BaseModel):
             return ""
 
     def _run_streaming_chat(self, payload: Dict[str, Any]) -> Generator[str, None, None]:
-        """Handles streaming lines from the custom FastAPI server."""
+        """
+        Handles streaming lines from the custom FastAPI server.
+
+        Args:
+            payload: The request payload containing chat parameters.
+
+        Yields:
+            str: A chunk of text content as it is received from the stream.
+        """
         full_content = ""
         
         try:
-            with httpx.stream("POST", self.endpoint, json=payload, timeout=60.0) as response:
+            with httpx.stream("POST", self.endpoint, json=payload, timeout=self.time_out) as response:
                 response.raise_for_status()
                 
                 for line in response.iter_lines():
@@ -117,5 +146,7 @@ class JarvisAiModel(BaseModel):
             self.trigger(BaseModel.STREAMING_FINISHED_EVENT, full_content)
 
     def clean_cache(self) -> None:
-        """Forces garbage collection to clear memory buffers."""
+        """
+        Forces garbage collection to clear memory buffers.
+        """
         gc.collect()

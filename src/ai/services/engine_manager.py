@@ -23,9 +23,32 @@ class EngineManager:
         """
         Checks the installed_engines.json config manually by stepping up
         from src/ai/services/ to the project root.
+
+        Args:
+            module_type: The type of model or engine to check (ModelType or EngineType).
+            module_name: An optional name associated with the module type, used for specific checks.
+
+        Returns:
+            bool: True if the engine/model is marked as installed in the configuration, False otherwise.
         """
-        root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
-        config_path = os.path.join(root_dir, "installed_engines.json")
+        configured_path = os.environ.get("AI_ENGINE_STATUS_FILE")
+        if configured_path:
+            config_path = configured_path
+        elif getattr(sys, "frozen", False):
+            executable_dir = os.path.dirname(os.path.abspath(sys.executable))
+            bundled_dir = getattr(sys, "_MEIPASS", executable_dir)
+            config_paths = [
+                os.path.join(os.path.dirname(executable_dir), "installed_engines.json"),
+                os.path.join(executable_dir, "installed_engines.json"),
+                os.path.join(bundled_dir, "installed_engines.json"),
+            ]
+            config_path = next(
+                (path for path in config_paths if os.path.isfile(path)),
+                config_paths[-1],
+            )
+        else:
+            root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+            config_path = os.path.join(root_dir, "installed_engines.json")
         
         # If the file isn't there, we assume nothing is installed
         if not os.path.exists(config_path):
@@ -69,6 +92,13 @@ class EngineManager:
     ) -> dict:
         """
         Generates a default model configuration dictionary.
+
+        Args:
+            model_name: The name to assign to the model configuration.
+            model_type: The type of the model (e.g., GGUF, OPEN_AI).
+
+        Returns:
+            dict: A dictionary containing default configuration settings for the model.
         """
         config = {
             "model_name": model_name,
@@ -93,6 +123,17 @@ class EngineManager:
     def load_config(filepath: str) -> dict:
         """
         Loads and parses a JSON model configuration file.
+
+        Args:
+            filepath: The full path to the JSON configuration file.
+
+        Returns:
+            dict: The parsed model configuration dictionary.
+
+        Raises:
+            FileNotFoundError: If the specified file does not exist.
+            json.JSONDecodeError: If the file content is not valid JSON.
+            Exception: For other I/O or reading errors.
         """
         if not os.path.exists(filepath):
             func.error(f"Model configuration file '{filepath}' not found.", level="ERROR") 
@@ -114,6 +155,13 @@ class EngineManager:
     def save_config(config: dict, filepath: str):
         """
         Saves a model configuration dictionary to a JSON file.
+
+        Args:
+            config: The dictionary containing the model configuration to save.
+            filepath: The destination path for the JSON file.
+
+        Raises:
+            Exception: If there is an error during file writing.
         """
         try:
             with open(filepath, 'w', encoding="utf-8") as f:
@@ -131,6 +179,20 @@ class EngineManager:
     ) -> BaseModel:
         """
         Loads and instantiates an LLM model based on the provided model configuration dictionary.
+
+        This method first checks if the required engine is installed before attempting instantiation.
+
+        Args:
+            model_config: The configuration dictionary loaded from a file.
+            system_prompt: The system prompt to be used when initializing the model.
+            tool_registry: An optional registry containing available tools for the model.
+
+        Returns:
+            BaseModel: An instantiated LLM model object.
+
+        Raises:
+            ValueError: If the configuration is invalid, the model type is unknown, or the required engine is not installed.
+            Exception: For errors during the actual model instantiation process.
         """
         model_name = model_config.get("model_name")
         model_type_str = model_config.get("model_type")
@@ -148,13 +210,13 @@ class EngineManager:
 
         # If this returns False, we stop here and avoid the 'Lazy Import' crash.
         if not EngineManager.is_engine_installed(model_type, model_name):
-            from color import Color
-            func.error(
-                f"The engine for {Color.YELLOW}{model_type.value}{Color.RED} is not installed.\n"
-                f"Run '{Color.CYAN} ai --install{Color.RED}' to configure it.",
-                level="ERROR"
+            from ai.color import Color
+            message = (
+                f"The engine for {Color.YELLOW}{model_type.value}{Color.RESET} is not installed.\n"
+                f"Run '{Color.CYAN} ai --install{Color.RESET}' to configure it."
             )
-            raise ValueError("Invalid model configuration: engine not installed.")
+            func.error(message, level="ERROR")
+            raise ValueError(f"engine not installed: {model_type.value}")
 
         func.log(f"Selected model: {model_name} (Type: {model_type.value})") 
         quantization_bits = model_properties.get("quantization_bits", 0)
@@ -194,7 +256,20 @@ class EngineManager:
 
     @staticmethod
     def _create_causal_lm(model_name: str, system_prompt: str, quantization_bits: int, model_params: dict, other_llm_kwargs: dict) -> BaseModel:
-        from core.llms.huggingface_model import HuggingFaceModel
+        """
+        Instantiates a HuggingFaceModel for Causal Language Models.
+
+        Args:
+            model_name: The name of the model.
+            system_prompt: The system prompt.
+            quantization_bits: The quantization level.
+            model_params: Dictionary of model parameters.
+            other_llm_kwargs: Additional keyword arguments for the model.
+
+        Returns:
+            BaseModel: The instantiated HuggingFaceModel.
+        """
+        from ai.core.llms.huggingface_model import HuggingFaceModel
         llm_instance = HuggingFaceModel(
             model_name=model_name,
             system_prompt=system_prompt,
@@ -207,7 +282,19 @@ class EngineManager:
 
     @staticmethod
     def _create_ollama_model(model_name: str, system_prompt: str, model_params: dict, other_llm_kwargs: dict) -> BaseModel:
-        from core.llms.ollama_model import OllamaModel
+        """
+        Instantiates an OllamaModel.
+
+        Args:
+            model_name: The name of the model.
+            system_prompt: The system prompt.
+            model_params: Dictionary of model parameters.
+            other_llm_kwargs: Additional keyword arguments for the model.
+
+        Returns:
+            BaseModel: The instantiated OllamaModel.
+        """
+        from ai.core.llms.ollama_model import OllamaModel
         llm_instance = OllamaModel(
             model_name=model_name,
             system_prompt=system_prompt,
@@ -219,6 +306,22 @@ class EngineManager:
 
     @staticmethod
     def _create_gguf_model(model_name: str, system_prompt: str, model_properties: dict, model_params: dict, other_llm_kwargs: dict) -> BaseModel:
+        """
+        Instantiates a GGUFImageLLM, handling necessary logging setup for llama_cpp.
+
+        Args:
+            model_name: The name of the model.
+            system_prompt: The system prompt.
+            model_properties: The full model properties dictionary.
+            model_params: Dictionary of model parameters.
+            other_llm_kwargs: Additional keyword arguments for the model.
+
+        Returns:
+            BaseModel: The instantiated GGUFImageLLM.
+
+        Raises:
+            ValueError: If 'gguf_filename' is missing from model properties.
+        """
         import ctypes
         from llama_cpp import llama_log_set
         def my_log_callback(level, message, user_data):
@@ -236,7 +339,7 @@ class EngineManager:
         if not gguf_filename:
             func.log("'gguf_filename' is required for 'gguf' model_type in model properties.", level="ERROR") 
             raise ValueError("Invalid model configuration: missing 'gguf_filename'.")
-        from core.llms.gguf_model import GGUFImageLLM
+        from ai.core.llms.gguf_model import GGUFImageLLM
         llm_instance = GGUFImageLLM(
             model_name=model_name,
             gguf_filename=gguf_filename,
@@ -253,7 +356,19 @@ class EngineManager:
 
     @staticmethod
     def _create_gemini_model(model_name: str, system_prompt: str, model_params: dict, other_llm_kwargs: dict) -> BaseModel:
-        from core.llms.gemini import GeminiAPIModel
+        """
+        Instantiates a GeminiAPIModel.
+
+        Args:
+            model_name: The name of the model.
+            system_prompt: The system prompt.
+            model_params: Dictionary of model parameters.
+            other_llm_kwargs: Additional keyword arguments for the model, including 'vertex_ai'.
+
+        Returns:
+            BaseModel: The instantiated GeminiAPIModel.
+        """
+        from ai.core.llms.gemini import GeminiAPIModel
         llm_instance = GeminiAPIModel(
             model_name=model_name,
             system_prompt=system_prompt,
@@ -266,7 +381,19 @@ class EngineManager:
 
     @staticmethod
     def _create_openai_model(model_name: str, system_prompt: str, model_params: dict, other_llm_kwargs: dict) -> BaseModel:
-        from core.llms.open_ai import OpenAIAPIModel
+        """
+        Instantiates an OpenAIAPIModel.
+
+        Args:
+            model_name: The name of the model.
+            system_prompt: The system prompt.
+            model_params: Dictionary of model parameters.
+            other_llm_kwargs: Additional keyword arguments for the model.
+
+        Returns:
+            BaseModel: The instantiated OpenAIAPIModel.
+        """
+        from ai.core.llms.open_ai import OpenAIAPIModel
         llm_instance = OpenAIAPIModel(
             model_name=model_name,
             system_prompt=system_prompt,
@@ -278,7 +405,19 @@ class EngineManager:
 
     @staticmethod
     def _create_jarvis_model(model_name: str, system_prompt: str, model_params: dict, other_llm_kwargs: dict) -> BaseModel:
-        from core.llms.jarvis import JarvisAiModel
+        """
+        Instantiates a JarvisAiModel.
+
+        Args:
+            model_name: The name of the model.
+            system_prompt: The system prompt.
+            model_params: Dictionary of model parameters.
+            other_llm_kwargs: Additional keyword arguments for the model.
+
+        Returns:
+            BaseModel: The instantiated JarvisAiModel.
+        """
+        from ai.core.llms.jarvis import JarvisAiModel
         llm_instance = JarvisAiModel(
             model_name=model_name,
             system_prompt=system_prompt,

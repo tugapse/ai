@@ -1,8 +1,10 @@
 import os
+import sys
 from datetime import datetime
 from typing import Optional
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import InMemoryHistory
+from prompt_toolkit.output import DummyOutput
 from prompt_toolkit.formatted_text import ANSI
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.filters import Condition
@@ -26,10 +28,27 @@ class ChatRoles:
 
 
 class PrefixCompleter(Completer):
+    """
+    A custom completer that provides suggestions for commands (starting with '/')
+    and file paths (starting with '@').
+    """
     def __init__(self, commands: list[str]):
+        """
+        Initializes the PrefixCompleter.
+
+        Args:
+            commands: A list of predefined command strings to suggest.
+        """
         self.commands = commands
 
     def get_completions(self, document, complete_event):
+        """
+        Generates completion suggestions based on the text before the cursor.
+
+        Args:
+            document: The current document state.
+            complete_event: The event triggering the completion.
+        """
         text = document.text_before_cursor
         
         if text.startswith('/'):
@@ -42,6 +61,12 @@ class PrefixCompleter(Completer):
             yield from self._file_completion(query)
 
     def _file_completion(self, query: str):
+        """
+        Handles file path completion suggestions when the input starts with '@'.
+
+        Args:
+            query: The partial path/filename being typed after '@'.
+        """
         # Handle trailing separator to allow directory browsing
         has_trailing_sep = query.endswith(os.sep)
         
@@ -84,6 +109,7 @@ class PrefixCompleter(Completer):
 class Chat(Events):
     """
     Define the chat class that handles user input and outputs.
+    Manages the conversational state, command execution, and file attachment workflow.
     """
 
     EVENT_CHAT_SENT = "chat_sent"
@@ -93,6 +119,13 @@ class Chat(Events):
     EVENT_AGENT_RUN_REQUESTED = "agent_run_requested"
 
     def __init__(self, commands: Optional[list[str]] = None, agents: Optional[list[str]] = None):
+        """
+        Initializes the Chat session.
+
+        Args:
+            commands: Optional list of predefined commands for prefix completion.
+            agents: Optional list of agent names for prefix completion.
+        """
         super().__init__()
         self.terminate = False
         self.terminate_tokens = ["quit", "q"]
@@ -102,7 +135,7 @@ class Chat(Events):
         self.images: list[str] = []
         self.current_message = ""
         self.user_prompt = "\nUser: "
-        self.assistant_prompt = "Assistant: "
+        self.assistant_prompt = "Jarvis Ai: "
         self.max_chat_log = 50
         self.cache_messages = True
         self.current_prompt = ""
@@ -123,7 +156,15 @@ class Chat(Events):
         # Top Bar State
         self.top_bar_content: list[str] = [] # Array of strings for the top bar
         
-        self.prompt_session = PromptSession(history=InMemoryHistory())
+        prompt_output = (
+            DummyOutput()
+            if sys.platform == "win32" and not sys.stdout.isatty()
+            else None
+        )
+        self.prompt_session = PromptSession(
+            history=InMemoryHistory(),
+            output=prompt_output,
+        )
         self.kb = KeyBindings()
         self._setup_key_bindings()
 

@@ -1,0 +1,25 @@
+{
+  "mcpServers": {
+    "powerpoint": {
+      "enabled": true,
+      "auto_allow": true,
+      "description": "Create, edit, and manage Microsoft PowerPoint (.pptx) presentations.",
+      "command": "pathTO/Office-PowerPoint-MCP-Server/.venv/bin/python",
+      "args": ["pathTO/Office-PowerPoint-MCP-Server/ppt_mcp_server.py"]
+    },
+    "playwright": {
+      "enabled": true,
+      "auto_allow": true,
+      "description": "Browser automation tool. Use this to navigate websites, click elements, extract text, and interact with web applications.",
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"]
+    },
+    "github": {
+      "enabled": true,
+      "auto_allow": true,
+      "description": "Interact with the GitHub API. Use this to read repositories, create issues, review PRs, and manage branches.",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"]
+    }
+  }
+}

@@ -12,6 +12,7 @@ class TokenCountInfo:
     """Tracks and calculates real-time token tracking metadata for inference context tracking."""
 
     def __init__(self) -> None:
+        """Initializes token tracking counters to zero."""
         self.prompt_count = 0
         self.max_context_window = 0
         self.max_output_tokens = 0
@@ -19,7 +20,12 @@ class TokenCountInfo:
         self.printed_tokens_count = 0
 
     def get_log_string(self) -> str:
-        """Calculates context window usage percentages and prints a formatted log metric string."""
+        """
+        Calculates context window usage percentages and prints a formatted log metric string.
+
+        Returns:
+            str: A formatted string detailing token counts and usage percentage.
+        """
         free_tokens = self.max_context_window - self.max_output_tokens
         usage = (
             (
@@ -40,6 +46,12 @@ class ModelParams:
     """Encapsulates execution parameters, generation configurations, and sampler constraints for LLM requests."""
 
     def __init__(self, **kargs) -> None:
+        """
+        Initializes model parameters using keyword arguments.
+
+        Args:
+            **kargs: Configuration parameters for the LLM generation process.
+        """
         self.num_ctx = kargs.get("num_ctx") or BaseModel.CONTEXT_WINDOW_LARGE
         self.max_new_tokens = kargs.get("max_new_tokens", 2048)
         self.max_length = kargs.get("max_length", 4096)
@@ -55,12 +67,19 @@ class ModelParams:
         self.format = kargs.get("format", None)
 
     def to_dict(self) -> Dict[str, Any]:
-        """Filters out uninitialized parameters and maps configurations to a standard dictionary format."""
+        """
+        Filters out uninitialized parameters and maps configurations to a standard dictionary format.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing only initialized parameters.
+        """
         return {k: v for k, v in self.__dict__.items() if v is not None}
 
 
 class BaseModel:
-    """Abstract base class handling state management, context building, and tool interception logic for inference models."""
+    """
+    Abstract base class handling state management, context building, and tool interception logic for inference models.
+    """
 
     CONTEXT_WINDOW_SMALL = 2048
     CONTEXT_WINDOW_MEDIUM = 4096
@@ -77,6 +96,14 @@ class BaseModel:
     HIL_TOOLS:list[str]
 
     def __init__(self, model_name: str, system_prompt: str = "", **kargs) -> None:
+        """
+        Initializes the base model state.
+
+        Args:
+            model_name: The name identifier for the model being loaded.
+            system_prompt: The initial system-level instruction prompt.
+            **kargs: Additional configuration arguments passed to the model instance.
+        """
         self.model_name = model_name
         self.system_prompt = system_prompt
         self.listeners = {}
@@ -95,12 +122,29 @@ class BaseModel:
         
     
     def _load_llm_params(self, **kwargs) -> None:
+        """
+        Loads and sets token tracking metadata based on current model options.
+
+        Args:
+            **kwargs: Arguments potentially containing context window and token limits.
+        """
         self.token_info_count.max_context_window = self.options.get("n_ctx", 2048)
         self.token_info_count.max_output_tokens = self.options.get("max_new_tokens", 2048)
 
 
     def handle_sentinel(self, content: str, is_intercepting: bool, sentinel_buffer: str):
-        """Monitors and intercepts streaming chunks matching syntax blocks to extract raw agent tool calls."""
+        """
+        Monitors and intercepts streaming chunks matching syntax blocks to extract raw agent tool calls.
+
+        Args:
+            content: The current chunk of streamed content.
+            is_intercepting: Boolean indicating if the interceptor is currently active.
+            sentinel_buffer: The accumulated buffer from previous chunks.
+
+        Returns:
+            tuple[Optional[Any], str, bool, bool]: A tuple containing the parsed action (if any), 
+            the new sentinel buffer, and flags indicating interception status changes.
+        """
         TRIGGER_PREFIXES = ["____", "<|"]
         
         if not is_intercepting:
@@ -121,7 +165,10 @@ class BaseModel:
             return None, new_buffer, True, False
 
     def init_pytorch_cuda(self) -> None:
-        """Validates hardware capabilities and switches execution backend if PyTorch CUDA is present."""
+        """
+        Validates hardware capabilities and switches execution backend if PyTorch CUDA is present.
+        Logs the detected or assumed inference device.
+        """
         try:
             import torch
 
@@ -134,7 +181,18 @@ class BaseModel:
             functions.log("PyTorch not found. Using CPU.")
 
     def _prepare_input(self, messages: List[Dict[str, Any]]):
-        """Converts conversations into raw string formats or explicit tokens using templates or legacy text logic."""
+        """
+        Converts conversations into raw string formats or explicit tokens using templates or legacy text logic.
+
+        Args:
+            messages: A list of message dictionaries representing the conversation history.
+
+        Returns:
+            pt.Tensor: The tokenized input tensor ready for model inference.
+
+        Raises:
+            ValueError: If the tokenizer has not been defined.
+        """
         if not self.tokenizer:
             raise ValueError("Tokenizer we not defined")
         
@@ -154,35 +212,69 @@ class BaseModel:
             for msg in messages:
                 role = msg.get("role", "user").capitalize()
                 input_text += f"{role}: {msg.get('content', '')}\n"
-            input_text += "Assistant:"
+            input_text += "Jarvis Ai:"
             return self.tokenizer(input_text, return_tensors="pt")
 
     def add_event(self, event_name: str, listener: Callable) -> None:
-        """Registers callback functions to hook into specific model execution lifecycle steps."""
+        """
+        Registers callback functions to hook into specific model execution lifecycle steps.
+
+        Args:
+            event_name: The string identifier for the lifecycle event.
+            listener: The callable function to execute when the event is triggered.
+        """
         if event_name not in self.listeners:
             self.listeners[event_name] = []
         self.listeners[event_name].append(listener)
 
     def trigger(self, event_name: str, data: Any = None) -> None:
-        """Executes all registered listener callbacks tied to a specific system event string."""
+        """
+        Executes all registered listener callbacks tied to a specific system event string.
+
+        Args:
+            event_name: The string identifier of the event to trigger.
+            data: Optional data payload to pass to the listeners.
+        """
         if event_name in self.listeners:
             for listener in self.listeners[event_name]:
                 listener(data)
 
     @staticmethod
     def create_message(role: str, content: str) -> Dict[str, str]:
-        """Constructs a structured message dictionary mapping role types to text payloads."""
+        """
+        Constructs a structured message dictionary mapping role types to text payloads.
+
+        Args:
+            role: The role of the message (e.g., 'user', 'system').
+            content: The text content of the message.
+
+        Returns:
+            Dict[str, str]: A dictionary representing the structured message.
+        """
         return {"role": role, "content": content}
 
     def get_system_info(self) -> str:
-        """Fetches host environment specs to pass down real-time OS and time data to system prompts."""
+        """
+        Fetches host environment specs to pass down real-time OS and time data to system prompts.
+
+        Returns:
+            str: A formatted string containing current system time and OS information.
+        """
         system_info = functions.get_system_info_prompt_concise()
         current_time_str = system_info.get("time", "Unknown Time")
         os_info = system_info.get("os", "Unknown OS")
         return f"System Context: (Time: {current_time_str} | OS: {os_info})"
 
     def check_system_prompt(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Ensures system metadata context sits atop history arrays, altering roles to fit prompt setups."""
+        """
+        Ensures system metadata context sits atop history arrays, altering roles to fit prompt setups.
+
+        Args:
+            messages: The list of conversation messages to be enriched and reordered.
+
+        Returns:
+            List[Dict[str, Any]]: The processed and ordered list of messages.
+        """
         enriched_info = self.get_system_info()
         final_content = enriched_info
         if self.system_prompt:
@@ -204,7 +296,9 @@ class BaseModel:
         return updated
 
     def clean_cache(self) -> None:
-        """Flushes residual memory buffers and invokes garbage collection routines to free hardware VRAM."""
+        """
+        Flushes residual memory buffers and invokes garbage collection routines to free hardware VRAM.
+        """
         if self.is_gpu_available():
             try:
                 import torch
@@ -215,7 +309,12 @@ class BaseModel:
         gc.collect()
 
     def is_gpu_available(self) -> bool:
-        """Checks if the internal inference state and driver setups permit hardware GPU computing."""
+        """
+        Checks if the internal inference state and driver setups permit hardware GPU computing.
+
+        Returns:
+            bool: True if GPU acceleration is available and configured, False otherwise.
+        """
         if self.inference_device == InferenceBackend.GPU_CUDA:
             try:
                 import torch
@@ -226,13 +325,20 @@ class BaseModel:
         return False
 
     def request_shutdown(self) -> None:
-        """Halts running generation streams, signals execution exit, and cleans local memory allocations."""
+        """
+        Halts running generation streams, signals execution exit, and cleans local memory allocations.
+        """
         self.stop_generation_event.set()
         self.join_generation_thread(120)
         self.clean_cache()
 
     def join_generation_thread(self, timeout: float = 0.0) -> None:
-        """Blocks execution until the background streaming generation thread fully unwinds or times out."""
+        """
+        Blocks execution until the background streaming generation thread fully unwinds or times out.
+
+        Args:
+            timeout: The maximum time in seconds to wait for the thread to finish.
+        """
         if self._generation_thread is not None and self._generation_thread.is_alive():
             self._generation_thread.join(timeout=timeout)
         self.stop_generation_event.clear()
@@ -244,15 +350,42 @@ class BaseModel:
         stream: bool = True,
         options: object = {},
     ):
-        """Abstract interface endpoint intended to process conversations and deliver textual streams."""
+        """
+        Abstract interface endpoint intended to process conversations and deliver textual streams.
+
+        Args:
+            messages: The list of messages forming the conversation history.
+            images: A list of image data to be included in the prompt.
+            stream: If True, returns a stream of responses; otherwise, returns the full response.
+            options: A dictionary of generation options.
+
+        Raises:
+            NotImplementedError: If the subclass has not implemented this method.
+        """
         raise NotImplementedError
 
     def generate_structured(
         self, messages: list, schema: object, images: list = [], options: object = {}
     ):
-        """Abstract interface endpoint intended to force generation streams to follow rigid structural JSON parameters."""
+        """
+        Abstract interface endpoint intended to force generation streams to follow rigid structural JSON parameters.
+
+        Args:
+            messages: The list of messages forming the conversation history.
+            schema: The JSON schema object that the output must conform to.
+            images: A list of image data to be included in the prompt.
+            options: A dictionary of generation options.
+
+        Raises:
+            NotImplementedError: If the subclass has not implemented this method.
+        """
         raise NotImplementedError
 
     def unload(self) -> None:
-        """Abstract interface checkpoint intended to completely purge engine allocations from hardware modules."""
+        """
+        Abstract interface checkpoint intended to completely purge engine allocations from hardware modules.
+
+        Raises:
+            RuntimeError: If the subclass has not implemented this method.
+        """
         functions.error("Subclasses must implement unload to clear model resources.")

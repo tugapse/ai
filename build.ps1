@@ -46,7 +46,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # --- 3. EXECUTE DEPENDENCY INSTALLER ---
-$INSTALLER_SCRIPT = Join-Path -Path $FOLDER -ChildPath "dependency_installer.py"
+$INSTALLER_SCRIPT = Join-Path -Path $FOLDER -ChildPath "scripts/dependency_installer.py"
 & $VENV_PYTHON $INSTALLER_SCRIPT
 
 if ($LASTEXITCODE -ne 0) {

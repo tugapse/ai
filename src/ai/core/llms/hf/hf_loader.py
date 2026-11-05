@@ -5,9 +5,22 @@ from huggingface_hub.errors import RepositoryNotFoundError, GatedRepoError
 import ai.functions as func
 
 class HFModelLoaderMixin:
-    """Isolates model/tokenizer initialization and hardware-specific configurations."""
+    """
+    Isolates model/tokenizer initialization and hardware-specific configurations.
+
+    This mixin provides the core logic for loading large language models
+    from the Hugging Face Hub, handling quantization, device mapping,
+    and caching checks.
+    """
     
     def _load_llm_params(self, **kwargs):
+        """
+        Loads the base LLM parameters, initializes PyTorch CUDA, and sets up
+        the environment for model loading.
+
+        Args:
+            **kwargs: Additional keyword arguments passed to the superclass method.
+        """
         super()._load_llm_params(kwargs=kwargs)
         self.init_pytorch_cuda()
         self.torch_lib = torch

@@ -13,6 +13,11 @@ router = APIRouter()
 async def get_sessions(request: Request, session_folder: Optional[str] = None):
     """
     Retrieve a list of saved sessions. Optionally filter by a sub-folder.
+
+    :param request: The FastAPI Request object.
+    :param session_folder: Optional path to filter sessions by sub-folder.
+    :raises HTTPException: If the session manager is not configured (500) or if loading fails (500).
+    :return: A dictionary containing the list of sessions.
     """
     session_manager = request.app.state.session_manager
     if session_manager is None:
@@ -27,6 +32,14 @@ async def get_sessions(request: Request, session_folder: Optional[str] = None):
 
 @router.get("/api/v1/sessions/{session_path:path}")
 async def get_session_content(request: Request, session_path: str):
+    """
+    Retrieve the content of a specific saved session identified by its path.
+
+    :param request: The FastAPI Request object.
+    :param session_path: The full path to the session file.
+    :raises HTTPException: If the session is not found (404), the path is invalid (400), or if loading fails (500).
+    :return: The content of the session.
+    """
     session_manager = request.app.state.session_manager
     if session_manager is None:
         raise HTTPException(
@@ -46,8 +59,15 @@ async def update_session_content(
     request: Request, session_path: str, payload: UpdateSessionRequest
 ):
     """
-    Overwrite the entire session content.
+    Overwrite the entire session content for a specified session path.
+
     Expects payload.session_content to be provided.
+
+    :param request: The FastAPI Request object.
+    :param session_path: The path of the session to update.
+    :param payload: The request body containing the new session content.
+    :raises HTTPException: If the session manager is not configured (500), content is missing (400), or if the update fails (404, 400, 500).
+    :return: A success message upon successful update.
     """
     session_manager = request.app.state.session_manager
     if session_manager is None:
@@ -78,7 +98,13 @@ async def update_session_title(
     request: Request, session_path: str, payload: UpdateSessionRequest
 ):
     """
-    Update only the session title.
+    Update only the session title for a specified session path.
+
+    :param request: The FastAPI Request object.
+    :param session_path: The path of the session to update.
+    :param payload: The request body containing the new session title.
+    :raises HTTPException: If the session manager is not configured (500), title is missing (400), or if the update fails (404, 400, 500).
+    :return: The result returned by the session manager upon successful title update.
     """
     session_manager = request.app.state.session_manager
     if session_manager is None:
@@ -107,7 +133,12 @@ async def update_session_title(
 @router.delete("/api/v1/sessions/{session_path:path}")
 async def delete_session(request: Request, session_path: str):
     """
-    Delete a specific session file.
+    Delete a specific session file identified by its path.
+
+    :param request: The FastAPI Request object.
+    :param session_path: The path of the session to delete.
+    :raises HTTPException: If the session manager is not configured (500), the session is not found (404), the path is invalid (400), or if deletion fails (500).
+    :return: A success status message upon successful deletion.
     """
     session_manager = request.app.state.session_manager
     if session_manager is None:

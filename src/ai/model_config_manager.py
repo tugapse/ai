@@ -3,7 +3,7 @@ import os
 import sys
 import argparse
 
-from entities.model_enums import ModelType
+from ai.entities.model_enums import ModelType
 import ai.functions as func 
 from ai.color import Color, format_text 
 
@@ -89,6 +89,15 @@ class ModelConfigManager:
     
     @staticmethod
     def _generate_gguf_config(model_name):
+        """
+        Generates a default configuration structure specifically for GGUF models.
+
+        Args:
+            model_name (str): The name of the model.
+
+        Returns:
+            dict: The default GGUF configuration dictionary.
+        """
         return {
             "model_name": model_name,
             "model_type": 'gguf',
@@ -111,6 +120,15 @@ class ModelConfigManager:
         
     @staticmethod
     def _generate_causal_lm_config(model_name):
+        """
+        Generates a default configuration structure specifically for Causal LM models.
+
+        Args:
+            model_name (str): The name of the model.
+
+        Returns:
+            dict: The default Causal LM configuration dictionary.
+        """
         return {
             "model_name": model_name,
             "model_type": 'causal_lm',
@@ -131,6 +149,15 @@ class ModelConfigManager:
         
     @staticmethod
     def _generate_ollama_config(model_name):
+        """
+        Generates a default configuration structure specifically for Ollama models.
+
+        Args:
+            model_name (str): The name of the model.
+
+        Returns:
+            dict: The default Ollama configuration dictionary.
+        """
         return {
             "model_name": model_name,
             "model_type": 'ollama',

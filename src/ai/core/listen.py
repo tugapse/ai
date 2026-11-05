@@ -1,4 +1,3 @@
-
 import threading
 import pyaudio
 import wave
@@ -17,6 +16,10 @@ LINE_CLEAR = '\x1b[2K'  # ANSI sequence to clear the line
 class Microphone(AsyncExecutor):
     """
     Class for recording and processing audio.
+
+    This class manages the process of capturing audio input from the microphone,
+    allowing for timed or interrupt-driven recording, and providing the raw
+    audio frames for subsequent processing.
     """
 
     def __init__(self, 

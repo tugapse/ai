@@ -11,6 +11,8 @@ THROW_ERROR_ON_LOAD_CONTEXT_FILE_NOT_EXIST = False
 class ContextFile:
     """
     Represents a file loaded into the context.
+
+    This class manages the loading and storage of content from a specified file path.
     """
     def __init__(self,filename:Optional[str]= None, throw_error_on_load=THROW_ERROR_ON_LOAD_CONTEXT_FILE_NOT_EXIST) -> None:
         """

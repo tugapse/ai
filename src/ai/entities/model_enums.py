@@ -28,13 +28,21 @@ class ModelType(Enum):
     JARVIS = "jarvis"             # JARVIS Model (Custom implementation with FastAPI backend)
 
     def __str__(self):
+        """
+        Returns the string representation of the ModelType enum member.
+        """
         return self.value
 
     def __repr__(self):
+        """
+        Returns the name representation of the ModelType enum member.
+        """
         return self.name
 
 class InferenceBackend(Enum):
+    """
+    Defines the hardware or computational backend used for model inference.
+    """
     GPU_CUDA = "cuda"
     GPU_AMD = "amd"
     CPU = "cpu"
-    

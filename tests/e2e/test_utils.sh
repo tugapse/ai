@@ -11,6 +11,7 @@ export TESTS_TOTAL=0
 export TESTS_PASSED=0
 export TEST_CASES=0
 export TESTS_FAILED=0
+export TESTS_SKIPPED=0
 
 export VERBOSE="${VERBOSE:-0}"
 
@@ -32,6 +33,7 @@ function run_test() {
     local test_name="$1"
     local description="$2"
     local func_name="$3"
+    local exit_code
 
     echo -e "\n${YELLOW}======================================================================${NC}"
     echo -e "${YELLOW}▶ TEST: ${test_name}${NC}"
@@ -40,15 +42,19 @@ function run_test() {
 
     TESTS_TOTAL=$((TESTS_TOTAL + 1))
 
-    set +e
-    
     if [ "${VERBOSE:-0}" -eq 1 ]; then
-        $func_name
-        local exit_code=$?
+        if $func_name; then
+            exit_code=0
+        else
+            exit_code=$?
+        fi
     else
         local temp_out=$(mktemp)
-        $func_name > "$temp_out" 2>&1
-        local exit_code=$? 
+        if $func_name > "$temp_out" 2>&1; then
+            exit_code=0
+        else
+            exit_code=$?
+        fi
         
         if [ "$exit_code" -ne 0 ]; then
             cat "$temp_out"
@@ -57,7 +63,6 @@ function run_test() {
         fi
         rm -f "$temp_out"
     fi
-    set -e
 
     if [ "$exit_code" -eq 0 ]; then
         echo -e "   -> ${GREEN}✅ TEST PASSED: ${test_name}${NC}"
@@ -106,6 +111,7 @@ function print_summary() {
     echo -e "Total Tests Run : $TESTS_TOTAL"
     echo -e "Total Cases Tested : $TEST_CASES"
     echo -e "Tests Passed    : ${GREEN}$TESTS_PASSED${NC}"
+    echo -e "Tests Skipped   : ${YELLOW}$TESTS_SKIPPED${NC}"
     if [ "$TESTS_FAILED" -gt 0 ]; then
         echo -e "Tests Failed    : ${RED}$TESTS_FAILED${NC}"
         exit 1

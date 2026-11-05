@@ -6,6 +6,14 @@ class OutputPrinter:
     Handles buffering for 'line' and 'every_x_tokens' modes.
     """
     def __init__(self, print_mode: str = "token", tokens_per_print: int = 5):
+        """
+        Initializes the OutputPrinter with a specific printing mode and token limit.
+
+        :param print_mode: The mode to use for printing ('token', 'line', 'every_x_tokens', 'line_or_x_tokens').
+        :type print_mode: str
+        :param tokens_per_print: The number of tokens to buffer before printing in token-based modes.
+        :type tokens_per_print: int
+        """
         self.print_mode = print_mode
         self.tokens_per_print = max(1, tokens_per_print)
 
@@ -16,6 +24,9 @@ class OutputPrinter:
     def process_and_print(self, token_to_display: str) -> None:
         """
         Processes a single formatted token and prints it based on the configured mode.
+
+        :param token_to_display: The string representation of the token to process.
+        :type token_to_display: str
         """
         output_string = self.process_token(token_to_display)
 
@@ -44,6 +55,11 @@ class OutputPrinter:
         """
         Processes a single formatted token and returns the string to be printed,
         or None if nothing is ready to be printed yet (due to buffering).
+
+        :param token_to_display: The string representation of the token.
+        :type token_to_display: str
+        :return: The string ready to be printed, or None.
+        :rtype: str | None
         """
         if self.print_mode == "token":
             return token_to_display
@@ -103,6 +119,9 @@ class OutputPrinter:
         """
         Returns any remaining content in buffers at the end of the stream.
         This allows the Orchestrator to capture the final text for the Voice Module.
+
+        :return: The remaining buffered string, or None if buffers are empty.
+        :rtype: str | None
         """
         output_string = ""
         

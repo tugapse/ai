@@ -21,9 +21,8 @@ import ai.functions as func
 from ai.core.llms.base_llm import BaseModel, ModelParams
 from ai.core.events import Events
 from ai.color import Color
-from tools.tool_registry import ToolRegistry
+from ai.tools.tool_registry import ToolRegistry
 
-# Relative import of your extracted logic folder
 from .hf import HFModelLoaderMixin, HFPipelineMixin, HFEngineMixin
 
 
@@ -34,6 +33,20 @@ class HuggingFaceModel(HFModelLoaderMixin, HFPipelineMixin, HFEngineMixin, BaseM
     """
 
     def __init__(self, model_name: str, system_prompt="", quantization_bits: int = 0, use_turboquant: bool = True, model_params=None, **kargs):
+        """
+        Initializes the HuggingFaceModel instance.
+
+        Args:
+            model_name: The name of the model to load from Hugging Face Hub.
+            system_prompt: The system prompt to be used with the model.
+            quantization_bits: The number of bits for quantization (e.g., 4 for 4-bit).
+            use_turboquant: Whether to attempt using TurboQuant for KV Cache compression.
+            model_params: Optional ModelParams object containing configuration parameters.
+            **kargs: Additional keyword arguments, including device_map, quantization_method, etc.
+        
+        Raises:
+            SystemExit: If the model cannot be loaded due to repository errors, network issues, or critical initialization failures.
+        """
         func.debug(f"HuggingFaceModel __init__ called for model: {model_name}")
         super().__init__(model_name, system_prompt, **kargs)
 
@@ -85,6 +98,21 @@ class HuggingFaceModel(HFModelLoaderMixin, HFPipelineMixin, HFEngineMixin, BaseM
             sys.exit(1)
 
     def chat(self, messages: list, images: list[str] = [], stream: bool = True, options: object = {}):
+        """
+        Generates a response from the LLM based on the provided messages.
+
+        If streaming is enabled, it yields tokens as they are generated. If not, it returns the full response.
+        It handles tool calling detection via sentinel tokens during streaming.
+
+        Args:
+            messages: A list of message dictionaries representing the conversation history.
+            images: A list of image paths to include in the prompt (currently unused in core logic).
+            stream: If True, the response is streamed token by token.
+            options: A dictionary containing generation parameters (e.g., temperature, max_new_tokens).
+
+        Yields:
+            The generated content (token string or structured action dict) as it is produced.
+        """
         func.debug(f"HuggingFaceModel chat() called. Stream: {stream}")
 
         if self.model is None or self.tokenizer is None:
