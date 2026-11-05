@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Codebase Knowledge Graph // 3D Explorer</title>
+    <!-- Fontes HUD e Leitura -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="styles.css">
+
+    <script src="//unpkg.com/3d-force-graph"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+
+    <div class="hologram-overlay"></div>
+    <div id="hud-labels-layer"></div>
+
+    <div id="hud-topbar">
+        <div class="hud-logo">
+            <span class="pulse-dot"></span>
+            KNOWLEDGE GRAPH // EXPLORER
+        </div>
+
+        <div class="hud-search-container">
+            <input type="text" id="hud-search-input" class="hud-search-input" placeholder="SEARCH NODES, KEYWORDS..." autocomplete="off" />
+            <span class="hud-search-badge">/</span>
+            <div id="hud-search-results" class="hud-search-results"></div>
+        </div>
+
+        <div class="hud-status">
+            <div class="status-item">NODES: <span id="stat-nodes">0</span></div>
+            <div class="status-item">EDGES: <span id="stat-edges">0</span></div>
+            <div class="status-item">VECTOR MEMORY: <span id="stat-vectors">READY</span></div>
+            <div class="status-item">GRAPH STATUS: <span>CONNECTED</span></div>
+        </div>
+    </div>
+
+    <div id="info-panel">
+        <div class="panel-header">
+            <h1 class="panel-title" id="panel-title">COMPONENT INSPECTOR</h1>
+            <div class="panel-header-actions">
+                <span class="panel-code">v1.0.0</span>
+                <button id="inspector-toggle-btn" class="panel-toggle-btn" type="button" aria-expanded="true" aria-label="Toggle component inspector" onclick="toggleInspectorPanel()">HIDE</button>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('specs', this)">SPECS</button>
+            <button class="tab-btn" onclick="switchTab('docs', this)">ARCHITECTURE</button>
+            <button class="tab-btn" onclick="switchTab('raw', this)">DOCS</button>
+        </div>
+
+        <div id="tab-specs" class="tab-content">
+            <div id="node-details">
+                <p style="color: #64748b; font-style: italic; font-size: 13px;">Select a node in the graph to view technical specifications and memory context.</p>
+            </div>
+        </div>
+
+        <div id="tab-docs" class="tab-content" style="display: none;">
+            <div id="doc-details">
+                <p style="color: #64748b; font-style: italic; font-size: 13px;">No architectural documentation found for this node.</p>
+            </div>
+        </div>
+
+        <div id="tab-raw" class="tab-content" style="display: none;">
+            <div id="raw-details">
+                <p style="color: #64748b; font-style: italic; font-size: 13px;">Documentation stream unavailable.</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="controls-hud">
+        <button class="recenter-btn" onclick="resetCamera()">RE-CENTER VIEW</button>
+        <span>L-CLICK: ROTATE // R-CLICK: PAN // SCROLL: ZOOM // [/]: SEARCH // ESC: DESELECT</span>
+    </div>
+
+    <div id="3d-graph"></div>
+
+    <script src="graph-core.js"></script>
+    <script src="ui.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
