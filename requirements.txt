@@ -3,3 +3,6 @@ setuptools
 colorama
 prompt_toolkit
 requests
+mcp
+numpy
+pyaudio
