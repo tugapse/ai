@@ -30,6 +30,51 @@ function setInspectorCollapsed(collapsed) {
     toggle.setAttribute('aria-label', collapsed ? 'Show component inspector' : 'Hide component inspector');
 }
 
+window.inspectorHistory = [];
+window.inspectorCurrentNode = null;
+
+function updateInspectorHistoryUI() {
+    const button = document.getElementById('inspector-back-btn');
+    if (!button) return;
+    const enabled = window.inspectorHistory.length > 0;
+    button.disabled = !enabled;
+    button.setAttribute('aria-disabled', String(!enabled));
+    button.title = enabled ? 'Back to previous component' : 'No previous component';
+}
+
+function recordInspectorSelection(node, options = {}) {
+    if (!node || !node.id) return;
+
+    const { skipHistory = false } = options;
+    if (!skipHistory && window.inspectorCurrentNode && window.inspectorCurrentNode.id !== node.id) {
+        window.inspectorHistory.push(window.inspectorCurrentNode);
+        if (window.inspectorHistory.length > 20) {
+            window.inspectorHistory.shift();
+        }
+    }
+
+    window.inspectorCurrentNode = node;
+    updateInspectorHistoryUI();
+}
+
+function goBackInspectorSelection() {
+    if (!window.inspectorHistory.length) return;
+
+    const previousNode = window.inspectorHistory.pop();
+    if (!previousNode || !previousNode.id) {
+        updateInspectorHistoryUI();
+        return;
+    }
+
+    if (typeof window.handleNodeSelection === 'function') {
+        window.handleNodeSelection(previousNode, { skipHistory: true });
+        return;
+    }
+
+    focusNodeById(previousNode.id);
+    updateInspectorHistoryUI();
+}
+
 function hideInspectorAndSelection() {
     clearSelection();
     setInspectorCollapsed(true);
@@ -42,8 +87,23 @@ function toggleInspectorPanel() {
 }
 
 function focusNodeById(id) {
-    const targetNode = window.graphDataGlobal.nodes.find(n => n.id === id);
-    if (targetNode && window.Graph) {
+    const targetNode = window.graphDataGlobal && window.graphDataGlobal.nodes.find(n => n.id === id);
+    if (!targetNode) return;
+
+    if (typeof window.handleNodeSelection === 'function') {
+        window.handleNodeSelection(targetNode);
+        return;
+    }
+
+    if (window.Graph && typeof window.Graph.onNodeClick === 'function') {
+        const onNodeClick = window.Graph.onNodeClick();
+        if (typeof onNodeClick === 'function') {
+            onNodeClick(targetNode);
+            return;
+        }
+    }
+
+    if (window.Graph && typeof window.Graph.onNodeClick === 'function') {
         window.Graph.onNodeClick()(targetNode);
     }
 }
@@ -151,6 +211,9 @@ function setupSearchSystem() {
             e.preventDefault();
             searchInput.focus();
             searchInput.select();
+        } else if (e.altKey && e.key === 'ArrowLeft') {
+            e.preventDefault();
+            goBackInspectorSelection();
         } else if (e.key === 'Escape') {
             if (searchResults.style.display === 'flex') {
                 searchResults.style.display = 'none';

@@ -114,11 +114,11 @@ body {
 }
 
 #info-panel.is-collapsed {
-    width: 110px;
-    min-width: 110px;
-    min-height: 52px;
-    max-height: 52px;
-    padding: 10px 8px 12px 8px;
+    width: 170px;
+    min-width: 170px;
+    min-height: 58px;
+    max-height: 58px;
+    padding: 10px 10px 12px 10px;
     border-width: 1px 1px 1px 3px;
     opacity: 1;
     pointer-events: auto;
@@ -132,6 +132,7 @@ body {
 
 #info-panel.is-collapsed .panel-header,
 #info-panel.is-collapsed .panel-header-actions,
+#info-panel.is-collapsed .panel-nav-btn,
 #info-panel.is-collapsed .panel-toggle-btn {
     opacity: 1;
     pointer-events: auto;
@@ -148,11 +149,25 @@ body {
     border-bottom: none;
     margin-bottom: 0;
     padding-bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 #info-panel.is-collapsed .panel-header-actions {
-    width: 100%;
+    width: auto;
     justify-content: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+}
+
+#info-panel.is-collapsed .panel-nav-btn,
+#info-panel.is-collapsed .panel-toggle-btn {
+    padding: 4px 6px;
+    font-size: 8px;
+    line-height: 1.2;
+    white-space: nowrap;
 }
 
 .panel-header {
@@ -170,6 +185,7 @@ body {
 }
 .panel-code { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #38bdf8; }
 
+.panel-nav-btn,
 .panel-toggle-btn {
     background: rgba(0, 240, 255, 0.08);
     border: 1px solid var(--hud-cyan-dim);
@@ -181,9 +197,15 @@ body {
     cursor: pointer;
     transition: all 0.2s ease;
 }
+.panel-nav-btn:hover:not(:disabled),
 .panel-toggle-btn:hover {
     background: rgba(0, 240, 255, 0.18);
     box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+}
+.panel-nav-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    box-shadow: none;
 }
 
 .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
@@ -295,13 +317,15 @@ body {
     position: absolute; transform: translate(-50%, -100%);
     background: rgba(2, 16, 32, 0.9); border: 1px solid #00f0ff;
     color: #00f0ff; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600;
-    padding: 3px 8px; border-radius: 4px; pointer-events: none; white-space: nowrap;
+    padding: 3px 8px; border-radius: 4px; pointer-events: auto; cursor: pointer; white-space: nowrap;
     box-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
-    transition: opacity 0.2s ease;
+    transition: opacity 0.2s ease, z-index 0.2s ease;
+    z-index: 1;
 }
 .hud-floating-pill.is-target {
     background: #00f0ff; color: #020b14; font-weight: 700;
     box-shadow: 0 0 15px rgba(0, 240, 255, 0.8);
+    z-index: 20;
 }
 
 .hud-cluster-badge {

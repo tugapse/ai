@@ -29,24 +29,59 @@ function getLinkBaseColor(link) {
     return { r: 0, g: 240, b: 255 };
 }
 
+function normalizeSubsystemName(node) {
+    if (!node) return 'CORE';
+
+    const raw = String(node.subsystem || node.group || 'CORE').trim();
+    if (!raw) return 'CORE';
+
+    const normalized = raw.toUpperCase();
+    if (['CORE', 'THIS', 'INDEX', 'DOCUMENT', 'UUID', 'VEC3', 'NAVIGATOR', 'ENGINE'].includes(normalized)) {
+        return 'CORE';
+    }
+
+    if (node.group === 'External/Dependency' && node.id) {
+        const parts = String(node.id).split('/').filter(Boolean);
+        if (parts.length > 1 && parts[0] && parts[0].toUpperCase() !== 'SRC') {
+            return parts[0].toUpperCase();
+        }
+    }
+
+    return normalized;
+}
+
 function buildClusterGroups(nodes) {
     window.clusterGroups = {};
-    nodes.forEach(node => {
-        if (node.group === 'External/Dependency') {
-            node.subsystem = 'EXTERNAL';
-        } else if (!node.subsystem) {
-            node.subsystem = 'CORE';
-        }
+    const grouped = {};
 
-        const groupName = node.subsystem;
-        if (!window.clusterGroups[groupName]) {
-            window.clusterGroups[groupName] = [];
+    nodes.forEach(node => {
+        const normalizedSubsystem = normalizeSubsystemName(node);
+        node.subsystem = normalizedSubsystem;
+
+        if (!grouped[normalizedSubsystem]) {
+            grouped[normalizedSubsystem] = [];
         }
-        window.clusterGroups[groupName].push(node);
+        grouped[normalizedSubsystem].push(node);
     });
 
-    Object.keys(window.clusterGroups).forEach(k => {
-        if (window.clusterGroups[k].length < 4) delete window.clusterGroups[k];
+    const minClusterSize = 2;
+    Object.entries(grouped).forEach(([name, items]) => {
+        if (items.length >= minClusterSize) {
+            window.clusterGroups[name] = items;
+            return;
+        }
+
+        let bucket = 'CORE';
+        const firstNodeId = items[0] && items[0].id ? String(items[0].id) : '';
+        const parts = firstNodeId.split('/').filter(Boolean);
+        if (parts.length > 1 && parts[0] && parts[0].toUpperCase() !== 'SRC') {
+            bucket = parts[0].toUpperCase();
+        }
+
+        if (!window.clusterGroups[bucket]) {
+            window.clusterGroups[bucket] = [];
+        }
+        window.clusterGroups[bucket].push(...items);
     });
 
     const groupKeys = Object.keys(window.clusterGroups);
@@ -138,6 +173,7 @@ function clearSelection() {
     }
 
     window.focusedNode = null;
+    window.inspectorCurrentNode = null;
     window.highlightNodes.clear();
     window.highlightLinks.clear();
     window.searchMatchingNodes.clear();
@@ -151,6 +187,7 @@ function clearSelection() {
     document.getElementById('node-details').innerHTML = '<p style="color: #64748b; font-style: italic; font-size: 13px;">Select a node in the graph to view technical specifications and memory context.</p>';
     document.getElementById('doc-details').innerHTML = '<p style="color: #64748b; font-style: italic; font-size: 13px;">No architectural documentation found for this node.</p>';
     document.getElementById('raw-details').innerHTML = '<p style="color: #64748b; font-style: italic; font-size: 13px;">Documentation stream unavailable.</p>';
+    updateInspectorHistoryUI();
     setInspectorCollapsed(true);
 }
 
@@ -161,8 +198,10 @@ function syncFloatingLabels() {
         return;
     }
 
-    const showClusters = (window.selectionIntensity < 0.6 && window.searchMatchingNodes.size === 0);
-    const clusterOpacity = Math.max(0, 1 - window.selectionIntensity * 1.8);
+    const showClusters = true;
+    const clusterOpacity = window.searchMatchingNodes.size > 0
+        ? 0.7
+        : Math.max(0.55, 1 - window.selectionIntensity * 0.9);
 
     Object.entries(window.clusterGroups).forEach(([name, grp]) => {
         const nodes = Array.isArray(grp) ? grp : grp;
@@ -204,6 +243,7 @@ function syncFloatingLabels() {
     });
 
     const activeNodeSet = window.highlightNodes.size > 0 ? window.highlightNodes : (window.searchMatchingNodes.size > 0 ? window.searchMatchingNodes : null);
+    const focusedNodeId = window.focusedNode ? String(window.focusedNode.id) : null;
 
     const existingPills = container.querySelectorAll('.hud-floating-pill');
     existingPills.forEach(pill => {
@@ -221,22 +261,27 @@ function syncFloatingLabels() {
             const screenPos = window.Graph.graph2ScreenCoords(node.x, node.y, node.z);
             const pillId = 'pill-' + btoa(node.id).replace(/=/g, '');
             let pill = document.getElementById(pillId);
+            const isTarget = focusedNodeId && String(node.id) === focusedNodeId;
 
             if (!pill) {
                 pill = document.createElement('div');
                 pill.id = pillId;
                 pill.dataset.nodeId = node.id;
-                pill.className = 'hud-floating-pill' + (window.focusedNode && window.focusedNode.id === node.id ? ' is-target' : '');
+                pill.className = 'hud-floating-pill' + (isTarget ? ' is-target' : '');
                 pill.innerText = node.name || node.id.split('/').pop().split('#').pop();
+                pill.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    focusNodeById(node.id);
+                });
                 container.appendChild(pill);
             } else {
-                const isTarget = (window.focusedNode && window.focusedNode.id === node.id);
                 pill.classList.toggle('is-target', isTarget);
             }
 
             pill.style.left = `${screenPos.x}px`;
             pill.style.top = `${screenPos.y - 14}px`;
-            pill.style.opacity = (0.2 + 0.8 * window.selectionIntensity).toFixed(2);
+            pill.style.opacity = isTarget ? '1' : (0.35 + 0.65 * Math.max(window.selectionIntensity, 0.35)).toFixed(2);
         });
     }
 

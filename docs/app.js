@@ -154,6 +154,116 @@ fetch(primaryUrl)
             resizeFrameId = requestAnimationFrame(updateGraphViewport);
         };
 
+        window.handleNodeSelection = (node, options = {}) => {
+            recordInspectorSelection(node, options);
+
+            window.highlightNodes.clear();
+            window.highlightLinks.clear();
+            window.searchMatchingNodes.clear();
+            resetInspectorScroll();
+
+            const container = document.getElementById('hud-labels-layer');
+            container.querySelectorAll('.hud-floating-pill').forEach(el => el.remove());
+
+            const neighborPills = [];
+
+            if (node) {
+                window.focusedNode = node;
+                window.highlightNodes.add(node.id);
+                applyGraphPhysicsState();
+
+                window.graphDataGlobal.links.forEach(link => {
+                    const sId = typeof link.source === 'object' ? link.source.id : link.source;
+                    const tId = typeof link.target === 'object' ? link.target.id : link.target;
+                    if (sId === node.id || tId === node.id) {
+                        window.highlightLinks.add(link);
+                        window.highlightNodes.add(sId);
+                        window.highlightNodes.add(tId);
+
+                        const isOut = (sId === node.id);
+                        const otherId = isOut ? tId : sId;
+                        const otherName = otherId.split('#').pop().split('/').pop();
+                        const rel = link.relation || (isOut ? 'targets' : 'source');
+                        neighborPills.push({ id: otherId, name: otherName, relation: rel, dir: isOut ? '→' : '←' });
+                    }
+                });
+
+                const distance = 320;
+                cameraPositionForInspector(node, distance);
+                animateToSelection(1.0);
+            }
+
+            setInspectorCollapsed(false);
+            resetInspectorScroll();
+            document.getElementById('panel-title').innerText = node.name || 'COMPONENT';
+
+            let specsHtml = `<div class="property"><span class="prop-title">IDENTIFIER / PATH</span><strong style="color: #fff; word-break: break-all; font-family: 'JetBrains Mono', monospace; font-size: 11px;">${node.id}</strong></div>`;
+            specsHtml += `<div class="property"><span class="prop-title">SUBSYSTEM CLUSTER</span><span style="color: var(--hud-cyan); font-weight: 600;">${node.subsystem}</span></div>`;
+            specsHtml += `<div class="property"><span class="prop-title">COMPONENT TYPE</span><span style="color: #93c5fd; font-weight: 600;">${node.group}</span></div>`;
+
+            if (node.signature) {
+                specsHtml += `<div class="property"><span class="prop-title">SIGNATURE</span><div class="signature-box">${node.signature}</div></div>`;
+            }
+
+            if (node.semantic_summary) {
+                specsHtml += `<div class="property"><span class="prop-title">SEMANTIC SUMMARY</span><div class="value-box">${node.semantic_summary}</div></div>`;
+            }
+
+            if (neighborPills.length > 0) {
+                specsHtml += `<div class="property"><span class="prop-title">CONNECTED GRAPH RELATIONS (${neighborPills.length})</span>`;
+                specsHtml += '<div class="pill-list">';
+                neighborPills.forEach(p => {
+                    specsHtml += `
+                        <div class="pill-item" data-node-id="${String(p.id).replace(/"/g, '&quot;')}">
+                            <span style="color: #e2e8f0;">${p.dir} ${p.name}</span>
+                            <span class="pill-relation">${p.relation}</span>
+                        </div>
+                    `;
+                });
+                specsHtml += '</div></div>';
+            }
+
+            if (node.keywords && node.keywords.length > 0) {
+                specsHtml += `<div class="property"><span class="prop-title">KEYWORDS</span><div class="tag-container">${node.keywords.map(kw => `<span class="tag">${kw}</span>`).join('')}</div></div>`;
+            }
+
+            document.getElementById('node-details').innerHTML = specsHtml;
+            document.querySelectorAll('.pill-item[data-node-id]').forEach((pill) => {
+                pill.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const nodeId = pill.getAttribute('data-node-id');
+                    if (nodeId) {
+                        focusNodeById(nodeId);
+                    }
+                });
+            });
+
+            let docHtml = '';
+            if (node.human_overview) {
+                docHtml += `<div class="property"><span class="prop-title">OVERVIEW & PURPOSE</span><div class="value-box" style="border-left: 2px solid var(--hud-cyan);">${node.human_overview}</div></div>`;
+            }
+            if (node.side_effects) {
+                docHtml += `<div class="property"><span class="prop-title">SIDE EFFECTS & BEHAVIOR</span><div class="value-box" style="border-left: 2px solid var(--hud-red); color: #fca5a5;">${node.side_effects}</div></div>`;
+            }
+            if (!node.human_overview && !node.side_effects) {
+                docHtml = '<p style="color: #64748b; font-style: italic; font-size: 13px;">No architectural documentation found for this component.</p>';
+            }
+            document.getElementById('doc-details').innerHTML = docHtml;
+
+            if (node.raw_markdown && typeof marked !== 'undefined') {
+                const rawDetails = document.getElementById('raw-details');
+                rawDetails.innerHTML = `<div class="markdown-rendered">${marked.parse(node.raw_markdown)}</div>`;
+                bindMarkdownLinkHandlers(rawDetails);
+            } else if (node.raw_markdown) {
+                const rawDetails = document.getElementById('raw-details');
+                rawDetails.innerText = node.raw_markdown;
+                bindMarkdownLinkHandlers(rawDetails);
+            } else {
+                document.getElementById('raw-details').innerHTML = '<p style="color: #64748b; font-style: italic; font-size: 13px;">No documentation file linked to this component.</p>';
+            }
+        };
+
         window.Graph = ForceGraph3D()(elem)
             .graphData(data)
             .backgroundColor('#030a13')
@@ -230,103 +340,7 @@ fetch(primaryUrl)
                 }
                 return baseSpeed;
             })
-            .onNodeClick(node => {
-                window.highlightNodes.clear();
-                window.highlightLinks.clear();
-                window.searchMatchingNodes.clear();
-                resetInspectorScroll();
-
-                const container = document.getElementById('hud-labels-layer');
-                container.querySelectorAll('.hud-floating-pill').forEach(el => el.remove());
-
-                const neighborPills = [];
-
-                if (node) {
-                    window.focusedNode = node;
-                    window.highlightNodes.add(node.id);
-                    applyGraphPhysicsState();
-
-                    window.graphDataGlobal.links.forEach(link => {
-                        const sId = typeof link.source === 'object' ? link.source.id : link.source;
-                        const tId = typeof link.target === 'object' ? link.target.id : link.target;
-                        if (sId === node.id || tId === node.id) {
-                            window.highlightLinks.add(link);
-                            window.highlightNodes.add(sId);
-                            window.highlightNodes.add(tId);
-
-                            const isOut = (sId === node.id);
-                            const otherId = isOut ? tId : sId;
-                            const otherName = otherId.split('#').pop().split('/').pop();
-                            const rel = link.relation || (isOut ? 'targets' : 'source');
-                            neighborPills.push({ id: otherId, name: otherName, relation: rel, dir: isOut ? '→' : '←' });
-                        }
-                    });
-
-                    const distance = 320;
-                    cameraPositionForInspector(node, distance);
-                    animateToSelection(1.0);
-                }
-
-                setInspectorCollapsed(false);
-                resetInspectorScroll();
-                document.getElementById('panel-title').innerText = node.name || 'COMPONENT';
-
-                let specsHtml = `<div class="property"><span class="prop-title">IDENTIFIER / PATH</span><strong style="color: #fff; word-break: break-all; font-family: 'JetBrains Mono', monospace; font-size: 11px;">${node.id}</strong></div>`;
-                specsHtml += `<div class="property"><span class="prop-title">SUBSYSTEM CLUSTER</span><span style="color: var(--hud-cyan); font-weight: 600;">${node.subsystem}</span></div>`;
-                specsHtml += `<div class="property"><span class="prop-title">COMPONENT TYPE</span><span style="color: #93c5fd; font-weight: 600;">${node.group}</span></div>`;
-
-                if (node.signature) {
-                    specsHtml += `<div class="property"><span class="prop-title">SIGNATURE</span><div class="signature-box">${node.signature}</div></div>`;
-                }
-
-                if (node.semantic_summary) {
-                    specsHtml += `<div class="property"><span class="prop-title">SEMANTIC SUMMARY</span><div class="value-box">${node.semantic_summary}</div></div>`;
-                }
-
-                if (neighborPills.length > 0) {
-                    specsHtml += `<div class="property"><span class="prop-title">CONNECTED GRAPH RELATIONS (${neighborPills.length})</span>`;
-                    specsHtml += '<div class="pill-list">';
-                    neighborPills.forEach(p => {
-                        specsHtml += `
-                            <div class="pill-item" onclick="focusNodeById('${p.id}')">
-                                <span style="color: #e2e8f0;">${p.dir} ${p.name}</span>
-                                <span class="pill-relation">${p.relation}</span>
-                            </div>
-                        `;
-                    });
-                    specsHtml += '</div></div>';
-                }
-
-                if (node.keywords && node.keywords.length > 0) {
-                    specsHtml += `<div class="property"><span class="prop-title">KEYWORDS</span><div class="tag-container">${node.keywords.map(kw => `<span class="tag">${kw}</span>`).join('')}</div></div>`;
-                }
-
-                document.getElementById('node-details').innerHTML = specsHtml;
-
-                let docHtml = '';
-                if (node.human_overview) {
-                    docHtml += `<div class="property"><span class="prop-title">OVERVIEW & PURPOSE</span><div class="value-box" style="border-left: 2px solid var(--hud-cyan);">${node.human_overview}</div></div>`;
-                }
-                if (node.side_effects) {
-                    docHtml += `<div class="property"><span class="prop-title">SIDE EFFECTS & BEHAVIOR</span><div class="value-box" style="border-left: 2px solid var(--hud-red); color: #fca5a5;">${node.side_effects}</div></div>`;
-                }
-                if (!node.human_overview && !node.side_effects) {
-                    docHtml = '<p style="color: #64748b; font-style: italic; font-size: 13px;">No architectural documentation found for this component.</p>';
-                }
-                document.getElementById('doc-details').innerHTML = docHtml;
-
-                if (node.raw_markdown && typeof marked !== 'undefined') {
-                    const rawDetails = document.getElementById('raw-details');
-                    rawDetails.innerHTML = `<div class="markdown-rendered">${marked.parse(node.raw_markdown)}</div>`;
-                    bindMarkdownLinkHandlers(rawDetails);
-                } else if (node.raw_markdown) {
-                    const rawDetails = document.getElementById('raw-details');
-                    rawDetails.innerText = node.raw_markdown;
-                    bindMarkdownLinkHandlers(rawDetails);
-                } else {
-                    document.getElementById('raw-details').innerHTML = '<p style="color: #64748b; font-style: italic; font-size: 13px;">No documentation file linked to this component.</p>';
-                }
-            })
+            .onNodeClick(window.handleNodeSelection)
             .onBackgroundClick(() => {
                 hideInspectorAndSelection();
             });

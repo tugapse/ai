@@ -142,7 +142,7 @@ class Program:
         load_and_register_user_tools(self.tool_registry, user_tools_dir)
         self._load_vector_memory()
         
-        if self.models:
+        if self.models and self.allow_tools:
             self._active_tools_system_prompt = ToolRegistry.format_tools_for_prompt(self.tool_registry.get_all_tools())
             func.debug(f"Program: Dynamic tool protocol injected into System Prompt. {self._active_tools_system_prompt}", level="DEBUG")
     
