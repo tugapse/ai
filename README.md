@@ -91,6 +91,8 @@ Run the assistant with tool-access enabled:
 Run agent mode without a prompt on an interactive terminal to open a multi-turn chat with the agent pipeline:
 ```bash
 ./run.sh --agent                         # new session
+./run.sh --resume                        # pick a saved agent session for this directory
+./run.sh --resume 3f2a                   # resume by id or unique prefix
 ./run.sh --agent --session-id <id>       # resume a session
 ./run.sh --agent --pipeline small        # use another pipeline
 ```
@@ -149,6 +151,7 @@ Running a task from user/tasks folder
 | Flag | Alias | Description |
 | :--- | :--- | :--- |
 | `--agent` | | Enable agentic logic injection. Without a prompt on a TTY, opens the interactive agent chat. |
+| `--resume` | `-r` | Resume an agent session: pick from a list of this directory's sessions, or pass an id/prefix. Implies `--agent`. |
 | `--task` | `-t` | Load named directive from user/tasks folder.|
 | `--task-file` | `-tf` | Load directive from file. |
 | `--pipeline` | `-ppl` | Define multi-stage instruction pipeline. (defaults to default.json) |

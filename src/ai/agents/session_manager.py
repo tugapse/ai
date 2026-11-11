@@ -310,6 +310,105 @@ class AgentSessionManager:
 
         return sessions
 
+    @staticmethod
+    def _read_entry_state(line: str) -> Optional[Dict[str, Any]]:
+        """Decodes one journal line (plain or compressed) into its state dict."""
+        entry = json.loads(line)
+        if entry.get("compressed"):
+            entry = json.loads(zlib.decompress(base64.b64decode(entry["data"])))
+        state = entry.get("state")
+        return state if isinstance(state, dict) else None
+
+    @staticmethod
+    def list_sessions_detailed(working_directory: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Lists agent sessions for a working directory with metadata for pickers,
+        most recently updated first.
+
+        Args:
+            working_directory: Directory the sessions originated from. Defaults to cwd.
+
+        Returns:
+            A list of dicts with 'session_id', 'user_request', 'last_user_message',
+            'updated_at' (epoch seconds), 'turns' (committed states) and 'iteration'.
+        """
+        normalized_dir = os.path.normpath(os.path.abspath(working_directory or os.getcwd()))
+        parent_dir = hashlib.sha256(normalized_dir.encode("utf-8")).hexdigest()[:16]
+        storage_dir = os.path.join(AgentSessionManager._get_agents_storage_root(), parent_dir)
+        if not os.path.isdir(storage_dir):
+            return []
+
+        sessions = []
+        for filename in os.listdir(storage_dir):
+            if not filename.endswith(".json") or filename == AgentSessionManager.MANIFEST_FILE:
+                continue
+            path = os.path.join(storage_dir, filename)
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    lines = [line for line in f if line.strip()]
+                updated_at = os.path.getmtime(path)
+            except OSError:
+                continue
+            if not lines:
+                continue
+
+            last_state: Dict[str, Any] = {}
+            try:
+                last_state = AgentSessionManager._read_entry_state(lines[-1]) or {}
+            except Exception:
+                pass
+            user_request = last_state.get("user_request")
+            if not user_request:
+                try:
+                    user_request = AgentSessionManager._extract_user_request_from_entry(json.loads(lines[0]))
+                except Exception:
+                    user_request = None
+
+            sessions.append({
+                "session_id": filename[:-5],
+                "user_request": user_request,
+                "last_user_message": last_state.get("last_user_message") or user_request,
+                "updated_at": updated_at,
+                "turns": len(lines),
+                "iteration": last_state.get("iteration", 0),
+            })
+
+        sessions.sort(key=lambda s: s["updated_at"], reverse=True)
+        return sessions
+
+    @staticmethod
+    def extract_transcript(state: Optional[Dict[str, Any]], limit: int = 8) -> List[Dict[str, str]]:
+        """
+        Rebuilds the visible conversation (user messages and agent replies) from a saved state.
+
+        Args:
+            state: A session state as returned by ``get_session``.
+            limit: Maximum number of most recent entries to return.
+
+        Returns:
+            A list of {'role': 'user'|'agent', 'agent': name, 'text': str}, oldest first.
+        """
+        if not state:
+            return []
+        agents = (state.get("memory") or {}).get("agents") or {}
+        transcript: List[Dict[str, str]] = []
+        for name, mem in agents.items():
+            if not isinstance(mem, dict):
+                continue
+            for item in list(mem.get("history") or []) + list(mem.get("messages_received") or []):
+                if not isinstance(item, dict):
+                    continue
+                if item.get("from") == "USER" and item.get("message"):
+                    entry = {"role": "user", "agent": name, "text": str(item["message"])}
+                elif item.get("from") == "SELF" and item.get("response"):
+                    entry = {"role": "agent", "agent": name, "text": str(item["response"])}
+                else:
+                    continue
+                # Delegated messages may be mirrored in several agents' memories.
+                if not transcript or transcript[-1]["text"] != entry["text"]:
+                    transcript.append(entry)
+        return transcript[-limit:] if limit else transcript
+
     def get_history_summary(self) -> list:
         """
         Returns turn-by-turn summary for debugging purposes.

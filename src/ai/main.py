@@ -159,6 +159,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     agent_group.add_argument("--task-file", "-tf", type=str, help="Load directive from file")
     agent_group.add_argument("--pipeline", "-ppl", type=str, help="Execute multi-stage instruction pipeline")
     agent_group.add_argument("--session-id", type=str, help="LTM (Long Term Memory) session key")
+    agent_group.add_argument("--resume", "-r", nargs="?", const="", default=None, metavar="SESSION_ID", help="Resume an agent session: pick from a list, or pass an id/prefix (implies --agent)")
     agent_group.add_argument("--list-sessions","-ls", action="store_true", help="List all available sessions for current working directory")
     agent_group.add_argument("--output-file", "-o", type=str, help="Designate clean output stream (temp-file mode)")
 

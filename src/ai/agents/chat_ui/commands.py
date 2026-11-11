@@ -53,35 +53,34 @@ def _session(app: "AgentChatApp", arg: str) -> None:
 
 def _resume(app: "AgentChatApp", arg: str) -> None:
     from ai.agents.session_manager import AgentSessionManager
+    from ai.agents.chat_ui.session_picker import render_session_row, resolve_session_id
 
-    sessions = AgentSessionManager.list_sessions(os.getcwd()) or []
+    sessions = AgentSessionManager.list_sessions_detailed(os.getcwd())
     arg = arg.strip()
     if not arg:
         if not sessions:
             app.write(f"{GREY}No saved sessions for this directory.{RESET}")
             return
         lines = [f"{BOLD}Sessions in this directory{RESET} {GREY}(/resume <n|id>){RESET}"]
-        for idx, s in enumerate(sessions, 1):
-            marker = " *" if s.get("session_id") == app.session_id else ""
-            request = " ".join(str(s.get("user_request") or "N/A").split())[:70]
-            lines.append(f"  {GREEN}{idx:>2}{RESET} {s.get('session_id', '')[:8]}{marker}  {request}")
+        for idx, s in enumerate(sessions[:20], 1):
+            marker = f"{GREEN}*{RESET}" if s.get("session_id") == app.session_id else " "
+            lines.append(f"{GREEN}{idx:>2}{RESET}{marker}{render_session_row(s, False)}")
+        if len(sessions) > 20:
+            lines.append(f"{GREY}   … {len(sessions) - 20} older sessions{RESET}")
         app.write("\n".join(lines))
         return
 
-    target = None
     if arg.isdigit() and 1 <= int(arg) <= len(sessions):
-        target = sessions[int(arg) - 1].get("session_id")
+        target = sessions[int(arg) - 1]["session_id"]
     else:
-        matches = [s.get("session_id") for s in sessions if str(s.get("session_id", "")).startswith(arg)]
-        if len(matches) == 1:
-            target = matches[0]
-        elif len(matches) > 1:
-            app.write(f"{RED}Ambiguous session prefix '{arg}'.{RESET}")
+        try:
+            target = resolve_session_id(sessions, arg) or arg  # full ids work even if unlisted
+        except ValueError as e:
+            app.write(f"{RED}{e}{RESET}")
             return
-        else:
-            target = arg  # allow resuming by full id even if not listed
     app.switch_session(target)
-    app.write(f"{GREY}Resumed session {target[:8]}. Your next message continues it.{RESET}")
+    if not app.show_history():
+        app.write(f"{GREY}Session {target[:8]} has no saved state yet; your next message starts it.{RESET}")
 
 
 def _pipeline(app: "AgentChatApp", arg: str) -> None:

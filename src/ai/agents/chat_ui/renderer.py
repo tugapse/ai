@@ -228,6 +228,22 @@ def render_status_bar(model: str, session_id: str, pipeline: str, state: LiveSta
     return f"{GREY} {left}   {DIM}{right}{RESET}"
 
 
+def render_transcript(entries, session_id: str, request: str = "") -> str:
+    """Recent conversation shown when a chat opens on an existing session."""
+    lines = [f"{GREY}── resumed session {session_id[:8]}{(' · ' + _truncate(request, 60)) if request else ''} ──{RESET}"]
+    if not entries:
+        lines.append(f"{GREY}  (no messages to show){RESET}")
+    for entry in entries:
+        if entry.get("role") == "user":
+            lines.append(render_user_message(entry.get("text", "")).lstrip("\n"))
+        else:
+            text = str(entry.get("text", "")).strip()
+            body = text.splitlines() or [""]
+            lines.append(f"{TerminalUI.TEXT}{BULLET}{RESET} {body[0]}" + ("\n" + _indent("\n".join(body[1:])) if len(body) > 1 else ""))
+    lines.append(f"{GREY}──{RESET}")
+    return "\n".join(lines)
+
+
 def render_permission(tool: str, params: Dict[str, Any]) -> str:
     target = params.get("path") or "@ROOT"
     lines = [

@@ -71,7 +71,7 @@ class CliArgs:
         self._handle_local_direct_mode(prog, args,directory_manager=directory_manager)
 
         # 3. Execution Dispatching
-        if args.agent:
+        if args.agent or getattr(args, "resume", None) is not None:
             self._handle_agent_mode(prog, args, directory_manager)
             os._exit(0) 
 
@@ -205,6 +205,12 @@ def {function_name}(argument: str) -> str:
         :param directory_manager: The directory management service for loading user tools.
         :raises SystemExit: Exits after the agent loop completes or fails.
         """
+        if getattr(args, "resume", None) is not None:
+            resumed = self._resolve_resume_session(args)
+            if not resumed:
+                sys.exit(0)
+            args.session_id = resumed
+
         taskfile = ""
         _task = ""
         if args.task_file:
@@ -253,6 +259,44 @@ def {function_name}(argument: str) -> str:
             func.error(traceback.format_exc())
         finally:
             sys.exit(0)
+
+    def _resolve_resume_session(self, args) -> Optional[str]:
+        """
+        Resolves --resume into a session id: an explicit id/prefix, or an interactive pick
+        from the agent sessions of the current working directory.
+
+        :param args: The parsed command-line arguments (uses --resume).
+        :return: The session id to resume, or None when there is nothing to resume or the user cancelled.
+        :raises SystemExit: On an unknown/ambiguous id, or when a picker is needed without a terminal.
+        """
+        from ai.agents.chat_ui.session_picker import pick_session, resolve_session_id
+
+        sessions = AgentSessionManager.list_sessions_detailed(os.getcwd())
+        query = (args.resume or "").strip()
+
+        if query:
+            try:
+                session_id = resolve_session_id(sessions, query)
+            except ValueError as e:
+                func.error(str(e))
+                sys.exit(1)
+            if not session_id:
+                func.error(f"No agent session matching '{query}' in {os.getcwd()}. Use --list-sessions to see them.")
+                sys.exit(1)
+            return session_id
+
+        if not sessions:
+            func.out(f"No agent sessions found for {os.getcwd()}.", level="INFO")
+            return None
+
+        if not (sys.stdin.isatty() and sys.stdout.isatty()):
+            func.error("--resume without an id needs an interactive terminal. Use --list-sessions and --resume <id>.")
+            sys.exit(1)
+
+        session_id = pick_session(sessions)
+        if not session_id:
+            func.out("Resume cancelled.", level="INFO")
+        return session_id
 
     def _handle_agent_chat(self, prog: Program, args, directory_manager: DirectoryManager, pipeline_path: str):
         """

@@ -389,6 +389,17 @@ class AgentChatApp:
         self.orchestrator.reset_state()
         self.state.context_pressure = None
 
+    def show_history(self, limit: int = 8) -> bool:
+        """Prints the recent conversation of the current session. Returns False if there is none."""
+        from ai.agents.session_manager import AgentSessionManager
+
+        state = AgentSessionManager(self.session_id).get_session()
+        if not state:
+            return False
+        entries = AgentSessionManager.extract_transcript(state, limit=limit)
+        self.write(R.render_transcript(entries, self.session_id, state.get("user_request") or ""))
+        return True
+
     def switch_pipeline(self, pipeline: str) -> None:
         self.orchestrator = self._build_orchestrator(pipeline)
         self.pipeline = pipeline
@@ -411,6 +422,7 @@ class AgentChatApp:
         self.io.loop = self.loop
         with patch_stdout(raw=True):
             self.write(self.banner())
+            self.show_history()
             if initial_message:
                 self.loop.call_soon(self.submit, initial_message)
             await self.app.run_async()
