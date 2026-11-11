@@ -9,6 +9,7 @@ from ai.chat.chat import Chat, ChatRoles
 from ai.core.llms.base_llm import BaseModel
 from ai.config import ProgramConfig, ProgramSetting
 from ai.color import Color
+from ai.core.llms.api_retry import LLMAPIError
 
 # Agent & Tools
 from ai.agents.agent import Agent
@@ -177,6 +178,9 @@ class Program:
             
             self._run_agent_loop(stream_orchestrator, options)
 
+        except LLMAPIError as e:
+            # Remote API failure (already retried): report it, keep the model and the chat alive.
+            func.out(f"\n{Color.RED}[ ! ] {e.user_message()}{Color.RESET}")
         except Exception as e:
             func.log(f"Program: Chat Error: {e}", level="CRITICAL")
             func.log(traceback.format_exc(), level="ERROR")

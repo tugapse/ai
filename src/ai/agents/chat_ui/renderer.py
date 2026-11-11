@@ -197,6 +197,8 @@ def render_turn_summary(reason: str, state: LiveState) -> str:
         return f"{GREY}  (waiting for your reply · {stats}){RESET}"
     if reason == "error":
         return f"{RED}✗ Turn ended with an error{RESET} {GREY}· {stats}{RESET}"
+    if reason == "api_error":
+        return f"{RED}✗ Model API unavailable{RESET} {GREY}· {stats}{RESET}"
     if reason == "max_iterations":
         return f"{RED}✗ Iteration budget exhausted{RESET} {GREY}· {stats}{RESET}"
     return f"{GREY}✻ Done in {stats}{RESET}"

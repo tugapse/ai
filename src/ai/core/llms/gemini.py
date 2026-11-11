@@ -17,6 +17,7 @@ from google.genai import types
 
 import ai.functions as func
 from ai.core.llms.base_llm import BaseModel, ModelParams 
+from ai.core.llms.api_retry import LLMAPIError, RetryPolicy, call_with_retry, stream_with_retry, wrap_error
 from ai.color import Color
 from ai.tools.tool_registry import ToolRegistry
 
@@ -37,6 +38,11 @@ class GeminiAPIModel(BaseModel):
         self.project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT")
         self.location = location
 
+        # Timeouts/retries: "timeout", "connect_timeout", "max_retries", "retry_max_wait" in model_properties.
+        self.retry_policy = RetryPolicy.from_config(kargs, kargs.get('model_params') or {})
+        # google-genai expects milliseconds; httpx applies it per operation (connect/read), not to the whole stream.
+        http_options = types.HttpOptions(timeout=int(self.retry_policy.timeout * 1000))
+
         if self.use_vertex:
             if not self._check_gcp_auth():
                 func.error("Google Cloud Auth not found!")
@@ -45,7 +51,8 @@ class GeminiAPIModel(BaseModel):
             self.client = genai.Client(
                 vertexai=True,
                 project=self.project_id,
-                location=self.location
+                location=self.location,
+                http_options=http_options,
             )
             func.log(f"Vertex AI Client ready for {self.model_name}", level="DEBUG")
         else:
@@ -54,7 +61,7 @@ class GeminiAPIModel(BaseModel):
                 func.error("GEMINI_API_KEY not found!")
                 raise ValueError("API key required for direct Gemini mode.")
             
-            self.client = genai.Client(api_key=resolved_key)
+            self.client = genai.Client(api_key=resolved_key, http_options=http_options)
             func.log(f"Gemini Developer API Client ready for {self.model_name}", level="DEBUG")
 
         model_params = kargs.get('model_params', {}) or {}
@@ -161,18 +168,30 @@ class GeminiAPIModel(BaseModel):
         full_content = ""
         sentinel_buffer = ""
         is_intercepting = False
-        
+        finish_reason = None
+        block_reason = None
+
         try:
-            response_stream = self.client.models.generate_content_stream(
-                model=self.model_name,
-                contents=contents,
-                config=config
+            response_stream = stream_with_retry(
+                lambda: self.client.models.generate_content_stream(
+                    model=self.model_name,
+                    contents=contents,
+                    config=config
+                ),
+                self.retry_policy, "Gemini", self.stop_generation_event,
             )
-            
+
             for chunk in response_stream:
                 if self.stop_generation_event.is_set():
                     break
-                
+
+                candidates = getattr(chunk, "candidates", None) or []
+                if candidates and getattr(candidates[0], "finish_reason", None):
+                    finish_reason = candidates[0].finish_reason
+                feedback = getattr(chunk, "prompt_feedback", None)
+                if feedback is not None and getattr(feedback, "block_reason", None):
+                    block_reason = feedback.block_reason
+
                 content = chunk.text or ""
                 if not content:
                     continue
@@ -200,17 +219,28 @@ class GeminiAPIModel(BaseModel):
                 self.trigger("token", sentinel_buffer)
                 yield sentinel_buffer
 
+            if not full_content and not self.stop_generation_event.is_set():
+                func.log(f"[Gemini] Empty response (finish_reason={finish_reason}, block_reason={block_reason}).", level="WARN")
+
+        except LLMAPIError as e:
+            # Never yield errors as if the model had written them: raise a typed error.
+            func.error(f"[Gemini] {e.user_message()}")
+            raise
         except Exception as e:
-            func.error(f"Stream Loop Error: {e}")
-            yield f"Error: {e}"
+            err = wrap_error(e, "Gemini", attempts=1, partial=bool(full_content))
+            func.error(f"[Gemini] {err.user_message()}")
+            raise err from e
         finally:
             self.trigger(BaseModel.STREAMING_FINISHED_EVENT, full_content)
 
     def _generate_response_sync(self, contents, config):
-        resp = self.client.models.generate_content(
-            model=self.model_name,
-            contents=contents,
-            config=config
+        resp = call_with_retry(
+            lambda: self.client.models.generate_content(
+                model=self.model_name,
+                contents=contents,
+                config=config
+            ),
+            self.retry_policy, "Gemini", self.stop_generation_event,
         )
         text = resp.text or ""
         action = ToolRegistry.parse_manual_tags(text)

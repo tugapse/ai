@@ -239,6 +239,12 @@ class AgentOrchestrator(Events):
             if self.cancel_event.is_set():
                 return self._finish("cancelled", current_agent, executed)
 
+            if response.get("status") == "FAILED" and response.get("api_error"):
+                # The provider already retried transient errors; don't blame the model's format.
+                hint = " Session saved: send a message (e.g. 'continue') to retry." if response.get("transient") else ""
+                self.emit(AgentEventType.ERROR, current_agent, f"{response.get('error')}{hint}")
+                return self._finish("api_error", current_agent, executed, message=response.get("error", ""))
+
             if response.get("status") == "FAILED":
                 if not self._handle_format_error(current_agent, response.get("error") or "Unknown parsing error."):
                     return self._finish("error", current_agent, executed)
