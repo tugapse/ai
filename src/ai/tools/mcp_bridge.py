@@ -209,8 +209,9 @@ class MCPBridge:
             desc = tool.description or "No description."
             output += f"Command: {name}\n  Desc: {desc}\n"
             
-            props = tool.inputSchema.get("properties", {})
-            reqs = tool.inputSchema.get("required", [])
+            input_schema = getattr(tool, "input_schema", getattr(tool, "inputSchema", {}))
+            props = input_schema.get("properties", {}) if isinstance(input_schema, dict) else {}
+            reqs = input_schema.get("required", []) if isinstance(input_schema, dict) else []
             if props:
                 output += "  Arguments:\n"
                 for p_name, p_data in props.items():
@@ -234,7 +235,9 @@ class MCPBridge:
         Returns:
             A dictionary indicating the execution status and the resulting output or error.
         """
-        schema = self.server_schemas[server_name][command].inputSchema.get("properties", {})
+        tool_def = self.server_schemas[server_name][command]
+        input_schema = getattr(tool_def, "input_schema", getattr(tool_def, "inputSchema", {}))
+        schema = input_schema.get("properties", {}) if isinstance(input_schema, dict) else {}
         casted_params = {}
         
         # Universal Type Casting
