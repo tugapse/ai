@@ -63,6 +63,44 @@ class DirectoryManager:
             os.makedirs(tools_directory)
             func.debug(f"{Color.GREEN}Tools directory created at: {tools_directory}{Color.RESET}")
         return tools_directory
+
+    def get_user_pipelines_directory(self):
+        """
+        Gets the path to the user's pipelines directory, creating it if necessary.
+
+        :return: str: The path to the user pipelines directory.
+        """
+        directory = os.path.join(self.user_directory, "pipelines")
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+            func.debug(f"{Color.GREEN}User Pipelines directory created at: {directory}{Color.RESET}")
+        return directory
+
+ 
+    def get_user_models_directory(self):
+        """
+        Gets the path to the user's models configuration directory, creating it if necessary.
+
+        :return: str: The path to the user models directory.
+        """
+        directory = os.path.join(self.user_directory, "models")
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+            func.debug(f"{Color.GREEN}User model config directory created at: {directory}{Color.RESET}")
+        return directory
+
+    def get_user_config_directory(self):
+        """
+        Gets the path to the user's configuration directory, creating it if necessary.
+
+        :return: str: The path to the user config directory.
+        """
+        directory = os.path.join(self.user_directory, "config")
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+            func.debug(f"{Color.GREEN}User config directory created at: {directory}{Color.RESET}")
+        return directory
+
     
     def _create_user_directory(self):
         """
@@ -157,6 +195,18 @@ class DirectoryManager:
         :return: str: The path to the root directory.
         """
         return self.root_directory
+    
+    def get_system_config_dir(self):
+        """
+        Gets the path to the system configuration directory, creating it if necessary.
+
+        :return: str: The path to the system config directory.
+        """
+        config_directory = os.path.join(self.system_directory, "config")
+        if not os.path.exists(config_directory):
+            os.makedirs(config_directory)
+            func.debug(f"{Color.GREEN}System config directory created at: {config_directory}{Color.RESET}")
+        return config_directory
    
     def get_pid_directory(self):
         """
@@ -182,27 +232,3 @@ class DirectoryManager:
             func.debug(f"{Color.GREEN}System Pipelines directory created at: {pipelines_directory}{Color.RESET}")
         return pipelines_directory
 
-    def get_user_pipelines_directory(self):
-        """
-        Gets the path to the user's pipelines directory, creating it if necessary.
-
-        :return: str: The path to the user pipelines directory.
-        """
-        directory = os.path.join(self.user_directory, "pipelines")
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-            func.debug(f"{Color.GREEN}User Pipelines directory created at: {directory}{Color.RESET}")
-        return directory
-
- 
-    def get_user_models_directory(self):
-        """
-        Gets the path to the user's models configuration directory, creating it if necessary.
-
-        :return: str: The path to the user models directory.
-        """
-        directory = os.path.join(self.user_directory, "models")
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-            func.debug(f"{Color.GREEN}User model config directory created at: {directory}{Color.RESET}")
-        return directory
