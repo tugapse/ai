@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import uuid
+from typing import Optional
 
 
 # Ensure project root is in path
@@ -73,6 +74,51 @@ def load_pipeline_config(prog, pipeline_file: str) -> dict:
     except Exception as e:
         func.error(f"Failed to parse pipeline config: {e}")
         return {}
+
+def build_orchestrator(prog, pipeline_file: str = "default.json", io=None, directory_manager: Optional[DirectoryManager] = None) -> AgentOrchestrator:
+    """
+    Builds a fully wired AgentOrchestrator: pipeline config, LLM connector and
+    a tool registry with system and user tools.
+
+    Args:
+        prog: The main program object (provides the LLM and module registry).
+        pipeline_file: Name or path of the pipeline configuration.
+        io: Optional AgentIO channel (defaults to the classic terminal output).
+        directory_manager: Optional directory service (used to locate user tools).
+
+    Returns:
+        A ready-to-run AgentOrchestrator.
+
+    Raises:
+        ValueError: If the pipeline cannot be loaded or the LLM is not available.
+    """
+    from ai.tools.tool_loader import load_and_register_user_tools
+    import ai.tools.agent_tools as agent_tools
+
+    pipeline_config = load_pipeline_config(prog, pipeline_file)
+    if not pipeline_config:
+        raise ValueError(f"Failed to load pipeline config '{pipeline_file}'.")
+
+    if not prog.llm:
+        raise ValueError("LLM not initialized. Cannot proceed with agent mode.")
+
+    connector = LLMConnector(prog.llm)
+    registry = ToolRegistry()
+    for name, tool_ref in agent_tools.AVAILABLE_TOOLS.items():
+        registry.register_tool(name, tool_ref)
+
+    # Dynamically load and register tools from the user-defined 'tools' directory
+    directory_manager = directory_manager or DirectoryManager()
+    load_and_register_user_tools(registry, directory_manager.get_user_tools_directory())
+
+    return AgentOrchestrator(
+        llm_connector=connector,
+        tool_registry=registry,
+        pipeline_config=pipeline_config,
+        module_registry=prog.modules,
+        io=io,
+    )
+
 
 class Agent(Events):
     """

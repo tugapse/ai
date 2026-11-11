@@ -1,5 +1,5 @@
 import os
-from typing import Dict, Any, List, Optional
+from typing import Callable, Dict, Any, List, Optional
 
 import ai.functions as func
 from ai.agents.xml_response_parser import ResponseParser
@@ -28,6 +28,8 @@ class LLMConnector:
         # Initialize the new strict parser here
         self.parser = ResponseParser()
         self.directory_manager = DirectoryManager()
+        # Optional per-token callback (set by interactive UIs for live progress).
+        self.on_token: Optional[Callable[[str], None]] = None
         
     def get_context_limit(self) -> int:
         """
@@ -167,7 +169,8 @@ class LLMConnector:
                 print_output=False, 
                 output_filename=output_filename, 
                 write_to_file=True,
-                stream=True
+                stream=True,
+                on_token=self.on_token
             )
             
             if os.path.exists(output_filename):

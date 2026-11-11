@@ -87,6 +87,25 @@ Run the assistant with tool-access enabled:
 ./run.sh --agent --msg "Locate all .py files in /src and check them for security vulnerabilities."
 ```
 
+### Agent Chat (Interactive)
+Run agent mode without a prompt on an interactive terminal to open a multi-turn chat with the agent pipeline:
+```bash
+./run.sh --agent                         # new session
+./run.sh --agent --session-id <id>       # resume a session
+./run.sh --agent --pipeline small        # use another pipeline
+```
+Tool calls, results and permission requests are shown inline while the agent works.
+
+| Key / Command | Action |
+| :--- | :--- |
+| `Enter` | Send (queued if the agent is busy) |
+| `Ctrl+J` / `Alt+Enter` | New line |
+| `Esc` | Interrupt the running turn |
+| `Ctrl+C` | Interrupt / clear input / press twice to exit |
+| `Ctrl+D` | Exit on an empty line |
+| `@path` | Attach a file (Tab completes) |
+| `/help` `/clear` `/resume` `/session` `/pipeline` `/tools` `/thoughts` `/exit` | Chat commands |
+
 ### Direct Command Execution
 **Ask a single question:**
 ```bash
@@ -129,7 +148,7 @@ Running a task from user/tasks folder
 ### Autonomous Operations
 | Flag | Alias | Description |
 | :--- | :--- | :--- |
-| `--agent` | | Enable agentic logic injection. |
+| `--agent` | | Enable agentic logic injection. Without a prompt on a TTY, opens the interactive agent chat. |
 | `--task` | `-t` | Load named directive from user/tasks folder.|
 | `--task-file` | `-tf` | Load directive from file. |
 | `--pipeline` | `-ppl` | Define multi-stage instruction pipeline. (defaults to default.json) |

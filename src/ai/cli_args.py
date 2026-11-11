@@ -28,7 +28,7 @@ from ai.color import Color, format_text
 from ai.direct import ask
 
 # Agent logic
-from ai.agents.agent import AgentOrchestrator, LLMConnector, ToolRegistry, load_pipeline_config
+from ai.agents.agent import AgentOrchestrator, LLMConnector, ToolRegistry, load_pipeline_config, build_orchestrator
 from ai.program import Program
 from ai.services.directory_manager import DirectoryManager
 from ai.tools.tool_loader import load_and_register_user_tools
@@ -227,41 +227,25 @@ def {function_name}(argument: str) -> str:
                 else:  user_input = piped_input
         user_input = user_input + args.msg if args.msg else user_input
 
-        if not user_input :
+        pipeline_path = args.pipeline or "default.json"
+
+        if not user_input:
+            # Interactive terminal and no prompt: open the agent chat.
+            if sys.stdin.isatty() and sys.stdout.isatty() and not args.output_file:
+                self._handle_agent_chat(prog, args, directory_manager, pipeline_path)
+                sys.exit(0)
             func.error("Agent mode requires a prompt. Use --msg, --task, or pipe input.")
             sys.exit(1)
 
-        pipeline_path = args.pipeline or "default.json"
-        pipeline_config = load_pipeline_config(prog, pipeline_path)
-
-        if not pipeline_config:
-            func.error("Failed to load pipeline config. Aborting.")
+        try:
+            orchestrator = build_orchestrator(prog, pipeline_path, directory_manager=directory_manager)
+        except ValueError as e:
+            func.error(f"{e} Aborting.")
             sys.exit(1)
-        
-        if not prog.llm:
-            func.error("LLM not initialized. Cannot proceed with agent mode.")
-            sys.exit(1)
-        
-        connector = LLMConnector(prog.llm)
-        registry = ToolRegistry()
-        
-        for name, tool_ref in agent_tools.AVAILABLE_TOOLS.items():
-            registry.register_tool(name, tool_ref)
 
-        # Dynamically load and register tools from the user-defined 'tools' directory
-        user_tools_dir = directory_manager.get_user_tools_directory()   
-        load_and_register_user_tools(registry, user_tools_dir)
-       
         session_id = args.session_id or str(uuid.uuid4())
         func.log(f"Session: {session_id}")
 
-        orchestrator = AgentOrchestrator(
-            llm_connector=connector, 
-            tool_registry=registry, 
-            pipeline_config=pipeline_config,
-            module_registry=prog.modules
-        )
-        
         try:
             orchestrator.run_loop(user_prompt=user_input, session_id=session_id)
         except Exception as e:
@@ -269,6 +253,32 @@ def {function_name}(argument: str) -> str:
             func.error(traceback.format_exc())
         finally:
             sys.exit(0)
+
+    def _handle_agent_chat(self, prog: Program, args, directory_manager: DirectoryManager, pipeline_path: str):
+        """
+        Starts the interactive multi-turn agent chat (prompt_toolkit UI).
+
+        :param prog: The main program instance.
+        :param args: The parsed command-line arguments (uses --session-id).
+        :param directory_manager: The directory management service.
+        :param pipeline_path: The pipeline configuration to load.
+        """
+        from ai.agents.chat_ui.app import run_agent_chat
+
+        try:
+            run_agent_chat(
+                prog,
+                pipeline=pipeline_path,
+                session_id=args.session_id,
+                directory_manager=directory_manager,
+            )
+        except ValueError as e:
+            func.error(f"{e} Aborting.")
+            sys.exit(1)
+        except Exception as e:
+            func.error(f"Agent chat error: {e}")
+            func.error(traceback.format_exc())
+            sys.exit(1)
 
     def _check_nhandle_config_generation(self, prog, args, parser: argparse.ArgumentParser, directory_manager: DirectoryManager):
         """

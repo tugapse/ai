@@ -154,7 +154,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
 
     # 3. Autonomous Operations (Agentic Logic)
     agent_group = parser.add_argument_group(f'{Color.CYAN}AUTONOMOUS OPERATIONS{Color.RESET}')
-    agent_group.add_argument("--agent", action="store_true", help="Enable stage-2 agentic logic injection")
+    agent_group.add_argument("--agent", action="store_true", help="Enable stage-2 agentic logic injection (no prompt on a TTY opens the agent chat)")
     agent_group.add_argument("--task", "-t", type=str, help="Define autonomous directive")
     agent_group.add_argument("--task-file", "-tf", type=str, help="Load directive from file")
     agent_group.add_argument("--pipeline", "-ppl", type=str, help="Execute multi-stage instruction pipeline")
