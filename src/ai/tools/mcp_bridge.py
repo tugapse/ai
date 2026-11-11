@@ -261,11 +261,20 @@ class MCPBridge:
             session = self.sessions[server_name]
             result = await session.call_tool(command, arguments=casted_params)
             
-            if result.isError:
-                err = result.content[0].text if result.content else "Unknown MCP Error."
-                return {"status": "FAILED", "error": err}
+            is_error = getattr(result, "is_error", getattr(result, "isError", False))
+            
+            content_parts = []
+            if getattr(result, "content", None):
+                for item in result.content:
+                    if hasattr(item, "text"):
+                        content_parts.append(item.text)
+                    else:
+                        content_parts.append(str(item))
+            out = "\n".join(content_parts) if content_parts else ("Action completed." if not is_error else "Unknown MCP Error.")
+            
+            if is_error:
+                return {"status": "FAILED", "error": out}
                 
-            out = result.content[0].text if result.content else "Action completed."
             return {"status": "SUCCESS", "output": out}
         except Exception as e:
             func.error(f"[MCP] Execution error for {server_name}.{command}: {str(e)}")
