@@ -13,6 +13,7 @@ from ai.agents.memory_manager import AgentMemory, MemoryManager
 from ai.agents.context_sentinel import ContextSentinel
 from ai.agents.session_manager import AgentSessionManager
 from ai.core.events import Events
+from ai.services.directory_manager import DirectoryManager
 from ai.services.module_registry import ModuleRegistry
 from ai.services.process_manager import ProcessManager
 from ai.tools.mcp_bridge import MCPBridge
@@ -63,10 +64,15 @@ class AgentOrchestrator(Events):
             max_tokens=self.llm_connector.get_context_limit(),
             buffer=self.llm_connector.get_max_tokens()
         )
+
         self.mcp_bridge = MCPBridge(self.tool_registry)
-        
         # Load external servers from config
-        mcp_config = os.path.join(func.get_root_directory() , "mcp/mcp_servers.json")
+        directory = DirectoryManager()
+        mcp_config = os.path.join(directory.get_user_config_directory(), "mcp_config.json")
+        if not os.path.exists(mcp_config):
+            func.log("[MCP] config not found on user directory. Using system config.", level="WARN")
+            mcp_config = os.path.join(directory.get_system_config_dir(), "mcp_config.json")
+        
         self.mcp_bridge.load_from_config(mcp_config)
         
         # Memory State

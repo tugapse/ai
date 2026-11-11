@@ -1,5 +1,35 @@
 # Changelog
 
+## [v3.1.3] - 2026-11-11
+
+###  Features
+- feat(api): Initialize session and prompt management routers
+- feat(memory.rag_engine): Add RAG engine with ingest and retrieve
+
+###  Bug Fixes
+- fix tests
+- Fix help message formatting for 'run-tests.sh' script
+
+###  Maintenance
+- Refactor CLI integration test model configuration: update model name and properties for gemma4
+- Refactor device handling in HuggingFaceModel and T5Model: improve GPU input management by checking model device attribute
+- Refactor ProgramSetting to inherit from Enum and update usage in Program class
+- Refactor chat header printing into a separate method and clean up console handling in the run method
+- Refactor model loading and shutdown processes, enhance argument descriptions, and update test script comments
+- Refactor test scripts and remove deprecated files
+- Enhance test scripts to increment TEST_CASES on successful verifications
+- Refactor JARVIS model integration and update system prompt handling across modules
+- Remove system prompt template and update schemas for prompt handling
+- Refactor CLI argument handling and remove remote connector module
+- Add JARVIS model support and refactor engine manager for model instantiation
+- Add windows e2e Tests
+- Add load_llm_params into base class
+- chore(config): Update configuration loading and argument handling
+- refactor(config, direct): Update config loading and refine file writing logic
+- perf(chat): Improve command execution simulation logic
+- Update docs phase 1
+- test(e2e): Add comprehensive end-to-end tests and utilities
+
 ## [v3.4.0] - 2026-11-04
 
 ###  Features
