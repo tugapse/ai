@@ -35,7 +35,7 @@ def _help(app: "AgentChatApp", arg: str) -> None:
         f"  {GREEN}{'enter':<11}{RESET} send (queued if the agent is busy)",
         f"  {GREEN}{'ctrl+j':<11}{RESET} newline (also alt+enter)",
         f"  {GREEN}{'esc':<11}{RESET} interrupt the running turn",
-        f"  {GREEN}{'ctrl+c':<11}{RESET} interrupt / clear input / press twice to exit",
+        f"  {GREEN}{'ctrl+c':<11}{RESET} interrupt the running turn; exit when idle",
         f"  {GREEN}{'ctrl+d':<11}{RESET} exit on an empty line",
         f"  {GREEN}{'@path':<11}{RESET} attach a file (tab completes)",
     ]

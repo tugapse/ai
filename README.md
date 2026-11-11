@@ -103,7 +103,7 @@ Tool calls, results and permission requests are shown inline while the agent wor
 | `Enter` | Send (queued if the agent is busy) |
 | `Ctrl+J` / `Alt+Enter` | New line |
 | `Esc` | Interrupt the running turn |
-| `Ctrl+C` | Interrupt / clear input / press twice to exit |
+| `Ctrl+C` | Interrupt the running turn; exit when idle |
 | `Ctrl+D` | Exit on an empty line |
 | `@path` | Attach a file (Tab completes) |
 | `/help` `/clear` `/resume` `/session` `/pipeline` `/tools` `/thoughts` `/exit` | Chat commands |

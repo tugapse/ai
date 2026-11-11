@@ -183,6 +183,12 @@ def render_event(event: AgentEvent) -> Optional[str]:
     return None  # STATUS / LLM_REQUEST are live-only
 
 
+def render_status_line(agent: str, status: str, phase: str = "") -> str:
+    """Committed line for the agent's reported status (manifest.current_priority)."""
+    phase_txt = f"{DIM}[{phase}]{RESET}{GREY} " if phase else ""
+    return f"\n{TerminalUI.PRIMARY}✻{RESET} {GREY}{phase_txt}{status.strip()}{RESET}"
+
+
 def render_turn_summary(reason: str, state: LiveState) -> str:
     stats = f"{format_duration(state.elapsed())} · {state.turn_steps} step{'s' if state.turn_steps != 1 else ''} · {format_tokens(state.turn_tokens)} tokens"
     if reason == "cancelled":
@@ -224,7 +230,7 @@ def render_status_bar(model: str, session_id: str, pipeline: str, state: LiveSta
     if state.context_pressure is not None:
         parts.append(f"ctx {min(state.context_pressure, 9.99):.0%}")
     left = " · ".join(parts)
-    right = hint or "/help · ctrl+j newline · ctrl+d exit"
+    right = hint or "/help · ctrl+j newline · ctrl+c exit"
     return f"{GREY} {left}   {DIM}{right}{RESET}"
 
 
@@ -245,13 +251,9 @@ def render_transcript(entries, session_id: str, request: str = "") -> str:
 
 
 def render_permission(tool: str, params: Dict[str, Any]) -> str:
-    target = params.get("path") or "@ROOT"
-    lines = [
-        f"{TerminalUI.WARN}{BOLD}Permission required{RESET}",
-        f"  {GREY}tool    {RESET}{BOLD}{tool}{RESET}",
-    ]
-    if params.get("command"):
-        lines.append(f"  {GREY}command {RESET}{params['command']}")
-    lines.append(f"  {GREY}target  {RESET}{target}")
+    from ai.agents.tool_preview import describe_tool_request
+
+    lines = [f"{TerminalUI.WARN}{BOLD}Permission required{RESET}"]
+    lines += describe_tool_request(tool, params)
     lines.append(f"  {GREEN}[y]{RESET} allow   {GREEN}[a]{RESET} allow all '{tool}' this session   {RED}[n]{RESET} deny {GREY}(esc){RESET}")
     return "\n".join(lines)

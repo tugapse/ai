@@ -106,9 +106,12 @@ class AgentChatApp:
         self.worker: Optional[threading.Thread] = None
         self.permission: Optional[tuple] = None
         self._permission_future: Optional[asyncio.Future] = None
-        self._last_ctrl_c = 0.0
         self._hint = ""
         self._hint_until = 0.0
+        self._turn_seq = 0
+        self._active_turn: Optional[int] = None
+        self._detached: Optional[threading.Thread] = None
+        self._waiting_message: Optional[str] = None
 
         self.io = ChatIO(self.state, self.write, self.invalidate, self._ask_permission)
         self.orchestrator = self._build_orchestrator(pipeline)
@@ -228,13 +231,11 @@ class AgentChatApp:
                 self.interrupt()
             elif self.state.busy:
                 self.interrupt()
-            elif self.input.buffer.text:
-                self.input.buffer.reset()
-            elif time.monotonic() - self._last_ctrl_c < 2.0:
-                self.exit()
             else:
-                self._last_ctrl_c = time.monotonic()
-                self.flash("press ctrl+c again to exit")
+                # Idle: exit right away. Keep an unsent draft in history (↑ recalls it).
+                if self.input.buffer.text.strip():
+                    self.input.buffer.append_to_history()
+                self.exit()
 
         @kb.add("c-d", filter=typing)
         def _ctrl_d(event):
@@ -270,7 +271,7 @@ class AgentChatApp:
     def _status_text(self):
         hint = self._hint if time.monotonic() < self._hint_until else ""
         if not hint and self.state.busy:
-            hint = "esc interrupt · enter queues a message"
+            hint = "esc/ctrl+c interrupt · enter queues a message"
         model = getattr(self.orchestrator.llm_connector.llm, "model_name", "") or ""
         return ANSI(R.render_status_bar(str(model), self.session_id, self.pipeline.replace(".json", ""), self.state, hint))
 
@@ -313,43 +314,77 @@ class AgentChatApp:
         self._start_turn(stripped)
 
     def _start_turn(self, text: str) -> None:
+        # An interrupted model call may still be running in the background: never run two
+        # turns on the same orchestrator at once. Start as soon as it returns.
+        if self._detached is not None and self._detached.is_alive():
+            if self._waiting_message is None:
+                self._waiting_message = text
+            else:
+                self.state.queued.append(text)
+            self.flash("waiting for the interrupted request to stop…", seconds=60)
+            return
         self.write(R.render_user_message(text))
         prompt = expand_mentions(text)
         self.state.start_turn()
+        self._turn_seq += 1
+        self._active_turn = self._turn_seq
         self.invalidate()
-        self.worker = threading.Thread(target=self._run_turn, args=(prompt,), daemon=True, name="agent-turn")
+        self.worker = threading.Thread(target=self._run_turn, args=(prompt, self._active_turn), daemon=True, name="agent-turn")
         self.worker.start()
 
-    def _run_turn(self, prompt: str) -> None:
+    def _run_turn(self, prompt: str, turn_id: int) -> None:
         result = None
         try:
             result = self.orchestrator.run_loop(prompt, self.session_id)
         except Exception as e:
-            self.write(f"{R.RED}✗ Orchestrator error: {e}{R.RESET}")
+            if turn_id == self._active_turn:
+                self.write(f"{R.RED}✗ Orchestrator error: {e}{R.RESET}")
             func.debug(traceback.format_exc())
         finally:
             if self.loop is not None:
-                self.loop.call_soon_threadsafe(self._turn_finished, result)
+                try:
+                    self.loop.call_soon_threadsafe(self._turn_finished, result, turn_id)
+                except RuntimeError:
+                    pass  # UI loop already closed (app exited)
 
-    def _turn_finished(self, result) -> None:
-        reason = getattr(result, "reason", "error")
+    def _turn_finished(self, result, turn_id: Optional[int] = None) -> None:
+        if turn_id is not None and turn_id != self._active_turn:
+            # A detached (interrupted) turn finally returned: discard it, unblock waiting input.
+            self._detached = None
+            self.flash("", seconds=0)
+            if self._waiting_message is not None and not self.state.busy:
+                text, self._waiting_message = self._waiting_message, None
+                self._start_turn(text)
+            self.invalidate()
+            return
+        self._end_turn(getattr(result, "reason", "error"))
+        if self.state.queued:
+            self._start_turn(self.state.queued.pop(0))
+        self.invalidate()
+
+    def _end_turn(self, reason: str) -> None:
         self.write(R.render_turn_summary(reason, self.state))
         self.state.busy = False
         self.state.cancelling = False
         self.state.phase = ""
         self.state.task = ""
         self.worker = None
-        if self.state.queued:
-            self._start_turn(self.state.queued.pop(0))
-        self.invalidate()
+        self._active_turn = None
 
     def interrupt(self) -> None:
-        if not self.state.busy or self.state.cancelling:
+        """Stops the running turn and gives control back immediately.
+
+        The model call may not be abortable right away (e.g. a remote API waiting for its
+        first token), so the worker is detached: its result is discarded when it returns.
+        """
+        if not self.state.busy:
             return
-        self.state.cancelling = True
         self.state.queued.clear()
         self.orchestrator.cancel()
         self.io.cancel_pending()
+        if self.worker is not None and self.worker.is_alive():
+            self._detached = self.worker
+        self._end_turn("cancelled")
         self.invalidate()
 
     def exit(self) -> None:

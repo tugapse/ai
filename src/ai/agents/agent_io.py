@@ -82,7 +82,10 @@ class ConsoleIO(AgentIO):
         if t == AgentEventType.HEADER:
             TerminalUI.header(event.text, event.data.get("subtitle", ""))
         elif t == AgentEventType.STATUS:
-            TerminalUI.status(event.agent or "", event.text)
+            # Print the agent's own status as soon as it arrives; progress updates only
+            # on the first step of a run (before the agent has reported anything).
+            if event.data.get("fresh", True) or event.data.get("iteration") == 1:
+                TerminalUI.status(event.agent or "", event.text)
         elif t == AgentEventType.THOUGHT:
             TerminalUI.message(event.agent or "", event.text, Color.DIM)
         elif t == AgentEventType.MESSAGE:
@@ -103,7 +106,12 @@ class ConsoleIO(AgentIO):
         # LLM_REQUEST / TOOL_RESULT: silent in classic mode
 
     def request_permission(self, tool: str, params: Dict[str, Any]) -> str:
-        TerminalUI.auth_request(tool, params.get('path') or "@ROOT", params.get('command', ""))
+        from ai.agents.tool_preview import describe_tool_request
+
+        func.out(f"\n{Color.BLUE} {Color.YELLOW}AUTHORIZATION REQUIRED{Color.RESET} ")
+        for line in describe_tool_request(tool, params):
+            func.out(line)
+        func.out(f"{Color.RESET}")
         choice = input("Allow? ( y / n / (a)ll): ").lower().strip()
         if choice in ("a", "all"):
             return PERMISSION_ALWAYS

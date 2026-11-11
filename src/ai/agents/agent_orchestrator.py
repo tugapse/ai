@@ -29,8 +29,20 @@ MASTER_AGENT = "MASTER"
 USER_TARGET = "USER"
 DONE_SIGNAL = "DONE"
 
-# Tools that require explicit user authorization before running.
+# Fallback list of tools that require explicit user authorization (HIL).
+# The effective list comes from the HIL_TOOLS setting in config.json.
 GATED_TOOLS = ["execute_command"]
+
+
+def get_hil_tools() -> List[str]:
+    """Returns the tools that need human approval, from the HIL_TOOLS setting."""
+    try:
+        configured = ProgramConfig.get_current().get(ProgramSetting.HIL_TOOLS)
+    except Exception:
+        configured = None
+    if isinstance(configured, (list, tuple)):
+        return list(configured)
+    return list(GATED_TOOLS)
 
 
 @dataclass
@@ -202,6 +214,7 @@ class AgentOrchestrator(Events):
                 str(agent_mem.manifest.get("current_priority", agent_mem.current_task) or ""),
                 iteration=i - start_iteration + 1, max_iterations=max_iterations,
                 context_pressure=getattr(self.context_sentinel, "last_pressure", None),
+                fresh=False,  # progress update; the agent's own status arrives with its response
             )
 
             if was_compressed:
@@ -422,6 +435,15 @@ class AgentOrchestrator(Events):
         tool_name, params = action.get("tool_name"), action.get("tool_parameters", {})
         target = str(action.get("agent_target", "")).strip().upper()
 
+        # Status first: the agent's current priority from THIS response, shown before its
+        # message and before any permission request (it used to lag one step behind).
+        manifest = response.get("manifest") or {}
+        priority = str(manifest.get("current_priority") or "").strip()
+        agent_mem = self.memory.get_agent_memory(agent)
+        previous = str((agent_mem.manifest if agent_mem else {}).get("current_priority") or "").strip()
+        if priority and priority != previous:
+            self.emit(AgentEventType.STATUS, agent, priority, phase=str(manifest.get("phase") or ""), fresh=True)
+
         if thought := response.get("thought"):
             if ProgramConfig.get_current().get(ProgramSetting.AGENT_THOUGHT, False): 
                 self.emit(AgentEventType.THOUGHT, agent, thought)
@@ -436,8 +458,12 @@ class AgentOrchestrator(Events):
         self.memory.check_stagnation(tool_name, params)
 
         if target == USER_TARGET:
-            prompt = action.get("message_to_target") or "Clarification required."
-            self.emit(AgentEventType.QUESTION, agent, prompt)
+            question = action.get("message_to_target")
+            prompt = question or msg or "Clarification required."
+            # If the agent only handed control back after answering, its response was
+            # already shown; don't print a generic question on top of it.
+            if question or not msg:
+                self.emit(AgentEventType.QUESTION, agent, prompt)
             if self.io.blocking_user_input:
                 reply = self.io.request_user_input(agent, prompt)
                 self.memory.add_message_to_agent(agent, {"from": "USER", "message": reply, "task": reply})
@@ -578,7 +604,10 @@ class AgentOrchestrator(Events):
         Returns:
             True if the tool is authorized to run, False otherwise.
         """
-        if tool in self.auto_authorized_tools or tool not in GATED_TOOLS:
+        if self.cancel_event.is_set():
+            return False  # turn was interrupted: never prompt or run anything more
+
+        if tool in self.auto_authorized_tools or tool not in get_hil_tools():
             self.emit(AgentEventType.TOOL_CALL, agent, tool=tool, params=params, gated=False)
             return True
 

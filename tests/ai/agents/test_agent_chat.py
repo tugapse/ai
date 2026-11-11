@@ -481,3 +481,157 @@ def test_expand_mentions(tmp_path):
     expanded = expand_mentions(text)
     assert "hello file" in expanded and "missing.txt" not in expanded.split("--- Attached Files ---")[1]
     assert expand_mentions("no mentions") == "no mentions"
+
+
+class TestCtrlC:
+    def _app(self, monkeypatch, responses):
+        import ai.agents.agent as agent_mod
+        from ai.agents.chat_ui import app as app_mod
+        from prompt_toolkit.history import InMemoryHistory
+
+        def fake_build(prog, pipeline, io=None, directory_manager=None):
+            orch, conn, reg = make_orchestrator(responses, io=io)
+            return orch
+
+        monkeypatch.setattr(agent_mod, "build_orchestrator", fake_build)
+        history = InMemoryHistory()
+        chat = app_mod.AgentChatApp(MagicMock(), history=history)
+        out = []
+        chat.write = out.append
+        chat.io.write = out.append
+        return chat, history, out
+
+    def _drive(self, chat, pipe, steps):
+        async def scenario():
+            run = asyncio.ensure_future(chat.run_async())
+            for wait_for, keys in steps:
+                for _ in range(200):
+                    if wait_for(chat):
+                        break
+                    await asyncio.sleep(0.02)
+                await asyncio.sleep(0.1)
+                pipe.send_text(keys)
+            await asyncio.wait_for(run, timeout=5)
+        asyncio.run(scenario())
+
+    def test_single_ctrl_c_exits_when_idle(self, monkeypatch):
+        from prompt_toolkit.application import create_app_session
+        from prompt_toolkit.input import create_pipe_input
+        from prompt_toolkit.output import DummyOutput
+        with create_pipe_input() as pipe, create_app_session(input=pipe, output=DummyOutput()):
+            chat, _, _ = self._app(monkeypatch, [])
+            self._drive(chat, pipe, [(lambda c: True, "\x03")])
+        assert not chat.app.is_running
+
+    def test_ctrl_c_with_draft_exits_and_keeps_draft(self, monkeypatch):
+        from prompt_toolkit.application import create_app_session
+        from prompt_toolkit.input import create_pipe_input
+        from prompt_toolkit.output import DummyOutput
+        with create_pipe_input() as pipe, create_app_session(input=pipe, output=DummyOutput()):
+            chat, history, _ = self._app(monkeypatch, [])
+            self._drive(chat, pipe, [(lambda c: True, "half typed idea"), (lambda c: True, "\x03")])
+        assert "half typed idea" in list(history.load_history_strings())
+
+    def test_ctrl_c_while_busy_interrupts_then_exits(self, monkeypatch):
+        from prompt_toolkit.application import create_app_session
+        from prompt_toolkit.input import create_pipe_input
+        from prompt_toolkit.output import DummyOutput
+
+        def slow(payload):
+            # Block until the UI cancels the turn.
+            for _ in range(300):
+                if chat.orchestrator.cancel_event.is_set():
+                    break
+                time.sleep(0.01)
+            return {"action": {"agent_target": "STOP"}}
+
+        with create_pipe_input() as pipe, create_app_session(input=pipe, output=DummyOutput()):
+            chat, _, out = self._app(monkeypatch, [slow])
+            self._drive(chat, pipe, [
+                (lambda c: True, "do something slow\r"),
+                (lambda c: c.state.busy, "\x03"),          # interrupt
+                (lambda c: not c.state.busy, "\x03"),      # now idle -> exit
+            ])
+        text = "\n".join(out)
+        assert "Interrupted" in text
+        assert not chat.app.is_running
+
+
+class TestStuckModelCall:
+    """A model call that ignores cancellation (e.g. remote API before its first token)."""
+
+    def _setup(self, monkeypatch, responses):
+        return TestCtrlC()._app(monkeypatch, responses)
+
+    def test_interrupt_is_immediate_and_next_message_waits(self, monkeypatch):
+        from prompt_toolkit.application import create_app_session
+        from prompt_toolkit.input import create_pipe_input
+        from prompt_toolkit.output import DummyOutput
+
+        def stubborn(payload):
+            time.sleep(1.0)  # does not look at the cancel flag
+            return {"response_to_user": "LATE RESULT", "action": {"agent_target": "STOP"}}
+
+        timings = {}
+        with create_pipe_input() as pipe, create_app_session(input=pipe, output=DummyOutput()):
+            chat, _, out = self._setup(monkeypatch, [stubborn, {"response_to_user": "second answer", "action": {"agent_target": "STOP"}}])
+
+            async def scenario():
+                run = asyncio.ensure_future(chat.run_async())
+                await asyncio.sleep(0.2)
+                pipe.send_text("slow request\r")
+                await asyncio.sleep(0.3)
+                assert chat.state.busy
+                t = time.monotonic()
+                pipe.send_text("\x03")
+                while chat.state.busy:
+                    await asyncio.sleep(0.01)
+                timings["idle_after"] = time.monotonic() - t
+                pipe.send_text("next message\r")        # must wait for the stubborn call
+                await asyncio.sleep(0.1)
+                assert not chat.state.busy and chat._waiting_message == "next message"
+                for _ in range(300):
+                    if "second answer" in "\n".join(out):
+                        break
+                    await asyncio.sleep(0.01)
+                for _ in range(300):
+                    if not chat.state.busy:
+                        break
+                    await asyncio.sleep(0.01)
+                pipe.send_text("\x03")
+                await asyncio.wait_for(run, timeout=5)
+
+            asyncio.run(scenario())
+
+        text = "\n".join(out)
+        assert timings["idle_after"] < 0.3
+        assert "Interrupted" in text
+        assert "LATE RESULT" not in text          # discarded
+        assert "second answer" in text            # waiting message ran afterwards
+
+    def test_ctrl_c_twice_exits_even_if_call_still_running(self, monkeypatch):
+        from prompt_toolkit.application import create_app_session
+        from prompt_toolkit.input import create_pipe_input
+        from prompt_toolkit.output import DummyOutput
+
+        def hang(payload):
+            time.sleep(3)
+            return {"action": {"agent_target": "STOP"}}
+
+        with create_pipe_input() as pipe, create_app_session(input=pipe, output=DummyOutput()):
+            chat, _, _ = self._setup(monkeypatch, [hang])
+
+            async def scenario():
+                run = asyncio.ensure_future(chat.run_async())
+                await asyncio.sleep(0.2)
+                pipe.send_text("hang\r")
+                await asyncio.sleep(0.3)
+                start = time.monotonic()
+                pipe.send_text("\x03")
+                await asyncio.sleep(0.1)
+                pipe.send_text("\x03")
+                await asyncio.wait_for(run, timeout=2)
+                return time.monotonic() - start
+
+            elapsed = asyncio.run(scenario())
+        assert elapsed < 1.0
