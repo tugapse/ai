@@ -436,7 +436,9 @@ class AgentChatApp:
         return True
 
     def switch_pipeline(self, pipeline: str) -> None:
-        self.orchestrator = self._build_orchestrator(pipeline)
+        new_orchestrator = self._build_orchestrator(pipeline)
+        self.orchestrator.close()
+        self.orchestrator = new_orchestrator
         self.pipeline = pipeline
         self.new_session()
 
@@ -461,6 +463,7 @@ class AgentChatApp:
             if initial_message:
                 self.loop.call_soon(self.submit, initial_message)
             await self.app.run_async()
+        await asyncio.get_running_loop().run_in_executor(None, self.orchestrator.close)
         print(f"{R.GREY}Session {self.session_id} saved. Resume with: ai --agent --session-id {self.session_id}{R.RESET}")
 
     def run(self, initial_message: Optional[str] = None) -> None:

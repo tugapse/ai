@@ -136,6 +136,15 @@ class AgentOrchestrator(Events):
         if stop_event is not None:
             stop_event.set()
 
+    def close(self):
+        """Shuts down external resources (MCP server processes, e.g. Playwright's browser)."""
+        bridge = getattr(self, "mcp_bridge", None)
+        if bridge is not None and hasattr(bridge, "close"):
+            try:
+                bridge.close(timeout=3)
+            except Exception as e:
+                func.debug(f"Orchestrator: MCP shutdown failed: {e}")
+
     def reset_state(self):
         """Clears all in-memory agent state (used when starting a fresh session)."""
         self.memory = MemoryManager(list(self.agents.keys()))

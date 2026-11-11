@@ -258,6 +258,7 @@ def {function_name}(argument: str) -> str:
             func.error(f"Orchestrator Error: {e}")
             func.error(traceback.format_exc())
         finally:
+            orchestrator.close()
             sys.exit(0)
 
     def _resolve_resume_session(self, args) -> Optional[str]:
