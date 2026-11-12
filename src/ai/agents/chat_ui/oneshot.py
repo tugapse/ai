@@ -95,11 +95,10 @@ def run_one_shot(prog, prompt: str, pipeline: str = "default.json", session_id: 
         session_id = session_id or str(uuid.uuid4())
         result = orchestrator.run_loop(user_prompt=prompt, session_id=session_id)
         reason = getattr(result, "reason", "error")
-        if reason == "awaiting_user":
-            io.write(R.render_turn_summary("done", io.state))
+        io.write(R.render_turn_summary("done" if reason == "awaiting_user" else reason, io.state))
+        if reason in ("awaiting_user", "api_error"):
+            # The session is saved: the same conversation continues with --resume.
             io.write(f"{R.GREY}  continue: ai --agent --resume {session_id} --msg \"...\"{R.RESET}")
-        else:
-            io.write(R.render_turn_summary(reason, io.state))
         return result
     finally:
         io.state.busy = False

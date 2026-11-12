@@ -144,3 +144,21 @@ class TestCliAgentMode:
 
         assert exit_info.value.code == 0
         assert calls == [("run the tests", {"pipeline": "default.json", "session_id": "s-cli", "directory_manager": None})]
+
+
+def test_api_error_prints_resume_hint(monkeypatch):
+    out = _io.StringIO()
+    io = OneShotIO(out=out, interactive=False)
+    orch, _, _ = make_orchestrator([
+        {"status": "FAILED", "api_error": True, "transient": True, "error": "Jarvis API error: Connection refused"},
+    ], io=io)
+    orch.close = lambda: None
+    monkeypatch.setattr("ai.agents.agent.build_orchestrator", lambda *a, **k: orch)
+
+    result = run_one_shot(prog=None, prompt="hi", session_id="s-api", io=io)
+
+    text = out.getvalue()
+    assert result.reason == "api_error"
+    assert "Connection refused\nSession saved" in text
+    assert "Model API unavailable" in text
+    assert "ai --agent --resume s-api" in text
