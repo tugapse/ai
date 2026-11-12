@@ -311,3 +311,29 @@ class TestTotpOverHttp:
         r = client.post(url, json={"request_id": ev["request_id"], "decision": "yes", "totp": good})
         assert r.status_code == 200 and next_event(run_, "done")["reason"] == "done"
         assert orchestrators[0].decision == PERMISSION_YES
+
+
+class TestCurrentRun:
+    def test_no_run_is_inactive(self, client):
+        assert client.get("/api/v1/agent/runs/current").json() == {"active": False}
+
+    def test_running_run_with_pending_permission(self, client, orchestrators):
+        orchestrators.options = {"gated": True}
+        run_ = client.app.state.agent_service.start("list files", model="small", session_id="s9")
+        ev = next_event(run_, "permission")
+        info = client.get("/api/v1/agent/runs/current").json()
+        assert info["active"] and info["run_id"] == run_.run_id and info["session_id"] == "s9"
+        assert info["pipeline"] == "default" and info["started"] > 0
+        assert info["pending_permissions"] == [{"request_id": ev["request_id"], "tool": "execute_command",
+                                                "params": {"command": "ls"}, "needs_totp": False}]
+        client.post(f"/api/v1/agent/runs/{run_.run_id}/cancel")
+        run_.finished.wait(5)
+        assert client.get("/api/v1/agent/runs/current").json() == {"active": False}
+
+    def test_heartbeat_is_sent_while_a_step_is_slow(self, client, orchestrators, monkeypatch):
+        import ai.modules.server.routers.agent as router_mod
+        monkeypatch.setattr(router_mod, "HEARTBEAT_SECONDS", 0.5)
+        block = threading.Event()
+        orchestrators.options = {"block": block}
+        threading.Timer(1.6, block.set).start()
+        assert ": ping" in run(client).text

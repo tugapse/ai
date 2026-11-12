@@ -17,6 +17,7 @@ from ai.modules.server.routers.auth import require_device
 from ai.modules.server.services.agent_runs import AgentApiError, AgentRunService
 
 router = APIRouter(prefix="/api/v1/agent", dependencies=[Depends(require_device)])
+HEARTBEAT_SECONDS = 5
 
 
 class AgentRunRequest(BaseModel):
@@ -90,11 +91,19 @@ async def start_run(payload: AgentRunRequest, request: Request):
         finished = False
         try:
             yield _sse({"type": "run", "run_id": run.run_id, "session_id": run.session_id})
+            idle = 0.0
             while True:
                 try:
                     event = await asyncio.to_thread(run.events.get, True, 0.5)
                 except queue.Empty:
+                    idle += 0.5
+                    if idle >= HEARTBEAT_SECONDS:
+                        # A model step can take minutes with no event; writing a comment is how
+                        # a dropped client is noticed (and its run cancelled).
+                        idle = 0.0
+                        yield ": ping\n\n"
                     continue
+                idle = 0.0
                 if event is None:
                     finished = True
                     break
@@ -105,6 +114,16 @@ async def start_run(payload: AgentRunRequest, request: Request):
                 run.cancel()
 
     return StreamingResponse(events(), media_type="text/event-stream")
+
+
+@router.get("/runs/current")
+async def current_run(request: Request):
+    """
+    The run in progress, so a client that lost its stream can show it and cancel it:
+    ``{"active": true, run_id, session_id, pipeline, started, pending_permissions:[...]}``
+    or ``{"active": false}``.
+    """
+    return _service(request).current_info()
 
 
 @router.post("/runs/{run_id}/permission")

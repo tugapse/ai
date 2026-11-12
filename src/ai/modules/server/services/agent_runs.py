@@ -11,6 +11,7 @@ import os
 import queue
 import re
 import threading
+import time
 import uuid
 from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
@@ -54,7 +55,8 @@ class WebAgentIO(AgentIO):
 
         request_id = uuid.uuid4().hex[:12]
         needs_totp = self.run.needs_totp(tool)
-        waiter = {"event": threading.Event(), "decision": PERMISSION_NO, "tool": tool, "needs_totp": needs_totp}
+        waiter = {"event": threading.Event(), "decision": PERMISSION_NO, "tool": tool, "needs_totp": needs_totp,
+                  "params": _jsonable(params)}
         self.run.pending[request_id] = waiter
         self.run.put({"type": "permission", "request_id": request_id, "tool": tool,
                       "params": _jsonable(params), "needs_totp": needs_totp,
@@ -70,8 +72,10 @@ class WebAgentIO(AgentIO):
 class AgentRun:
     """State of one run: its events, pending permissions and orchestrator."""
 
-    def __init__(self, session_id: str, totp_tools: Optional[set] = None):
+    def __init__(self, session_id: str, totp_tools: Optional[set] = None, pipeline: str = "default"):
         self.run_id = uuid.uuid4().hex[:12]
+        self.pipeline = pipeline
+        self.started = time.time()
         self.totp_tools = totp_tools or set()
         self.session_id = session_id
         self.events: "queue.Queue[Optional[dict]]" = queue.Queue()
@@ -212,7 +216,7 @@ class AgentRunService:
             if self.brain_hub.orchestrator.llm is None:
                 raise AgentApiError(409, "No model loaded; pass model.")
 
-            run = AgentRun(session_id or str(uuid.uuid4()), totp_tools=self.totp_tools())
+            run = AgentRun(session_id or str(uuid.uuid4()), totp_tools=self.totp_tools(), pipeline=pipeline)
             prog = SimpleNamespace(llm=self.brain_hub.orchestrator.llm, modules=self.modules)
             try:
                 run.orchestrator = build_orchestrator(prog, f"{pipeline}.json", io=WebAgentIO(run))
@@ -284,6 +288,16 @@ class AgentRunService:
             decision = "yes"
         waiter["decision"] = _DECISIONS[decision]
         waiter["event"].set()
+
+    def current_info(self) -> dict:
+        if not self.busy:
+            return {"active": False}
+        run = self.current
+        return {"active": True, "run_id": run.run_id, "session_id": run.session_id, "pipeline": run.pipeline,
+                "started": run.started,
+                "pending_permissions": [{"request_id": rid, "tool": w.get("tool"), "params": w.get("params"),
+                                         "needs_totp": w.get("needs_totp", False)}
+                                        for rid, w in list(run.pending.items())]}
 
     def cancel(self, run_id: str) -> None:
         self.get(run_id).cancel()
