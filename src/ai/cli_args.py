@@ -242,23 +242,21 @@ def {function_name}(argument: str) -> str:
             func.error("Agent mode requires a prompt. Use --msg, --task, or pipe input.")
             sys.exit(1)
 
-        try:
-            orchestrator = build_orchestrator(prog, pipeline_path, directory_manager=directory_manager)
-        except ValueError as e:
-            func.error(f"{e} Aborting.")
-            sys.exit(1)
+        from ai.agents.chat_ui.oneshot import run_one_shot
 
         session_id = args.session_id or str(uuid.uuid4())
         func.log(f"Session: {session_id}")
 
         try:
-            orchestrator.run_loop(user_prompt=user_input, session_id=session_id)
+            run_one_shot(prog, user_input, pipeline=pipeline_path, session_id=session_id,
+                         directory_manager=directory_manager)
+        except ValueError as e:
+            func.error(f"{e} Aborting.")
+            sys.exit(1)
         except Exception as e:
             func.error(f"Orchestrator Error: {e}")
             func.error(traceback.format_exc())
-        finally:
-            orchestrator.close()
-            sys.exit(0)
+        sys.exit(0)
 
     def _resolve_resume_session(self, args) -> Optional[str]:
         """
