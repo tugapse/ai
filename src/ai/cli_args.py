@@ -55,6 +55,7 @@ class CliArgs:
         # 1. System/Global Actions
         self._check_nhandle_create_tool(args, directory_manager)
         self._check_nhandle_totp_setup(args)
+        self._check_nhandle_frontend(args)
         self._check_nhandle_config_generation(prog, args, args_parser, directory_manager) 
         self._is_install(args)
         self._is_print_chat(args)
@@ -77,6 +78,66 @@ class CliArgs:
 
         self._has_message(prog, args) 
     
+    def _check_nhandle_frontend(self, args):
+        """
+        ``--frontend list``: the bundled, cached and active frontend versions.
+        ``--frontend use <version>|bundled``: pins SERVER_FRONTEND_VERSION in config.json.
+
+        :param args: The parsed command-line arguments.
+        :raises SystemExit: Always, after the command.
+        """
+        command = getattr(args, "frontend", None)
+        if not command:
+            return
+        import json as _json
+        from ai.modules.server.services import frontend as fe
+
+        config_path = os.path.join(DirectoryManager().get_root_dir(), "config.json")
+        with open(config_path, encoding="utf-8") as f:
+            settings = _json.load(f)
+        pinned = settings.get("SERVER_FRONTEND_VERSION") or "bundled"
+
+        if command[0] == "list":
+            bundled = None
+            if fe.BUNDLED_TAR.is_file():
+                try:
+                    bundled = fe.archive_version(fe.BUNDLED_TAR).get("version")
+                except Exception as e:
+                    func.out(f"Bundled frontend unreadable: {e}")
+            func.out(f"Bundled: {bundled or 'none'}   Pinned: {pinned}   Server api_level: {fe.API_LEVEL}")
+            for entry in fe.cached_versions():
+                marks = []
+                if entry["version"] == bundled:
+                    marks.append("bundled")
+                if entry["version"] == pinned:
+                    marks.append("pinned")
+                level = entry["api_level"] if entry["api_level"] is not None else "?"
+                func.out(f"  {entry['version']:<12} api_level {level:<3} {entry['built_at'] or ''}  {' '.join(marks)}")
+            sys.exit(0)
+
+        if command[0] == "use" and len(command) == 2:
+            version = command[1]
+            if version != "bundled":
+                folder = fe.cache_root() / version
+                if not (folder / "index.html").is_file():
+                    func.error(f"Frontend {version} is not in the cache. See: ai --frontend list")
+                    sys.exit(1)
+                level = fe.read_version(folder).get("api_level") or 0
+                if int(level) > fe.API_LEVEL:
+                    func.error(f"Frontend {version} needs api_level {level}; this server has {fe.API_LEVEL}.")
+                    sys.exit(1)
+            if version == "bundled":
+                settings.pop("SERVER_FRONTEND_VERSION", None)
+            else:
+                settings["SERVER_FRONTEND_VERSION"] = version
+            with open(config_path, "w", encoding="utf-8") as f:
+                _json.dump(settings, f, indent=4)
+            func.out(f"Frontend set to {version}. Restart the server to apply.")
+            sys.exit(0)
+
+        func.error("Usage: ai --frontend list | ai --frontend use <version>|bundled")
+        sys.exit(1)
+
     def _check_nhandle_totp_setup(self, args):
         """
         Creates (or replaces) the server's TOTP secret and prints it for an authenticator app.

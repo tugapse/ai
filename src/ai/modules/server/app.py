@@ -30,6 +30,7 @@ from ai.modules.server.services.prompt_manager import (
 )
 from ai.modules.server.services.chat import ChatService
 from ai.modules.server.brain_hub import BrainHub
+from ai.modules.server.services.frontend import API_LEVEL
 
 
 def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None, auth: Any = None) -> FastAPI:
@@ -124,6 +125,8 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None,
             "model": (brain_hub.current_model_id if loaded else None) or "JARVIS",
             "loaded": loaded,
             "available": brain_hub.list_available_models() if brain_hub else [],
+            "api_level": API_LEVEL,
+            "frontend": getattr(app.state, "frontend", {"version": None, "source": "none"}),
         }
 
     @app.get("/api/v1/stats")
@@ -170,10 +173,12 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None,
 
 
 
-    FRONTEND_BUILD_DIR = Path(__file__).resolve().parent / "frontend"
-    if FRONTEND_BUILD_DIR.is_dir():
-        app.mount("/", StaticFiles(directory=FRONTEND_BUILD_DIR, html=True), name="static_app")
-        func.debug(f"Static files mounted from {FRONTEND_BUILD_DIR} to root \'/\'.")
+    from ai.modules.server.services.frontend import resolve as resolve_frontend
+    frontend_dir, frontend_info = resolve_frontend(config)
+    app.state.frontend = frontend_info
+    if frontend_dir is not None:
+        app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="static_app")
+        func.log(f"Frontend {frontend_info['version'] or '?'} ({frontend_info['source']}) served from {frontend_dir}")
     
     app.add_middleware(MIMETypeFixerMiddleware)
     app.add_middleware(
