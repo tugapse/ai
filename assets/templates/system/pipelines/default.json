@@ -18,7 +18,10 @@
         "web_read",
         "query_memory",
         "trigger_reflection",
-        "execute_command"
+        "execute_command",
+        "grep_file",
+        "delete_file",
+        "send_notification"
       ],
       "allowed_targets": [
         "MASTER",

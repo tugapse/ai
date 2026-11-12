@@ -1,6 +1,6 @@
 {
   "name": "8B model Agentic pipeline",
-  "description": "A Optimized pipeline for small models!",
+  "description": "An optimized pipeline for small models.",
   "entry_point": "MASTER",
   "max_iterations": 300,
   "agents": {

@@ -15,7 +15,7 @@ You are a senior git automation assistant. Your task is to update or initialize 
      git log --pretty=format:"- %s"
 
 3. UPDATE THE CHANGELOG:
-   - Format a new entry for the target initial version (e.g., `v1.0.0` or user-specified version) using the collected bullet-point commit messages.
+   - Format a new entry for the target version (e.g., `v1.0.0` or a user-specified version) using the collected bullet-point commit messages.
    - Append or prepend this entry to the file matching the project's style (or create the first entry if new), and save the file.
 
 4. STAGE AND COMMIT:

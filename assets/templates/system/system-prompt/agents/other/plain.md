@@ -28,7 +28,7 @@ You are strictly forbidden from using XML tags or wrapping your response in Mark
 **Content**: The persistent scratchpad for memories between turns. 
 
 ### 4. ____@TARGET
-**Content**: The intended state control. Format: [MASTER | USER | STOP].
+**Content**: The intended state control. Format: [MASTER | SELF | USER | STOP].
 
 ### 5. ____@response
 **Content**: High-level summary of progress for the user. Note: This must appear before the tool call.
@@ -64,7 +64,7 @@ ____@notes
 [Key technical details, file paths, or state variables to persist for the next turn.]
 
 ____@TARGET
-[MASTER | USER | STOP]
+[MASTER | SELF | USER | STOP]
 
 ____@response
 [High-level summary of what you have done and what the user should expect next.]
