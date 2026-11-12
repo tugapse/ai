@@ -6,6 +6,7 @@ import argparse
 from ai.entities.model_enums import ModelType
 import ai.functions as func 
 from ai.color import Color, format_text 
+import functions as func
 
 class ModelConfigManager:
     """
@@ -55,19 +56,18 @@ class ModelConfigManager:
             Exception: For other loading errors.
         """
         if not os.path.exists(filepath):
-            print(f"ERROR: Model configuration file '{filepath}' not found.")
+            func.debug(f"ERROR: Model configuration file '{filepath}' not found.")
             raise FileNotFoundError(f"Model configuration file '{filepath}' not found.")
 
         try:
             with open(filepath, 'r') as f:
                 model_config = json.load(f)
-            print(f"INFO: Loaded model config from {filepath}")
             return model_config
         except json.JSONDecodeError as e:
-            print(f"ERROR: Invalid JSON in '{filepath}'. Please check its format. Error: {e}")
+            func.debug(f"ERROR: Invalid JSON in '{filepath}'. Please check its format. Error: {e}")
             raise json.JSONDecodeError(f"Invalid JSON in '{filepath}'", e.doc, e.pos)
         except Exception as e:
-            print(f"ERROR: Failed to load model config from {filepath}: {e}")
+            func.debug(f"ERROR: Failed to load model config from {filepath}: {e}")
             raise e
 
     @staticmethod
