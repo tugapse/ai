@@ -11,65 +11,8 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
 
-import ai.program  # noqa: F401  (startup import order, avoids a circular import)
-from ai.modules.server.brain_hub import BrainHub
 from ai.modules.server.exceptions import ModelLoadError, ModelNotFoundError
 from ai.modules.server.services.chat import ChatService
-from ai.services.engine_manager import EngineManager
-from ai.services.model_orchestrator import ModelOrchestrator
-
-
-class FakeLLM:
-    def __init__(self, name, system_prompt):
-        self.model_name, self.system_prompt = name, system_prompt
-        self.unloaded = 0
-
-    def unload(self):
-        self.unloaded += 1
-
-
-class Loads(list):
-    """Every engine load, in order. Set ``fail`` to make the next loads raise it."""
-    fail = None
-
-
-def write_config(folder, key, model_type="gguf"):
-    path = folder / f"{key}.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"model_name": f"Display {key}", "model_type": model_type, "model_properties": {}}))
-    return path
-
-
-@pytest.fixture
-def folders(tmp_path, monkeypatch):
-    """(user, system) model folders; the real lookup and listing run against them."""
-    user, system = tmp_path / "user", tmp_path / "system"
-    user.mkdir(), system.mkdir()
-    monkeypatch.setattr(ModelOrchestrator, "config_folders", staticmethod(lambda: [str(user), str(system)]))
-    return user, system
-
-
-@pytest.fixture
-def loads(folders, monkeypatch):
-    for name in ("small", "big"):
-        write_config(folders[1], name)
-
-    record = Loads()
-
-    def load_model_instance(model_config, system_prompt, tool_registry):
-        if record.fail:
-            raise record.fail
-        llm = FakeLLM(model_config["model_name"], system_prompt)
-        record.append(llm)
-        return llm
-
-    monkeypatch.setattr(EngineManager, "load_model_instance", staticmethod(load_model_instance))
-    return record
-
-
-@pytest.fixture
-def hub(loads):
-    return BrainHub(MagicMock())
 
 
 class TestSwap:
@@ -93,10 +36,10 @@ class TestSwap:
         assert small.unloaded == 1 and big is loads[1]
         assert hub.current_model_id == "big" and hub.orchestrator.llm is big
 
-    def test_model_loaded_outside_the_hub_is_swapped(self, hub, loads):
+    def test_model_loaded_outside_the_hub_is_swapped(self, hub, loads, fake_llm):
         # Before the fix, a model loaded at startup (--model) left current_model_id None and
         # every request kept using it whatever model it asked for.
-        hub.orchestrator.llm = FakeLLM("startup", "")
+        hub.orchestrator.llm = fake_llm("startup", "")
         big = hub.get_brain("big", "")
         assert big is loads[0] and hub.current_model_id == "big"
 
@@ -125,7 +68,7 @@ class TestFailures:
         assert hub.orchestrator.llm is None and hub.current_model_id is None
         assert hub.get_brain("big", "") is loads[-1]
 
-    def test_jarvis_client_config_is_refused(self, hub, loads, folders):
+    def test_jarvis_client_config_is_refused(self, hub, loads, folders, write_config):
         write_config(folders[1], "client", "jarvis")
         small = hub.get_brain("small", "")
         with pytest.raises(ModelLoadError, match="Jarvis client config"):
@@ -138,12 +81,12 @@ class TestFailures:
 
 
 class TestNestedConfigs:
-    def test_config_in_a_subfolder_loads_by_its_path_key(self, hub, loads, folders):
+    def test_config_in_a_subfolder_loads_by_its_path_key(self, hub, loads, folders, write_config):
         write_config(folders[1], "agents/lite")
         llm = hub.get_brain("agents/lite", "")
         assert llm.model_name == "Display agents/lite" and hub.current_model_id == "agents/lite"
 
-    def test_same_file_name_in_two_folders_are_two_models(self, hub, loads, folders):
+    def test_same_file_name_in_two_folders_are_two_models(self, hub, loads, folders, write_config):
         write_config(folders[1], "agents/flash")
         write_config(folders[1], "other/gemini/flash")
         assert hub.get_brain("other/gemini/flash", "").model_name == "Display other/gemini/flash"
@@ -161,13 +104,13 @@ class TestNestedConfigs:
 
 
 class TestListing:
-    def test_available_lists_nested_loadable_configs_only(self, hub, loads, folders):
+    def test_available_lists_nested_loadable_configs_only(self, hub, loads, folders, write_config):
         write_config(folders[1], "agents/lite")
         write_config(folders[1], "default", "jarvis")
         (folders[1] / "broken.json").write_text("{not json")
         assert hub.list_available_models() == ["agents/lite", "big", "small"]
 
-    def test_model_configs_lists_everything_with_loadable_flag(self, hub, loads, folders):
+    def test_model_configs_lists_everything_with_loadable_flag(self, hub, loads, folders, write_config):
         write_config(folders[1], "default", "jarvis")
         (folders[1] / "broken.json").write_text("{not json")
         configs = {c["key"]: c for c in hub.list_model_configs()}

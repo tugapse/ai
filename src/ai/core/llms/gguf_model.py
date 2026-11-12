@@ -137,6 +137,7 @@ class GGUFImageLLM(BaseModel):
                     max_tokens=gen_options.get("max_new_tokens", 1024),
                     temperature=gen_options.get("temperature", 0.7),
                     top_p=gen_options.get("top_p", 0.95),
+                    top_k=gen_options.get("top_k", 40),
                     stop=["System Response:", "User:"] 
                 )
 
@@ -286,7 +287,8 @@ class GGUFImageLLM(BaseModel):
                 stream=False,
                 max_tokens=applied_max_new_tokens,
                 temperature=current_options.get("temperature", 0.7),
-                top_p=current_options.get("top_p", 0.95)
+                top_p=current_options.get("top_p", 0.95),
+                top_k=current_options.get("top_k", 40),
             )
 
         text = output["choices"][0]["message"]["content"]

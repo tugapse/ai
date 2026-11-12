@@ -57,6 +57,8 @@ class JarvisServerModule(BaseModule):
 
         # 2. CREATE THE APP: Pass the config object so the endpoints can access state
         self._fastapi_app = create_app(self._brain_hub, config)
+        # POST /api/v1/shutdown calls this after its reply is sent.
+        self._fastapi_app.state.shutdown_handler = self.shutdown
 
         # 3. Setup Uvicorn config
         uvicorn_config = uvicorn.Config(

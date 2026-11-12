@@ -1,6 +1,7 @@
 from pathlib import Path
 import json
-from fastapi import FastAPI, HTTPException, Request
+import asyncio
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Any, Dict, Optional
@@ -110,6 +111,41 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any]) -> FastAPI:
             "loaded": loaded,
             "available": brain_hub.list_available_models() if brain_hub else [],
         }
+
+    @app.get("/api/v1/stats")
+    async def stats():
+        """
+        Token counts of the loaded model: ``{"active": false}`` when none is loaded, else
+        ``model``, ``prompt_tokens``, ``total_tokens``, ``output_tokens``, ``window``, ``usage_percent``.
+        """
+        return brain_hub.get_stats()
+
+    @app.post("/api/v1/model/unload")
+    async def unload_model():
+        """
+        Frees the loaded model (RAM/VRAM). The next chat request loads the model it names.
+
+        Returns:
+            ``{"status": "unloaded", "model": <key that was loaded, or null>}``.
+        """
+        # Off the event loop: unloading joins the generation thread and frees memory.
+        model = await asyncio.to_thread(brain_hub.unload_brain)
+        return {"status": "unloaded", "model": model}
+
+    @app.post("/api/v1/shutdown")
+    async def shutdown(background_tasks: BackgroundTasks):
+        """
+        Unloads the model and stops the server, for every client. The reply is sent first.
+
+        Raises:
+            HTTPException 501: The app runs without a server module that can stop it.
+        """
+        stop = getattr(app.state, "shutdown_handler", None)
+        if stop is None:
+            raise HTTPException(status_code=501, detail="Shutdown is not available on this server.")
+        func.log("Shutdown requested over the API.", level="WARN")
+        background_tasks.add_task(stop)
+        return {"status": "shutting_down"}
 
     func.log("Initializing FastAPI app with wired dependencies...")
 

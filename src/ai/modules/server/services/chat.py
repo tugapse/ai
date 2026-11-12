@@ -136,7 +136,7 @@ class ChatResponseHandler:
             raise HTTPException(status_code=503, detail="LLM not initialized.")
 
     async def stream_response(
-        self, formatted_messages: List[Dict[str, str]]
+        self, formatted_messages: List[Dict[str, str]], options: Optional[Dict[str, Any]] = None
     ) -> StreamingResponse:
         """
         Generates a streaming HTTP response by calling the LLM in streaming mode.
@@ -156,7 +156,7 @@ class ChatResponseHandler:
         async def event_generator():
             try:
                 raw_output = self.brain_hub.orchestrator.llm.chat(
-                    formatted_messages, stream=True
+                    formatted_messages, stream=True, options=options or {}
                 )
                 func.debug("Streaming response generator started.")
                 completed_response = ""
@@ -180,7 +180,7 @@ class ChatResponseHandler:
 
         return StreamingResponse(event_generator(), media_type="text/event-stream")
 
-    def non_stream_response(self, formatted_messages: List[Dict[str, str]]):
+    def non_stream_response(self, formatted_messages: List[Dict[str, str]], options: Optional[Dict[str, Any]] = None):
         """
         Generates a standard, non-streaming HTTP response by calling the LLM synchronously.
 
@@ -196,7 +196,7 @@ class ChatResponseHandler:
         self._ensure_llm_available("non-streaming")
 
         raw_output = self.brain_hub.orchestrator.llm.chat(
-            formatted_messages, stream=False
+            formatted_messages, stream=False, options=options or {}
         )
         if isinstance(raw_output, str):
             response_text = raw_output
@@ -303,6 +303,24 @@ class ChatService:
             func.log(str(e), level="ERROR")
             raise HTTPException(status_code=500, detail=str(e))
 
+    @staticmethod
+    def generation_options(request) -> Dict[str, Any]:
+        """
+        The request's sampling settings as engine options, only the fields the client sent.
+
+        Engines differ on the max-tokens key (GGUF/HF read ``max_new_tokens``, Gemini
+        ``max_tokens``), so both are set. Values override the model config for this request only.
+        """
+        options: Dict[str, Any] = {}
+        for field in ("temperature", "top_p", "top_k"):
+            value = getattr(request, field, None)
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                options[field] = value
+        max_tokens = getattr(request, "max_tokens", None)
+        if isinstance(max_tokens, int) and not isinstance(max_tokens, bool):
+            options["max_tokens"] = options["max_new_tokens"] = max_tokens
+        return options
+
     async def chat_completion(self, request: ChatCompletionRequest):
         """
         Main entry point for handling chat completion requests.
@@ -337,6 +355,9 @@ class ChatService:
         )
 
         self._resolve_brain(request)
+        # Remember what this session used, so a client can restore it (saved with the next message).
+        self.brain_hub.history["model"] = self.brain_hub.current_model_id
+        self.brain_hub.history["system_prompt"] = getattr(request, "system_prompt_content", None)
 
         messages = getattr(request, "messages", [])
         formatted_messages, last_user_message = self.message_formatter.format_messages(
@@ -344,14 +365,12 @@ class ChatService:
         )
         func.debug(f"Adding user message to history: '{last_user_message[:100]}...'")
         self.brain_hub.add_history_message("user", last_user_message)
-        print(
-            f"Formatted messages: {formatted_messages}"
-        )  # Debug print to verify message formatting
+        options = self.generation_options(request)
         if getattr(request, "stream", False):
-            return await self.response_handler.stream_response(formatted_messages)
+            return await self.response_handler.stream_response(formatted_messages, options)
 
         try:
-            return self.response_handler.non_stream_response(formatted_messages)
+            return self.response_handler.non_stream_response(formatted_messages, options)
         except Exception as e:
             func.log(
                 f"Inference Error during non-streaming chat completion: {e}",

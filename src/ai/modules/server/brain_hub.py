@@ -241,6 +241,9 @@ class BrainHub:
         """
         Frees the active model. The hub state is cleared even if the engine's unload fails,
         so the next request always starts from a known empty state.
+
+        Returns:
+            The key of the model that was unloaded, or None when none was loaded.
         """
         with self._lock:
             llm = self.orchestrator.llm
@@ -249,12 +252,13 @@ class BrainHub:
             self.orchestrator.active_model_name = ""
             self.current_model_id = None
             if llm is None:
-                return
+                return None
             func.log(f"BrainHub: Unloading {model_id or 'unknown'}...")
             try:
                 llm.unload()
             except Exception as e:
                 func.log(f"BrainHub: Unload of {model_id or 'unknown'} failed: {e}", level="ERROR")
+            return model_id
 
     @staticmethod
     def is_loadable(config_data: dict) -> bool:
@@ -305,6 +309,7 @@ class BrainHub:
         stats = self.orchestrator.llm.token_info_count
         return {
             "active": True,
+            "model": self.current_model_id,
             "prompt_tokens": stats.prompt_count,
             "total_tokens": stats.total_prompt_count,
             "output_tokens": stats.printed_tokens_count,
