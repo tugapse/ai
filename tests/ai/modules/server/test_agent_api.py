@@ -356,3 +356,39 @@ class TestCurrentRun:
         orchestrators.options = {"block": block}
         threading.Timer(1.6, block.set).start()
         assert ": ping" in run(client).text
+
+
+class TestWorkspace:
+    def test_root(self, client, workdir):
+        assert client.get("/api/v1/agent/workspace").json() == {
+            "root": os.path.realpath(workdir), "default_cwd": ""}
+
+    def test_list_folders_first_and_hides_dotfiles_and_links(self, client, workdir, tmp_path):
+        workdir.mkdir(exist_ok=True)
+        (workdir / "b.txt").write_text("12345")
+        (workdir / "a-dir").mkdir()
+        (workdir / ".hidden").write_text("x")
+        os.symlink(tmp_path, workdir / "link")
+        data = client.get("/api/v1/agent/workspace/list").json()
+        assert data["path"] == ""
+        assert [(e["name"], e["type"]) for e in data["entries"]] == [("a-dir", "dir"), ("b.txt", "file")]
+        assert data["entries"][1]["size"] == 5 and "size" not in data["entries"][0]
+
+    def test_list_subfolder_and_errors(self, client, workdir):
+        (workdir / "p" / "q").mkdir(parents=True)
+        assert client.get("/api/v1/agent/workspace/list", params={"path": "p"}).json()["path"] == "p"
+        assert client.get("/api/v1/agent/workspace/list", params={"path": "nope"}).status_code == 404
+        for bad in ("../", "/etc", "p/../../x"):
+            assert client.get("/api/v1/agent/workspace/list", params={"path": bad}).status_code == 400
+
+    def test_mkdir(self, client, workdir, auth):
+        r = client.post("/api/v1/agent/workspace/mkdir", json={"path": "proj/new"})
+        assert r.status_code == 201 and r.json() == {"path": "proj/new"}
+        assert (workdir / "proj" / "new").is_dir()
+        assert client.post("/api/v1/agent/workspace/mkdir", json={"path": "proj/new"}).status_code == 409
+        assert client.post("/api/v1/agent/workspace/mkdir", json={"path": "../x"}).status_code == 400
+        assert client.post("/api/v1/agent/workspace/mkdir", json={"path": " "}).status_code == 400
+        assert "workspace_mkdir" in open(auth.audit_path).read()
+
+    def test_needs_pairing(self, client):
+        assert client.get("/api/v1/agent/workspace", headers={"Authorization": ""}).status_code == 401

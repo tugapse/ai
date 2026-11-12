@@ -169,12 +169,58 @@ class AgentRunService:
         with open(path, encoding="utf-8") as f:
             return f.read()
 
-    def workdir(self, cwd: Optional[str]) -> str:
-        """The folder a run works in: ``cwd`` inside SERVER_AGENT_WORKDIR (created if missing)."""
+    def workspace_root(self) -> str:
+        """SERVER_AGENT_WORKDIR resolved (default ~/Ai/workspace), created if missing."""
         root = (self.config.get(ProgramSetting.SERVER_AGENT_WORKDIR) if self.config else None) \
             or os.path.join(DirectoryManager().get_user_directory(), "..", "workspace")
         root = os.path.realpath(os.path.expanduser(root))
         os.makedirs(root, exist_ok=True)
+        return root
+
+    def _workspace_path(self, relative: Optional[str]) -> str:
+        root = self.workspace_root()
+        path = _inside(root, (relative or "").strip().rstrip("/") or ".")
+        if path is None:
+            raise AgentApiError(400, f"Path must stay inside the agent workspace ({root}).")
+        return path
+
+    def list_workspace(self, relative: Optional[str]) -> dict:
+        """Entries of a workspace folder: folders first, then files, each sorted by name."""
+        path = self._workspace_path(relative)
+        if not os.path.isdir(path):
+            raise AgentApiError(404, f"Folder '{relative or '.'}' not found.")
+        entries = []
+        for entry in os.scandir(path):
+            if entry.name.startswith("."):
+                continue
+            try:
+                info = entry.stat(follow_symlinks=False)
+            except OSError:
+                continue
+            if entry.is_symlink():
+                continue  # a link could point outside the workspace
+            kind = "dir" if entry.is_dir(follow_symlinks=False) else "file"
+            item = {"name": entry.name, "type": kind, "modified": info.st_mtime}
+            if kind == "file":
+                item["size"] = info.st_size
+            entries.append(item)
+        entries.sort(key=lambda e: (e["type"] != "dir", e["name"].lower()))
+        root = self.workspace_root()
+        rel = os.path.relpath(path, root)
+        return {"path": "" if rel == "." else rel.replace(os.sep, "/"), "entries": entries}
+
+    def make_workspace_dir(self, relative: str) -> str:
+        if not (relative or "").strip().rstrip("/"):
+            raise AgentApiError(400, "Send the folder path to create.")
+        path = self._workspace_path(relative)
+        if os.path.exists(path):
+            raise AgentApiError(409, f"'{relative}' already exists.")
+        os.makedirs(path)
+        return os.path.relpath(path, self.workspace_root()).replace(os.sep, "/")
+
+    def workdir(self, cwd: Optional[str]) -> str:
+        """The folder a run works in: ``cwd`` inside SERVER_AGENT_WORKDIR (created if missing)."""
+        root = self.workspace_root()
         path = _inside(root, cwd or ".")
         if path is None:
             raise AgentApiError(400, f"cwd must stay inside the agent workdir ({root}).")

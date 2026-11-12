@@ -74,6 +74,30 @@ async def task(name: str, request: Request):
     return {"name": name, "content": _call(service.read_task, name)}
 
 
+class MkdirRequest(BaseModel):
+    path: str
+
+
+@router.get("/workspace")
+async def workspace(request: Request):
+    """The folder agent runs work in; a run's ``cwd`` is relative to ``root``."""
+    return {"root": _service(request).workspace_root(), "default_cwd": ""}
+
+
+@router.get("/workspace/list")
+async def workspace_list(request: Request, path: str = ""):
+    """Folders and files under ``path`` (relative to the workspace root), folders first."""
+    return _call(_service(request).list_workspace, path)
+
+
+@router.post("/workspace/mkdir", status_code=201)
+async def workspace_mkdir(payload: MkdirRequest, request: Request):
+    """Creates a folder (and missing parents) inside the workspace."""
+    created = _call(_service(request).make_workspace_dir, payload.path)
+    _audit(request, "workspace_mkdir", path=created)
+    return {"path": created}
+
+
 @router.post("/runs")
 async def start_run(payload: AgentRunRequest, request: Request):
     """
