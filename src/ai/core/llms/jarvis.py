@@ -27,7 +27,9 @@ class JarvisAiModel(BaseModel):
             model_name: The name of the LLM model to use (defaults to "gpt-4o").
             system_prompt: The initial system prompt to guide the model's behavior.
             api_key: Optional API key for authentication (though not explicitly used in this interface).
-            **kargs: Additional keyword arguments for configuration, such as base_url, session_id, etc.
+            **kargs: Additional keyword arguments for configuration (the model JSON's model_properties):
+                base_url (else AI_API_BASE_URL), server_model (the server's model config file name,
+                else AI_SERVER_MODEL, else model_name), session_id, timeout, etc.
         """
         model_name = model_name or os.environ.get("AI_MODEL_NAME", "gpt-4o")
         super().__init__(model_name, system_prompt, **kargs)
@@ -35,12 +37,15 @@ class JarvisAiModel(BaseModel):
         # Configuration routing pointing to the custom backend server
         self.base_url = kargs.get("base_url") or os.environ.get("AI_API_BASE_URL", "http://0.0.0.0:9999")
         self.endpoint = f"{self.base_url.rstrip('/')}/api/v1/chat/completions"
+        # Which model config the server loads (its file name, e.g. "small"). model_name stays a display
+        # name; it is only sent as the fallback for configs written before server_model existed.
+        self.server_model = kargs.get("server_model") or os.environ.get("AI_SERVER_MODEL") or self.model_name
         
         # Session state details used by ChatSessionRouter on the backend
         self.session_id = kargs.get("session_id")
         self.session_folder = kargs.get("session_folder")
         
-        func.log(f"JARVIS: Connecting to Custom Backend Interface [{self.model_name}] -> {self.endpoint}")
+        func.log(f"JARVIS: Connecting to Custom Backend Interface [{self.model_name} -> server model '{self.server_model}'] -> {self.endpoint}")
         
         # Match standard token info context structural tracking
         out_tokens = kargs.get('max_new_tokens', 2048)
@@ -80,7 +85,7 @@ class JarvisAiModel(BaseModel):
 
         # Construct payload targeting the backend ChatCompletionRequest schema
         payload = {
-            "model": self.model_name,
+            "model": self.server_model,
             "system_prompt_content": self.system_prompt,
             "stream": stream,
             "session_id": self.session_id,

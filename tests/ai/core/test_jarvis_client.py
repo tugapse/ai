@@ -107,3 +107,25 @@ class TestNonStreaming:
         server.status, server.body = 500, b"boom"
         with pytest.raises(LLMAPIError):
             client(server.url).chat(MESSAGES, stream=False)
+
+
+class TestServerModel:
+    """The request's "model" is the server's config file name, not the display name."""
+
+    def test_server_model_is_sent(self, server):
+        server.body = sse("[DONE]")
+        model = JarvisAiModel(model_name="Gemma 4 - E2B", base_url=server.url, max_retries=0, server_model="small")
+        list(model.chat(MESSAGES, stream=True))
+        assert server.requests[0]["model"] == "small"
+
+    def test_falls_back_to_model_name(self, server, monkeypatch):
+        monkeypatch.delenv("AI_SERVER_MODEL", raising=False)
+        server.body = sse("[DONE]")
+        list(client(server.url).chat(MESSAGES, stream=True))
+        assert server.requests[0]["model"] == "default"
+
+    def test_env_var(self, server, monkeypatch):
+        monkeypatch.setenv("AI_SERVER_MODEL", "big")
+        server.body = sse("[DONE]")
+        list(client(server.url).chat(MESSAGES, stream=True))
+        assert server.requests[0]["model"] == "big"
