@@ -10,3 +10,13 @@ class InvalidPathError(SessionError):
 class SessionAccessError(SessionError):
     """Raised on generic IO errors while handling sessions."""
     pass
+
+class ModelError(Exception):
+    """Base exception for model selection on the server."""
+    pass
+class ModelNotFoundError(ModelError):
+    """Raised when a requested model has no config file on the server."""
+    pass
+class ModelLoadError(ModelError):
+    """Raised when a model config exists but the engine failed to load it."""
+    pass

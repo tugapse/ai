@@ -49,9 +49,11 @@ class JarvisServerModule(BaseModule):
 
         func.log(f"Initializing Brain Server on {self.host}:{self.port}...")
 
-        # 1. Initialize the BrainHub wrapper
-        self._brain_hub = BrainHub(config)
-        self._brain_hub.orchestrator = orchestrator
+        # 1. Use the hub the caller prepared (it may already hold a loaded model), else build one
+        self._brain_hub = self.kwargs.get("brain_hub")
+        if self._brain_hub is None:
+            self._brain_hub = BrainHub(config)
+            self._brain_hub.orchestrator = orchestrator
 
         # 2. CREATE THE APP: Pass the config object so the endpoints can access state
         self._fastapi_app = create_app(self._brain_hub, config)

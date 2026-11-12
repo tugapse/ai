@@ -62,6 +62,7 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any]) -> FastAPI:
     app.state.prompt_manager = prompt_manager
     chat_service = ChatService(brain_hub, SESSION_ROOT_DIR, config)
     app.state.chat_service = chat_service
+    app.state.brain_hub = brain_hub
 
     @app.post("/api/v1/chat/completions")
     @app.post("/api/v1/chat")
@@ -98,14 +99,17 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any]) -> FastAPI:
         Provides a health check endpoint for the server.
 
         Returns:
-            A dictionary indicating the server status and the active model name.
+            The server status, the loaded model key ("JARVIS" when none is loaded),
+            whether a model is loaded, and the model keys a request may ask for
+            (loadable configs only; ``/api/v1/model-configs`` lists every config).
         """
-        model_name = (
-            getattr(brain_hub.get_stats(), "model_chat_name", "JARVIS")
-            if brain_hub
-            else "JARVIS"
-        )
-        return {"status": "online", "model": model_name}
+        loaded = bool(brain_hub and brain_hub.orchestrator.llm is not None)
+        return {
+            "status": "online",
+            "model": (brain_hub.current_model_id if loaded else None) or "JARVIS",
+            "loaded": loaded,
+            "available": brain_hub.list_available_models() if brain_hub else [],
+        }
 
     func.log("Initializing FastAPI app with wired dependencies...")
 

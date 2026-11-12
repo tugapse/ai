@@ -8,6 +8,7 @@ from fastapi.responses import StreamingResponse
 
 import ai.functions as func
 from ai.modules.server.brain_hub import BrainHub
+from ai.modules.server.exceptions import ModelLoadError, ModelNotFoundError
 from ai.modules.server.schemas import ChatCompletionRequest
 from ai.services.prompt_loader import PromptLoader
 
@@ -289,11 +290,18 @@ class ChatService:
         resolved_system_prompt: str | None = self._resolve_system_prompt(system_prompt)
         model_config_data = getattr(request, "model_config_data", None)
 
-        self.brain_hub.get_brain(
-            model_id=requested_model_file, 
-            system_prompt=resolved_system_prompt,
-            model_config_data=model_config_data
-        )
+        try:
+            self.brain_hub.get_brain(
+                model_id=requested_model_file,
+                system_prompt=resolved_system_prompt,
+                model_config_data=model_config_data
+            )
+        except ModelNotFoundError as e:
+            func.log(str(e), level="ERROR")
+            raise HTTPException(status_code=404, detail=str(e))
+        except ModelLoadError as e:
+            func.log(str(e), level="ERROR")
+            raise HTTPException(status_code=500, detail=str(e))
 
     async def chat_completion(self, request: ChatCompletionRequest):
         """

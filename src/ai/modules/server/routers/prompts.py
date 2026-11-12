@@ -1,9 +1,6 @@
-import json
-from pathlib import Path
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Request
 
-import ai.functions as func
 from ai.modules.server.schemas import PromptCreateRequest, PromptUpdateRequest
 from ai.modules.server.services.prompt_manager import (
     InvalidPathError as PromptInvalidPathError,
@@ -12,8 +9,6 @@ from ai.modules.server.services.prompt_manager import (
 )
 
 router = APIRouter()
-
-MODEL_CONFIG_DIR = Path(func.get_root_directory()) / "models"
 
 @router.get("/api/v1/prompts")
 async def get_prompts(request: Request, prompt_folder: Optional[str] = None):
@@ -63,40 +58,17 @@ async def get_prompt_content(request: Request, prompt_path: str):
 @router.get("/api/v1/model-configs")
 async def get_model_configs(request: Request):
     """
-    Retrieve all model config JSON objects from the models directory.
+    List every model config the server knows (user and system models folders, subfolders included).
 
     :param request: The FastAPI Request object.
-    :raises HTTPException: If the model config directory is missing (500), JSON decoding fails (500), or loading fails (500).
-    :return: A list of dictionaries, each representing a model configuration.
+    :raises HTTPException: If the server has no BrainHub (500).
+    :return: A list of ``{key, model_name, model_type, loadable}``; ``key`` is what a chat request
+             sends as ``model``. ``jarvis`` configs and invalid files are listed with ``loadable: false``.
     """
-    if not MODEL_CONFIG_DIR.exists() or not MODEL_CONFIG_DIR.is_dir():
-        raise HTTPException(
-            status_code=500,
-            detail=f"Model config directory not found: {MODEL_CONFIG_DIR}",
-        )
-
-    model_configs = []
-    try:
-        for model_file in sorted(MODEL_CONFIG_DIR.rglob("*.json")):
-            with model_file.open("r", encoding="utf-8") as f:
-                model = json.load(f)
-                model_configs.append(
-                    {
-                        "model_name": model.get("name", model_file.stem),
-                        "model_file": str(model_file.relative_to(func.get_root_directory() + '/models/')),
-                    }
-                )
-        return model_configs
-    except json.JSONDecodeError as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Invalid JSON in model config {model_file.name}: {e}",
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to load model configs: {e}",
-        )
+    brain_hub = getattr(request.app.state, "brain_hub", None)
+    if brain_hub is None:
+        raise HTTPException(status_code=500, detail="Brain hub not configured.")
+    return brain_hub.list_model_configs()
 
 @router.post("/api/v1/prompts")
 async def create_prompt(request: Request, payload: PromptCreateRequest):

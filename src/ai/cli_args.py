@@ -155,10 +155,12 @@ def {function_name}(argument: str) -> str:
         """
         if args.server:
             try:
-                orchestrator = prog.models 
+                brain_hub = BrainHub(prog.config)
+                brain_hub.orchestrator = prog.models
                 if args.model:
                     try:
-                        orchestrator.load(args.model,"")
+                        # Through the hub, so it knows which model is loaded and can swap it later.
+                        brain_hub.get_brain(args.model, "")
                     except Exception as e:
                         func.log(f"{Color.RED}[ ! ] Neural Load Failed: {e}. Starting in STANDBY.{Color.RESET}")
                 else:
@@ -168,10 +170,10 @@ def {function_name}(argument: str) -> str:
                 server = JarvisServerModule( 
                     host=prog.config.get(ProgramSetting.SERVER_HOST, "0.0.0.0"),
                     port=prog.config.get(ProgramSetting.SERVER_PORT, 9999),
-                    brain_hub=BrainHub(prog.config) 
+                    brain_hub=brain_hub
                 )
                 
-                server.initialize(prog.config, orchestrator, prog.history)
+                server.initialize(prog.config, prog.models, prog.history)
                 server.start()
                 
             except KeyboardInterrupt:
