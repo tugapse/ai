@@ -32,7 +32,13 @@ class FakeOrchestrator:
         self.closed = False
 
     def run_loop(self, user_prompt, session_id):
-        self.prompt, self.cwd = user_prompt, os.getcwd()
+        from ai.modules.tools_filesystem.tools import write_file
+        from ai.tools.base import get_project_root
+        self.prompt, self.cwd, self.root = user_prompt, os.getcwd(), get_project_root()
+        # The real tools, as the agent calls them (the bug: they wrote to the server's folder).
+        self.writes = [write_file(path="hello.txt", content="hi"),
+                       write_file(path="../escape.txt", content="x"),
+                       write_file(path="/tmp/abs-escape.txt", content="x")]
         self.io.emit(AgentEvent(AgentEventType.STATUS, agent="MASTER", text="working"))
         self.llm_connector.on_token("tok")
         if self.gated:
@@ -196,9 +202,22 @@ class TestRuns:
         assert run(client, prompt=" ").status_code == 400
 
     def test_working_directory_is_restored(self, client):
-        before = os.getcwd()
+        import ai.tools.base as tool_base
+        before, root = os.getcwd(), tool_base.PROJECT_ROOT
         events(run(client))
-        assert os.getcwd() == before
+        assert os.getcwd() == before and tool_base.PROJECT_ROOT == root
+
+    def test_tools_write_inside_the_workdir_only(self, client, orchestrators, workdir, tmp_path):
+        # Regression: write_file("hello.txt") landed in the server's own folder (the repo).
+        server_dir = os.getcwd()
+        events(run(client, cwd="proj"))
+        orch = orchestrators[0]
+        assert orch.root == os.path.realpath(workdir / "proj")
+        ok, up, absolute = orch.writes
+        assert ok["status"] == "SUCCESS" and (workdir / "proj" / "hello.txt").read_text() == "hi"
+        assert not os.path.exists(os.path.join(server_dir, "hello.txt"))
+        assert up["status"] == "FAILED" and absolute["status"] == "FAILED"
+        assert not (workdir / "escape.txt").exists() and not os.path.exists("/tmp/abs-escape.txt")
 
 
 def next_event(run_, kind, timeout=5):

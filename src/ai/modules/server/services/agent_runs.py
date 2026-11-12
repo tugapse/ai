@@ -231,9 +231,14 @@ class AgentRunService:
         return run
 
     def _run(self, run: AgentRun, text: str, workdir: str) -> None:
-        previous = os.getcwd()
+        import ai.tools.base as tool_base
+
+        previous, previous_root = os.getcwd(), tool_base.PROJECT_ROOT
         try:
-            # Tools and agent sessions resolve paths from the working directory.
+            # Tools resolve @ROOT and relative paths from PROJECT_ROOT, which is fixed when the
+            # module is imported (the server's own folder); agent sessions use the cwd. Point
+            # both at the workdir so every file a run touches stays inside it.
+            tool_base.PROJECT_ROOT = workdir
             os.chdir(workdir)
             result = run.orchestrator.run_loop(user_prompt=text, session_id=run.session_id)
             run.put({"type": "done", "reason": getattr(result, "reason", "error"),
@@ -243,6 +248,7 @@ class AgentRunService:
             run.put({"type": "error", "agent": None, "text": str(e), "data": {}})
             run.put({"type": "done", "reason": "error", "message": str(e)})
         finally:
+            tool_base.PROJECT_ROOT = previous_root
             os.chdir(previous)
             try:
                 run.orchestrator.close()
