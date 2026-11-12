@@ -1,5 +1,25 @@
 # Changelog
 
+## [v3.5.0] - 2026-11-12
+
+###  Features
+- feat(agent): Split built-in tools into modules and add SELF target
+- feat(agent): Recover agent responses missing the <response> wrapper
+- feat(agent): Add --resume flag with interactive session picker
+- feat(agent): Add interactive prompt_toolkit agent chat
+
+###  Bug Fixes
+- fix(llm): Retry transient API errors and stop treating them as bad output
+- fix(mcp): Harden MCPBridge and add tests that drive it like the agent
+- fix(agent): Make human-in-the-loop and interrupts work with the chat UI
+- fix(ai): Improve MCP tool response error handling and content formatting
+- fix(ai): Support both input_schema and inputSchema for MCP tools
+
+###  Maintenance
+- docs(templates): Refine agent prompts and task templates
+- chore(tools): Remove the unused tcp_client_tool
+- chore(release): Bump version to 3.5.0
+
 ## [v3.1.3] - 2026-11-11
 
 ###  Features

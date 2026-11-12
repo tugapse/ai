@@ -1,7 +1,7 @@
 import os
 from typing import Any, Dict
 
-from ai.tools.agent_tools import _resolve_path
+from ai.tools.base import resolve_path as _resolve_path
 
 
 class SpecialistManager:

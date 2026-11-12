@@ -8,6 +8,7 @@ from typing import Dict, List, Any, Optional, Union, Generator
 import ai.functions as func
 from ai.tools.tool_registry import ToolRegistry
 from ai.core.llms.base_llm import BaseModel
+from ai.core.llms.api_retry import LLMAPIError, RetryPolicy, call_with_retry, stream_with_retry, wrap_error
 from ai.color import Color
 
 
@@ -49,19 +50,32 @@ class OpenAIAPIModel(BaseModel):
         self.api_version = kargs.get("api_version") or os.environ.get("AI_API_VERSION")
         self.azure_endpoint = kargs.get("azure_endpoint") or os.environ.get("AI_AZURE_ENDPOINT")
 
+        # Timeouts/retries ("timeout", "connect_timeout", "max_retries", "retry_max_wait").
+        # The SDK's own retries are disabled so they don't stack with ours.
+        self.retry_policy = RetryPolicy.from_config(kargs, kargs.get("model_params") or {})
+        try:
+            import httpx
+            client_timeout: Any = httpx.Timeout(self.retry_policy.timeout, connect=self.retry_policy.connect_timeout)
+        except ImportError:
+            client_timeout = self.retry_policy.timeout
+
         # Client instantiation based on Azure vs Standard OpenAI routing
         if self.azure_endpoint:
             func.log(f"JARVIS: Connecting to Azure Interface [{self.model_name}]")
             self.client = self._AzureClient(
                 azure_endpoint=self.azure_endpoint,
                 api_key=self.api_key,
-                api_version=self.api_version or "2024-05-01-preview"
+                api_version=self.api_version or "2024-05-01-preview",
+                timeout=client_timeout,
+                max_retries=0,
             )
         else:
             func.log(f"JARVIS: Connecting to OpenAI-Compatible Interface [{self.model_name}]")
             self.client = self._OpenAIClient(
                 api_key=self.api_key,
-                base_url=self.base_url 
+                base_url=self.base_url,
+                timeout=client_timeout,
+                max_retries=0,
             )
         
         # Determine model parameters dynamically based on reasoning capabilities
@@ -167,11 +181,14 @@ class OpenAIAPIModel(BaseModel):
             if stream:
                 return self._run_streaming_chat(formatted_msgs)
             else:
-                response = self.client.chat.completions.create(
-                    model=self.model_name,
-                    messages=formatted_msgs,
-                    stream=False,
-                    **request_kwargs # type: ignore
+                response = call_with_retry(
+                    lambda: self.client.chat.completions.create(
+                        model=self.model_name,
+                        messages=formatted_msgs,
+                        stream=False,
+                        **request_kwargs # type: ignore
+                    ),
+                    self.retry_policy, "OpenAI", self.stop_generation_event,
                 )
                 
                 # Telemetry Update
@@ -191,10 +208,15 @@ class OpenAIAPIModel(BaseModel):
                 self.trigger(BaseModel.STREAMING_FINISHED_EVENT)
                 return final_text
                 
-        except Exception as e:
-            func.error(f"Interface Error: {e}")
+        except LLMAPIError as e:
+            func.error(f"[OpenAI] {e.user_message()}")
             self.trigger(BaseModel.STREAMING_FINISHED_EVENT)
-            return ""
+            raise
+        except Exception as e:
+            err = wrap_error(e, "OpenAI", attempts=1)
+            func.error(f"[OpenAI] {err.user_message()}")
+            self.trigger(BaseModel.STREAMING_FINISHED_EVENT)
+            raise err from e
 
     def _run_streaming_chat(self, formatted_msgs: List[Dict[str, str]]) -> Generator[Union[str, Dict[str, Any]], None, None]:
         """
@@ -214,11 +236,14 @@ class OpenAIAPIModel(BaseModel):
         full_content = ""
 
         try:
-            stream = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=formatted_msgs,
-                stream=True,
-                **request_kwargs # type: ignore
+            stream = stream_with_retry(
+                lambda: self.client.chat.completions.create(
+                    model=self.model_name,
+                    messages=formatted_msgs,
+                    stream=True,
+                    **request_kwargs # type: ignore
+                ),
+                self.retry_policy, "OpenAI", self.stop_generation_event,
             )
 
             for chunk in stream:
@@ -271,8 +296,13 @@ class OpenAIAPIModel(BaseModel):
                 self.trigger("token", sentinel_buffer)
                 yield sentinel_buffer
 
+        except LLMAPIError as e:
+            func.error(f"[OpenAI] {e.user_message()}")
+            raise
         except Exception as e:
-            func.error(f"Interface Stream Error [{type(e).__name__}]: {e}")
+            err = wrap_error(e, "OpenAI", attempts=1, partial=bool(full_content))
+            func.error(f"[OpenAI] {err.user_message()}")
+            raise err from e
         finally:
             self.trigger(BaseModel.STREAMING_FINISHED_EVENT, full_content)
 

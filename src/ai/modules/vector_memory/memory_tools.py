@@ -1,6 +1,6 @@
 import ai.functions as func
 from typing import Dict, Any, Optional, Callable
-from ai.tools.agent_tools import tool
+from ai.tools.base import tool
 
 class MemoryTools:
     """
@@ -31,16 +31,16 @@ class MemoryTools:
 
     def query_memory(self, **kwargs) -> Dict[str, Any]:
         """
-        ACTION: RECALL specific findings, code signatures, or technical context from Long-Term Memory (LTM).
-        USE CASE: Mandatory to use if the information you need was recently 'Pruned' or 'Distilled' by the SYSTEM, or if you need historical context without re-scanning physical files.
-        BENEFIT: Prevents context window overflow and saves compute tokens.
-        
-        INPUTS:
-            query (str): A detailed semantic search string (e.g., 'What was the specific bug in the audio driver?').
-            top_k (int, optional): Number of memory fragments to retrieve. Defaults to 3.
+        Recall facts from long-term memory: earlier findings, decisions, code details, or results that
+        were removed from your context (look for 'Pruned' or 'Distilled' notes from SYSTEM).
+        Try this before re-reading files you already explored.
+
+        Args:
+            query (string): A specific question, e.g. 'Which file configures the audio driver?'.
+            top_k (int, optional): How many memory fragments to return. Default 3.
 
         Returns:
-            Dict[str, Any]: A dictionary containing the status, results, and query details.
+            results: the most relevant memory fragments, best first. FAILED if memory is disabled.
         """
         func.log("Tool execution: query_memory")
         
@@ -75,15 +75,14 @@ class MemoryTools:
 
     def trigger_reflection(self, **kwargs) -> Dict[str, Any]:
         """
-        ACTION: SYNTHESIZE recent observations into high-level architectural insights and 'Project DNA'.
-        USE CASE: Call this IMMEDIATELY after completing a major research phase, a code refactor, or before handing off to another agent. 
-        PURPOSE: Consolidates messy turn-by-turn logs into permanent, structured knowledge for future 'query_memory' calls.
-        
-        INPUTS: 
-            None required. 
+        Save a summary of what you have learned recently into long-term memory, so query_memory can
+        find it later. Call it after finishing a research phase or a refactor, or before handing off.
+
+        Args:
+            (none)
 
         Returns:
-            Dict[str, Any]: A dictionary indicating the success or failure of the reflection process.
+            status SUCCESS when the reflection was stored, FAILED if memory is disabled.
         """
         func.log("Tool execution: trigger_reflection")
         

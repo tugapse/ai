@@ -9,6 +9,7 @@ from ai.chat.chat import Chat, ChatRoles
 from ai.core.llms.base_llm import BaseModel
 from ai.config import ProgramConfig, ProgramSetting
 from ai.color import Color
+from ai.core.llms.api_retry import LLMAPIError
 
 # Agent & Tools
 from ai.agents.agent import Agent
@@ -16,7 +17,6 @@ from ai.modules.vector_memory.vector_memory_module import VectorMemoryModule
 from ai.modules.vector_memory.vector_memory import VectorMemory
 from ai.modules.voice.base_module import BaseVoiceModule
 from ai.tools.tool_registry import ToolRegistry
-from ai.tools.agent_tools import AVAILABLE_TOOLS
 from ai.tools.tool_loader import load_and_register_user_tools
 
 # Services Orchestration
@@ -133,8 +133,9 @@ class Program:
         and memory-derived tools, registering them into the central registry.
         """
         func.log("Loading System tools into Jarvis system")
-        for name, tool_ref in AVAILABLE_TOOLS.items():
-            self.tool_registry.register_tool(name, tool_ref)
+        if self.modules is not None:
+            for name, tool_ref in self.modules.tool_functions().items():
+                self.tool_registry.register_tool(name, tool_ref)
         
 
         func.log("Loading User tools into Jarvis system")
@@ -177,6 +178,9 @@ class Program:
             
             self._run_agent_loop(stream_orchestrator, options)
 
+        except LLMAPIError as e:
+            # Remote API failure (already retried): report it, keep the model and the chat alive.
+            func.out(f"\n{Color.RED}[ ! ] {e.user_message()}{Color.RESET}")
         except Exception as e:
             func.log(f"Program: Chat Error: {e}", level="CRITICAL")
             func.log(traceback.format_exc(), level="ERROR")
