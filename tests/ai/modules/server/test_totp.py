@@ -4,6 +4,7 @@ TOTP codes (RFC 6238) and their use in agent permission answers.
 
 import pytest
 
+from ai.config import ProgramSetting
 from ai.modules.server.services import totp as T
 from ai.modules.server.services.agent_runs import AgentApiError, AgentRun, AgentRunService
 
@@ -63,7 +64,11 @@ class TestPermissionAnswers:
     @pytest.fixture
     def service(self, tmp_path):
         guard = T.TotpGuard(str(tmp_path / "totp.json"), clock=Clock())
-        service = AgentRunService(brain_hub=None, config=None, totp=guard)
+        config = {}
+        cfg = type("Cfg", (), {"get": lambda self, key, default=None: config.get(key, default)})()
+        config[ProgramSetting.SERVER_TOTP_ENABLED] = True
+        service = AgentRunService(brain_hub=None, config=cfg, totp=guard)
+        service.settings = config
         return service
 
     def pending(self, service, tool):
@@ -83,6 +88,14 @@ class TestPermissionAnswers:
     def test_after_setup_default_tools_need_a_code(self, service):
         service.totp.setup()
         assert service.totp_tools() == {"execute_command", "delete_file"}
+
+    def test_off_unless_enabled_in_config_even_with_a_secret(self, service):
+        # First release ships with TOTP off: a secret alone does not turn it on.
+        service.totp.setup()
+        service.settings[ProgramSetting.SERVER_TOTP_ENABLED] = False
+        assert service.totp_tools() == set()
+        del service.settings[ProgramSetting.SERVER_TOTP_ENABLED]
+        assert service.totp_tools() == set()
 
     def test_missing_and_wrong_code_are_401_and_request_stays_open(self, service):
         service.totp.setup()

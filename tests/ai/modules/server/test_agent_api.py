@@ -285,9 +285,21 @@ class TestBusyAndCancel:
 
 
 class TestTotpOverHttp:
-    def test_permission_event_flags_totp_and_wrong_code_is_401(self, client, auth, orchestrators):
+    def test_off_by_default_even_with_a_secret(self, client, auth, orchestrators):
+        auth.totp.setup()
+        orchestrators.options = {"gated": True}
+        run_ = client.app.state.agent_service.start("list files", model="small")
+        ev = next_event(run_, "permission")
+        assert ev["needs_totp"] is False
+        client.post(f"/api/v1/agent/runs/{run_.run_id}/permission",
+                    json={"request_id": ev["request_id"], "decision": "yes"})
+        assert next_event(run_, "done")["reason"] == "done"
+
+    def test_permission_event_flags_totp_and_wrong_code_is_401(self, client, auth, orchestrators, config):
         from ai.modules.server.services.totp import code_at
         secret = auth.totp.setup()
+        enabled = config.get.side_effect
+        config.get.side_effect = lambda key, default=None: True if key == ProgramSetting.SERVER_TOTP_ENABLED else enabled(key, default)
         orchestrators.options = {"gated": True}
         run_ = client.app.state.agent_service.start("list files", model="small")
         ev = next_event(run_, "permission")

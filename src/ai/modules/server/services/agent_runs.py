@@ -254,8 +254,12 @@ class AgentRunService:
         return self.current
 
     def totp_tools(self) -> set:
-        """Tools whose approval needs an authenticator code; empty while TOTP is not set up."""
-        if self.totp is None or not self.totp.enabled:
+        """
+        Tools whose approval needs an authenticator code. Empty unless SERVER_TOTP_ENABLED is
+        true and a secret exists (off by default in the first release).
+        """
+        enabled = self.config.get(ProgramSetting.SERVER_TOTP_ENABLED) if self.config else False
+        if enabled is not True or self.totp is None or not self.totp.enabled:
             return set()
         tools = self.config.get(ProgramSetting.SERVER_TOTP_TOOLS) if self.config else None
         return set(tools if isinstance(tools, list) else DEFAULT_TOTP_TOOLS)

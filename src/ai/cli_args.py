@@ -107,7 +107,8 @@ class CliArgs:
             qr.print_ascii(invert=True)
         except ImportError:
             pass
-        func.out(f"Stored in {guard.path} (mode 600). The running server picks it up on the next approval.")
+        func.out(f"Stored in {guard.path} (mode 600).")
+        func.out('Codes are required only when "SERVER_TOTP_ENABLED": true is set in config.json (restart the server after).')
         sys.exit(0)
 
     def _check_nhandle_create_tool(self, args, directory_manager: DirectoryManager):
