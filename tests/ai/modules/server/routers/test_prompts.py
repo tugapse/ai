@@ -3,6 +3,8 @@ from unittest.mock import MagicMock, patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from ai.modules.server.routers.auth import require_device
+
 from ai.modules.server.routers.prompts import router
 from ai.modules.server.services.prompt_manager import (
     PromptNotFoundError,
@@ -14,6 +16,8 @@ class TestPromptsRouter(unittest.TestCase):
         """Set up a test FastAPI app with the prompts router and mock dependencies."""
         self.app = FastAPI()
         self.app.include_router(router)
+        # Pairing is tested in test_auth.py; these tests cover the routes themselves.
+        self.app.dependency_overrides[require_device] = lambda: {"device_id": "test", "name": "test"}
         self.client = TestClient(self.app)
 
         # Mock the prompt manager

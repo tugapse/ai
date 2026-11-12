@@ -1,7 +1,9 @@
 from pathlib import Path
 import json
 import asyncio
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
+import contextvars
+from urllib.parse import urlparse
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Any, Dict, Optional
@@ -30,7 +32,7 @@ from ai.modules.server.services.chat import ChatService
 from ai.modules.server.brain_hub import BrainHub
 
 
-def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None) -> FastAPI:
+def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None, auth: Any = None) -> FastAPI:
     """
     Build and configure the FastAPI app, wiring dependencies into app.state.
 
@@ -42,6 +44,7 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None)
         brain_hub: The BrainHub instance, providing access to AI model statistics.
         config: A dictionary containing global configuration settings for the server.
         modules: The program's module registry (agent tools for /api/v1/agent runs).
+        auth: The AuthService for protected routes (built from config when omitted).
 
     Returns:
         The fully configured FastAPI application instance.
@@ -55,11 +58,14 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None)
     from ai.modules.server.routers.sessions import router as sessions_router
     from ai.modules.server.routers.prompts import router as prompts_router
     from ai.modules.server.routers.agent import router as agent_router
+    from ai.modules.server.routers.auth import router as auth_router, require_device
+    from ai.modules.server.services.auth import AuthService, CLIENT_HEADER
     from ai.modules.server.services.agent_runs import AgentRunService
 
     app.include_router(sessions_router)
     app.include_router(prompts_router)
     app.include_router(agent_router)
+    app.include_router(auth_router)
 
     session_manager = SessionManager(SESSION_ROOT_DIR)
     app.state.session_manager = session_manager
@@ -68,7 +74,9 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None)
     chat_service = ChatService(brain_hub, SESSION_ROOT_DIR, config)
     app.state.chat_service = chat_service
     app.state.brain_hub = brain_hub
-    agent_service = AgentRunService(brain_hub, config, modules)
+    auth = auth or AuthService(config)
+    app.state.auth = auth
+    agent_service = AgentRunService(brain_hub, config, modules, totp=auth.totp)
     app.state.agent_service = agent_service
 
     @app.post("/api/v1/chat/completions")
@@ -127,7 +135,7 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None)
         return brain_hub.get_stats()
 
     @app.post("/api/v1/model/unload")
-    async def unload_model():
+    async def unload_model(request: Request, device: dict = Depends(require_device)):
         """
         Frees the loaded model (RAM/VRAM). The next chat request loads the model it names.
 
@@ -138,10 +146,11 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None)
             raise HTTPException(status_code=409, detail="Agent run in progress.")
         # Off the event loop: unloading joins the generation thread and frees memory.
         model = await asyncio.to_thread(brain_hub.unload_brain)
+        auth.audit("unload", device_id=device["device_id"], model=model)
         return {"status": "unloaded", "model": model}
 
     @app.post("/api/v1/shutdown")
-    async def shutdown(background_tasks: BackgroundTasks):
+    async def shutdown(background_tasks: BackgroundTasks, device: dict = Depends(require_device)):
         """
         Unloads the model and stops the server, for every client. The reply is sent first.
 
@@ -151,7 +160,8 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None)
         stop = getattr(app.state, "shutdown_handler", None)
         if stop is None:
             raise HTTPException(status_code=501, detail="Shutdown is not available on this server.")
-        func.log("Shutdown requested over the API.", level="WARN")
+        func.log(f"Shutdown requested over the API by '{device['name']}'.", level="WARN")
+        auth.audit("shutdown", device_id=device["device_id"])
         agent_service.cancel_current()
         background_tasks.add_task(stop)
         return {"status": "shutting_down"}
@@ -167,10 +177,57 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None)
     
     app.add_middleware(MIMETypeFixerMiddleware)
     app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
+        SameHostCORSMiddleware,
+        # Explicit origins only: with credentials allowed, "*" would let any site use the cookie.
+        allow_origins=_allowed_origins(config),
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE"],
+        allow_headers=["Content-Type", "Authorization", CLIENT_HEADER],
     )
     return app
+
+
+DEFAULT_ALLOWED_ORIGINS = ["http://localhost:4200", "http://127.0.0.1:4200"]
+
+
+def _allowed_origins(config) -> list:
+    """CORS origins from SERVER_ALLOWED_ORIGINS (a list), else the Angular dev server."""
+    from ai.config import ProgramSetting
+    try:
+        origins = config.get(ProgramSetting.SERVER_ALLOWED_ORIGINS) if config is not None else None
+    except Exception:
+        origins = None
+    if isinstance(origins, str):
+        origins = [origins]
+    return [o for o in (origins or DEFAULT_ALLOWED_ORIGINS) if o != "*"]
+
+
+_request_host: "contextvars.ContextVar[str]" = contextvars.ContextVar("request_host", default="")
+
+
+class SameHostCORSMiddleware(CORSMiddleware):
+    """
+    CORS for the configured origins plus any origin on the server's own hostname (another port,
+    e.g. the Angular dev server at http://<host>:4200 calling http://<host>:9999). The session
+    cookie is SameSite=Strict, so only same-host pages could use it anyway.
+    """
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") == "http":
+            host = dict(scope.get("headers") or []).get(b"host", b"").decode("latin-1")
+            token = _request_host.set(host.rsplit(":", 1)[0].strip("[]").lower() if host else "")
+            try:
+                await super().__call__(scope, receive, send)
+            finally:
+                _request_host.reset(token)
+            return
+        await super().__call__(scope, receive, send)
+
+    def is_allowed_origin(self, origin: str) -> bool:
+        if super().is_allowed_origin(origin):
+            return True
+        try:
+            hostname = (urlparse(origin).hostname or "").lower()
+        except ValueError:
+            return False
+        return bool(hostname) and hostname == _request_host.get()

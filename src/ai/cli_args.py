@@ -54,6 +54,7 @@ class CliArgs:
         """
         # 1. System/Global Actions
         self._check_nhandle_create_tool(args, directory_manager)
+        self._check_nhandle_totp_setup(args)
         self._check_nhandle_config_generation(prog, args, args_parser, directory_manager) 
         self._is_install(args)
         self._is_print_chat(args)
@@ -76,6 +77,39 @@ class CliArgs:
 
         self._has_message(prog, args) 
     
+    def _check_nhandle_totp_setup(self, args):
+        """
+        Creates (or replaces) the server's TOTP secret and prints it for an authenticator app.
+        Run on the server machine: the secret never travels over the network.
+
+        :param args: The parsed command-line arguments.
+        :raises SystemExit: Always, after printing the secret.
+        """
+        if not getattr(args, "server_totp_setup", False):
+            return
+        from ai.modules.server.services.auth import AuthService
+        from ai.modules.server.services.totp import provisioning_uri
+
+        guard = AuthService().totp
+        if guard.enabled:
+            answer = input("A TOTP secret already exists; replacing it breaks the current authenticator entry. Replace? (y/N): ")
+            if answer.strip().lower() not in ("y", "yes"):
+                func.out("Kept the existing secret.")
+                sys.exit(0)
+        secret = guard.setup()
+        func.out(f"{Color.GREEN}TOTP enabled.{Color.RESET} Add it to your authenticator app:")
+        func.out(f"  secret: {secret}")
+        func.out(f"  uri:    {provisioning_uri(secret)}")
+        try:
+            import qrcode  # optional: shows a scannable code when installed
+            qr = qrcode.QRCode(border=1)
+            qr.add_data(provisioning_uri(secret))
+            qr.print_ascii(invert=True)
+        except ImportError:
+            pass
+        func.out(f"Stored in {guard.path} (mode 600). The running server picks it up on the next approval.")
+        sys.exit(0)
+
     def _check_nhandle_create_tool(self, args, directory_manager: DirectoryManager):
         """
         Handles the creation of a new tool skeleton file based on the provided name.

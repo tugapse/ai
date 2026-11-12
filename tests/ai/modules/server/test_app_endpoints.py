@@ -14,14 +14,15 @@ from ai.modules.server.services.chat import ChatService
 
 
 @pytest.fixture
-def app(hub, tmp_path, monkeypatch):
+def app(hub, auth, tmp_path, monkeypatch):
     monkeypatch.setattr("ai.functions.get_root_directory", lambda: str(tmp_path))
-    return create_app(hub, {})
+    return create_app(hub, {}, auth=auth)
 
 
 @pytest.fixture
-def client(app):
-    return TestClient(app)
+def client(app, paired):
+    """A paired client on localhost: protected routes get its Bearer token."""
+    return TestClient(app, client=("127.0.0.1", 50000), headers=paired)
 
 
 def chat(client, **fields):

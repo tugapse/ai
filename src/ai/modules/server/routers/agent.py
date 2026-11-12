@@ -1,7 +1,7 @@
 """
 /api/v1/agent/*: run agent pipelines (tasks, tools) from a web client.
 
-Every route needs ``Authorization: Bearer <SERVER_AGENT_TOKEN>``. See services/agent_runs.py.
+Every route needs a paired device (see routers/auth.py). See services/agent_runs.py.
 """
 
 import asyncio
@@ -9,13 +9,14 @@ import json
 import queue
 from typing import Optional
 
-from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from ai.modules.server.routers.auth import require_device
 from ai.modules.server.services.agent_runs import AgentApiError, AgentRunService
 
-router = APIRouter(prefix="/api/v1/agent")
+router = APIRouter(prefix="/api/v1/agent", dependencies=[Depends(require_device)])
 
 
 class AgentRunRequest(BaseModel):
@@ -30,17 +31,21 @@ class AgentRunRequest(BaseModel):
 class PermissionAnswer(BaseModel):
     request_id: str
     decision: str  # yes | no | always
+    totp: Optional[str] = None  # authenticator code, for events with needs_totp
 
 
-def _service(request: Request, authorization: Optional[str]) -> AgentRunService:
+def _service(request: Request) -> AgentRunService:
     service: Optional[AgentRunService] = getattr(request.app.state, "agent_service", None)
     if service is None:
         raise HTTPException(status_code=503, detail="Agent API not configured.")
-    try:
-        service.check_token(authorization)
-    except AgentApiError as e:
-        raise HTTPException(status_code=e.status, detail=e.detail)
     return service
+
+
+def _audit(request: Request, event: str, **data) -> None:
+    auth = getattr(request.app.state, "auth", None)
+    device = getattr(request.state, "device", None) or {}
+    if auth is not None:
+        auth.audit(event, device_id=device.get("device_id"), **data)
 
 
 def _call(fn, *args, **kwargs):
@@ -51,33 +56,35 @@ def _call(fn, *args, **kwargs):
 
 
 @router.get("/pipelines")
-async def pipelines(request: Request, authorization: Optional[str] = Header(None)):
+async def pipelines(request: Request):
     """Pipelines a run may use: name, title, description, entry point, agents and their tools."""
-    return _service(request, authorization).list_pipelines()
+    return _service(request).list_pipelines()
 
 
 @router.get("/tasks")
-async def tasks(request: Request, authorization: Optional[str] = Header(None)):
+async def tasks(request: Request):
     """Task templates (user task folder); a run's ``task`` takes one of these names."""
-    return _service(request, authorization).list_tasks()
+    return _service(request).list_tasks()
 
 
 @router.get("/tasks/{name:path}")
-async def task(name: str, request: Request, authorization: Optional[str] = Header(None)):
-    service = _service(request, authorization)
+async def task(name: str, request: Request):
+    service = _service(request)
     return {"name": name, "content": _call(service.read_task, name)}
 
 
 @router.post("/runs")
-async def start_run(payload: AgentRunRequest, request: Request, authorization: Optional[str] = Header(None)):
+async def start_run(payload: AgentRunRequest, request: Request):
     """
     Starts a run and streams its events as SSE until a ``done`` event and ``[DONE]``.
     Closing the stream cancels the run (an agent never runs unattended).
     """
-    service = _service(request, authorization)
+    service = _service(request)
     run = await asyncio.to_thread(
         _call, service.start, payload.prompt, payload.pipeline, payload.task,
         payload.model, payload.session_id, payload.cwd)
+    _audit(request, "agent_run", run_id=run.run_id, session_id=run.session_id,
+           pipeline=payload.pipeline or "default", task=payload.task, model=payload.model, cwd=payload.cwd)
 
     async def events():
         finished = False
@@ -101,19 +108,28 @@ async def start_run(payload: AgentRunRequest, request: Request, authorization: O
 
 
 @router.post("/runs/{run_id}/permission")
-async def permission(run_id: str, payload: PermissionAnswer, request: Request,
-                     authorization: Optional[str] = Header(None)):
+async def permission(run_id: str, payload: PermissionAnswer, request: Request):
     """Answers a ``permission`` event: decision yes, no or always (always = for the rest of the run)."""
-    service = _service(request, authorization)
-    _call(service.answer_permission, run_id, payload.request_id, payload.decision)
+    service = _service(request)
+    try:
+        service.answer_permission(run_id, payload.request_id, payload.decision, payload.totp)
+    except AgentApiError as e:
+        auth = getattr(request.app.state, "auth", None)
+        if e.status == 401 and auth is not None:
+            # Wrong codes count towards the per-IP rate limit, like failed logins.
+            auth.fail(request.client.host if request.client else "", 401, e.detail, kind="totp")
+        raise HTTPException(status_code=e.status, detail=e.detail)
+    _audit(request, "agent_permission", run_id=run_id, request_id=payload.request_id, decision=payload.decision,
+           totp=bool(payload.totp) or None)
     return {"status": "ok"}
 
 
 @router.post("/runs/{run_id}/cancel")
-async def cancel(run_id: str, request: Request, authorization: Optional[str] = Header(None)):
+async def cancel(run_id: str, request: Request):
     """Stops the run at the next safe point; the stream then ends with ``done`` / ``cancelled``."""
-    service = _service(request, authorization)
+    service = _service(request)
     _call(service.cancel, run_id)
+    _audit(request, "agent_cancel", run_id=run_id)
     return {"status": "cancelling"}
 
 

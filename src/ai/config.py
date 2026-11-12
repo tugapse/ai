@@ -62,7 +62,9 @@ class ProgramSetting(Enum):
     VECTOR_RELEVANCE_WEIGHT = "VECTOR_RELEVANCE_WEIGHT"
     SERVER_HOST = "SERVER_HOST"    
     SERVER_PORT = "SERVER_PORT"
-    SERVER_AGENT_TOKEN = "SERVER_AGENT_TOKEN"      # Bearer token for /api/v1/agent/*; unset disables it
+    SERVER_TRUSTED_NETWORKS = "SERVER_TRUSTED_NETWORKS"  # CIDRs allowed on protected routes (default LAN + Tailscale)
+    SERVER_ALLOWED_ORIGINS = "SERVER_ALLOWED_ORIGINS"    # Browser origins allowed by CORS (default localhost:4200)
+    SERVER_TOTP_TOOLS = "SERVER_TOTP_TOOLS"              # Tools whose approval needs an authenticator code
     SERVER_AGENT_WORKDIR = "SERVER_AGENT_WORKDIR"  # Folder web agent runs work in (default ~/Ai/workspace)
 
     def __str__(self) -> str:

@@ -1,4 +1,6 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
+
+from ai.modules.server.routers.auth import require_device
 from typing import Optional
 
 from ai.modules.server.schemas import UpdateSessionRequest
@@ -55,7 +57,7 @@ async def get_session_content(request: Request, session_path: str):
         raise HTTPException(status_code=500, detail=f"Failed to load session: {e}")
 
 # The /title route is declared first: the catch-all {session_path:path} would swallow it.
-@router.put("/api/v1/sessions/{session_path:path}/title")
+@router.put("/api/v1/sessions/{session_path:path}/title", dependencies=[Depends(require_device)])
 async def update_session_title(
     request: Request, session_path: str, payload: UpdateSessionRequest
 ):
@@ -92,7 +94,7 @@ async def update_session_title(
             status_code=500, detail=f"Failed to update session title: {e}"
         )
 
-@router.put("/api/v1/sessions/{session_path:path}")
+@router.put("/api/v1/sessions/{session_path:path}", dependencies=[Depends(require_device)])
 async def update_session_content(
     request: Request, session_path: str, payload: UpdateSessionRequest
 ):
@@ -142,7 +144,7 @@ async def update_session_content(
             status_code=500, detail=f"Failed to update session: {e}"
         )
 
-@router.delete("/api/v1/sessions/{session_path:path}")
+@router.delete("/api/v1/sessions/{session_path:path}", dependencies=[Depends(require_device)])
 async def delete_session(request: Request, session_path: str):
     """
     Delete a specific session file identified by its path.

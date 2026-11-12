@@ -88,3 +88,22 @@ def write_config():
 def fake_llm():
     """The FakeLLM class, to put a model in the hub without the engine."""
     return FakeLLM
+
+
+LOCAL = ("127.0.0.1", 50000)
+
+
+@pytest.fixture
+def auth(tmp_path):
+    """A real AuthService with its device file and audit log in tmp_path."""
+    from ai.modules.server.services.auth import AuthService
+    return AuthService(None, devices_path=str(tmp_path / "devices.json"), audit_path=str(tmp_path / "audit.log"))
+
+
+@pytest.fixture
+def paired(auth):
+    """Headers of a paired CLI-style device (Bearer token)."""
+    pairing = auth.start_pairing("tests", LOCAL[0])
+    code = auth.pairings[pairing["pairing_id"]]["code"]
+    token, _ = auth.finish_pairing(pairing["pairing_id"], code, LOCAL[0])
+    return {"Authorization": f"Bearer {token}"}

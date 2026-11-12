@@ -18,8 +18,7 @@ from ai.agents.agent_io import AgentEvent, AgentEventType, PERMISSION_YES
 from ai.config import ProgramSetting
 from ai.modules.server.app import create_app
 
-TOKEN = "s3cret"
-AUTH = {"Authorization": f"Bearer {TOKEN}"}
+AUTH = {}  # the client fixture already sends a paired device's token
 
 
 class FakeOrchestrator:
@@ -57,7 +56,7 @@ def workdir(tmp_path):
 
 @pytest.fixture
 def config(workdir):
-    values = {ProgramSetting.SERVER_AGENT_TOKEN: TOKEN, ProgramSetting.SERVER_AGENT_WORKDIR: str(workdir)}
+    values = {ProgramSetting.SERVER_AGENT_WORKDIR: str(workdir)}
     cfg = MagicMock()
     cfg.get.side_effect = lambda key, default=None: values.get(key, default)
     return cfg
@@ -103,9 +102,9 @@ def orchestrators(monkeypatch):
 
 
 @pytest.fixture
-def client(hub, config, user_dirs, orchestrators, tmp_path, monkeypatch):
+def client(hub, config, auth, paired, user_dirs, orchestrators, tmp_path, monkeypatch):
     monkeypatch.setattr("ai.functions.get_root_directory", lambda: str(tmp_path))
-    return TestClient(create_app(hub, config))
+    return TestClient(create_app(hub, config, auth=auth), client=("127.0.0.1", 50000), headers=paired)
 
 
 def events(response):
@@ -123,17 +122,20 @@ def run(client, **body):
 
 
 class TestAccess:
-    def test_no_token_configured_is_503(self, hub, tmp_path, monkeypatch, user_dirs):
-        monkeypatch.setattr("ai.functions.get_root_directory", lambda: str(tmp_path))
-        client = TestClient(create_app(hub, {}))
-        assert client.get("/api/v1/agent/pipelines", headers=AUTH).status_code == 503
+    def test_unpaired_client_is_401(self, client):
+        assert client.get("/api/v1/agent/pipelines", headers={"Authorization": ""}).status_code == 401
 
-    @pytest.mark.parametrize("headers", [{}, {"Authorization": "Bearer nope"}, {"Authorization": TOKEN + "x"}])
-    def test_wrong_or_missing_token_is_401(self, client, headers):
-        assert client.get("/api/v1/agent/pipelines", headers=headers).status_code == 401
+    def test_unknown_token_is_401(self, client):
+        assert client.get("/api/v1/agent/pipelines", headers={"Authorization": "Bearer nope"}).status_code == 401
 
-    def test_runs_need_the_token_too(self, client):
-        assert client.post("/api/v1/agent/runs", json={"prompt": "x"}).status_code == 401
+    def test_runs_need_pairing_too(self, client):
+        assert client.post("/api/v1/agent/runs", json={"prompt": "x"},
+                           headers={"Authorization": ""}).status_code == 401
+
+    def test_runs_and_permissions_are_audited(self, client, auth):
+        events(run(client))
+        lines = [json.loads(l) for l in open(auth.audit_path)]
+        assert [l["event"] for l in lines][-1] == "agent_run" and lines[-1]["device_id"]
 
 
 class TestCatalogue:
@@ -280,3 +282,20 @@ class TestBusyAndCancel:
 
     def test_unknown_run_is_404(self, client):
         assert client.post("/api/v1/agent/runs/nope/cancel", headers=AUTH).status_code == 404
+
+
+class TestTotpOverHttp:
+    def test_permission_event_flags_totp_and_wrong_code_is_401(self, client, auth, orchestrators):
+        from ai.modules.server.services.totp import code_at
+        secret = auth.totp.setup()
+        orchestrators.options = {"gated": True}
+        run_ = client.app.state.agent_service.start("list files", model="small")
+        ev = next_event(run_, "permission")
+        assert ev["needs_totp"] is True
+        url = f"/api/v1/agent/runs/{run_.run_id}/permission"
+        r = client.post(url, json={"request_id": ev["request_id"], "decision": "yes", "totp": "000000"})
+        assert r.status_code == 401
+        good = code_at(secret, int(auth.totp.clock()) // 30)
+        r = client.post(url, json={"request_id": ev["request_id"], "decision": "yes", "totp": good})
+        assert r.status_code == 200 and next_event(run_, "done")["reason"] == "done"
+        assert orchestrators[0].decision == PERMISSION_YES

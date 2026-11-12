@@ -180,6 +180,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     sys_group.add_argument("--install", action="store_true", help="Execute dependency sync protocol")
     sys_group.add_argument("--overwrite-config", action="store_true", help="Force configuration and templates overwriting, additional templates will not be removed!")
     sys_group.add_argument("--create-tool", type=str, metavar='TOOL_NAME', help="Create a new user tool skeleton file")
+    sys_group.add_argument("--server-totp-setup", action="store_true", help="Create the authenticator secret that approves risky web agent tools")
 
     # 6. Model Generation (Your existing group)
     config_group = parser.add_argument_group(f'{Color.CYAN}MODEL CONFIG GENERATION{Color.RESET}')
@@ -257,7 +258,7 @@ def run():
         from ai.cli_args import CliArgs
         cli_args_processor = CliArgs()
 
-        maintenance_keys = ['install',  'overwrite_config', 'generate_config', 'server', 'print_chat', 'list_models', 'create_tool']
+        maintenance_keys = ['install',  'overwrite_config', 'generate_config', 'server', 'print_chat', 'list_models', 'create_tool', 'server_totp_setup']
         if any(getattr(args, key, None) for key in maintenance_keys):
             cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser,directory_manager=directory_manager)
             if is_server:

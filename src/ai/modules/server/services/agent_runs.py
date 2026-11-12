@@ -7,7 +7,6 @@ the HIL list wait for the client's decision (``answer_permission``) and are deni
 ``PERMISSION_TIMEOUT`` seconds.
 """
 
-import hmac
 import os
 import queue
 import re
@@ -23,6 +22,7 @@ from ai.config import ProgramSetting
 from ai.services.directory_manager import DirectoryManager
 
 PERMISSION_TIMEOUT = 600
+DEFAULT_TOTP_TOOLS = ["execute_command", "delete_file"]
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 _DECISIONS = {"yes": PERMISSION_YES, "no": PERMISSION_NO, "always": PERMISSION_ALWAYS}
 
@@ -53,10 +53,11 @@ class WebAgentIO(AgentIO):
         from ai.agents.tool_preview import describe_tool_request
 
         request_id = uuid.uuid4().hex[:12]
-        waiter = {"event": threading.Event(), "decision": PERMISSION_NO}
+        needs_totp = self.run.needs_totp(tool)
+        waiter = {"event": threading.Event(), "decision": PERMISSION_NO, "tool": tool, "needs_totp": needs_totp}
         self.run.pending[request_id] = waiter
         self.run.put({"type": "permission", "request_id": request_id, "tool": tool,
-                      "params": _jsonable(params),
+                      "params": _jsonable(params), "needs_totp": needs_totp,
                       "preview": [_ANSI.sub("", line) for line in describe_tool_request(tool, params)]})
         answered = waiter["event"].wait(PERMISSION_TIMEOUT)
         self.run.pending.pop(request_id, None)
@@ -69,13 +70,17 @@ class WebAgentIO(AgentIO):
 class AgentRun:
     """State of one run: its events, pending permissions and orchestrator."""
 
-    def __init__(self, session_id: str):
+    def __init__(self, session_id: str, totp_tools: Optional[set] = None):
         self.run_id = uuid.uuid4().hex[:12]
+        self.totp_tools = totp_tools or set()
         self.session_id = session_id
         self.events: "queue.Queue[Optional[dict]]" = queue.Queue()
         self.pending: Dict[str, dict] = {}
         self.orchestrator = None
         self.finished = threading.Event()
+
+    def needs_totp(self, tool: str) -> bool:
+        return tool in self.totp_tools
 
     def put(self, event: Optional[dict]) -> None:
         self.events.put(event)
@@ -91,23 +96,13 @@ class AgentRun:
 class AgentRunService:
     """Starts, tracks and controls web agent runs."""
 
-    def __init__(self, brain_hub, config, modules=None):
+    def __init__(self, brain_hub, config, modules=None, totp=None):
         self.brain_hub = brain_hub
         self.config = config
         self.modules = modules
+        self.totp = totp  # TotpGuard; when enabled, approving TOTP tools needs a code
         self.current: Optional[AgentRun] = None
         self._lock = threading.Lock()
-
-    # --- access ---------------------------------------------------------------------
-
-    def check_token(self, authorization: Optional[str]) -> None:
-        """Raises 503 when the agent API has no token configured, 401 on a wrong token."""
-        token = self.config.get(ProgramSetting.SERVER_AGENT_TOKEN) if self.config else None
-        if not token:
-            raise AgentApiError(503, "Agent API disabled: set SERVER_AGENT_TOKEN in the server config.")
-        sent = (authorization or "").removeprefix("Bearer ").strip()
-        if not hmac.compare_digest(sent.encode(), str(token).encode()):
-            raise AgentApiError(401, "Invalid agent token.")
 
     @property
     def busy(self) -> bool:
@@ -217,7 +212,7 @@ class AgentRunService:
             if self.brain_hub.orchestrator.llm is None:
                 raise AgentApiError(409, "No model loaded; pass model.")
 
-            run = AgentRun(session_id or str(uuid.uuid4()))
+            run = AgentRun(session_id or str(uuid.uuid4()), totp_tools=self.totp_tools())
             prog = SimpleNamespace(llm=self.brain_hub.orchestrator.llm, modules=self.modules)
             try:
                 run.orchestrator = build_orchestrator(prog, f"{pipeline}.json", io=WebAgentIO(run))
@@ -258,13 +253,31 @@ class AgentRunService:
             raise AgentApiError(404, f"Run '{run_id}' not found.")
         return self.current
 
-    def answer_permission(self, run_id: str, request_id: str, decision: str) -> None:
+    def totp_tools(self) -> set:
+        """Tools whose approval needs an authenticator code; empty while TOTP is not set up."""
+        if self.totp is None or not self.totp.enabled:
+            return set()
+        tools = self.config.get(ProgramSetting.SERVER_TOTP_TOOLS) if self.config else None
+        return set(tools if isinstance(tools, list) else DEFAULT_TOTP_TOOLS)
+
+    def answer_permission(self, run_id: str, request_id: str, decision: str, totp: Optional[str] = None) -> None:
+        """
+        Resolves a permission request. For a TOTP tool, yes needs a valid code and always counts
+        as yes (a standing approval would skip the code next time). A wrong code is 401 and the
+        request stays open.
+        """
         run = self.get(run_id)
         waiter = run.pending.get(request_id)
         if waiter is None:
             raise AgentApiError(404, f"Permission request '{request_id}' not found.")
         if decision not in _DECISIONS:
             raise AgentApiError(400, "decision must be yes, no or always.")
+        if waiter.get("needs_totp") and decision != "no":
+            if not totp:
+                raise AgentApiError(401, "This tool needs an authenticator code (totp).")
+            if not self.totp.verify(totp):
+                raise AgentApiError(401, "Wrong or already used authenticator code.")
+            decision = "yes"
         waiter["decision"] = _DECISIONS[decision]
         waiter["event"].set()
 

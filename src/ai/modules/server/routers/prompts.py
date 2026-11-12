@@ -1,5 +1,7 @@
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
+
+from ai.modules.server.routers.auth import require_device
 
 from ai.modules.server.schemas import PromptCreateRequest, PromptUpdateRequest
 from ai.modules.server.services.prompt_manager import (
@@ -70,7 +72,7 @@ async def get_model_configs(request: Request):
         raise HTTPException(status_code=500, detail="Brain hub not configured.")
     return brain_hub.list_model_configs()
 
-@router.post("/api/v1/prompts")
+@router.post("/api/v1/prompts", dependencies=[Depends(require_device)])
 async def create_prompt(request: Request, payload: PromptCreateRequest):
     """
     Create a new prompt file.
@@ -97,7 +99,7 @@ async def create_prompt(request: Request, payload: PromptCreateRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create prompt: {e}")
 
-@router.put("/api/v1/prompts/{prompt_path:path}")
+@router.put("/api/v1/prompts/{prompt_path:path}", dependencies=[Depends(require_device)])
 async def update_prompt_content(
     request: Request, prompt_path: str, payload: PromptUpdateRequest
 ):
@@ -127,7 +129,7 @@ async def update_prompt_content(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update prompt: {e}")
 
-@router.delete("/api/v1/prompts/{prompt_path:path}")
+@router.delete("/api/v1/prompts/{prompt_path:path}", dependencies=[Depends(require_device)])
 async def delete_prompt(request: Request, prompt_path: str):
     """
     Delete a specific prompt file.
