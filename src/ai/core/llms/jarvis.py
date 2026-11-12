@@ -5,7 +5,10 @@ from typing import Dict, List, Any, Optional, Union, Generator
 import httpx
 
 import ai.functions as func
+from ai.core.llms.api_retry import LLMAPIError, RetryPolicy, call_with_retry, stream_with_retry, wrap_error
 from ai.core.llms.base_llm import BaseModel
+
+PROVIDER = "Jarvis"
 
 
 class JarvisAiModel(BaseModel):
@@ -44,6 +47,9 @@ class JarvisAiModel(BaseModel):
         self.token_info_count.max_output_tokens = out_tokens
         self.token_info_count.max_context_window = kargs.get("n_ctx", BaseModel.CONTEXT_WINDOW_128K)
         self.time_out = kargs.get("timeout", 600.0)  # Default to 10 minutes for long-running tasks
+        # Connection drops, timeouts and 5xx are retried; then they surface as LLMAPIError,
+        # never as an empty "model output" that the agent would treat as malformed.
+        self.retry_policy = RetryPolicy.from_config({"timeout": self.time_out}, kargs, kargs.get("model_params") or {})
 
     def chat(self, messages: List[Dict[str, str]], images=[],stream: bool = True, options={} ) -> Union[str, Dict[str, Any], Generator[Union[str, Dict[str, Any]], None, None]]:
         """
@@ -82,25 +88,67 @@ class JarvisAiModel(BaseModel):
             "messages": messages
         }
 
+        if stream:
+            return self._run_streaming_chat(payload)
+        return self._run_sync_chat(payload)
+
+    def _timeout(self) -> httpx.Timeout:
+        return httpx.Timeout(self.retry_policy.timeout, connect=self.retry_policy.connect_timeout)
+
+    def _run_sync_chat(self, payload: Dict[str, Any]) -> str:
+        """
+        Sends a non-streaming request and returns the full response text.
+
+        Raises:
+            LLMAPIError: If the server cannot be reached or answers with an error.
+        """
+        def request():
+            with httpx.Client(timeout=self._timeout()) as client:
+                response = client.post(self.endpoint, json=payload)
+                response.raise_for_status()
+                return response.json()
+
         try:
-            if stream:
-                return self._run_streaming_chat(payload)
-            else:
-                with httpx.Client(timeout=self.time_out) as client:
-                    response = client.post(self.endpoint, json=payload)
-                    response.raise_for_status()
-                    data = response.json()
-                    
-                    final_text = data["choices"][0]["message"]["content"] or ""
-                    
-                    self.trigger("token", final_text)
-                    self.trigger(BaseModel.STREAMING_FINISHED_EVENT)
-                    return final_text
-                
-        except Exception as e:
-            func.error(f"Interface Custom Endpoint Error: {e}")
+            data = call_with_retry(request, self.retry_policy, PROVIDER, self.stop_generation_event)
+            final_text = data["choices"][0]["message"]["content"] or ""
+        except LLMAPIError as e:
+            func.error(f"[{PROVIDER}] {e.user_message()}")
+            raise
+        except (KeyError, IndexError, TypeError, ValueError) as e:
+            err = LLMAPIError(f"unexpected response from {self.endpoint}: {e}", provider=PROVIDER)
+            func.error(f"[{PROVIDER}] {err.user_message()}")
+            raise err from e
+        finally:
             self.trigger(BaseModel.STREAMING_FINISHED_EVENT)
-            return ""
+
+        self.trigger("token", final_text)
+        return final_text
+
+    def _open_stream(self, payload: Dict[str, Any]) -> Generator[str, None, None]:
+        """One streaming request: yields content chunks from the server's SSE lines."""
+        with httpx.stream("POST", self.endpoint, json=payload, timeout=self._timeout()) as response:
+            response.raise_for_status()
+            for line in response.iter_lines():
+                if self.stop_generation_event.is_set():
+                    return
+                if not line or not line.startswith("data: "):
+                    continue
+                data_str = line[6:].strip()  # Strip out 'data: ' prefix
+                if data_str == "[DONE]":
+                    return
+                try:
+                    chunk_data = json.loads(data_str)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(chunk_data, dict) and chunk_data.get("error"):
+                    # The server failed mid-generation and reports it in-band.
+                    raise LLMAPIError(f"server error: {chunk_data['error']}", provider=PROVIDER)
+                try:
+                    content = chunk_data["choices"][0]["delta"].get("content", "")
+                except (KeyError, IndexError, TypeError, AttributeError):
+                    continue
+                if content:
+                    yield content
 
     def _run_streaming_chat(self, payload: Dict[str, Any]) -> Generator[str, None, None]:
         """
@@ -111,37 +159,26 @@ class JarvisAiModel(BaseModel):
 
         Yields:
             str: A chunk of text content as it is received from the stream.
+
+        Raises:
+            LLMAPIError: If the server cannot be reached, answers with an error status,
+                or reports an error in the stream.
         """
         full_content = ""
-        
         try:
-            with httpx.stream("POST", self.endpoint, json=payload, timeout=self.time_out) as response:
-                response.raise_for_status()
-                
-                for line in response.iter_lines():
-                    if self.stop_generation_event.is_set():
-                        break
-                        
-                    if not line or not line.startswith("data: "):
-                        continue
-                        
-                    data_str = line[6:].strip() # Strip out 'data: ' prefix
-                    if data_str == "[DONE]":
-                        break
-                        
-                    try:
-                        chunk_data = json.loads(data_str)
-                        content = chunk_data["choices"][0]["delta"].get("content", "")
-                        
-                        if content:
-                            full_content += content
-                            self.trigger("token", content)
-                            yield content
-                    except (json.JSONDecodeError, KeyError, IndexError):
-                        continue
-
+            for content in stream_with_retry(lambda: self._open_stream(payload), self.retry_policy,
+                                             PROVIDER, self.stop_generation_event):
+                full_content += content
+                self.trigger("token", content)
+                yield content
+        except LLMAPIError as e:
+            e.partial = e.partial or bool(full_content)
+            func.error(f"[{PROVIDER}] {e.user_message()}")
+            raise
         except Exception as e:
-            func.error(f"Interface Custom Stream Error: {e}")
+            err = wrap_error(e, PROVIDER, attempts=1, partial=bool(full_content))
+            func.error(f"[{PROVIDER}] {err.user_message()}")
+            raise err from e
         finally:
             self.trigger(BaseModel.STREAMING_FINISHED_EVENT, full_content)
 
