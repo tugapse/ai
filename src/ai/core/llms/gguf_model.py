@@ -205,11 +205,15 @@ class GGUFImageLLM(BaseModel):
             return sum(len(m['content']) for m in messages) // 4
     
     def chat(self, messages: list, images: list = None, stream: bool = True, options: dict = {}):
+        """
+        Returns a token generator when ``stream`` is True, otherwise the full response
+        (text, or a parsed tool action). Not a generator itself, so the non-streaming
+        result is returned directly instead of being hidden in StopIteration.
+        """
         with GGUFImageLLM._shared_mem_lock:
             if not self.llama_model:
                 func.error("[GGUF Engine] Attempted to chat but model is not loaded.")
-                if stream: yield "Model not loaded."
-                return "Model not loaded."
+                return iter(["Model not loaded."]) if stream else "Model not loaded."
 
         self.stop_generation_event.clear()
 
@@ -242,48 +246,56 @@ class GGUFImageLLM(BaseModel):
         func.debug(f"{Color.GREEN}[GGUF Engine] Starting chat | Max Tokens: {applied_max_new_tokens} | Est. Prompt Tokens: {est_prompt_tokens}")
 
         if stream:
-            q = queue.Queue()
-            self._generation_thread = threading.Thread(
-                target=self._generate_in_thread,
-                args=(safe_messages, current_options, q),
-            )
-            self._generation_thread.start()
+            return self._stream_chat(safe_messages, current_options)
+        return self._sync_chat(safe_messages, current_options, applied_max_new_tokens)
 
-            while True:
-                try:
-                    token = q.get(timeout=0.1)
-                    if token is None: break
-                    
-                    if isinstance(token, dict) and token.get("type") == "function_call":
-                        func.log(f"{Color.CYAN}[SENTINEL]: ACTION DETECTED -> {token['name']}{Color.RESET}")
-                        self.trigger("tool_detected", token["name"])
-                        yield token
-                        return 
+    def _stream_chat(self, safe_messages: list, current_options: dict):
+        """Yields tokens (or a function_call dict) produced by the generation thread."""
+        q = queue.Queue()
+        self._generation_thread = threading.Thread(
+            target=self._generate_in_thread,
+            args=(safe_messages, current_options, q),
+        )
+        self._generation_thread.start()
+
+        while True:
+            try:
+                token = q.get(timeout=0.1)
+                if token is None: break
+
+                if isinstance(token, dict) and token.get("type") == "function_call":
+                    func.log(f"{Color.CYAN}[SENTINEL]: ACTION DETECTED -> {token['name']}{Color.RESET}")
+                    self.trigger("tool_detected", token["name"])
                     yield token
-                except queue.Empty:
-                    if self._generation_thread is None and not self._generation_thread.is_alive(): break
-                    continue
-        else:
-            func.debug("[GGUF Engine] Executing synchronous generation...")
-            with GGUFImageLLM._shared_mem_lock:
-                output = self.llama_model.create_chat_completion(
-                    messages=safe_messages,
-                    stream=False,
-                    max_tokens=applied_max_new_tokens,
-                    temperature=current_options.get("temperature", 0.7),
-                    top_p=current_options.get("top_p", 0.95)
-                )
-            
-            text = output["choices"][0]["message"]["content"]
-            usage = output.get("usage", {})
-            p_tokens = usage.get("prompt_tokens", "Unknown")
-            c_tokens = usage.get("completion_tokens", "Unknown")
-            
-            func.debug(f"{Color.GREEN}[GGUF Engine] Sync Complete. Prompt: {p_tokens} | Output: {c_tokens}")
-            
-            action = ToolRegistry.parse_manual_tags(text)
-            self.trigger(BaseModel.STREAMING_FINISHED_EVENT, text)
-            return action if action else text
+                    return
+                yield token
+            except queue.Empty:
+                # The thread always ends with a None sentinel; stop if it died without one.
+                if self._generation_thread is None or not self._generation_thread.is_alive(): break
+                continue
+
+    def _sync_chat(self, safe_messages: list, current_options: dict, applied_max_new_tokens: int):
+        """Runs a blocking completion and returns the text, or a parsed tool action."""
+        func.debug("[GGUF Engine] Executing synchronous generation...")
+        with GGUFImageLLM._shared_mem_lock:
+            output = self.llama_model.create_chat_completion(
+                messages=safe_messages,
+                stream=False,
+                max_tokens=applied_max_new_tokens,
+                temperature=current_options.get("temperature", 0.7),
+                top_p=current_options.get("top_p", 0.95)
+            )
+
+        text = output["choices"][0]["message"]["content"]
+        usage = output.get("usage", {})
+        p_tokens = usage.get("prompt_tokens", "Unknown")
+        c_tokens = usage.get("completion_tokens", "Unknown")
+
+        func.debug(f"{Color.GREEN}[GGUF Engine] Sync Complete. Prompt: {p_tokens} | Output: {c_tokens}")
+
+        action = ToolRegistry.parse_manual_tags(text)
+        self.trigger(BaseModel.STREAMING_FINISHED_EVENT, text)
+        return action if action else text
 
     def list(self) -> list:
         if self.llama_model:
