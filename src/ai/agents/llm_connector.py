@@ -1,5 +1,5 @@
 import os
-from typing import Dict, Any, List, Optional
+from typing import Callable, Dict, Any, List, Optional
 
 import ai.functions as func
 from ai.agents.xml_response_parser import ResponseParser
@@ -7,6 +7,10 @@ from ai.core.llms.base_llm import BaseModel
 from ai.chat.chat import ChatRoles
 from ai.direct import ask
 from ai.services.directory_manager import DirectoryManager
+from ai.core.llms.api_retry import LLMAPIError
+
+# Whole-call retries when a stream drops after output started (cannot be resumed).
+PARTIAL_STREAM_RETRIES = 2
 
 class LLMConnector:
     """
@@ -28,6 +32,8 @@ class LLMConnector:
         # Initialize the new strict parser here
         self.parser = ResponseParser()
         self.directory_manager = DirectoryManager()
+        # Optional per-token callback (set by interactive UIs for live progress).
+        self.on_token: Optional[Callable[[str], None]] = None
         
     def get_context_limit(self) -> int:
         """
@@ -85,7 +91,18 @@ class LLMConnector:
             BaseModel.create_message(ChatRoles.USER, f"<context>{str(json_input)}</context>"),
         ]
 
-        raw_response = self._execute_llm_call(messages)
+        attempt = 0
+        while True:
+            try:
+                raw_response = self._execute_llm_call(messages)
+                break
+            except LLMAPIError as e:
+                attempt += 1
+                if e.transient and e.partial and attempt <= PARTIAL_STREAM_RETRIES:
+                    func.log(f"LLMConnector: stream interrupted mid-response, re-running the call ({attempt}/{PARTIAL_STREAM_RETRIES}).", level="WARN")
+                    continue
+                # Not the model's fault: report it as an API failure, not a malformed response.
+                return {"status": "FAILED", "api_error": True, "transient": e.transient, "error": e.user_message()}
         
         # Using the new strict parser
         parsed = self.parser.parse(raw_response)
@@ -144,7 +161,11 @@ class LLMConnector:
                 f"INSTRUCTION:\n{payload.get('instruction')}"
             )
         ]
-        return self._execute_llm_call(messages).strip()
+        try:
+            return self._execute_llm_call(messages).strip()
+        except LLMAPIError as e:
+            func.error(f"LLMConnector: raw request failed: {e.user_message()}")
+            return ""
 
     def _execute_llm_call(self, messages: List[Dict[str, str]]) -> str:
         """
@@ -167,7 +188,8 @@ class LLMConnector:
                 print_output=False, 
                 output_filename=output_filename, 
                 write_to_file=True,
-                stream=True
+                stream=True,
+                on_token=self.on_token
             )
             
             if os.path.exists(output_filename):
@@ -178,6 +200,8 @@ class LLMConnector:
                 func.error("LLM execution finished but output file was not created.")
                 return ""
                 
+        except LLMAPIError:
+            raise
         except Exception as e:
             func.error(f"LLM Execution failed: {e}")
             if os.path.exists(output_filename):

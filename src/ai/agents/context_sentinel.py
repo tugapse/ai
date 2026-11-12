@@ -23,6 +23,7 @@ class ContextSentinel:
         self.threshold = threshold
         self.max_tokens = max_tokens
         self.buffer = buffer  # Safety buffer to prevent hitting hard limits
+        self.last_pressure: float = 0.0  # Last measured context pressure (0..1+), for UIs
         
 
     def enforce_limits(self, agent_name: str, memory_manager: Any, payload: Dict[str, Any], vector_memory: Optional[Any] = None) -> Tuple[Dict[str, Any], bool]:
@@ -45,6 +46,7 @@ class ContextSentinel:
         est_tokens = len(json.dumps(payload)) / 3.2
         delta = (self.max_tokens - self.buffer )
         pressure = est_tokens / delta if delta > 0 else 1
+        self.last_pressure = pressure
 
         if delta <= 0:
             return payload, False

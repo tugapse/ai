@@ -1,12 +1,5 @@
 {
   "mcpServers": {
-    "powerpoint": {
-      "enabled": true,
-      "auto_allow": true,
-      "description": "Create, edit, and manage Microsoft PowerPoint (.pptx) presentations.",
-      "command": "pathTO/Office-PowerPoint-MCP-Server/.venv/bin/python",
-      "args": ["pathTO/Office-PowerPoint-MCP-Server/ppt_mcp_server.py"]
-    },
     "playwright": {
       "enabled": true,
       "auto_allow": true,

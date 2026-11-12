@@ -2,7 +2,7 @@ import os
 import re
 import unicodedata
 from time import time
-from typing import Union, Optional, List, Dict
+from typing import Callable, Union, Optional, List, Dict
 
 # Core/Services
 import ai.functions as func
@@ -36,7 +36,8 @@ def ask(
     output_filename: Optional[str] = None,
     hide_think_anim: bool = False,
     print_output: bool = True,
-    stream: bool = True
+    stream: bool = True,
+    on_token: Optional[Callable[[str], None]] = None
 ) -> None:
     """
     Executes a single LLM request (Direct Task).
@@ -53,6 +54,8 @@ def ask(
         hide_think_anim: If True, suppresses the thinking animation during processing.
         print_output: If True, prints each token to the console as it is received.
         stream: If True, processes the response token by token instead of waiting for the full response.
+        on_token: Optional callback invoked with every sanitized token (including thinking tokens),
+            used by interactive UIs to show live progress.
     """
     start_time = time()
     first_token_time = None
@@ -92,6 +95,12 @@ def ask(
             if not token:
                 continue
 
+            if on_token:
+                try:
+                    on_token(token)
+                except Exception as e:
+                    func.debug(f"Direct: on_token callback failed: {e}")
+
             display_to_user, content, _ = handler.process_token_chain(token)
 
             if display_to_user:
@@ -110,7 +119,8 @@ def ask(
     
     finally:
         end_time = time()
-        func.out("")
+        if print_output:
+            func.out("")
 
         if first_token_time:
             latency = func.format_execution_time(start_time, first_token_time)

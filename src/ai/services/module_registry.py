@@ -11,6 +11,8 @@ class ModuleRegistry:
     Supports dynamic loading/unloading and dictionary-style access.
     """
 
+    TOOL_MODULES = ("tools_filesystem", "tools_search", "tools_shell", "tools_web", "tools_notify")
+
     def __init__(self, config: ProgramConfig):
         """
         Initializes the ModuleRegistry.
@@ -27,6 +29,13 @@ class ModuleRegistry:
             "vector_memory": self._load_vector_memory_logic,
             "knowledge_graph": self._load_knowledge_graph_logic
         }
+
+        # Built-in agent tool modules (ai.modules.tools_*). Enabled unless the config
+        # explicitly sets "<NAME>_ENABLED": false.
+        self._enabled_by_default = set()
+        for name in self.TOOL_MODULES:
+            self._manifest[name] = (lambda n=name: self._load_tool_module(n))
+            self._enabled_by_default.add(name)
 
     def __getitem__(self, key: str) -> Optional[BaseModule]:
         """
@@ -67,7 +76,10 @@ class ModuleRegistry:
                 enabled_value = None
 
 
-            should_load = bool(enabled_value)
+            if enabled_value is None:
+                should_load = mod_name in self._enabled_by_default
+            else:
+                should_load = enabled_value if isinstance(enabled_value, bool) else str(enabled_value).strip().lower() in ("1", "true", "yes", "on")
 
             if should_load:
                 func.log(f"ModuleRegistry: Booting '{mod_name}'...")
@@ -76,6 +88,38 @@ class ModuleRegistry:
                     self._active_modules[mod_name] = instance
             else:
                 func.debug(f"ModuleRegistry: Skipping '{mod_name}' (Not requested).")
+
+    def _load_tool_module(self, name: str):
+        """
+        Imports ai.modules.<name> and builds its ToolModule via create_module().
+
+        Returns:
+            The initialized ToolModule, or None if it cannot be loaded.
+        """
+        try:
+            import importlib
+            module = importlib.import_module(f"ai.modules.{name}").create_module()
+            module.initialize()
+            return module
+        except Exception as e:
+            func.error(f"ModuleRegistry: failed to load tool module '{name}': {e}")
+            return None
+
+    def tool_functions(self) -> Dict[str, Any]:
+        """All tools exposed by the active tool modules: {tool_name: callable}."""
+        from ai.modules.base_module import ToolModule
+        tools: Dict[str, Any] = {}
+        for name, mod in self._active_modules.items():
+            if not isinstance(mod, ToolModule):
+                continue
+            try:
+                instance = mod.get_instance()
+            except Exception:
+                continue
+            provider = getattr(instance, "tools", None)
+            if provider is not None and hasattr(provider, "get_tools"):
+                tools.update(provider.get_tools())
+        return tools
 
     def _load_voice_logic(self):
         """

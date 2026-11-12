@@ -98,12 +98,12 @@ class TestAgentToolsExtensive:
         res_p = patch_file(path=file_path, search="old_func", replace="new_func")
         assert res_p["status"] == "SUCCESS"
 
-    @patch('subprocess.run')
-    def test_06_execute_command_logic(self, mock_run):
+    @patch('subprocess.Popen')
+    def test_06_execute_command_logic(self, mock_popen):
         self.log_scenario("Command Interpolation", "Ensure @ROOT is swapped for real paths in shell commands.")
-        mock_run.return_value = MagicMock(returncode=0, stdout="success", stderr="")
+        mock_popen.return_value = MagicMock(returncode=0, communicate=MagicMock(return_value=("success", "")))
         execute_command(command="ls @ROOT/src")
-        args, _ = mock_run.call_args
+        args, _ = mock_popen.call_args
         assert "@ROOT" not in args[0]
 
     def test_07_command_timeout(self):

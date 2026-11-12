@@ -28,11 +28,10 @@ from ai.color import Color, format_text
 from ai.direct import ask
 
 # Agent logic
-from ai.agents.agent import AgentOrchestrator, LLMConnector, ToolRegistry, load_pipeline_config
+from ai.agents.agent import AgentOrchestrator, LLMConnector, ToolRegistry, load_pipeline_config, build_orchestrator
 from ai.program import Program
 from ai.services.directory_manager import DirectoryManager
 from ai.tools.tool_loader import load_and_register_user_tools
-import ai.tools.agent_tools as agent_tools
 
 import ai.functions as func
 
@@ -71,7 +70,7 @@ class CliArgs:
         self._handle_local_direct_mode(prog, args,directory_manager=directory_manager)
 
         # 3. Execution Dispatching
-        if args.agent:
+        if args.agent or getattr(args, "resume", None) is not None:
             self._handle_agent_mode(prog, args, directory_manager)
             os._exit(0) 
 
@@ -113,7 +112,7 @@ class CliArgs:
 
         # Using double braces {{ }} for literal braces in the generated code
         skeleton_content = f"""
-from ai.tools.agent_tools import tool
+from ai.tools.base import tool
 
 @tool
 def {function_name}(argument: str) -> str:
@@ -205,6 +204,12 @@ def {function_name}(argument: str) -> str:
         :param directory_manager: The directory management service for loading user tools.
         :raises SystemExit: Exits after the agent loop completes or fails.
         """
+        if getattr(args, "resume", None) is not None:
+            resumed = self._resolve_resume_session(args)
+            if not resumed:
+                sys.exit(0)
+            args.session_id = resumed
+
         taskfile = ""
         _task = ""
         if args.task_file:
@@ -227,48 +232,97 @@ def {function_name}(argument: str) -> str:
                 else:  user_input = piped_input
         user_input = user_input + args.msg if args.msg else user_input
 
-        if not user_input :
+        pipeline_path = args.pipeline or "default.json"
+
+        if not user_input:
+            # Interactive terminal and no prompt: open the agent chat.
+            if sys.stdin.isatty() and sys.stdout.isatty() and not args.output_file:
+                self._handle_agent_chat(prog, args, directory_manager, pipeline_path)
+                sys.exit(0)
             func.error("Agent mode requires a prompt. Use --msg, --task, or pipe input.")
             sys.exit(1)
 
-        pipeline_path = args.pipeline or "default.json"
-        pipeline_config = load_pipeline_config(prog, pipeline_path)
-
-        if not pipeline_config:
-            func.error("Failed to load pipeline config. Aborting.")
+        try:
+            orchestrator = build_orchestrator(prog, pipeline_path, directory_manager=directory_manager)
+        except ValueError as e:
+            func.error(f"{e} Aborting.")
             sys.exit(1)
-        
-        if not prog.llm:
-            func.error("LLM not initialized. Cannot proceed with agent mode.")
-            sys.exit(1)
-        
-        connector = LLMConnector(prog.llm)
-        registry = ToolRegistry()
-        
-        for name, tool_ref in agent_tools.AVAILABLE_TOOLS.items():
-            registry.register_tool(name, tool_ref)
 
-        # Dynamically load and register tools from the user-defined 'tools' directory
-        user_tools_dir = directory_manager.get_user_tools_directory()   
-        load_and_register_user_tools(registry, user_tools_dir)
-       
         session_id = args.session_id or str(uuid.uuid4())
         func.log(f"Session: {session_id}")
 
-        orchestrator = AgentOrchestrator(
-            llm_connector=connector, 
-            tool_registry=registry, 
-            pipeline_config=pipeline_config,
-            module_registry=prog.modules
-        )
-        
         try:
             orchestrator.run_loop(user_prompt=user_input, session_id=session_id)
         except Exception as e:
             func.error(f"Orchestrator Error: {e}")
             func.error(traceback.format_exc())
         finally:
+            orchestrator.close()
             sys.exit(0)
+
+    def _resolve_resume_session(self, args) -> Optional[str]:
+        """
+        Resolves --resume into a session id: an explicit id/prefix, or an interactive pick
+        from the agent sessions of the current working directory.
+
+        :param args: The parsed command-line arguments (uses --resume).
+        :return: The session id to resume, or None when there is nothing to resume or the user cancelled.
+        :raises SystemExit: On an unknown/ambiguous id, or when a picker is needed without a terminal.
+        """
+        from ai.agents.chat_ui.session_picker import pick_session, resolve_session_id
+
+        sessions = AgentSessionManager.list_sessions_detailed(os.getcwd())
+        query = (args.resume or "").strip()
+
+        if query:
+            try:
+                session_id = resolve_session_id(sessions, query)
+            except ValueError as e:
+                func.error(str(e))
+                sys.exit(1)
+            if not session_id:
+                func.error(f"No agent session matching '{query}' in {os.getcwd()}. Use --list-sessions to see them.")
+                sys.exit(1)
+            return session_id
+
+        if not sessions:
+            func.out(f"No agent sessions found for {os.getcwd()}.", level="INFO")
+            return None
+
+        if not (sys.stdin.isatty() and sys.stdout.isatty()):
+            func.error("--resume without an id needs an interactive terminal. Use --list-sessions and --resume <id>.")
+            sys.exit(1)
+
+        session_id = pick_session(sessions)
+        if not session_id:
+            func.out("Resume cancelled.", level="INFO")
+        return session_id
+
+    def _handle_agent_chat(self, prog: Program, args, directory_manager: DirectoryManager, pipeline_path: str):
+        """
+        Starts the interactive multi-turn agent chat (prompt_toolkit UI).
+
+        :param prog: The main program instance.
+        :param args: The parsed command-line arguments (uses --session-id).
+        :param directory_manager: The directory management service.
+        :param pipeline_path: The pipeline configuration to load.
+        """
+        from ai.agents.chat_ui.app import run_agent_chat
+
+        try:
+            run_agent_chat(
+                prog,
+                pipeline=pipeline_path,
+                session_id=args.session_id,
+                directory_manager=directory_manager,
+            )
+        except ValueError as e:
+            func.error(f"{e} Aborting.")
+            sys.exit(1)
+        except Exception as e:
+            func.error(f"Agent chat error: {e}")
+            func.error(traceback.format_exc())
+            sys.exit(1)
 
     def _check_nhandle_config_generation(self, prog, args, parser: argparse.ArgumentParser, directory_manager: DirectoryManager):
         """
