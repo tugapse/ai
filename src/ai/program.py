@@ -17,7 +17,6 @@ from ai.modules.vector_memory.vector_memory_module import VectorMemoryModule
 from ai.modules.vector_memory.vector_memory import VectorMemory
 from ai.modules.voice.base_module import BaseVoiceModule
 from ai.tools.tool_registry import ToolRegistry
-from ai.tools.agent_tools import AVAILABLE_TOOLS
 from ai.tools.tool_loader import load_and_register_user_tools
 
 # Services Orchestration
@@ -134,8 +133,9 @@ class Program:
         and memory-derived tools, registering them into the central registry.
         """
         func.log("Loading System tools into Jarvis system")
-        for name, tool_ref in AVAILABLE_TOOLS.items():
-            self.tool_registry.register_tool(name, tool_ref)
+        if self.modules is not None:
+            for name, tool_ref in self.modules.tool_functions().items():
+                self.tool_registry.register_tool(name, tool_ref)
         
 
         func.log("Loading User tools into Jarvis system")

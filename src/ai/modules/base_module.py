@@ -89,3 +89,39 @@ class BaseModule:
         func.log(f"Shutting down Module: {self.module_name}")
         self._instance = None
         self._is_initialized = False
+
+class ToolModule(BaseModule):
+    """
+    A module whose only job is to expose agent tools (``@tool`` functions).
+
+    Loaded by the ModuleRegistry like any other module and enabled/disabled with
+    ``<MODULE_NAME>_ENABLED`` in config.json. Its tools are collected by the agent
+    orchestrator and the chat program through ``get_instance().tools``.
+    """
+
+    def __init__(self, module_name: str, tool_functions, description: str = "", **kwargs):
+        super().__init__(module_name, **kwargs)
+        self.description = description
+        self._tool_functions = list(tool_functions)
+
+    def initialize(self, *args, **kwargs):
+        if self._is_initialized:
+            return
+        for fn in self._tool_functions:
+            self.tools.register_tool(fn.__name__, fn)
+        self._instance = self
+        self._is_initialized = True
+        func.debug(f"ToolModule '{self.module_name}': {len(self._tool_functions)} tools ({', '.join(self.tool_names)})")
+
+    def get_instance(self):
+        if not self._is_initialized:
+            self.initialize()
+        return self._instance
+
+    @property
+    def tool_names(self):
+        return [fn.__name__ for fn in self._tool_functions]
+
+    def shutdown(self):
+        self.tools = ModuleTools()
+        super().shutdown()

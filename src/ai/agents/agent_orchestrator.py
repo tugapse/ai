@@ -27,6 +27,8 @@ MANAGER_AGENT_ROLE = "management"
 STOP_SIGNAL = "STOP"
 MASTER_AGENT = "MASTER"
 USER_TARGET = "USER"
+# Alias any agent may target to mean "itself"; resolved to the acting agent's name.
+SELF_TARGET = "SELF"
 DONE_SIGNAL = "DONE"
 
 # Fallback list of tools that require explicit user authorization (HIL).
@@ -210,6 +212,7 @@ class AgentOrchestrator(Events):
 
             active_tools = self._assemble_agent_tools(current_agent)
             agent_config["tools"] = self._allowed_tools(current_agent)
+            agent_config["allowed_targets"] = self._targets_for_prompt(current_agent, agent_config)
             agent_config["tool_descriptions"] = "\n".join([self.tool_registry.get_tool_info(name) for name in active_tools.keys()])
 
             payload = self._prepare_payload(user_prompt, current_agent)
@@ -448,7 +451,7 @@ class AgentOrchestrator(Events):
         """
         action = response.get("action", {})
         tool_name, params = action.get("tool_name"), action.get("tool_parameters", {})
-        target = str(action.get("agent_target", "")).strip().upper()
+        target = self._resolve_target_alias(str(action.get("agent_target", "")).strip().upper(), agent)
 
         # Status first: the agent's current priority from THIS response, shown before its
         # message and before any permission request (it used to lag one step behind).
@@ -473,6 +476,10 @@ class AgentOrchestrator(Events):
         self.memory.check_stagnation(tool_name, params)
 
         if target == USER_TARGET:
+            # A tool call in the same response must still run before handing back to the user
+            # (it used to be silently skipped while the agent reported it as done).
+            if tool_name and str(tool_name).upper() != "NULL":
+                self._handle_tool_execution(tool_name, params, agent, config)
             question = action.get("message_to_target")
             prompt = question or msg or "Clarification required."
             # If the agent only handed control back after answering, its response was
@@ -636,6 +643,18 @@ class AgentOrchestrator(Events):
             return True
         return False
 
+    @staticmethod
+    def _targets_for_prompt(agent: str, config: Dict[str, Any]) -> List[str]:
+        """The agent's allowed targets as it sees them: its own name is shown as SELF, listed first."""
+        allowed = config.get("allowed_targets", [STOP_SIGNAL, USER_TARGET])
+        others = [t for t in allowed if str(t).strip().upper() not in (agent, SELF_TARGET)]
+        return [SELF_TARGET] + others
+
+    @staticmethod
+    def _resolve_target_alias(target: str, agent: str) -> str:
+        """Maps SELF to the agent that produced the response (e.g. ENGINEER -> SELF -> ENGINEER)."""
+        return agent if target == SELF_TARGET else target
+
     def _validate_target(self, target: str, is_empty: bool, agent: str, config: Dict[str, Any]) -> str:
         """
         Validates the intended transition target specified in the LLM response.
@@ -651,7 +670,8 @@ class AgentOrchestrator(Events):
         """
         if target == USER_TARGET: return USER_TARGET
         allowed = config.get("allowed_targets", [STOP_SIGNAL, "USER"])
-        if target and target not in allowed:
+        # An agent may always stay on itself (SELF resolves to it), even if not listed.
+        if target and target != agent and target not in allowed:
             self.memory.add_message_to_agent(agent, {"from": "SYSTEM", "message": f"Invalid transition target: {target}"})
             return agent
         if is_empty and not target:

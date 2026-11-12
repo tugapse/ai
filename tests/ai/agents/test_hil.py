@@ -231,3 +231,14 @@ class TestStatusComesFirst:
         io.emit(AgentEvent(AgentEventType.STATUS, "M", "progress", {"fresh": False}))
         io.emit(AgentEvent(AgentEventType.STATUS, "M", "Run the build", {"fresh": True, "phase": "exec"}))
         assert len(out) == 1 and "Run the build" in out[0] and "exec" in out[0]
+
+
+def test_tool_with_user_target_still_runs():
+    """Regression: patch_file + agent_target USER skipped the tool but the agent claimed success."""
+    io = RecordingIO(permission=PERMISSION_YES)
+    orch, _, reg = make_orchestrator([
+        {"response_to_user": "Renamed it.", "action": {"tool_name": "read_file", "tool_parameters": {"path": "a"}, "agent_target": "USER"}},
+    ], io=io, pipeline=PIPELINE)
+    result = orch.run_loop("go", "s-user-tool")
+    assert result.reason == "awaiting_user"
+    assert reg.executed == [("read_file", {"path": "a"})]

@@ -635,3 +635,49 @@ class TestStuckModelCall:
 
             elapsed = asyncio.run(scenario())
         assert elapsed < 1.0
+
+
+# ---------------------------------------------------------------- SELF target
+
+SELF_PIPELINE = {
+    "entry_point": "MASTER",
+    "max_iterations": 10,
+    "agents": {
+        "MASTER": {"role": "management", "tools": [], "allowed_targets": ["ENGINEER", "STOP"], "prompt_file_path": "m.md"},
+        "ENGINEER": {"role": "engineer", "tools": [], "allowed_targets": ["MASTER"], "prompt_file_path": "e.md"},
+        "SECRETARY": {"role": "secretary", "tools": [], "allowed_targets": ["MASTER"], "prompt_file_path": "s.md"},
+    },
+}
+
+
+class TestSelfTarget:
+    def test_self_resolves_to_the_acting_agent(self):
+        orch, conn, _ = make_orchestrator([
+            {"action": {"agent_target": "ENGINEER", "message_to_target": "build it"}},  # MASTER
+            {"action": {"agent_target": "SELF", "message_to_target": "note to self"}},  # ENGINEER
+            {"action": {"agent_target": "MASTER"}},                                     # ENGINEER again
+            {"action": {"agent_target": "STOP"}},                                       # MASTER
+        ], pipeline=SELF_PIPELINE)
+        orch.run_loop("go", "s-self")
+        assert [r["config"]["role"] for r in conn.requests] == ["management", "engineer", "engineer", "management"]
+
+    def test_self_is_valid_even_when_not_in_allowed_targets(self):
+        orch, _, _ = make_orchestrator([], pipeline=SELF_PIPELINE)
+        config = SELF_PIPELINE["agents"]["SECRETARY"]
+        orch.memory = MagicMock()
+        assert orch._process_agent_response({"action": {"agent_target": "self"}}, "SECRETARY", config) == "SECRETARY"
+        orch.memory.add_message_to_agent.assert_not_called()
+
+    def test_prompt_shows_self_instead_of_own_name(self):
+        orch, conn, _ = make_orchestrator([
+            {"action": {"agent_target": "ENGINEER"}},   # MASTER
+            {"action": {"agent_target": "MASTER"}},     # ENGINEER
+            {"action": {"agent_target": "STOP"}},       # MASTER
+        ], pipeline={**SELF_PIPELINE, "agents": {
+            **SELF_PIPELINE["agents"],
+            "ENGINEER": {**SELF_PIPELINE["agents"]["ENGINEER"], "allowed_targets": ["ENGINEER", "MASTER", "USER"]},
+        }})
+        orch.run_loop("go", "s-self-prompt")
+        targets = [r["config"]["allowed_targets"] for r in conn.requests]
+        assert targets[0] == ["SELF", "ENGINEER", "STOP"]        # MASTER never sees MASTER
+        assert targets[1] == ["SELF", "MASTER", "USER"]          # ENGINEER never sees ENGINEER

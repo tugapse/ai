@@ -259,13 +259,21 @@ class MCPBridge:
             description: The high-level description of the server's capabilities.
         """
         
-        # The docstring explicitly teaches JARVIS to pass arguments flatly
-        docstring = f"{description}\n\nArgs:\n"
-        docstring += "    action (str): Use 'list_tools' to see available commands, or 'execute' to run one. Required.\n"
-        docstring += "    command (str): The specific tool name to run. Required if action is 'execute'.\n"
-        docstring += "    [other_params] (Any): Pass any required command arguments directly as top-level parameters.\n"
-        docstring += "    arguments (JSON object): Optional. Command arguments as a JSON object, e.g. {\"action\": \"list\"}. "
-        docstring += "REQUIRED for arguments named 'action' or 'command', which clash with the gateway's own parameters.\n"
+        # This docstring is the ONLY thing the agent sees about the server: keep it model-facing.
+        docstring = (
+            f"{description}\n\n"
+            "This tool is a gateway to an MCP server with its own commands. First call it with action\n"
+            "'list_tools' to see the commands and their arguments, then call it with action 'execute'.\n"
+            "Pass each command argument as its own tag (e.g. <url>https://example.com</url>), or all of\n"
+            "them in 'arguments'.\n\n"
+            "Args:\n"
+            "    action (string): 'list_tools' or 'execute'.\n"
+            "    command (string, optional): Command name from list_tools. Required when action is 'execute'.\n"
+            "    arguments (string, optional): The command's arguments as a JSON object, e.g. {\"url\": \"https://example.com\"}. "
+            "REQUIRED for command arguments named 'action' or 'command'.\n\n"
+            "Returns:\n"
+            "    output: the command's result text (images are summarized as [image: type, size]), or an error.\n"
+        )
 
         def gateway_wrapper(**kwargs) -> Dict[str, Any]:
             """

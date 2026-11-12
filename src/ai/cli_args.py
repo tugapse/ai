@@ -32,7 +32,6 @@ from ai.agents.agent import AgentOrchestrator, LLMConnector, ToolRegistry, load_
 from ai.program import Program
 from ai.services.directory_manager import DirectoryManager
 from ai.tools.tool_loader import load_and_register_user_tools
-import ai.tools.agent_tools as agent_tools
 
 import ai.functions as func
 
@@ -113,7 +112,7 @@ class CliArgs:
 
         # Using double braces {{ }} for literal braces in the generated code
         skeleton_content = f"""
-from ai.tools.agent_tools import tool
+from ai.tools.base import tool
 
 @tool
 def {function_name}(argument: str) -> str:

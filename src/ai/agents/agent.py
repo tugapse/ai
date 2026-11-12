@@ -93,7 +93,6 @@ def build_orchestrator(prog, pipeline_file: str = "default.json", io=None, direc
         ValueError: If the pipeline cannot be loaded or the LLM is not available.
     """
     from ai.tools.tool_loader import load_and_register_user_tools
-    import ai.tools.agent_tools as agent_tools
 
     pipeline_config = load_pipeline_config(prog, pipeline_file)
     if not pipeline_config:
@@ -104,8 +103,10 @@ def build_orchestrator(prog, pipeline_file: str = "default.json", io=None, direc
 
     connector = LLMConnector(prog.llm)
     registry = ToolRegistry()
-    for name, tool_ref in agent_tools.AVAILABLE_TOOLS.items():
-        registry.register_tool(name, tool_ref)
+    # Built-in tools come from the enabled tool modules (ai.modules.tools_*).
+    if prog.modules is not None and hasattr(prog.modules, "tool_functions"):
+        for name, tool_ref in prog.modules.tool_functions().items():
+            registry.register_tool(name, tool_ref)
 
     # Dynamically load and register tools from the user-defined 'tools' directory
     directory_manager = directory_manager or DirectoryManager()

@@ -1,3 +1,4 @@
+import inspect
 import json
 import re
 from typing import Dict, Any, Callable, Optional
@@ -54,8 +55,8 @@ class ToolRegistry:
         if name not in self._tools:
             return f"- {name}: No description available."
 
-        doc = self._tools[name].__doc__ or "No description provided."
-        indented_doc = doc.strip().replace("\n", "\n  ")
+        doc = inspect.cleandoc(self._tools[name].__doc__ or "No description provided.")
+        indented_doc = doc.replace("\n", "\n  ")
         return f"- {name}:\n  {indented_doc}"
 
     def execute_tool(self, name: str, params: Dict[str, Any]) -> Dict[str, Any]:

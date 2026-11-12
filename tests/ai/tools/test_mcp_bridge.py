@@ -101,6 +101,7 @@ class TestConnection:
         info = registry.get_tool_info(SERVER)
         assert "Test MCP server used by the JARVIS test-suite." in info
         assert "list_tools" in info and "execute" in info
+        assert "First call it with action" in info  # teaches the list-then-execute flow
 
 
 # ---------------------------------------------------------------- list_tools
@@ -224,7 +225,8 @@ class TestArgumentsObject:
     def test_list_tools_and_description_explain_it(self, bridge, registry):
         output = call(registry, action="list_tools")["output"]
         assert 'pass via arguments={"action": ...}' in output
-        assert "arguments (JSON object)" in registry.get_tool_info(SERVER)
+        info = registry.get_tool_info(SERVER)
+        assert "arguments (string, optional)" in info and "'action' or 'command'" in info
 
 
 class TestGatewayErrors:
