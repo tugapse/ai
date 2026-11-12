@@ -1,5 +1,12 @@
-from pydantic import BaseModel, Field
+import re
+
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional, Dict, Any
+
+MAX_IMAGES_PER_MESSAGE = 4
+MAX_IMAGE_BYTES = 10 * 1024 * 1024
+_IMAGE_DATA_URL = re.compile(r"^data:image/(png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=\s]+$")
+
 
 class ChatMessage(BaseModel):
     """
@@ -8,9 +15,26 @@ class ChatMessage(BaseModel):
     Attributes:
         role (str): The role of the sender (e.g., 'user', 'assistant').
         content (str): The textual content of the message.
+        images (Optional[List[str]]): Image data URLs (png, jpeg, webp, gif). Only the last
+            user message's images reach the model.
     """
     role: str
     content: str
+    images: Optional[List[str]] = None
+
+    @field_validator("images")
+    @classmethod
+    def _check_images(cls, images):
+        if not images:
+            return None
+        if len(images) > MAX_IMAGES_PER_MESSAGE:
+            raise ValueError(f"At most {MAX_IMAGES_PER_MESSAGE} images per message.")
+        for image in images:
+            if not _IMAGE_DATA_URL.match(image):
+                raise ValueError("Images must be data URLs: data:image/<png|jpeg|webp|gif>;base64,...")
+            if (len(image) - image.index(",") - 1) * 3 // 4 > MAX_IMAGE_BYTES:
+                raise ValueError(f"Each image must be at most {MAX_IMAGE_BYTES // (1024 * 1024)} MB.")
+        return images
 
 class ChatCompletionRequest(BaseModel):
     """

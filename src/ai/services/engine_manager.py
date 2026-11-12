@@ -226,7 +226,7 @@ class EngineManager:
         other_llm_kwargs = {k: v for k, v in model_properties.items()
                             if k not in ["quantization_bits", "n_ctx", "n_gpu_layers", "verbose",
                                          "gguf_filename", "model_repo_id", "do_sample",
-                                          "azure_endpoint","api_key_name"]
+                                          "azure_endpoint","api_key_name", "mmproj_filename"]
                            }
         if tool_registry : 
             other_llm_kwargs['tool_registry'] = tool_registry
@@ -346,6 +346,7 @@ class EngineManager:
             n_ctx=n_ctx,
             verbose=verbose,
             model_params=model_params,
+            mmproj_filename=model_properties.get("mmproj_filename", ""),
             **other_llm_kwargs
         )
         func.log(f"Model '{model_name}' loaded as a GGUF Image LLM.")

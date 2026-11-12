@@ -28,6 +28,8 @@ class BrainHub:
         self.orchestrator = ModelOrchestrator(config)
         self.history_file: str = ""
         self.current_model_id: Optional[str] = None
+        # Set while a web agent run uses the model; chat requests are refused meanwhile.
+        self.agent_running = False
         # Serialises load/unload: a swap must not run while another request is swapping.
         self._lock = threading.RLock()
         self.history = self.new_history(None, "default", None)
@@ -70,7 +72,7 @@ class BrainHub:
         self.history = self.new_history(session_title, session_id, session_folder)
         self.load_history_from_json(session_filepath)
 
-    def add_history_message(self, role: str, content: str):
+    def add_history_message(self, role: str, content: str, images: Optional[list] = None):
             """
             Convenience method to add messages to the history from the API endpoints.
 
@@ -81,9 +83,10 @@ class BrainHub:
                 role: The role of the message (e.g., 'user', 'assistant').
                 content: The textual content of the message.
             """
-            self.history["messages"].append(
-                {"role": role, "content": content}
-            )
+            message = {"role": role, "content": content}
+            if images:
+                message["images"] = images
+            self.history["messages"].append(message)
             self.history["last_updated"] = self.get_timestamp()
             self.save_history_to_json(self.history_file)
 
@@ -265,23 +268,31 @@ class BrainHub:
         """A server can load any engine except ``jarvis``, which is a client of this server."""
         return str(config_data.get("model_type", "")).lower() != "jarvis"
 
+    @staticmethod
+    def has_vision(config_data: dict) -> bool:
+        """Whether a config's model can read images: Gemini, or GGUF with a vision projector."""
+        model_type = str(config_data.get("model_type", "")).lower()
+        properties = config_data.get("model_properties") or {}
+        return model_type == "gemini" or (model_type == "gguf" and bool(properties.get("mmproj_filename")))
+
     def list_model_configs(self) -> list:
         """
         Every model config the server knows, subfolders included, loadable or not.
 
         Returns:
             Dicts sorted by key: ``key`` (what a request sends as ``model``), ``model_name``
-            (display name), ``model_type`` and ``loadable`` (False for ``jarvis`` client configs
+            (display name), ``model_type``, ``vision`` (reads images) and ``loadable`` (False for ``jarvis`` client configs
             and for files that are not valid JSON, which also carry ``error``).
         """
         configs = []
         for key, path in self.orchestrator.list_config_files().items():
-            entry = {"key": key.lower(), "model_name": key, "model_type": "", "loadable": False}
+            entry = {"key": key.lower(), "model_name": key, "model_type": "", "loadable": False, "vision": False}
             try:
                 data = EngineManager.load_config(path)
                 entry["model_name"] = data.get("model_name") or key
                 entry["model_type"] = str(data.get("model_type", ""))
                 entry["loadable"] = self.is_loadable(data)
+                entry["vision"] = self.has_vision(data)
             except Exception as e:
                 entry["error"] = str(e)
             configs.append(entry)

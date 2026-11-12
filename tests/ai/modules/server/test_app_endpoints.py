@@ -129,3 +129,52 @@ class TestSessionContentUpdate:
     def test_title_route_still_works(self, client, session):
         assert client.put(f"{session}/title", json={"session_title": "New"}).status_code == 200
         assert client.get(session).json()["session_title"] == "New"
+
+
+def png_data_url(color="red"):
+    import base64
+    import io
+    from PIL import Image
+    buffer = io.BytesIO()
+    Image.new("RGB", (4, 4), color).save(buffer, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode()
+
+
+class TestImages:
+    @pytest.fixture
+    def vision(self, folders):
+        import json
+        (folders[1] / "eyes.json").write_text(json.dumps({
+            "model_name": "Eyes", "model_type": "gguf",
+            "model_properties": {"gguf_filename": "x.gguf", "mmproj_filename": "mmproj.gguf"}}))
+
+    def message(self, images):
+        return [{"role": "user", "content": "what colour?", "images": images}]
+
+    def test_images_reach_a_vision_model_as_pil_images(self, client, loads, vision):
+        r = chat(client, model="eyes", messages=self.message([png_data_url()]))
+        assert r.status_code == 200
+        (image,) = loads[0].images
+        assert image.size == (4, 4) and image.getpixel((0, 0)) == (255, 0, 0)
+
+    def test_model_without_vision_is_400(self, client, loads):
+        r = chat(client, messages=self.message([png_data_url()]))
+        assert r.status_code == 400 and "cannot read images" in r.json()["detail"]
+
+    @pytest.mark.parametrize("images", [["http://x/a.png"], ["data:image/png;base64,@@"], [png_data_url()] * 5])
+    def test_bad_images_are_422(self, client, vision, images):
+        assert chat(client, model="eyes", messages=self.message(images)).status_code == 422
+
+    def test_undecodable_image_is_400(self, client, vision):
+        r = chat(client, model="eyes", messages=self.message(["data:image/png;base64,aGVsbG8="]))
+        assert r.status_code == 400 and "Invalid image" in r.json()["detail"]
+
+    def test_session_keeps_the_images(self, client, vision):
+        url = png_data_url()
+        chat(client, model="eyes", session_id="img", messages=self.message([url]))
+        saved = client.get("/api/v1/sessions/img.json").json()
+        assert saved["messages"][0]["images"] == [url] and "images" not in saved["messages"][1]
+
+    def test_model_configs_report_vision(self, client, vision):
+        configs = {c["key"]: c for c in client.get("/api/v1/model-configs").json()}
+        assert configs["eyes"]["vision"] is True and configs["small"]["vision"] is False

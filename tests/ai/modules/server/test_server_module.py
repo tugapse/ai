@@ -60,7 +60,7 @@ class TestJarvisServerModule(unittest.TestCase):
         self.assertEqual(self.mock_brain_hub_instance.orchestrator, self.mock_orchestrator)
 
         # 2. Verify FastAPI app was created correctly
-        self.mock_create_app.assert_called_once_with(self.mock_brain_hub_instance, self.mock_config)
+        self.mock_create_app.assert_called_once_with(self.mock_brain_hub_instance, self.mock_config, modules=None)
         self.assertEqual(self.module._fastapi_app, self.mock_fastapi_app)
 
         # 3. Verify Uvicorn was configured and its server instantiated

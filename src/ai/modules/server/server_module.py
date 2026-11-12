@@ -56,7 +56,7 @@ class JarvisServerModule(BaseModule):
             self._brain_hub.orchestrator = orchestrator
 
         # 2. CREATE THE APP: Pass the config object so the endpoints can access state
-        self._fastapi_app = create_app(self._brain_hub, config)
+        self._fastapi_app = create_app(self._brain_hub, config, modules=self.kwargs.get("modules"))
         # POST /api/v1/shutdown calls this after its reply is sent.
         self._fastapi_app.state.shutdown_handler = self.shutdown
 

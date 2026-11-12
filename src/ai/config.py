@@ -62,6 +62,8 @@ class ProgramSetting(Enum):
     VECTOR_RELEVANCE_WEIGHT = "VECTOR_RELEVANCE_WEIGHT"
     SERVER_HOST = "SERVER_HOST"    
     SERVER_PORT = "SERVER_PORT"
+    SERVER_AGENT_TOKEN = "SERVER_AGENT_TOKEN"      # Bearer token for /api/v1/agent/*; unset disables it
+    SERVER_AGENT_WORKDIR = "SERVER_AGENT_WORKDIR"  # Folder web agent runs work in (default ~/Ai/workspace)
 
     def __str__(self) -> str:
         """Returns the string value associated with the enum member."""

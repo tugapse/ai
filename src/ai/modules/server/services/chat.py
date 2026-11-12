@@ -136,7 +136,8 @@ class ChatResponseHandler:
             raise HTTPException(status_code=503, detail="LLM not initialized.")
 
     async def stream_response(
-        self, formatted_messages: List[Dict[str, str]], options: Optional[Dict[str, Any]] = None
+        self, formatted_messages: List[Dict[str, str]], options: Optional[Dict[str, Any]] = None,
+        images: Optional[list] = None,
     ) -> StreamingResponse:
         """
         Generates a streaming HTTP response by calling the LLM in streaming mode.
@@ -156,7 +157,7 @@ class ChatResponseHandler:
         async def event_generator():
             try:
                 raw_output = self.brain_hub.orchestrator.llm.chat(
-                    formatted_messages, stream=True, options=options or {}
+                    formatted_messages, images=images or None, stream=True, options=options or {}
                 )
                 func.debug("Streaming response generator started.")
                 completed_response = ""
@@ -180,7 +181,8 @@ class ChatResponseHandler:
 
         return StreamingResponse(event_generator(), media_type="text/event-stream")
 
-    def non_stream_response(self, formatted_messages: List[Dict[str, str]], options: Optional[Dict[str, Any]] = None):
+    def non_stream_response(self, formatted_messages: List[Dict[str, str]], options: Optional[Dict[str, Any]] = None,
+                            images: Optional[list] = None):
         """
         Generates a standard, non-streaming HTTP response by calling the LLM synchronously.
 
@@ -196,7 +198,7 @@ class ChatResponseHandler:
         self._ensure_llm_available("non-streaming")
 
         raw_output = self.brain_hub.orchestrator.llm.chat(
-            formatted_messages, stream=False, options=options or {}
+            formatted_messages, images=images or None, stream=False, options=options or {}
         )
         if isinstance(raw_output, str):
             response_text = raw_output
@@ -271,6 +273,10 @@ class ChatService:
         )
         return system_prompt
 
+    def _ensure_no_agent_run(self):
+        if getattr(self.brain_hub, "agent_running", False):
+            raise HTTPException(status_code=409, detail="Agent run in progress.")
+
     def _resolve_brain(self, request: ChatCompletionRequest):
         """
         Resolves the brain/model for the chat session based on the request parameters.
@@ -302,6 +308,30 @@ class ChatService:
         except ModelLoadError as e:
             func.log(str(e), level="ERROR")
             raise HTTPException(status_code=500, detail=str(e))
+
+    def _decode_images(self, image_urls: List[str]) -> list:
+        """
+        Data URLs as PIL images (what every engine accepts). Raises 400 when the loaded model
+        cannot read images or an image does not decode.
+        """
+        import base64
+        import io
+
+        llm = self.brain_hub.orchestrator.llm
+        if not getattr(llm, "supports_vision", False):
+            raise HTTPException(status_code=400,
+                                detail=f"Model '{self.brain_hub.current_model_id}' cannot read images.")
+        from PIL import Image
+
+        images = []
+        for url in image_urls:
+            try:
+                image = Image.open(io.BytesIO(base64.b64decode(url.split(",", 1)[1])))
+                image.load()
+                images.append(image)
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Invalid image: {e}")
+        return images
 
     @staticmethod
     def generation_options(request) -> Dict[str, Any]:
@@ -347,6 +377,7 @@ class ChatService:
             func.log("BrainHub not initialized for chat completion.", level="ERROR")
             raise HTTPException(status_code=503, detail="Orchestrator not initialized.")
 
+        self._ensure_no_agent_run()
         _, session_file, target_session_id = self.session_router.build_session_path(
             request
         )
@@ -363,14 +394,18 @@ class ChatService:
         formatted_messages, last_user_message = self.message_formatter.format_messages(
             messages
         )
+        last = messages[-1] if messages else None
+        image_urls = list(getattr(last, "images", None) or []) if getattr(last, "role", "") == "user" else []
+        images = self._decode_images(image_urls) if image_urls else None
+
         func.debug(f"Adding user message to history: '{last_user_message[:100]}...'")
-        self.brain_hub.add_history_message("user", last_user_message)
+        self.brain_hub.add_history_message("user", last_user_message, images=image_urls or None)
         options = self.generation_options(request)
         if getattr(request, "stream", False):
-            return await self.response_handler.stream_response(formatted_messages, options)
+            return await self.response_handler.stream_response(formatted_messages, options, images)
 
         try:
-            return self.response_handler.non_stream_response(formatted_messages, options)
+            return self.response_handler.non_stream_response(formatted_messages, options, images)
         except Exception as e:
             func.log(
                 f"Inference Error during non-streaming chat completion: {e}",

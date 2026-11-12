@@ -30,7 +30,7 @@ from ai.modules.server.services.chat import ChatService
 from ai.modules.server.brain_hub import BrainHub
 
 
-def create_app(brain_hub: BrainHub, config: Dict[str, Any]) -> FastAPI:
+def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None) -> FastAPI:
     """
     Build and configure the FastAPI app, wiring dependencies into app.state.
 
@@ -41,6 +41,7 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any]) -> FastAPI:
     Args:
         brain_hub: The BrainHub instance, providing access to AI model statistics.
         config: A dictionary containing global configuration settings for the server.
+        modules: The program's module registry (agent tools for /api/v1/agent runs).
 
     Returns:
         The fully configured FastAPI application instance.
@@ -53,9 +54,12 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any]) -> FastAPI:
     # Include external routers
     from ai.modules.server.routers.sessions import router as sessions_router
     from ai.modules.server.routers.prompts import router as prompts_router
+    from ai.modules.server.routers.agent import router as agent_router
+    from ai.modules.server.services.agent_runs import AgentRunService
 
     app.include_router(sessions_router)
     app.include_router(prompts_router)
+    app.include_router(agent_router)
 
     session_manager = SessionManager(SESSION_ROOT_DIR)
     app.state.session_manager = session_manager
@@ -64,6 +68,8 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any]) -> FastAPI:
     chat_service = ChatService(brain_hub, SESSION_ROOT_DIR, config)
     app.state.chat_service = chat_service
     app.state.brain_hub = brain_hub
+    agent_service = AgentRunService(brain_hub, config, modules)
+    app.state.agent_service = agent_service
 
     @app.post("/api/v1/chat/completions")
     @app.post("/api/v1/chat")
@@ -128,6 +134,8 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any]) -> FastAPI:
         Returns:
             ``{"status": "unloaded", "model": <key that was loaded, or null>}``.
         """
+        if agent_service.busy:
+            raise HTTPException(status_code=409, detail="Agent run in progress.")
         # Off the event loop: unloading joins the generation thread and frees memory.
         model = await asyncio.to_thread(brain_hub.unload_brain)
         return {"status": "unloaded", "model": model}
@@ -144,6 +152,7 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any]) -> FastAPI:
         if stop is None:
             raise HTTPException(status_code=501, detail="Shutdown is not available on this server.")
         func.log("Shutdown requested over the API.", level="WARN")
+        agent_service.cancel_current()
         background_tasks.add_task(stop)
         return {"status": "shutting_down"}
 

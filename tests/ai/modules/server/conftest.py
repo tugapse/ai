@@ -26,6 +26,7 @@ class FakeLLM:
 
     def chat(self, messages, images=None, stream=True, options=None):
         self.chats.append((messages, stream, options))
+        self.images = images
         return iter(["he", "llo"]) if stream else "hello"
 
     def unload(self):
@@ -64,6 +65,7 @@ def loads(folders, monkeypatch):
         if record.fail:
             raise record.fail
         llm = FakeLLM(model_config["model_name"], system_prompt)
+        llm.supports_vision = BrainHub.has_vision(model_config)
         record.append(llm)
         return llm
 

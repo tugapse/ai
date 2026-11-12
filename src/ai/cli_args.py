@@ -166,11 +166,19 @@ def {function_name}(argument: str) -> str:
                 else:
                     func.log(f"{Color.CYAN}[*] Neural Hub: Standby Mode. Awaiting Neural Link...{Color.RESET}")
                 
+                # Tool modules (filesystem, shell, web, ...) back the /api/v1/agent runs.
+                if prog.modules:
+                    try:
+                        prog.modules.load_all()
+                    except Exception as e:
+                        func.log(f"Server: loading modules failed, agent runs will lack their tools: {e}", level="WARN")
+
                 from ai.modules.server.server_module import JarvisServerModule
                 server = JarvisServerModule( 
                     host=prog.config.get(ProgramSetting.SERVER_HOST, "0.0.0.0"),
                     port=prog.config.get(ProgramSetting.SERVER_PORT, 9999),
-                    brain_hub=brain_hub
+                    brain_hub=brain_hub,
+                    modules=prog.modules,
                 )
                 
                 server.initialize(prog.config, prog.models, prog.history)

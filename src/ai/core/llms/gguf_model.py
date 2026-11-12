@@ -35,6 +35,7 @@ class GGUFImageLLM(BaseModel):
         system_prompt: str = "",
         n_ctx: int = 4000,
         model_params: dict = {},
+        mmproj_filename: str = "",
         **kwargs,
     ):
         """
@@ -47,6 +48,7 @@ class GGUFImageLLM(BaseModel):
             system_prompt: The initial system prompt context for the model.
             n_ctx: The maximum context window size for the model.
             model_params: Dictionary of parameters to pass to Llama initialization (e.g., temperature).
+            mmproj_filename: Optional vision projector file in the same repo; enables image input.
             **kwargs: Additional keyword arguments passed to the base class.
         """
         super().__init__(model_name, system_prompt=system_prompt, **kwargs)
@@ -54,6 +56,8 @@ class GGUFImageLLM(BaseModel):
         
         self.model_repo_id = model_repo_id
         self.gguf_filename = gguf_filename
+        self.mmproj_filename = mmproj_filename or ""
+        self.supports_vision = False  # set once the projector is loaded
         self._n_ctx = n_ctx
         self.llama_model = None
         self.error_queue = queue.Queue()
@@ -98,6 +102,10 @@ class GGUFImageLLM(BaseModel):
                 )
                 func.log(f"Download complete: {model_path}")
 
+            chat_handler = self._load_vision_handler() if self.mmproj_filename else None
+            if chat_handler is not None:
+                kwargs["chat_handler"] = chat_handler
+
             func.debug(f"[GGUF Engine] Loading model into memory...")
             
             with GGUFImageLLM._shared_mem_lock:
@@ -107,6 +115,7 @@ class GGUFImageLLM(BaseModel):
                     verbose=False,
                     **kwargs
                 )
+            self.supports_vision = chat_handler is not None
             func.log(f"GGUF model '{self.model_name}' ready.")
             
         except Exception as e:
@@ -208,6 +217,61 @@ class GGUFImageLLM(BaseModel):
             func.debug(f"[GGUF Engine] Tokenization failed: {e}")
             return sum(len(m['content']) for m in messages) // 4
     
+    def _download(self, filename: str) -> str:
+        """Path of a repo file in the local Hugging Face cache, downloading it if missing."""
+        try:
+            return hf_hub_download(repo_id=self.model_repo_id, filename=filename, local_files_only=True)
+        except Exception:
+            func.log(f"Downloading {filename} from {self.model_repo_id}...")
+            return hf_hub_download(repo_id=self.model_repo_id, filename=filename, local_files_only=False)
+
+    def _load_vision_handler(self):
+        """
+        The llama.cpp chat handler that reads images through the model's projector (mmproj).
+        Gemma 4 has its own handler; other models use the generic multimodal one.
+        """
+        from llama_cpp import llama_chat_format as formats
+
+        clip_path = self._download(self.mmproj_filename)
+        name = f"{self.model_repo_id} {self.gguf_filename}".lower().replace("-", "")
+        handler_cls = formats.Gemma4ChatHandler if "gemma4" in name else formats.MTMDChatHandler
+        func.log(f"[GGUF Engine] Vision enabled: {handler_cls.__name__} with {self.mmproj_filename}")
+        return handler_cls(clip_model_path=clip_path, verbose=False)
+
+    @staticmethod
+    def image_to_data_url(image) -> str:
+        """A data URL for an image given as a data URL, a file path or a PIL image."""
+        import base64
+        import io
+        import mimetypes
+
+        if isinstance(image, str) and image.startswith("data:image/"):
+            return image
+        if isinstance(image, str):
+            mime = mimetypes.guess_type(image)[0] or "image/png"
+            with open(image, "rb") as f:
+                return f"data:{mime};base64,{base64.b64encode(f.read()).decode()}"
+        buffer = io.BytesIO()
+        image.convert("RGB").save(buffer, format="PNG")
+        return f"data:image/png;base64,{base64.b64encode(buffer.getvalue()).decode()}"
+
+    def load_images(self, images: list) -> dict:
+        """A user message holding the images as OpenAI-style content parts (vision models only)."""
+        if not self.supports_vision:
+            raise ValueError(f"Model '{self.model_name}' cannot read images (no mmproj_filename in its config).")
+        return {"role": "user", "content": [
+            {"type": "image_url", "image_url": {"url": self.image_to_data_url(img)}} for img in images]}
+
+    def _attach_images(self, messages: list, images: list) -> list:
+        """Turns the last user message into text + image parts."""
+        parts = self.load_images(images)["content"]
+        for i in reversed(range(len(messages))):
+            if messages[i]["role"] == "user":
+                text = messages[i].get("content") or ""
+                messages[i]["content"] = parts + ([{"type": "text", "text": text}] if text else [])
+                break
+        return messages
+
     def chat(self, messages: list, images: list = None, stream: bool = True, options: dict = {}):
         """
         Returns a token generator when ``stream`` is True, otherwise the full response
@@ -224,23 +288,20 @@ class GGUFImageLLM(BaseModel):
         # DEEP COPY: Protect history integrity
         safe_messages = [m.copy() for m in messages]
 
-        if images:
-            image_msg = self.load_images(images)
-            if image_msg:
-                for i in reversed(range(len(safe_messages))):
-                    if safe_messages[i]["role"] == "user":
-                        safe_messages[i]["content"] += f"\n{image_msg['content']}"
-                        break
-
         # Refresh System Prompt context (Time, OS, etc.)
         safe_messages = self.check_system_prompt(safe_messages)
         self._update_token_metrics(safe_messages, options)
+
+        if images:
+            # After the token count, which tokenizes text content only.
+            safe_messages = self._attach_images(safe_messages, images)
 
         current_options = self.options.copy()
         current_options.update(options)
         applied_max_new_tokens = current_options.get("max_new_tokens", 1024)
 
-        raw_text_for_counting = "\n".join([str(m.get("content", "")) for m in safe_messages])
+        raw_text_for_counting = "\n".join(
+            m["content"] if isinstance(m.get("content"), str) else "" for m in safe_messages)
         try:
             with GGUFImageLLM._shared_mem_lock:
                 est_prompt_tokens = len(self.llama_model.tokenize(raw_text_for_counting.encode("utf-8")))
