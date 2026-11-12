@@ -1,3 +1,4 @@
+import sys
 import threading
 import queue
 import gc
@@ -110,6 +111,8 @@ class GGUFImageLLM(BaseModel):
             
         except Exception as e:
             func.error(f"Failed to load GGUF: {e}")
+            # A half-built engine answers "Model not loaded." forever; let the caller decide.
+            raise RuntimeError(f"Failed to load GGUF '{self.gguf_filename}': {e}") from e
 
     def _generate_in_thread(self, messages: List[Dict[str, str]], gen_options: dict, output_queue: queue.Queue):
         """
@@ -308,41 +311,44 @@ class GGUFImageLLM(BaseModel):
         self.unload()
 
     def unload(self):
-        if self.llama_model is None:
+        """
+        Frees the llama.cpp model. Safe to call more than once and from __del__.
+
+        Stops a running generation first (it checks stop_generation_event per chunk), then drops
+        the Llama object under the shared lock, closes it and clears the CUDA cache.
+        """
+        if getattr(self, "llama_model", None) is None:
             func.debug("[GGUF Engine] Unload called but model is already None.")
             return
 
         func.log(f"BrainHub: Unloading {self.model_name}...")
-        model_to_unload = None
+        self.stop_generation_event.set()
+
+        thread = getattr(self, "_generation_thread", None)
+        if thread is not None and thread.is_alive() and thread is not threading.current_thread():
+            func.debug("[GGUF Engine] Waiting for generation thread to finish...")
+            thread.join(timeout=5.0)
+            if thread.is_alive():
+                func.error("[GGUF Engine] Generation thread did not terminate in time.")
 
         with GGUFImageLLM._shared_mem_lock:
-            if self.llama_model is None:
-                func.debug("[GGUF Engine] Model was unloaded by another thread.")
-                return
-            
-            self.stop_generation_event.set()
-            if hasattr(self, '_generation_thread') and self._generation_thread.is_alive():
-                func.debug(f"[GGUF Engine] Waiting for generation thread to finish...")
-                self._generation_thread.join(timeout=5.0)
-                if self._generation_thread.is_alive():
-                    func.error("[GGUF Engine] Generation thread did not terminate in time.")
-            
             model_to_unload = self.llama_model
             self.llama_model = None
-            del self._generation_thread 
-            del self.llama_model
-        
+            self._generation_thread = None
+
         if model_to_unload is not None:
-            func.debug("[GGUF Engine] Deleting Llama model object reference...")
+            func.debug("[GGUF Engine] Closing Llama model...")
+            try:
+                model_to_unload.close()
+            except Exception as e:
+                func.debug(f"[GGUF Engine] Llama.close() failed: {e}")
             del model_to_unload
-            func.debug("[GGUF Engine] Triggering garbage collection...")
             gc.collect()
             try:
                 import torch
                 if torch.cuda.is_available():
                     func.debug("[GGUF Engine] Clearing CUDA cache...")
                     torch.cuda.empty_cache()
-                    func.debug("[GGUF Engine] CUDA cache cleared.")
             except ImportError:
                 func.debug("[GGUF Engine] PyTorch not found, skipping CUDA cache clear.")
             except Exception as e:
@@ -352,6 +358,9 @@ class GGUFImageLLM(BaseModel):
         func.log(f"BrainHub: Resources cleared for {self.model_name}.")
 
     def __del__(self):
+        # During interpreter shutdown llama_cpp may already be torn down; freeing then can crash.
+        if sys.is_finalizing():
+            return
         try:
             self.unload()
         except Exception:

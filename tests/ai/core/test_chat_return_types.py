@@ -93,3 +93,42 @@ class TestOllama:
         client.chat.return_value = iter([{"message": {"content": "a"}}, {"message": {"content": "b"}}])
         model = bare(ollama_module.OllamaModel, model=client, model_name="m", keep_alive=False)
         assert list(model.chat(MESSAGES, stream=True)) == ["a", "b"]
+
+
+class TestGGUFUnload:
+    """unload() must work whether or not the model ever streamed, and more than once."""
+
+    def make(self, gguf_module):
+        llama = MagicMock()
+        model = bare(gguf_module.GGUFImageLLM, llama_model=llama, model_name="m", _generation_thread=None)
+        return model, llama
+
+    def test_unload_before_any_generation(self, gguf_module):
+        # Was: AttributeError 'NoneType' object has no attribute 'is_alive', model kept in memory.
+        model, llama = self.make(gguf_module)
+        model.unload()
+        assert model.llama_model is None
+        llama.close.assert_called_once()
+
+    def test_unload_twice_and_chat_after(self, gguf_module):
+        model, llama = self.make(gguf_module)
+        model.unload()
+        model.unload()
+        llama.close.assert_called_once()
+        assert model.chat(MESSAGES, stream=False) == "Model not loaded."
+
+    def test_unload_stops_a_running_stream(self, gguf_module):
+        model, llama = self.make(gguf_module)
+        started, released = threading.Event(), threading.Event()
+
+        def generate():
+            started.set()
+            model.stop_generation_event.wait(5)
+            released.set()
+
+        model._generation_thread = threading.Thread(target=generate)
+        model._generation_thread.start()
+        started.wait(5)
+        model.unload()
+        assert released.is_set() and model._generation_thread is None and model.llama_model is None
+        assert not model.stop_generation_event.is_set()
