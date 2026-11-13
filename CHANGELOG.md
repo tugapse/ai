@@ -1,5 +1,13 @@
 # Changelog
 
+## [v3.8.0] - 2026-11-13
+
+###  Features
+- feat(cli): Offer alternatives when the model does not fit in the GPU
+
+###  Maintenance
+- chore(release): Bump version to 3.8.0
+
 ## [v3.7.0] - 2026-11-13
 
 ###  Features
