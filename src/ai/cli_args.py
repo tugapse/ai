@@ -17,6 +17,7 @@ from typing import Optional
 # Configuration and Enums
 from ai.agents.session_manager import AgentSessionManager
 from ai.modules.server.brain_hub import BrainHub
+from ai.services.process_manager import ProcessManager
 from ai.model_config_manager import ModelConfigManager
 from ai.config import ProgramConfig, ProgramSetting 
 from ai.entities.model_enums import ModelType
@@ -34,6 +35,16 @@ from ai.services.directory_manager import DirectoryManager
 from ai.tools.tool_loader import load_and_register_user_tools
 
 import ai.functions as func
+
+
+
+def _local_endpoint(host: str, port) -> str:
+    """URL a client on this machine uses to reach the server (a wildcard bind is reachable on loopback)."""
+    if host in ("", "0.0.0.0", "::"):
+        host = "127.0.0.1"
+    if ":" in host and not host.startswith("["):
+        host = f"[{host}]"
+    return f"http://{host}:{port}"
 
 class CliArgs:
     """
@@ -278,6 +289,8 @@ def {function_name}(argument: str) -> str:
                 )
                 
                 server.initialize(prog.config, prog.models, prog.history)
+                ProcessManager.set_state("endpoint", _local_endpoint(server.host, server.port))
+                brain_hub._publish_activity()  # "idle (<model>)": start() blocks until shutdown
                 server.start()
                 
             except KeyboardInterrupt:

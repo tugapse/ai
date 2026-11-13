@@ -1,4 +1,5 @@
 from pathlib import Path
+import asyncio
 import os
 import json
 from typing import Any, Dict, List, Optional
@@ -7,8 +8,8 @@ from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 
 import ai.functions as func
-from ai.modules.server.brain_hub import BrainHub
-from ai.modules.server.exceptions import ModelLoadError, ModelNotFoundError
+from ai.modules.server.brain_hub import BrainHub, ModelLease, ON_BUSY_WAIT
+from ai.modules.server.exceptions import ModelBusyError, ModelLoadError, ModelNotFoundError
 from ai.modules.server.schemas import ChatCompletionRequest
 from ai.services.prompt_loader import PromptLoader
 
@@ -137,7 +138,7 @@ class ChatResponseHandler:
 
     async def stream_response(
         self, formatted_messages: List[Dict[str, str]], options: Optional[Dict[str, Any]] = None,
-        images: Optional[list] = None,
+        images: Optional[list] = None, lease: Optional[ModelLease] = None,
     ) -> StreamingResponse:
         """
         Generates a streaming HTTP response by calling the LLM in streaming mode.
@@ -147,6 +148,7 @@ class ChatResponseHandler:
 
         Args:
             formatted_messages: The list of messages to send to the LLM.
+            lease: The model lease of this request; released when the stream ends or is dropped.
 
         Returns:
             A StreamingResponse object configured for text/event-stream.
@@ -178,8 +180,14 @@ class ChatResponseHandler:
             except Exception as e:
                 func.error(f"Streaming Error: {e}")
                 yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            finally:
+                if lease is not None:
+                    lease.release()
 
-        return StreamingResponse(event_generator(), media_type="text/event-stream")
+        generator = event_generator()
+        if lease is not None:
+            BrainHub.release_with(generator, lease)  # a stream that never starts still frees the model
+        return StreamingResponse(generator, media_type="text/event-stream")
 
     def non_stream_response(self, formatted_messages: List[Dict[str, str]], options: Optional[Dict[str, Any]] = None,
                             images: Optional[list] = None):
@@ -286,9 +294,13 @@ class ChatService:
 
         Args:
             request: The ChatCompletionRequest containing model and prompt specifications.
+
+        Returns:
+            The ModelLease the caller must release when the generation ends.
+
+        Blocks while a swap waits for the loaded model to be free: call it off the event loop.
         """
 
-        # print(request)
         requested_model_file: str | Any = (
             (getattr(request, "model", "default") or "default").strip().lower()
         )
@@ -297,17 +309,25 @@ class ChatService:
         model_config_data = getattr(request, "model_config_data", None)
 
         try:
-            self.brain_hub.get_brain(
+            lease = self.brain_hub.acquire(
                 model_id=requested_model_file,
                 system_prompt=resolved_system_prompt,
-                model_config_data=model_config_data
+                model_config_data=model_config_data,
+                on_busy=getattr(request, "on_busy", None) or ON_BUSY_WAIT,
             )
         except ModelNotFoundError as e:
             func.error(str(e))
             raise HTTPException(status_code=404, detail=str(e))
+        except ModelBusyError as e:
+            func.out(str(e))
+            raise HTTPException(status_code=409, detail=str(e))
         except ModelLoadError as e:
             func.error(str(e))
             raise HTTPException(status_code=500, detail=str(e))
+        if getattr(self.brain_hub, "agent_running", False):  # started while we waited for a swap
+            lease.release()
+            raise HTTPException(status_code=409, detail="Agent run in progress.")
+        return lease
 
     def _decode_images(self, image_urls: List[str]) -> list:
         """
@@ -385,7 +405,16 @@ class ChatService:
             self.brain_hub, request, session_file, target_session_id
         )
 
-        self._resolve_brain(request)
+        # Off the event loop: a swap may wait for running generations, which the loop drives.
+        lease = await asyncio.to_thread(self._resolve_brain, request)
+        try:
+            return await self._complete(request, lease)
+        except BaseException:
+            lease.release()
+            raise
+
+    async def _complete(self, request: ChatCompletionRequest, lease: ModelLease):
+        """Runs the chat turn on the model held by ``lease`` (released by the caller on error)."""
         # Remember what this session used, so a client can restore it (saved with the next message).
         self.brain_hub.history["model"] = self.brain_hub.current_model_id
         self.brain_hub.history["system_prompt"] = getattr(request, "system_prompt_content", None)
@@ -402,10 +431,11 @@ class ChatService:
         self.brain_hub.add_history_message("user", last_user_message, images=image_urls or None)
         options = self.generation_options(request)
         if getattr(request, "stream", False):
-            return await self.response_handler.stream_response(formatted_messages, options, images)
+            return await self.response_handler.stream_response(formatted_messages, options, images, lease=lease)
 
         try:
-            return self.response_handler.non_stream_response(formatted_messages, options, images)
+            with lease:
+                return self.response_handler.non_stream_response(formatted_messages, options, images)
         except Exception as e:
             func.error(f"Inference Error during non-streaming chat completion: {e}")
             raise HTTPException(status_code=500, detail=str(e))

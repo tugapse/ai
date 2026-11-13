@@ -1,7 +1,7 @@
 import re
 
 from pydantic import BaseModel, Field, field_validator
-from typing import List, Optional, Dict, Any
+from typing import List, Literal, Optional, Dict, Any
 
 MAX_IMAGES_PER_MESSAGE = 4
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
@@ -67,6 +67,9 @@ class ChatCompletionRequest(BaseModel):
     max_tokens: Optional[int] = Field(None, ge=1)
     session_folder: Optional[str] = None
     session_id: Optional[str] = None
+    # If the request needs another model while the loaded one is in use: "wait" (default),
+    # "fail" (409) or "force" (cancel the current work; only on an explicit user request).
+    on_busy: Optional[Literal["wait", "fail", "force"]] = None
     session_title: Optional[str] = None
 
 class UpdateSessionRequest(BaseModel):

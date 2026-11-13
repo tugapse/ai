@@ -194,3 +194,24 @@ class TestChatFolders:
         (folders[1] / "chat").mkdir()
         (folders[1] / "chat" / "lite.json").write_text(json.dumps({"model_name": "Lite", "model_type": "gguf"}))
         assert chat(client, model="chat/lite").status_code == 200
+
+
+class TestModelInUse:
+    def test_finished_chats_leave_the_model_free(self, client, hub, loads):
+        assert chat(client).status_code == 200
+        assert "data: [DONE]" in chat(client, stream=True).text
+        assert not hub.busy
+
+    def test_swap_with_fail_while_in_use_is_409(self, client, hub, loads):
+        with hub.acquire("small", ""):
+            response = chat(client, model="big", on_busy="fail")
+        assert response.status_code == 409 and "in use" in response.json()["detail"]
+        assert hub.current_model_id == "small" and loads[0].unloaded == 0
+
+    def test_unknown_on_busy_is_422(self, client):
+        assert chat(client, on_busy="maybe").status_code == 422
+
+    def test_unload_while_a_chat_generates_is_409(self, client, hub, loads):
+        with hub.acquire("small", ""):
+            assert client.post("/api/v1/model/unload").status_code == 409
+        assert loads[0].unloaded == 0

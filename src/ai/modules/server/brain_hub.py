@@ -1,12 +1,39 @@
 import os
 import threading
-from typing import Optional
+import weakref
+from typing import Callable, List, Optional
 import ai.functions as func
 from ai.config import ProgramConfig, ProgramSetting
 from ai.services.history_manager import HistoryManager
 from ai.services.model_orchestrator import ModelOrchestrator
 from ai.services.engine_manager import EngineManager
-from ai.modules.server.exceptions import ModelLoadError, ModelNotFoundError
+from ai.modules.server.exceptions import ModelBusyError, ModelLoadError, ModelNotFoundError
+from ai.services.process_manager import ProcessManager
+
+
+ON_BUSY_WAIT = "wait"    # queue the swap until the current work finishes
+ON_BUSY_FAIL = "fail"    # refuse the swap (ModelBusyError)
+ON_BUSY_FORCE = "force"  # cancel the current work, then swap: only on an explicit user request
+ON_BUSY_POLICIES = (ON_BUSY_WAIT, ON_BUSY_FAIL, ON_BUSY_FORCE)
+
+
+class ModelLease:
+    """One use of the loaded model (a chat generation). ``release`` is idempotent."""
+
+    def __init__(self, hub: "BrainHub"):
+        self._hub = hub
+        self._released = False
+
+    def release(self) -> None:
+        if not self._released:
+            self._released = True
+            self._hub._end_generation()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.release()
 
 
 class BrainHub:
@@ -28,10 +55,14 @@ class BrainHub:
         self.orchestrator = ModelOrchestrator(config)
         self.history_file: str = ""
         self.current_model_id: Optional[str] = None
-        # Set while a web agent run uses the model; chat requests are refused meanwhile.
-        self.agent_running = False
         # Serialises load/unload: a swap must not run while another request is swapping.
         self._lock = threading.RLock()
+        # Signalled whenever the model stops being in use, so a waiting swap can proceed.
+        self._idle = threading.Condition(self._lock)
+        self._generations = 0           # chat generations holding a ModelLease
+        self._agent_running = False     # a web agent run uses the model for its whole run
+        self._swap_target: Optional[str] = None
+        self._cancel_hooks: List[Callable[[], None]] = []
         self.history = self.new_history(None, "default", None)
         
 
@@ -164,7 +195,116 @@ class BrainHub:
             key = key[:-len(".json")]
         return key or "default"
 
-    def get_brain(self, model_id: str, system_prompt: str, model_config_data: Optional[dict] = None):
+    # --- usage tracking -------------------------------------------------------------------
+
+    SWAP_WAIT_TIMEOUT = 300.0   # seconds a "wait" swap waits for the current work
+    FORCE_STOP_TIMEOUT = 30.0   # seconds a "force" swap waits for cancelled work to stop
+
+    @property
+    def agent_running(self) -> bool:
+        """True while a web agent run uses the model; chat requests are refused meanwhile."""
+        return self._agent_running
+
+    @agent_running.setter
+    def agent_running(self, value: bool) -> None:
+        with self._lock:
+            self._agent_running = bool(value)
+            self._idle.notify_all()
+            self._publish_activity()
+
+    @property
+    def busy(self) -> bool:
+        """True while any chat generation or agent run uses the loaded model."""
+        return self._generations > 0 or self._agent_running
+
+    def add_cancel_hook(self, hook: Callable[[], None]) -> None:
+        """Registers a callable that cancels long-running work (an agent run) for a forced swap."""
+        self._cancel_hooks.append(hook)
+
+    def acquire(self, model_id: str, system_prompt: str, model_config_data: Optional[dict] = None,
+                on_busy: str = ON_BUSY_WAIT) -> ModelLease:
+        """
+        Loads ``model_id`` (see get_brain) and takes a lease on it in one step, so no swap can
+        slip in between. Release the lease when the generation ends.
+        """
+        with self._lock:
+            self.get_brain(model_id, system_prompt, model_config_data, on_busy=on_busy)
+            self._generations += 1
+            self._publish_activity()
+            return ModelLease(self)
+
+    @staticmethod
+    def release_with(owner, lease: ModelLease) -> None:
+        """Releases ``lease`` when ``owner`` (e.g. a streaming generator that never ran) is collected."""
+        weakref.finalize(owner, lease.release)
+
+    def _end_generation(self) -> None:
+        with self._lock:
+            self._generations = max(0, self._generations - 1)
+            self._idle.notify_all()
+            self._publish_activity()
+
+    def _describe_usage(self) -> str:
+        parts = []
+        if self._agent_running:
+            parts.append("an agent run")
+        if self._generations:
+            parts.append(f"{self._generations} chat{'s' if self._generations > 1 else ''}")
+        return " and ".join(parts) or "nothing"
+
+    def _publish_activity(self) -> None:
+        """Mirrors the hub state into the process registry (an agent run publishes its own lines)."""
+        if self._agent_running:
+            return
+        if self.busy:
+            text = f"busy: {self._describe_usage()}"
+        else:
+            text = f"idle ({self.current_model_id})" if self.current_model_id else "idle (no model)"
+        if self._swap_target:
+            text += f", swap to {self._swap_target} pending"
+        ProcessManager.set_state("activity", text)
+
+    def _wait_until_idle(self, key: str, on_busy: str) -> None:
+        """
+        Called with the lock held when ``key`` differs from the loaded model and it is in use.
+
+        Raises:
+            ModelBusyError: ``fail``, or the wait timed out.
+        """
+        current = self.current_model_id or "unknown"
+        if on_busy not in ON_BUSY_POLICIES:
+            raise ValueError(f"Unknown on_busy '{on_busy}'. Use one of: {', '.join(ON_BUSY_POLICIES)}.")
+        if on_busy == ON_BUSY_FAIL:
+            raise ModelBusyError(f"Model '{current}' is in use by {self._describe_usage()}; not swapping to '{key}'.")
+
+        timeout = self.SWAP_WAIT_TIMEOUT
+        if on_busy == ON_BUSY_FORCE:
+            func.out(f"BrainHub: Forced swap {current} -> {key}: cancelling {self._describe_usage()}.", level="WARNING")
+            for hook in self._cancel_hooks:
+                try:
+                    hook()
+                except Exception as e:
+                    func.error(f"BrainHub: cancel hook failed: {e}")
+            stop_event = getattr(self.orchestrator.llm, "stop_generation_event", None)
+            if stop_event is not None:
+                stop_event.set()
+            timeout = self.FORCE_STOP_TIMEOUT
+
+        func.out(f"BrainHub: {current} is in use by {self._describe_usage()}; swap to {key} waits.")
+        self._swap_target = key
+        self._publish_activity()
+        try:
+            if not self._idle.wait_for(lambda: not self.busy, timeout=timeout):
+                raise ModelBusyError(
+                    f"Model '{current}' is still in use by {self._describe_usage()} after {int(timeout)}s; "
+                    f"not swapping to '{key}'.")
+        finally:
+            self._swap_target = None
+            self._idle.notify_all()  # requests queued behind the swap re-check once we release the lock
+            self._publish_activity()
+
+    def get_brain(self, model_id: str, system_prompt: str, model_config_data: Optional[dict] = None,
+                  on_busy: str = ON_BUSY_WAIT):
         """
         Ensures the requested model is loaded and active for interaction.
 
@@ -172,11 +312,16 @@ class BrainHub:
         current model running. A different model is unloaded (freeing GPU memory) before the new
         one loads. If that load fails the hub is left empty, never half-loaded.
 
+        A swap never interrupts work in progress unless asked: while the loaded model is in use
+        (a chat generation or an agent run), ``on_busy`` decides — ``wait`` (queue the swap until
+        it is free), ``fail`` (refuse) or ``force`` (cancel the work, then swap).
+
         Args:
             model_id: The model config key (e.g. "small", "agents/lite").
             system_prompt: The system-level instruction prompt for the model.
             model_config_data: Optional full model config sent by the client; its ``model_name``
                                 becomes the model identity.
+            on_busy: ``wait`` (default), ``fail`` or ``force``; see above.
 
         Returns:
             The active LLM object instance from the ModelOrchestrator.
@@ -184,12 +329,16 @@ class BrainHub:
         Raises:
             ModelNotFoundError: No config file exists for ``model_id``.
             ModelLoadError: The config exists but the engine failed to load it.
+            ModelBusyError: The model is in use and ``on_busy`` refused or timed out waiting.
         """
         if model_config_data and "model_name" in model_config_data:
             model_id = model_config_data["model_name"]
         key = self.model_key(model_id)
 
         with self._lock:
+            # A queued swap goes first: new work for the old model must not keep it busy forever.
+            if self._swap_target and self._swap_target != key:
+                self._idle.wait_for(lambda: self._swap_target is None, timeout=self.SWAP_WAIT_TIMEOUT)
             llm = self.orchestrator.llm
             if llm is not None and self.current_model_id == key:
                 if getattr(llm, "system_prompt", None) != system_prompt:
@@ -216,8 +365,14 @@ class BrainHub:
                     f"Model '{key}' is a Jarvis client config; the server needs a local engine (e.g. gguf).")
 
             if llm is not None:
-                func.out(f"BrainHub: Swapping {self.current_model_id or 'unknown'} -> {key}")
-                self.unload_brain()
+                if self.busy:
+                    self._wait_until_idle(key, on_busy)
+                    llm = self.orchestrator.llm
+                    if llm is not None and self.current_model_id == key:
+                        return llm  # another waiter already loaded it
+                if llm is not None:
+                    func.out(f"BrainHub: Swapping {self.current_model_id or 'unknown'} -> {key}")
+                    self.unload_brain()
 
             try:
                 self.orchestrator.load(
@@ -232,6 +387,8 @@ class BrainHub:
                 raise ModelLoadError(f"Failed to load model '{key}': {e}") from e
 
             self.current_model_id = key
+            self._idle.notify_all()
+            self._publish_activity()
             func.out(f"BrainHub: {key} is now HOT.")
             return self.orchestrator.llm
 
