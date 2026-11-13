@@ -1,5 +1,19 @@
 # Changelog
 
+## [v3.7.0] - 2026-11-13
+
+###  Features
+- feat(server): Never swap the model out from under running work
+- feat(core): Shared process registry with what each instance is doing
+
+###  Bug Fixes
+- fix(cli): Do not hang on a stdin pipe nobody writes to
+- fix(jarvis): Show the server's error reason, set server_model, keep run.sh exit code
+
+###  Maintenance
+- chore: Update templates
+- chore(release): Bump version to 3.7.0
+
 ## [v3.6.0] - 2026-11-13
 
 ###  Features
