@@ -11,6 +11,7 @@ from ai.entities.model_enums import ModelType, EngineType
 
 from ai.core.llms.base_llm import ModelParams, BaseModel
 from ai.services.process_manager import ProcessManager
+from ai.core.llms.load_errors import GpuMemoryError
 from ai.tools.tool_registry import ToolRegistry
 
 class EngineManager:
@@ -249,6 +250,8 @@ class EngineManager:
             else:
                 func.log(f"Unhandled model_type '{model_type.value}'.", level="ERROR")
                 raise ValueError("Invalid model configuration: unknown 'model_type'.")
+        except GpuMemoryError:
+            raise  # not a failure of this config: the caller offers alternatives
         except Exception as e:
             func.error(f"Failed to instantiate model '{model_name}': {e}", level="ERROR")
             raise e

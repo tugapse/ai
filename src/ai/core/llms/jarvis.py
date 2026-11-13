@@ -40,6 +40,9 @@ class JarvisAiModel(BaseModel):
         # Which model config the server loads (its file name, e.g. "small"). model_name stays a display
         # name; it is only sent as the fallback for configs written before server_model existed.
         self.server_model = kargs.get("server_model") or os.environ.get("AI_SERVER_MODEL") or self.model_name
+        # What the server does if server_model differs from its loaded model while that one is in
+        # use: "wait", "fail" or "force" (None = the server's default, "wait").
+        self.on_busy = kargs.get("on_busy")
         
         # Session state details used by ChatSessionRouter on the backend
         self.session_id = kargs.get("session_id")
@@ -92,6 +95,8 @@ class JarvisAiModel(BaseModel):
             "session_folder": self.session_folder,
             "messages": messages
         }
+        if self.on_busy:
+            payload["on_busy"] = self.on_busy
 
         if stream:
             return self._run_streaming_chat(payload)
