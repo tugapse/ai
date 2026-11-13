@@ -255,6 +255,11 @@ def run():
             prog.config.set(ProgramSetting.PRINT_DEBUG, True)
         else:
             func.ALLOW_CLEAR_CONSOLE = (not getattr(args, 'print_log', False) and not getattr(args, 'print_debug', False))
+        # Maintenance modes (e.g. --server) exit before init_config, which sets these: without
+        # this every func.log/func.debug reaches the console. func.out and func.error always do.
+        debug_console = getattr(args, 'debug_console', False)
+        func.LOCK_LOG = not (getattr(args, 'print_log', False) or debug_console)
+        func.LOCK_DEBUG = not (getattr(args, 'print_debug', False) or debug_console)
         
         from ai.cli_args import CliArgs
         cli_args_processor = CliArgs()
@@ -263,7 +268,7 @@ def run():
         if any(getattr(args, key, None) for key in maintenance_keys):
             cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser,directory_manager=directory_manager)
             if is_server:
-                func.log(f"{Color.GREEN}[  ] Neural Hub is online. Press Ctrl+C to shut down.{Color.RESET}")
+                func.out(f"{Color.GREEN}[  ] Neural Hub is online. Press Ctrl+C to shut down.{Color.RESET}")
                 if prog.modules:
                     prog.modules.load_all()
             

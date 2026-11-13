@@ -18,3 +18,10 @@ run.sh
 /*.spec
 *.pyc
 ai.egg-info/
+# Runtime data written by the server under the dev templates
+assets/templates/system/frontend/
+assets/templates/system/logs/
+assets/templates/system/pids/
+assets/templates/system/workspace/
+assets/templates/workspace/
+assets/templates/user/server/

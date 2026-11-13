@@ -109,7 +109,7 @@ class BrainHub:
                     # Validate if loaded_data is a dictionary and has the 'messages' key
                     if isinstance(loaded_data, dict) and "messages" in loaded_data and isinstance(loaded_data["messages"], list):
                         self.history = loaded_data
-                        func.log(f"BrainHub: Memory loaded from {filepath}")
+                        func.debug(f"BrainHub: Memory loaded from {filepath}")
                     else:
                         func.log(
                             f"BrainHub: Invalid session file format at {filepath}. Starting fresh.",
@@ -118,17 +118,12 @@ class BrainHub:
                         self.history["messages"] = [] # Clear messages
                         self.history["last_updated"] = None # Reset last updated timestamp
             except json.JSONDecodeError:
-                func.log(
-                    f"BrainHub: Corrupted session file at {filepath}. Starting fresh.",
-                    level="ERROR",
-                )
+                func.error(f"BrainHub: Corrupted session file at {filepath}. Starting fresh.")
                 self.history["messages"] = [] # Clear messages
                 self.history["last_updated"] = None # Reset last updated timestamp
         else:
-            func.log(
-                f"BrainHub: No session found at {filepath}. Starting fresh.",
-                level="WARN",
-            )
+            # Normal for a new session.
+            func.debug(f"BrainHub: No session found at {filepath}. Starting fresh.")
             self.history["messages"] = [] # Clear messages
             self.history["last_updated"] = None # Reset last updated timestamp
 
@@ -143,7 +138,7 @@ class BrainHub:
 
         with open(filepath, "w") as f:
             json.dump(self.history, f, indent=4)
-        func.log(f"BrainHub: Memory saved to {filepath}")
+        func.debug(f"BrainHub: Memory saved to {filepath}")
 
    
 
@@ -221,7 +216,7 @@ class BrainHub:
                     f"Model '{key}' is a Jarvis client config; the server needs a local engine (e.g. gguf).")
 
             if llm is not None:
-                func.log(f"BrainHub: Swapping {self.current_model_id or 'unknown'} -> {key}")
+                func.out(f"BrainHub: Swapping {self.current_model_id or 'unknown'} -> {key}")
                 self.unload_brain()
 
             try:
@@ -237,7 +232,7 @@ class BrainHub:
                 raise ModelLoadError(f"Failed to load model '{key}': {e}") from e
 
             self.current_model_id = key
-            func.log(f"BrainHub: {key} is now HOT.")
+            func.out(f"BrainHub: {key} is now HOT.")
             return self.orchestrator.llm
 
     def unload_brain(self):
@@ -256,11 +251,11 @@ class BrainHub:
             self.current_model_id = None
             if llm is None:
                 return None
-            func.log(f"BrainHub: Unloading {model_id or 'unknown'}...")
+            func.out(f"BrainHub: Unloading {model_id or 'unknown'}...")
             try:
                 llm.unload()
             except Exception as e:
-                func.log(f"BrainHub: Unload of {model_id or 'unknown'} failed: {e}", level="ERROR")
+                func.error(f"BrainHub: Unload of {model_id or 'unknown'} failed: {e}")
             return model_id
 
     @staticmethod
@@ -275,17 +270,27 @@ class BrainHub:
         properties = config_data.get("model_properties") or {}
         return model_type == "gemini" or (model_type == "gguf" and bool(properties.get("mmproj_filename")))
 
-    def list_model_configs(self) -> list:
+    def list_model_configs(self, folder: Optional[str] = None) -> list:
         """
         Every model config the server knows, subfolders included, loadable or not.
+
+        Args:
+            folder: Optional subfolder of the models folder ("chat"); only configs under it are
+                    listed. Keys stay full paths ("chat/small"), so they can be sent as ``model``.
 
         Returns:
             Dicts sorted by key: ``key`` (what a request sends as ``model``), ``model_name``
             (display name), ``model_type``, ``vision`` (reads images) and ``loadable`` (False for ``jarvis`` client configs
             and for files that are not valid JSON, which also carry ``error``).
         """
+        prefix = ""
+        if folder:
+            prefix = folder.strip().replace("\\", "/").strip("/").lower()
+            prefix = f"{prefix}/" if prefix else ""
         configs = []
         for key, path in self.orchestrator.list_config_files().items():
+            if prefix and not key.lower().startswith(prefix):
+                continue
             entry = {"key": key.lower(), "model_name": key, "model_type": "", "loadable": False, "vision": False}
             try:
                 data = EngineManager.load_config(path)

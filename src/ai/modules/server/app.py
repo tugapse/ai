@@ -163,7 +163,7 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None,
         stop = getattr(app.state, "shutdown_handler", None)
         if stop is None:
             raise HTTPException(status_code=501, detail="Shutdown is not available on this server.")
-        func.log(f"Shutdown requested over the API by '{device['name']}'.", level="WARN")
+        func.out(f"Shutdown requested over the API by '{device['name']}'.", level="WARNING")
         auth.audit("shutdown", device_id=device["device_id"])
         agent_service.cancel_current()
         background_tasks.add_task(stop)
@@ -178,7 +178,7 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None,
     app.state.frontend = frontend_info
     if frontend_dir is not None:
         app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="static_app")
-        func.log(f"Frontend {frontend_info['version'] or '?'} ({frontend_info['source']}) served from {frontend_dir}")
+        func.out(f"Frontend {frontend_info['version'] or '?'} ({frontend_info['source']}) served from {frontend_dir}")
     
     app.add_middleware(MIMETypeFixerMiddleware)
     app.add_middleware(

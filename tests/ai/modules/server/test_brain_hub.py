@@ -119,6 +119,16 @@ class TestListing:
         assert configs["default"]["loadable"] is False and configs["default"]["model_type"] == "jarvis"
         assert configs["broken"]["loadable"] is False and "error" in configs["broken"]
 
+    @pytest.mark.parametrize("folder", ["chat", "Chat/", "/chat"])
+    def test_model_configs_filtered_by_folder_keep_full_keys(self, hub, loads, folders, write_config, folder):
+        write_config(folders[1], "chat/lite")
+        write_config(folders[0], "chat/deep/big")
+        write_config(folders[1], "chatty")
+        assert [c["key"] for c in hub.list_model_configs(folder)] == ["chat/deep/big", "chat/lite"]
+
+    def test_model_configs_for_a_missing_folder_is_empty(self, hub, loads):
+        assert hub.list_model_configs("chat") == []
+
 
 class TestChatServiceErrors:
     def request(self, model):

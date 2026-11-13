@@ -179,3 +179,18 @@ class TestImages:
     def test_model_configs_report_vision(self, client, vision):
         configs = {c["key"]: c for c in client.get("/api/v1/model-configs").json()}
         assert configs["eyes"]["vision"] is True and configs["small"]["vision"] is False
+
+
+class TestChatFolders:
+    def test_model_configs_folder_query(self, client, loads, folders):
+        import json
+        (folders[1] / "chat").mkdir()
+        (folders[1] / "chat" / "lite.json").write_text(json.dumps({"model_name": "Lite", "model_type": "gguf"}))
+        keys = [c["key"] for c in client.get("/api/v1/model-configs", params={"folder": "chat"}).json()]
+        assert keys == ["chat/lite"]
+
+    def test_chat_with_a_folder_model_key(self, client, loads, folders):
+        import json
+        (folders[1] / "chat").mkdir()
+        (folders[1] / "chat" / "lite.json").write_text(json.dumps({"model_name": "Lite", "model_type": "gguf"}))
+        assert chat(client, model="chat/lite").status_code == 200

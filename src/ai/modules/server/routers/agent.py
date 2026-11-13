@@ -6,8 +6,7 @@ Every route needs a paired device (see routers/auth.py). See services/agent_runs
 
 import asyncio
 import json
-import queue
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -62,6 +61,79 @@ async def pipelines(request: Request):
     return _service(request).list_pipelines()
 
 
+class PipelineContent(BaseModel):
+    content: Any
+
+
+class PipelineCreate(BaseModel):
+    name: str
+    content: Any
+
+
+def _pipeline_call(fn, *args):
+    from ai.modules.server.services.pipelines import PipelineError
+    try:
+        return fn(*args)
+    except PipelineError as e:
+        raise HTTPException(status_code=e.status, detail=e.detail)
+
+
+def _tools(request: Request) -> list:
+    from ai.agents.agent_orchestrator import get_hil_tools
+    from ai.modules.server.services import pipelines
+    service = _service(request)
+    return pipelines.list_tools(service.modules, get_hil_tools(), service.totp_tools())
+
+
+@router.get("/tools")
+async def tools(request: Request):
+    """Tools a pipeline agent can use: ``[{name, description, needs_permission, needs_totp}]``."""
+    return await asyncio.to_thread(_tools, request)
+
+
+@router.get("/pipelines/{name}")
+async def pipeline(name: str, request: Request):
+    """A pipeline file: ``{name, source: user|system, content}``."""
+    from ai.modules.server.services import pipelines
+    _service(request)
+    return _pipeline_call(pipelines.read, name)
+
+
+@router.put("/pipelines/{name}")
+async def save_pipeline(name: str, payload: PipelineContent, request: Request):
+    """
+    Validates and overwrites a pipeline in the folder it came from: ``{name, source, warnings}``.
+    400 ``detail`` is a list of problems; ``warnings`` lists tools no active module provides.
+    """
+    from ai.modules.server.services import pipelines
+    known = {t["name"] for t in await asyncio.to_thread(_tools, request)}
+    result = _pipeline_call(pipelines.save, name, payload.content, known)
+    _audit(request, "pipeline_save", name=name, source=result["source"])
+    return result
+
+
+@router.post("/pipelines", status_code=201)
+async def create_pipeline(payload: PipelineCreate, request: Request):
+    """Validates and creates a pipeline in the user folder (409 if the name exists)."""
+    from ai.modules.server.services import pipelines
+    known = {t["name"] for t in await asyncio.to_thread(_tools, request)}
+    result = _pipeline_call(pipelines.create, payload.name, payload.content, known)
+    _audit(request, "pipeline_create", name=payload.name)
+    return result
+
+
+@router.delete("/pipelines/{name}")
+async def delete_pipeline(name: str, request: Request):
+    """Deletes a pipeline (not ``default``; 409 while a run uses it)."""
+    from ai.modules.server.services import pipelines
+    service = _service(request)
+    if service.busy and service.current.pipeline == name:
+        raise HTTPException(status_code=409, detail=f"Pipeline '{name}' is used by the current run.")
+    result = _pipeline_call(pipelines.delete, name)
+    _audit(request, "pipeline_delete", name=name, source=result["source"])
+    return result
+
+
 @router.get("/tasks")
 async def tasks(request: Request):
     """Task templates (user task folder); a run's ``task`` takes one of these names."""
@@ -74,14 +146,45 @@ async def task(name: str, request: Request):
     return {"name": name, "content": _call(service.read_task, name)}
 
 
+@router.get("/sessions")
+async def sessions(request: Request, cwd: Optional[str] = None):
+    """Saved sessions of runs in ``cwd`` (relative to the workspace), newest first:
+    ``[{session_id, user_request, last_user_message, updated_at, turns, iteration}]``."""
+    return _call(_service(request).list_sessions, cwd)
+
+
+@router.get("/sessions/{session_id}")
+async def session(session_id: str, request: Request, cwd: Optional[str] = None):
+    """A saved session's conversation: ``{session_id, transcript: [{role, agent, text}]}``."""
+    return _call(_service(request).read_session, session_id, cwd)
+
+
 class MkdirRequest(BaseModel):
     path: str
 
 
 @router.get("/workspace")
 async def workspace(request: Request):
-    """The folder agent runs work in; a run's ``cwd`` is relative to ``root``."""
-    return {"root": _service(request).workspace_root(), "default_cwd": ""}
+    """
+    Where runs can work: ``{default, home, recent:[{path, updated_at}], root, default_cwd}``.
+    A run's ``cwd`` is any absolute folder (``recent`` = folders with saved sessions, newest
+    first), or a path relative to ``default`` (``root`` and ``default_cwd`` are for older clients).
+    """
+    return _service(request).workspace_info()
+
+
+@router.get("/fs/list")
+async def fs_list(request: Request, path: str, hidden: bool = False):
+    """Any folder's entries: ``{path, parent, entries:[{name, type, modified, size?}]}``, folders first."""
+    return _call(_service(request).list_folder, path, hidden)
+
+
+@router.post("/fs/mkdir", status_code=201)
+async def fs_mkdir(payload: MkdirRequest, request: Request):
+    """Creates an absolute folder (and missing parents)."""
+    created = _call(_service(request).make_folder, payload.path)
+    _audit(request, "fs_mkdir", path=created)
+    return {"path": created}
 
 
 @router.get("/workspace/list")
@@ -101,8 +204,9 @@ async def workspace_mkdir(payload: MkdirRequest, request: Request):
 @router.post("/runs")
 async def start_run(payload: AgentRunRequest, request: Request):
     """
-    Starts a run and streams its events as SSE until a ``done`` event and ``[DONE]``.
-    Closing the stream cancels the run (an agent never runs unattended).
+    Starts a run and streams its events as SSE (first ``run`` with run_id and session_id) until
+    a ``done`` event and ``[DONE]``. Every event has a ``seq``. Closing the stream does not stop
+    the run: reattach with ``GET /runs/{run_id}/events?after=<seq>``, stop it with ``/cancel``.
     """
     service = _service(request)
     run = await asyncio.to_thread(
@@ -111,41 +215,46 @@ async def start_run(payload: AgentRunRequest, request: Request):
     _audit(request, "agent_run", run_id=run.run_id, session_id=run.session_id,
            pipeline=payload.pipeline or "default", task=payload.task, model=payload.model, cwd=payload.cwd)
 
-    async def events():
-        finished = False
-        try:
-            yield _sse({"type": "run", "run_id": run.run_id, "session_id": run.session_id})
-            idle = 0.0
-            while True:
-                try:
-                    event = await asyncio.to_thread(run.events.get, True, 0.5)
-                except queue.Empty:
-                    idle += 0.5
-                    if idle >= HEARTBEAT_SECONDS:
-                        # A model step can take minutes with no event; writing a comment is how
-                        # a dropped client is noticed (and its run cancelled).
-                        idle = 0.0
-                        yield ": ping\n\n"
-                    continue
-                idle = 0.0
-                if event is None:
-                    finished = True
-                    break
-                yield _sse(event)
-            yield "data: [DONE]\n\n"
-        finally:
-            if not finished:
-                run.cancel()
+    return StreamingResponse(_stream(run, 0), media_type="text/event-stream")
 
-    return StreamingResponse(events(), media_type="text/event-stream")
+
+@router.get("/runs/{run_id}/events")
+async def run_events(run_id: str, request: Request, after: int = 0):
+    """
+    Replays a run's events with ``seq > after``, then streams new ones until ``done`` and
+    ``[DONE]`` (a finished run replays and closes). Any number of viewers; disconnecting never
+    cancels. 404 for an unknown run or one replaced by a newer run.
+    """
+    run = _call(_service(request).get, run_id)
+    return StreamingResponse(_stream(run, after), media_type="text/event-stream")
+
+
+async def _stream(run, after: int):
+    """SSE of ``run``'s log from ``after``; a comment every HEARTBEAT_SECONDS keeps proxies open."""
+    idle = 0.0
+    while True:
+        events, closed = await asyncio.to_thread(run.events_after, after, 0.5)
+        for event in events:
+            yield _sse(event)
+        if events:
+            after, idle = events[-1]["seq"], 0.0
+        if closed:
+            break
+        if not events:
+            idle += 0.5
+            if idle >= HEARTBEAT_SECONDS:
+                idle = 0.0
+                yield ": ping\n\n"
+    yield "data: [DONE]\n\n"
 
 
 @router.get("/runs/current")
 async def current_run(request: Request):
     """
-    The run in progress, so a client that lost its stream can show it and cancel it:
-    ``{"active": true, run_id, session_id, pipeline, started, pending_permissions:[...]}``
-    or ``{"active": false}``.
+    The run in progress, so a client that lost its stream can reattach, show it and cancel it:
+    ``{"active": true, run_id, session_id, pipeline, started, cwd, model, prompt, last_seq,
+    pending_permissions:[...]}``, or ``{"active": false, "last": {run_id, session_id, cwd,
+    pipeline, started, finished, reason, last_seq} | null}``.
     """
     return _service(request).current_info()
 

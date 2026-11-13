@@ -132,7 +132,7 @@ class ChatResponseHandler:
             HTTPException: If the LLM is not initialized, returning a 503 Service Unavailable.
         """
         if self.brain_hub.orchestrator.llm is None:
-            func.log(f"LLM not initialized for {context}.", level="ERROR")
+            func.error(f"LLM not initialized for {context}.")
             raise HTTPException(status_code=503, detail="LLM not initialized.")
 
     async def stream_response(
@@ -151,7 +151,7 @@ class ChatResponseHandler:
         Returns:
             A StreamingResponse object configured for text/event-stream.
         """
-        func.log("Initiating streaming response for chat completion.")
+        func.debug("Initiating streaming response for chat completion.")
         self._ensure_llm_available("streaming")
 
         async def event_generator():
@@ -169,14 +169,14 @@ class ChatResponseHandler:
                         yield f"data: {json.dumps(payload)}\n\n"
                         func.debug(f"Streamed chunk: '{str(chunk)[:50]}...'")
 
-                func.log("Streaming response completed.")
+                func.debug("Streaming response completed.")
                 self.brain_hub.add_history_message("assistant", completed_response)
                 self.brain_hub.save_history_to_json(self.brain_hub.history_file)
                 func.debug("Assistant response saved to history.")
                 yield "data: [DONE]\n\n"
 
             except Exception as e:
-                func.log(f"Streaming Error: {e}", level="ERROR")
+                func.error(f"Streaming Error: {e}")
                 yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
         return StreamingResponse(event_generator(), media_type="text/event-stream")
@@ -194,7 +194,7 @@ class ChatResponseHandler:
         Returns:
             A dictionary representing the final chat completion response structure.
         """
-        func.log("Initiating non-streaming response for chat completion.")
+        func.debug("Initiating non-streaming response for chat completion.")
         self._ensure_llm_available("non-streaming")
 
         raw_output = self.brain_hub.orchestrator.llm.chat(
@@ -303,10 +303,10 @@ class ChatService:
                 model_config_data=model_config_data
             )
         except ModelNotFoundError as e:
-            func.log(str(e), level="ERROR")
+            func.error(str(e))
             raise HTTPException(status_code=404, detail=str(e))
         except ModelLoadError as e:
-            func.log(str(e), level="ERROR")
+            func.error(str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
     def _decode_images(self, image_urls: List[str]) -> list:
@@ -369,12 +369,12 @@ class ChatService:
             HTTPException: If the BrainHub or LLM is not initialized (503), or if
                             inference fails (500).
         """
-        func.log(
+        func.debug(
             f"Chat completion request received. Stream: {getattr(request, 'stream', False)}, Model: {getattr(request, 'model', 'default')}"
         )
 
         if self.brain_hub is None:
-            func.log("BrainHub not initialized for chat completion.", level="ERROR")
+            func.error("BrainHub not initialized for chat completion.")
             raise HTTPException(status_code=503, detail="Orchestrator not initialized.")
 
         self._ensure_no_agent_run()
@@ -407,8 +407,5 @@ class ChatService:
         try:
             return self.response_handler.non_stream_response(formatted_messages, options, images)
         except Exception as e:
-            func.log(
-                f"Inference Error during non-streaming chat completion: {e}",
-                level="ERROR",
-            )
+            func.error(f"Inference Error during non-streaming chat completion: {e}")
             raise HTTPException(status_code=500, detail=str(e))

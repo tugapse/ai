@@ -258,16 +258,16 @@ def {function_name}(argument: str) -> str:
                         # Through the hub, so it knows which model is loaded and can swap it later.
                         brain_hub.get_brain(args.model, "")
                     except Exception as e:
-                        func.log(f"{Color.RED}[ ! ] Neural Load Failed: {e}. Starting in STANDBY.{Color.RESET}")
+                        func.error(f"Neural Load Failed: {e}. Starting in STANDBY.")
                 else:
-                    func.log(f"{Color.CYAN}[*] Neural Hub: Standby Mode. Awaiting Neural Link...{Color.RESET}")
+                    func.out(f"{Color.CYAN}[*] Neural Hub: Standby Mode. Awaiting Neural Link...{Color.RESET}")
                 
                 # Tool modules (filesystem, shell, web, ...) back the /api/v1/agent runs.
                 if prog.modules:
                     try:
                         prog.modules.load_all()
                     except Exception as e:
-                        func.log(f"Server: loading modules failed, agent runs will lack their tools: {e}", level="WARN")
+                        func.error(f"Server: loading modules failed, agent runs will lack their tools: {e}")
 
                 from ai.modules.server.server_module import JarvisServerModule
                 server = JarvisServerModule( 
@@ -281,7 +281,7 @@ def {function_name}(argument: str) -> str:
                 server.start()
                 
             except KeyboardInterrupt:
-                func.log(f"\n{Color.YELLOW}[ * ] Manual override engaged. Terminating JARVIS server.{Color.RESET}")
+                func.out(f"\n{Color.YELLOW}[ * ] Manual override engaged. Terminating JARVIS server.{Color.RESET}")
                 sys.exit(0)
                 
     def _handle_local_direct_mode(self, prog, args,directory_manager:DirectoryManager):

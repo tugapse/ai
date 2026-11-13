@@ -69,7 +69,7 @@ class DeviceStore:
         except FileNotFoundError:
             return {}
         except Exception as e:
-            func.log(f"Auth: unreadable device file {self.path}: {e}. No device is paired.", level="ERROR")
+            func.error(f"Auth: unreadable device file {self.path}: {e}. No device is paired.")
             return {}
 
     def save(self) -> None:
@@ -121,7 +121,7 @@ class AuthService:
             try:
                 nets.append(ipaddress.ip_network(cidr, strict=False))
             except ValueError:
-                func.log(f"Auth: ignoring invalid network '{cidr}' in SERVER_TRUSTED_NETWORKS.", level="WARN")
+                func.error(f"Auth: ignoring invalid network '{cidr}' in SERVER_TRUSTED_NETWORKS.")
         return nets
 
     # --- checks ----------------------------------------------------------------------
@@ -170,8 +170,8 @@ class AuthService:
     @staticmethod
     def announce_code(name: str, ip: str, code: str) -> None:
         """Shows the code on the server's terminal only: whoever reads it there is trusted."""
-        func.log(f"PAIRING REQUEST from '{name}' ({ip}). Code: {code[:3]} {code[3:]} (valid {PAIRING_TTL // 60} min)",
-                 level="WARN")
+        func.out(f"PAIRING REQUEST from '{name}' ({ip}). Code: {code[:3]} {code[3:]} (valid {PAIRING_TTL // 60} min)",
+                 level="WARNING")
 
     def finish_pairing(self, pairing_id: str, code: str, ip: str) -> tuple:
         """Returns (token, device). Raises 401 wrong code, 404 unknown, 410 expired or void."""
@@ -250,4 +250,4 @@ class AuthService:
             with open(self.audit_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(record, ensure_ascii=False) + "\n")
         except Exception as e:
-            func.log(f"Auth: audit write failed: {e}", level="ERROR")
+            func.error(f"Auth: audit write failed: {e}")

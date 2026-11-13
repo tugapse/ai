@@ -65,7 +65,9 @@ class JarvisServerModule(BaseModule):
             app=self._fastapi_app, 
             host=self.host, 
             port=self.port, 
-            log_level="info"
+            # Request lines (the web client polls health/stats) only with --print-log.
+            log_level="warning" if func.LOCK_LOG else "info",
+            access_log=not func.LOCK_LOG,
         )
         self._uvicorn_server = uvicorn.Server(uvicorn_config)
 
@@ -75,10 +77,10 @@ class JarvisServerModule(BaseModule):
         the main Program execution.
         """
         if not self._uvicorn_server:
-            func.error("Cannot start server: Not initialized.", level="ERROR")
+            func.error("Cannot start server: Not initialized.")
             return
 
-        func.log(f"Starting Neural Link on http://{self.host}:{self.port}")
+        func.out(f"Starting Neural Link on http://{self.host}:{self.port}")
         self._server_thread = threading.Thread(target=self._uvicorn_server.run, daemon=True)
         self._server_thread.start()
         self._server_thread.join()

@@ -30,6 +30,8 @@ async def get_prompts(request: Request, prompt_folder: Optional[str] = None):
     try:
         prompts = prompt_manager.list_prompts(prompt_folder)
         return {"prompts": prompts}
+    except PromptInvalidPathError:
+        raise HTTPException(status_code=400, detail="Invalid prompt folder")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to load prompts: {e}")
 
@@ -58,11 +60,12 @@ async def get_prompt_content(request: Request, prompt_path: str):
         raise HTTPException(status_code=500, detail=f"Failed to load prompt: {e}")
 
 @router.get("/api/v1/model-configs")
-async def get_model_configs(request: Request):
+async def get_model_configs(request: Request, folder: Optional[str] = None):
     """
     List every model config the server knows (user and system models folders, subfolders included).
 
     :param request: The FastAPI Request object.
+    :param folder: Optional models subfolder ("chat"); only configs under it are listed, keys unchanged ("chat/small").
     :raises HTTPException: If the server has no BrainHub (500).
     :return: A list of ``{key, model_name, model_type, loadable}``; ``key`` is what a chat request
              sends as ``model``. ``jarvis`` configs and invalid files are listed with ``loadable: false``.
@@ -70,7 +73,7 @@ async def get_model_configs(request: Request):
     brain_hub = getattr(request.app.state, "brain_hub", None)
     if brain_hub is None:
         raise HTTPException(status_code=500, detail="Brain hub not configured.")
-    return brain_hub.list_model_configs()
+    return brain_hub.list_model_configs(folder)
 
 @router.post("/api/v1/prompts", dependencies=[Depends(require_device)])
 async def create_prompt(request: Request, payload: PromptCreateRequest):

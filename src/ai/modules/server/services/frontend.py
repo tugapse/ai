@@ -22,7 +22,7 @@ import ai.functions as func
 from ai.config import ProgramSetting
 from ai.services.directory_manager import DirectoryManager
 
-API_LEVEL = 1          # raise when the server adds endpoints a frontend may depend on
+API_LEVEL = 2          # raise when the server adds endpoints a frontend may depend on
 KEEP_VERSIONS = 5
 PACKAGE_DIR = Path(__file__).resolve().parent.parent
 BUNDLED_TAR = PACKAGE_DIR / "frontend.tar.gz"
@@ -100,7 +100,7 @@ def extract(tar_path: Path, root: Optional[Path] = None) -> Tuple[Path, dict]:
     except Exception:
         shutil.rmtree(tmp, ignore_errors=True)
         raise
-    func.log(f"Frontend {version} extracted to {target}")
+    func.out(f"Frontend {version} extracted to {target}")
     return target, info
 
 
@@ -140,7 +140,7 @@ def resolve(config=None, bundled: Path = BUNDLED_TAR, legacy: Path = LEGACY_DIR,
         path = Path(os.path.expanduser(folder))
         if (path / "index.html").is_file():
             return path, {"version": read_version(path).get("version"), "source": "dir"}
-        func.log(f"SERVER_FRONTEND_DIR '{folder}' has no index.html; ignoring it.", level="WARN")
+        func.out(f"SERVER_FRONTEND_DIR '{folder}' has no index.html; ignoring it.", level="WARNING")
 
     root = root or cache_root()
     bundled_version = None
@@ -149,7 +149,7 @@ def resolve(config=None, bundled: Path = BUNDLED_TAR, legacy: Path = LEGACY_DIR,
             bundled_path, info = extract(bundled, root)
             bundled_version = str(info["version"])
         except Exception as e:
-            func.log(f"Bundled frontend unusable: {e}", level="ERROR")
+            func.error(f"Bundled frontend unusable: {e}")
             bundled_path = None
     else:
         bundled_path = None
@@ -159,10 +159,10 @@ def resolve(config=None, bundled: Path = BUNDLED_TAR, legacy: Path = LEGACY_DIR,
         path = root / pinned
         info = read_version(path)
         if not (path / "index.html").is_file():
-            func.log(f"Pinned frontend {pinned} is not in the cache; serving the bundled one.", level="WARN")
+            func.out(f"Pinned frontend {pinned} is not in the cache; serving the bundled one.", level="WARNING")
         elif int(info.get("api_level") or 0) > API_LEVEL:
-            func.log(f"Pinned frontend {pinned} needs api_level {info.get('api_level')} "
-                     f"but this server has {API_LEVEL}; serving the bundled one.", level="WARN")
+            func.out(f"Pinned frontend {pinned} needs api_level {info.get('api_level')} "
+                     f"but this server has {API_LEVEL}; serving the bundled one.", level="WARNING")
         else:
             prune(protect=(pinned, bundled_version or ""), root=root)
             return path, {"version": pinned, "source": "pinned"}
@@ -174,5 +174,5 @@ def resolve(config=None, bundled: Path = BUNDLED_TAR, legacy: Path = LEGACY_DIR,
     if (legacy / "index.html").is_file():
         return legacy, {"version": read_version(legacy).get("version"), "source": "legacy"}
 
-    func.log("No frontend found: serving the API only.", level="WARN")
+    func.out("No frontend found: serving the API only.", level="WARNING")
     return None, {"version": None, "source": "none"}
