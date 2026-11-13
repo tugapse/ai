@@ -10,6 +10,7 @@ import ai.functions as func
 from ai.entities.model_enums import ModelType, EngineType
 
 from ai.core.llms.base_llm import ModelParams, BaseModel
+from ai.services.process_manager import ProcessManager
 from ai.tools.tool_registry import ToolRegistry
 
 class EngineManager:
@@ -252,6 +253,7 @@ class EngineManager:
             func.error(f"Failed to instantiate model '{model_name}': {e}", level="ERROR")
             raise e
 
+        ProcessManager.set_state("model", model_name)
         return llm_instance
 
     @staticmethod

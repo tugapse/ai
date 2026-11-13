@@ -129,3 +129,37 @@ class TestServerModel:
         server.body = sse("[DONE]")
         list(client(server.url).chat(MESSAGES, stream=True))
         assert server.requests[0]["model"] == "big"
+
+
+class TestServerErrorDetail:
+    """HTTP errors show the server's reason (FastAPI "detail"), not only the status line."""
+
+    NOT_FOUND = json.dumps({"detail": "Model 'gemma4' not found. Available: agents/gemma4-gguf, small"}).encode()
+
+    def test_streaming_404_shows_detail_and_hint(self, server):
+        server.status, server.body = 404, self.NOT_FOUND
+        with pytest.raises(LLMAPIError) as info:
+            list(client(server.url).chat(MESSAGES, stream=True))
+        message = str(info.value)
+        assert "404" in message and "Available: agents/gemma4-gguf, small" in message
+        assert "server_model" in message
+        assert info.value.status == 404 and not info.value.transient
+
+    def test_non_streaming_409_shows_detail(self, server):
+        server.status = 409
+        server.body = json.dumps({"detail": "Model 'small' is in use by 1 chat; not swapping to 'big'."}).encode()
+        with pytest.raises(LLMAPIError, match="in use by 1 chat") as info:
+            client(server.url).chat(MESSAGES, stream=False)
+        assert info.value.status == 409 and "server_model" not in str(info.value)
+
+    def test_validation_errors_are_joined(self, server):
+        server.status = 422
+        server.body = json.dumps({"detail": [{"msg": "Input should be 'wait', 'fail' or 'force'"}]}).encode()
+        with pytest.raises(LLMAPIError, match="Input should be 'wait', 'fail' or 'force'"):
+            list(client(server.url).chat(MESSAGES, stream=True))
+
+    def test_non_json_body_keeps_the_status_line(self, server):
+        server.status, server.body = 500, b"Internal Server Error"
+        with pytest.raises(LLMAPIError, match="server answered 500 Internal Server Error") as info:
+            list(client(server.url).chat(MESSAGES, stream=True))
+        assert info.value.transient  # 5xx is still retried

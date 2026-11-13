@@ -212,11 +212,20 @@ class DirectoryManager:
         """
         Gets the path to the process ID (PID) directory, creating it if necessary.
 
+        The registry is per user and per machine, not per install: a dev checkout and the
+        installed copy must see each other's instances (e.g. to know who holds the GPU).
+        Uses $XDG_RUNTIME_DIR (private tmpfs, cleared on logout) or a private dir in the temp folder.
+
         :return: str: The path to the PID directory.
         """
-        pid_directory = os.path.join(self.system_directory, "pids")
+        runtime_dir = os.environ.get("XDG_RUNTIME_DIR")
+        if runtime_dir and os.path.isdir(runtime_dir):
+            pid_directory = os.path.join(runtime_dir, "jarvis", "pids")
+        else:
+            import tempfile
+            pid_directory = os.path.join(tempfile.gettempdir(), f"jarvis-{os.getuid()}", "pids")
         if not os.path.exists(pid_directory):
-            os.makedirs(pid_directory)
+            os.makedirs(pid_directory, mode=0o700, exist_ok=True)
             func.debug(f"{Color.GREEN}PID directory created at: {pid_directory}{Color.RESET}")
         return pid_directory
 

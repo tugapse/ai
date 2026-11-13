@@ -20,3 +20,6 @@ class ModelNotFoundError(ModelError):
 class ModelLoadError(ModelError):
     """Raised when a model config exists but the engine failed to load it."""
     pass
+class ModelBusyError(ModelError):
+    """Raised when a model swap is refused because the loaded model is still in use."""
+    pass

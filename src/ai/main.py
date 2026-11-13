@@ -195,6 +195,17 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
 
 
 
+def _instance_mode(args, maintenance_keys) -> str:
+    """What this instance is, as shown in the process registry."""
+    if getattr(args, 'server', False):
+        return "server"
+    if any(getattr(args, key, None) for key in maintenance_keys):
+        return "maintenance"
+    if getattr(args, 'agent', False) or getattr(args, 'resume', None) is not None or getattr(args, 'pipeline', None):
+        return "agent"
+    return "chat"
+
+
 def run():
     """
     Main execution function for the JARVIS system.
@@ -247,6 +258,10 @@ def run():
     directory_manager = DirectoryManager()
     process_manager = ProcessManager(directory_manager)
     
+    maintenance_keys = ['install',  'overwrite_config', 'generate_config', 'server', 'print_chat', 'list_models', 'create_tool', 'server_totp_setup', 'frontend']
+    ProcessManager.set_state("mode", _instance_mode(args, maintenance_keys))
+    ProcessManager.set_state("activity", "starting")
+
     try:
         process_manager.start()  
         if getattr(args, 'debug_console', False): 
@@ -264,10 +279,10 @@ def run():
         from ai.cli_args import CliArgs
         cli_args_processor = CliArgs()
 
-        maintenance_keys = ['install',  'overwrite_config', 'generate_config', 'server', 'print_chat', 'list_models', 'create_tool', 'server_totp_setup', 'frontend']
         if any(getattr(args, key, None) for key in maintenance_keys):
             cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser,directory_manager=directory_manager)
             if is_server:
+                ProcessManager.set_state("activity", "online")
                 func.out(f"{Color.GREEN}[  ] Neural Hub is online. Press Ctrl+C to shut down.{Color.RESET}")
                 if prog.modules:
                     prog.modules.load_all()
@@ -280,6 +295,7 @@ def run():
         cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser,directory_manager=directory_manager)
         
         
+        ProcessManager.set_state("activity", "ready")
         prog.run()
         
     except Exception as e:

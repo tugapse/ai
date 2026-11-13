@@ -5,14 +5,19 @@ The real ModelOrchestrator runs; only the engine (EngineManager.load_model_insta
 config folder are faked, so no model is loaded.
 """
 
+import gc
 import json
+import threading
+import time
 from unittest.mock import MagicMock
 
 import pytest
 from fastapi import HTTPException
 
-from ai.modules.server.exceptions import ModelLoadError, ModelNotFoundError
+from ai.modules.server.brain_hub import BrainHub
+from ai.modules.server.exceptions import ModelBusyError, ModelLoadError, ModelNotFoundError
 from ai.modules.server.services.chat import ChatService
+from ai.services.process_manager import ProcessManager
 
 
 class TestSwap:
@@ -146,3 +151,108 @@ class TestChatServiceErrors:
         with pytest.raises(HTTPException) as info:
             service._resolve_brain(self.request("small"))
         assert info.value.status_code == 500 and "boom" in info.value.detail
+
+
+class TestSwapWhileBusy:
+    """A swap never interrupts work in progress unless the request explicitly forces it."""
+
+    def test_lease_marks_the_hub_busy_until_released(self, hub, loads):
+        lease = hub.acquire("small", "")
+        assert hub.busy
+        lease.release()
+        lease.release()  # idempotent: a double release must not free someone else's lease
+        assert not hub.busy
+
+    def test_same_model_while_busy_does_not_wait(self, hub, loads):
+        with hub.acquire("small", ""):
+            with hub.acquire("small", "", on_busy="fail"):
+                assert len(loads) == 1
+
+    def test_fail_refuses_the_swap_and_keeps_the_model(self, hub, loads):
+        with hub.acquire("small", ""):
+            with pytest.raises(ModelBusyError, match="in use by 1 chat"):
+                hub.get_brain("big", "", on_busy="fail")
+            assert hub.current_model_id == "small" and loads[0].unloaded == 0
+
+    def test_agent_run_also_blocks_a_swap(self, hub, loads):
+        hub.get_brain("small", "")
+        hub.agent_running = True
+        with pytest.raises(ModelBusyError, match="an agent run"):
+            hub.get_brain("big", "", on_busy="fail")
+
+    def test_wait_swaps_once_the_current_work_finishes(self, hub, loads):
+        lease = hub.acquire("small", "")
+        result = {}
+        waiter = threading.Thread(target=lambda: result.setdefault("llm", hub.get_brain("big", "")))
+        waiter.start()
+        time.sleep(0.1)
+        assert waiter.is_alive() and hub.current_model_id == "small"  # still waiting
+        assert loads[0].unloaded == 0
+
+        lease.release()
+        waiter.join(2)
+        assert not waiter.is_alive()
+        assert hub.current_model_id == "big" and result["llm"] is loads[1] and loads[0].unloaded == 1
+
+    def test_wait_times_out_with_busy_error(self, hub, loads, monkeypatch):
+        monkeypatch.setattr(BrainHub, "SWAP_WAIT_TIMEOUT", 0.1)
+        with hub.acquire("small", ""):
+            with pytest.raises(ModelBusyError, match="still in use"):
+                hub.get_brain("big", "")
+            assert hub.current_model_id == "small"
+
+    def test_force_cancels_the_work_then_swaps(self, hub, loads):
+        hub.get_brain("small", "")
+        hub.agent_running = True
+        cancelled = []
+
+        def cancel():  # what AgentRunService.cancel_current does, as the run thread would end
+            cancelled.append(True)
+            threading.Timer(0.05, lambda: setattr(hub, "agent_running", False)).start()
+
+        hub.add_cancel_hook(cancel)
+        llm = hub.get_brain("big", "", on_busy="force")
+        assert cancelled and llm is loads[1] and hub.current_model_id == "big"
+
+    def test_unknown_policy_is_rejected(self, hub, loads):
+        with hub.acquire("small", ""):
+            with pytest.raises(ValueError, match="on_busy"):
+                hub.get_brain("big", "", on_busy="maybe")
+
+    def test_dropped_stream_releases_its_lease(self, hub, loads):
+        lease = hub.acquire("small", "")
+
+        def gen():
+            yield "never started"
+
+        owner = gen()
+        BrainHub.release_with(owner, lease)
+        del owner
+        gc.collect()
+        assert not hub.busy
+
+    def test_activity_reflects_the_hub_state(self, hub, loads):
+        ProcessManager._state = {}
+        hub.get_brain("small", "")
+        assert ProcessManager._state["activity"] == "idle (small)"
+        with hub.acquire("small", ""):
+            assert ProcessManager._state["activity"] == "busy: 1 chat"
+        assert ProcessManager._state["activity"] == "idle (small)"
+
+
+class TestChatServiceBusy:
+    def request(self, model, on_busy=None):
+        return MagicMock(model=model, system_prompt_content="", model_config_data=None, on_busy=on_busy)
+
+    def test_resolve_returns_a_lease(self, hub, loads):
+        lease = ChatService(hub, "/tmp", {})._resolve_brain(self.request("small"))
+        assert hub.busy
+        lease.release()
+        assert not hub.busy
+
+    def test_busy_with_fail_is_409(self, hub, loads):
+        service = ChatService(hub, "/tmp", {})
+        with service._resolve_brain(self.request("small")):
+            with pytest.raises(HTTPException) as info:
+                service._resolve_brain(self.request("big", on_busy="fail"))
+        assert info.value.status_code == 409 and hub.current_model_id == "small"

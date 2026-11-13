@@ -142,6 +142,8 @@ class AgentRunService:
         self.totp = totp  # TotpGuard; when enabled, approving TOTP tools needs a code
         self.current: Optional[AgentRun] = None
         self._lock = threading.Lock()
+        if hasattr(brain_hub, "add_cancel_hook"):
+            brain_hub.add_cancel_hook(self.cancel_current)  # a forced model swap stops the run
 
     @property
     def busy(self) -> bool:
@@ -390,15 +392,19 @@ class AgentRunService:
 
     def start(self, prompt: str, pipeline: Optional[str] = None, task: Optional[str] = None,
               model: Optional[str] = None, session_id: Optional[str] = None,
-              cwd: Optional[str] = None) -> AgentRun:
+              cwd: Optional[str] = None, on_busy: Optional[str] = None) -> AgentRun:
         """
         Validates the request, loads the model and starts the run thread.
+
+        ``on_busy`` applies when ``model`` differs from the loaded one while chats still use it:
+        ``wait`` (default), ``fail`` or ``force`` (see BrainHub.get_brain).
 
         Raises:
             AgentApiError: 400 bad input, 404 unknown task/pipeline/model, 409 busy or no model.
         """
         from ai.agents.agent import build_orchestrator
-        from ai.modules.server.exceptions import ModelLoadError, ModelNotFoundError
+        from ai.modules.server.brain_hub import ON_BUSY_WAIT
+        from ai.modules.server.exceptions import ModelBusyError, ModelLoadError, ModelNotFoundError
 
         text = "\n\n".join(part for part in (self.read_task(task) if task else "", prompt or "") if part.strip())
         if not text.strip():
@@ -411,30 +417,42 @@ class AgentRunService:
         with self._lock:
             if self.busy:
                 raise AgentApiError(409, "An agent run is already in progress.")
-            if model:
-                try:
-                    self.brain_hub.get_brain(model, "")
-                except ModelNotFoundError as e:
-                    raise AgentApiError(404, str(e))
-                except ModelLoadError as e:
-                    raise AgentApiError(500, str(e))
-            if self.brain_hub.orchestrator.llm is None:
-                raise AgentApiError(409, "No model loaded; pass model.")
-
-            run = AgentRun(session_id or str(uuid.uuid4()), totp_tools=self.totp_tools(), pipeline=pipeline,
-                           cwd=workdir, model=self.brain_hub.current_model_id, prompt=prompt or "")
-            prog = SimpleNamespace(llm=self.brain_hub.orchestrator.llm, modules=self.modules)
+            # Load and claim the model in one step under the hub lock, so no chat swaps it in between.
+            with self.brain_hub._lock:
+                if model:
+                    try:
+                        self.brain_hub.get_brain(model, "", on_busy=on_busy or ON_BUSY_WAIT)
+                    except ModelNotFoundError as e:
+                        raise AgentApiError(404, str(e))
+                    except ModelBusyError as e:
+                        raise AgentApiError(409, str(e))
+                    except ModelLoadError as e:
+                        raise AgentApiError(500, str(e))
+                if self.brain_hub.orchestrator.llm is None:
+                    raise AgentApiError(409, "No model loaded; pass model.")
+                self.brain_hub.agent_running = True
             try:
-                run.orchestrator = build_orchestrator(prog, f"{pipeline}.json", io=WebAgentIO(run))
-            except ValueError as e:
-                raise AgentApiError(400, str(e))
-            run.orchestrator.llm_connector.on_token = lambda token: run.put({"type": "token", "text": str(token)})
-            run.put({"type": "run", "run_id": run.run_id, "session_id": run.session_id})
+                run = self._build_run(build_orchestrator, session_id, pipeline, workdir, prompt)
+            except BaseException:
+                self.brain_hub.agent_running = False
+                raise
             self.current = run  # replaces the previous run, whose log expires here
-            self.brain_hub.agent_running = True
 
         threading.Thread(target=self._run, args=(run, text, workdir), daemon=True,
                          name=f"agent-run-{run.run_id}").start()
+        return run
+
+    def _build_run(self, build_orchestrator, session_id, pipeline, workdir, prompt) -> AgentRun:
+        """Creates the run and its orchestrator on the loaded model."""
+        run = AgentRun(session_id or str(uuid.uuid4()), totp_tools=self.totp_tools(), pipeline=pipeline,
+                       cwd=workdir, model=self.brain_hub.current_model_id, prompt=prompt or "")
+        prog = SimpleNamespace(llm=self.brain_hub.orchestrator.llm, modules=self.modules)
+        try:
+            run.orchestrator = build_orchestrator(prog, f"{pipeline}.json", io=WebAgentIO(run))
+        except ValueError as e:
+            raise AgentApiError(400, str(e))
+        run.orchestrator.llm_connector.on_token = lambda token: run.put({"type": "token", "text": str(token)})
+        run.put({"type": "run", "run_id": run.run_id, "session_id": run.session_id})
         return run
 
     def _run(self, run: AgentRun, text: str, workdir: str) -> None:

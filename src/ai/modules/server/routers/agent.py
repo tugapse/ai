@@ -6,7 +6,7 @@ Every route needs a paired device (see routers/auth.py). See services/agent_runs
 
 import asyncio
 import json
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -26,6 +26,8 @@ class AgentRunRequest(BaseModel):
     model: Optional[str] = None
     session_id: Optional[str] = None
     cwd: Optional[str] = None
+    # When `model` differs from the loaded one and chats still use it: wait (default) | fail | force
+    on_busy: Optional[Literal["wait", "fail", "force"]] = None
 
 
 class PermissionAnswer(BaseModel):
@@ -211,7 +213,7 @@ async def start_run(payload: AgentRunRequest, request: Request):
     service = _service(request)
     run = await asyncio.to_thread(
         _call, service.start, payload.prompt, payload.pipeline, payload.task,
-        payload.model, payload.session_id, payload.cwd)
+        payload.model, payload.session_id, payload.cwd, payload.on_busy)
     _audit(request, "agent_run", run_id=run.run_id, session_id=run.session_id,
            pipeline=payload.pipeline or "default", task=payload.task, model=payload.model, cwd=payload.cwd)
 

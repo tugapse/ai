@@ -147,6 +147,8 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None,
         """
         if agent_service.busy:
             raise HTTPException(status_code=409, detail="Agent run in progress.")
+        if brain_hub.busy:
+            raise HTTPException(status_code=409, detail="Model in use by a chat generation.")
         # Off the event loop: unloading joins the generation thread and frees memory.
         model = await asyncio.to_thread(brain_hub.unload_brain)
         auth.audit("unload", device_id=device["device_id"], model=model)

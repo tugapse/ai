@@ -97,6 +97,31 @@ class JarvisAiModel(BaseModel):
             return self._run_streaming_chat(payload)
         return self._run_sync_chat(payload)
 
+    @staticmethod
+    def _raise_for_status(response: httpx.Response) -> None:
+        """
+        Like ``raise_for_status``, but the message carries the server's reason (FastAPI ``detail``)
+        instead of only "Client error '404 Not Found' for url ...". Still an HTTPStatusError, so
+        retry decisions keep working from its status code.
+        """
+        if not response.is_error:
+            return
+        detail = None
+        try:
+            response.read()  # a streamed response has no body loaded yet
+            body = response.json()
+            detail = body.get("detail") if isinstance(body, dict) else None
+        except Exception:
+            pass
+        if isinstance(detail, list):  # 422 validation errors
+            detail = "; ".join(str(d.get("msg", d)) if isinstance(d, dict) else str(d) for d in detail)
+        message = f"server answered {response.status_code} {response.reason_phrase}"
+        if detail:
+            message += f": {detail}"
+            if response.status_code == 404 and "not found" in str(detail).lower() and "model" in str(detail).lower():
+                message += " (set model_properties.server_model in this jarvis config to one of the server's models)"
+        raise httpx.HTTPStatusError(message, request=response.request, response=response)
+
     def _timeout(self) -> httpx.Timeout:
         return httpx.Timeout(self.retry_policy.timeout, connect=self.retry_policy.connect_timeout)
 
@@ -110,7 +135,7 @@ class JarvisAiModel(BaseModel):
         def request():
             with httpx.Client(timeout=self._timeout()) as client:
                 response = client.post(self.endpoint, json=payload)
-                response.raise_for_status()
+                self._raise_for_status(response)
                 return response.json()
 
         try:
@@ -132,7 +157,7 @@ class JarvisAiModel(BaseModel):
     def _open_stream(self, payload: Dict[str, Any]) -> Generator[str, None, None]:
         """One streaming request: yields content chunks from the server's SSE lines."""
         with httpx.stream("POST", self.endpoint, json=payload, timeout=self._timeout()) as response:
-            response.raise_for_status()
+            self._raise_for_status(response)
             for line in response.iter_lines():
                 if self.stop_generation_event.is_set():
                     return
