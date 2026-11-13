@@ -2,6 +2,7 @@
   "model_name": "gemma4-26b",
   "model_type": "jarvis",
   "model_properties": {
+    "server_model": "agents/gemma4-26b-gguf",
     "gguf_filename": "gemma-4-26B-A4B-it-UD-Q4_K_XL.gguf",
     "model_repo_id": "unsloth/gemma-4-26B-A4B-it-GGUF",
     "n_gpu_layers": 6,
