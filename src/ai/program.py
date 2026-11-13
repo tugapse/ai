@@ -29,6 +29,7 @@ from ai.services.history_manager import HistoryManager
 from ai.services.module_registry import ModuleRegistry
 from ai.services.ui_orchestrator import UIOrchestrator
 from ai.services.stream_orchestrator import StreamOrchestrator
+from ai.services.process_manager import ProcessManager
 
 import ai.functions as func
 
@@ -169,6 +170,7 @@ class Program:
         """
         if not self.llm: return
 
+        ProcessManager.set_state("activity", "responding")
         try:
             if user_input and user_input.strip():
                 self.history.add_message(ChatRoles.USER, user_input)
@@ -187,6 +189,7 @@ class Program:
             if self.llm: self.llm.request_shutdown()
         finally:
             self._cleanup_after_turn()
+            ProcessManager.set_state("activity", "ready")
 
     def _run_agent_loop(self, stream_orchestrator: StreamOrchestrator, options: dict):
         """

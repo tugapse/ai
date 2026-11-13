@@ -126,7 +126,16 @@ class AgentOrchestrator(Events):
 
     def emit(self, event_type: AgentEventType, agent: Optional[str] = None, text: str = "", **data):
         """Shortcut to send an event through the I/O channel."""
+        if event_type == AgentEventType.STATUS:
+            self._publish_activity(agent, text, data)
         self.io.emit(AgentEvent(type=event_type, agent=agent, text=text, data=data))
+
+    def _publish_activity(self, agent: Optional[str], text: str, data: dict) -> None:
+        """Mirrors the STATUS line into the process registry as ``[n/max] agent: status``."""
+        if "iteration" in data:
+            self._activity_progress = f"[{data['iteration']}/{data.get('max_iterations', '?')}] "
+        progress = getattr(self, "_activity_progress", "")
+        ProcessManager.set_state("activity", f"{progress}{agent or 'agent'}: {text}".strip())
 
     def cancel(self):
         """Requests the running loop to stop at the next safe point (thread-safe)."""
@@ -178,7 +187,6 @@ class AgentOrchestrator(Events):
 
         max_iterations = self.pipeline_config.get("max_iterations", MAX_ITERATIONS)
         end_iteration = start_iteration + max_iterations
-        ProcessManager.set_state("mode", "agent")
         executed = 0
 
         for i in range(start_iteration, end_iteration):
@@ -189,8 +197,6 @@ class AgentOrchestrator(Events):
             if current_agent in [None, STOP_SIGNAL]:
                 self.emit(AgentEventType.INFO, text="Pipeline execution finished.", status="SUCCESS")
                 return self._finish("done", current_agent, executed)
-            ProcessManager.set_state("agent_turn", i)
-            ProcessManager.set_state("agent_max_turn", end_iteration)
 
             agent_mem = self.memory.get_agent_memory(current_agent)
             if not agent_mem:
@@ -219,7 +225,6 @@ class AgentOrchestrator(Events):
             payload, was_compressed = self.context_sentinel.enforce_limits(
                 current_agent, self.memory, payload, vector_memory=self.vector_memory
             )
-            ProcessManager.set_state("agent_payload", payload)
 
             self.emit(
                 AgentEventType.STATUS, current_agent,
@@ -280,6 +285,8 @@ class AgentOrchestrator(Events):
 
     def _finish(self, reason: str, agent: Optional[str], executed: int, message: Optional[str] = None) -> TurnResult:
         """Builds the TurnResult returned by run_loop."""
+        ProcessManager.set_state("activity", f"agent {reason}" + (f" ({agent})" if agent and agent != STOP_SIGNAL else ""))
+        self._activity_progress = ""
         return TurnResult(
             reason=reason,
             agent=agent,
