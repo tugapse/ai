@@ -3,18 +3,37 @@ import threading
 import queue
 import gc
 import ctypes
+import collections
 from typing import List, Dict, Any, NoReturn
 from huggingface_hub import hf_hub_download
 from llama_cpp import Llama, llama_log_set
 
 import ai.functions as func
 from ai.core.llms.base_llm import BaseModel, ModelParams
+from ai.core.llms.load_errors import GpuMemoryError
 from ai.color import Color
 from ai.tools.tool_registry import ToolRegistry
 
+# llama.cpp logs go to a small ring buffer instead of the terminal: silent by default, but a
+# failed load can still tell why (e.g. "cudaMalloc failed: out of memory").
+_engine_log = collections.deque(maxlen=200)
+
 def _null_log_callback(level, message, user_data):
-    """A null callback function to suppress logging from llama_cpp."""
-    pass
+    """Keeps llama.cpp log lines in memory instead of printing them."""
+    try:
+        _engine_log.append(message.decode("utf-8", "replace") if message else "")
+    except Exception:
+        pass
+
+_GPU_OOM_MARKERS = ("out of memory", "unable to allocate cuda", "failed to allocate cuda",
+                    "unable to allocate vulkan", "erroroutofdevicememory", "failed to allocate rocm",
+                    "unable to allocate metal")
+
+def _gpu_oom_in(log_text: str) -> bool:
+    """True when the engine log shows a failed GPU allocation."""
+    text = log_text.lower()
+    return any(marker in text for marker in _GPU_OOM_MARKERS)
+
 _log_callback_type = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_char_p, ctypes.c_void_p)
 _callback_ref = _log_callback_type(_null_log_callback)
 llama_log_set(_callback_ref, ctypes.c_void_p())
@@ -83,6 +102,8 @@ class GGUFImageLLM(BaseModel):
         kwargs.pop('verbose', None)
         kwargs.pop('print_timings', None)
         
+        model_path = ""
+        oom_error = None
         try:
             func.debug(f"[GGUF Engine] Checking local cache for model...")
             
@@ -107,6 +128,7 @@ class GGUFImageLLM(BaseModel):
                 kwargs["chat_handler"] = chat_handler
 
             func.debug(f"[GGUF Engine] Loading model into memory...")
+            _engine_log.clear()
             
             with GGUFImageLLM._shared_mem_lock:
                 self.llama_model = Llama(
@@ -119,9 +141,23 @@ class GGUFImageLLM(BaseModel):
             func.log(f"GGUF model '{self.model_name}' ready.")
             
         except Exception as e:
-            func.error(f"Failed to load GGUF: {e}")
-            # A half-built engine answers "Model not loaded." forever; let the caller decide.
-            raise RuntimeError(f"Failed to load GGUF '{self.gguf_filename}': {e}") from e
+            log_tail = "".join(list(_engine_log)[-40:])
+            if not _gpu_oom_in(log_tail):
+                func.error(f"Failed to load GGUF: {e}")
+                # A half-built engine answers "Model not loaded." forever; let the caller decide.
+                raise RuntimeError(f"Failed to load GGUF '{self.gguf_filename}': {e}") from e
+            # Not a broken file: the GPU is full. The caller can offer alternatives.
+            func.debug(f"[GGUF Engine] GPU out of memory loading {self.gguf_filename}:\n{log_tail}")
+            oom_error = GpuMemoryError(
+                f"Not enough free GPU memory to load '{self.gguf_filename}'.",
+                model_path=model_path, n_gpu_layers=kwargs.get("n_gpu_layers"), log_tail=log_tail)
+
+        if oom_error is not None:
+            # Raised outside the except block on purpose: the llama.cpp exception's traceback keeps
+            # the half-built model alive, with the GPU buffers it did allocate. Dropping it (and
+            # collecting) frees that memory before the caller retries with fewer GPU layers.
+            gc.collect()
+            raise oom_error
 
     def _generate_in_thread(self, messages: List[Dict[str, str]], gen_options: dict, output_queue: queue.Queue):
         """

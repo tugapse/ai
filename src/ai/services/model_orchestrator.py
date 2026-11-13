@@ -5,6 +5,7 @@ from typing import Optional, Dict, Any
 import ai.functions as func
 from ai.services.directory_manager import DirectoryManager
 from ai.services.engine_manager import EngineManager
+from ai.core.llms.load_errors import GpuMemoryError
 from ai.core.llms.base_llm import ModelParams, BaseModel
 from ai.services.config_helper import ProgramConfig, ProgramSetting
 from ai.tools.tool_registry import ToolRegistry
@@ -139,6 +140,21 @@ class ModelOrchestrator:
             if not self.llm:
                 raise ValueError("ModelManager returned None.")
 
+            self.active_model_name = model_config_name
+            self._init_model_params()
+            return self.llm
+
+        except GpuMemoryError as e:
+            self.llm = None
+            self.active_model_name = ""
+            if raise_errors:
+                raise
+            # The GPU is full: show who holds it and offer alternatives instead of failing.
+            from ai.services.gpu_advisor import GpuAdvisor
+            llm = GpuAdvisor(model_config_name, model_config_data, system_prompt, tool_registry).resolve(e)
+            if llm is None:
+                sys.exit(1)
+            self.llm = llm
             self.active_model_name = model_config_name
             self._init_model_params()
             return self.llm

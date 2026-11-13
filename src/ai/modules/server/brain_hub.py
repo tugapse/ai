@@ -387,6 +387,8 @@ class BrainHub:
                 raise ModelLoadError(f"Failed to load model '{key}': {e}") from e
 
             self.current_model_id = key
+            # The config key, not the display name: what a client sends to use this model.
+            ProcessManager.set_state("model", key)
             self._idle.notify_all()
             self._publish_activity()
             func.out(f"BrainHub: {key} is now HOT.")
