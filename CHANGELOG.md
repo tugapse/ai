@@ -1,5 +1,34 @@
 # Changelog
 
+## [v3.6.0] - 2026-11-13
+
+###  Features
+- feat(server): Agent sessions, detached runs, any-folder workdir and pipeline editor API
+- feat(server): Serve a versioned frontend from a bundled tar.gz
+- feat(agent): Browse and create folders in the agent workspace
+- feat(server): Ship the first release with TOTP approvals off
+- feat(server): Pair devices and protect routes that change state
+- feat(server): Accept images in chat and run agents over the API
+- feat(server): Add stats, unload, shutdown and per-request sampling
+- feat(jarvis): Send the server's config key as the model name
+- feat(agent): Render one-shot --agent runs with the chat UI renderer
+
+###  Bug Fixes
+- fix(agent): Keep web agent tools inside the run's workdir
+- fix(server): Notice dropped agent streams and expose the current run
+- fix(server): Load the model each request names and swap it safely
+- fix(gguf): Unload models safely and stop the crash on the second free
+- fix(agent): Show the resume hint after an API error in one-shot runs
+- fix(jarvis): Raise LLMAPIError on network and server errors
+- fix(llm): Return the text from chat(stream=False) in GGUF and Ollama
+- fix(agent): Send the full system prompt and keep non-ASCII text
+
+###  Maintenance
+- chore(frontend): jarvis-web v0.1.0
+- docs: Remove SERVER_AGENT.md
+- test(mcp): Move live Playwright fixtures to module level
+- chore(release): Bump version to 3.6.0
+
 ## [v3.5.0] - 2026-11-12
 
 ###  Features
