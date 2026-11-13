@@ -5,13 +5,13 @@
     "gguf_filename": "gemma-4-E4B-it-Q4_K_M.gguf",
     "model_repo_id": "unsloth/gemma-4-E4B-it-GGUF",
     "n_gpu_layers": -1,
-    "n_ctx": 24000,
+    "n_ctx": 35000,
     "verbose": false,
-    "max_new_tokens": 8096,
-    "temperature": 0.6,
+    "max_new_tokens": 12096,
+    "temperature": 0.8,
     "top_p": 0.8,
-    "top_k":40,
-    "presence_penalty": 1.28,
-    "frequency_penalty": 1.277
+    "top_k":50,
+    "presence_penalty": 1.98,
+    "frequency_penalty": 1.7
   }
 }

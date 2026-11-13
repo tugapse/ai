@@ -25,8 +25,7 @@
       ],
       "allowed_targets": [
         "MASTER",
-        "USER",
-        "STOP"
+        "USER"
       ]
     }
   }

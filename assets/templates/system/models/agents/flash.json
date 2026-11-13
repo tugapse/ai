@@ -3,7 +3,7 @@
   "model_type": "gemini",
   "model_properties": {
     "n_ctx": 128000,
-    "vertex_ai":true,
+    "vertex_ai":false,
     "max_new_tokens": 45000,
     "temperature": 0.5
    }
