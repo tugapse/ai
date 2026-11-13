@@ -27,6 +27,7 @@ from ai.chat.chat import ChatRoles
 from ai.core.llms.base_llm import BaseModel
 from ai.color import Color, format_text
 from ai.direct import ask
+from ai.stdin_reader import read_piped_stdin
 
 # Agent logic
 from ai.agents.agent import AgentOrchestrator, LLMConnector, ToolRegistry, load_pipeline_config, build_orchestrator
@@ -344,11 +345,9 @@ def {function_name}(argument: str) -> str:
             _task = func.read_file(found_path)
 
         user_input = taskfile or _task 
-        if not sys.stdin.isatty():
-            piped_input = sys.stdin.read().strip()
-            if piped_input:
-                if user_input : user_input += "\n" + piped_input
-                else:  user_input = piped_input
+        piped_input = read_piped_stdin(bool(user_input or args.msg))
+        if piped_input:
+            user_input = f"{user_input}\n{piped_input}" if user_input else piped_input
         user_input = user_input + args.msg if args.msg else user_input
 
         pipeline_path = args.pipeline or "default.json"
@@ -649,14 +648,11 @@ def {function_name}(argument: str) -> str:
         :param args: The parsed command-line arguments.
         :raises SystemExit: Exits after calling the ask function.
         """
-        has_piped_input = False
-        piped_input = ""
-        
-        if not sys.stdin.isatty():
-            piped_input = sys.stdin.read().strip()
-            if piped_input:
-                has_piped_input = True
-                prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, piped_input))
+        has_other_input = bool(args.msg or args.task or args.task_file or prog.chat.messages)
+        piped_input = read_piped_stdin(has_other_input)
+        has_piped_input = bool(piped_input)
+        if has_piped_input:
+            prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, piped_input))
 
         if prog.chat.images:
             message = prog.llm.load_images(prog.chat.images)
