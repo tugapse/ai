@@ -226,7 +226,7 @@ class EngineManager:
         other_llm_kwargs = {k: v for k, v in model_properties.items()
                             if k not in ["quantization_bits", "n_ctx", "n_gpu_layers", "verbose",
                                          "gguf_filename", "model_repo_id", "do_sample",
-                                          "azure_endpoint","api_key_name"]
+                                          "azure_endpoint","api_key_name", "mmproj_filename"]
                            }
         if tool_registry : 
             other_llm_kwargs['tool_registry'] = tool_registry
@@ -322,14 +322,11 @@ class EngineManager:
         Raises:
             ValueError: If 'gguf_filename' is missing from model properties.
         """
-        import ctypes
-        from llama_cpp import llama_log_set
-        def my_log_callback(level, message, user_data):
-            pass
+        # Importing gguf_model installs llama.cpp's silent log callback, kept alive at module level.
+        # Do not install one here: a callback local to this function is freed when it returns while
+        # llama.cpp keeps the pointer, so the next native log (e.g. llama_free on unload) crashes.
+        from ai.core.llms.gguf_model import GGUFImageLLM
 
-        log_callback = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_char_p, ctypes.c_void_p)(my_log_callback)
-        llama_log_set(log_callback, ctypes.c_void_p())
-        
         gguf_filename = model_properties.get("gguf_filename")
         model_repo_id = model_properties.get("model_repo_id") or 'default'
         n_ctx = model_properties.get("n_ctx") or 2048
@@ -349,6 +346,7 @@ class EngineManager:
             n_ctx=n_ctx,
             verbose=verbose,
             model_params=model_params,
+            mmproj_filename=model_properties.get("mmproj_filename", ""),
             **other_llm_kwargs
         )
         func.log(f"Model '{model_name}' loaded as a GGUF Image LLM.")

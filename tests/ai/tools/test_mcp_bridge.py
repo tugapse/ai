@@ -500,42 +500,44 @@ class TestAgentUsesMcp:
 LIVE = os.environ.get("JARVIS_MCP_LIVE") == "1"
 
 
+@pytest.fixture(scope="class")
+def site(tmp_path_factory):
+    root = tmp_path_factory.mktemp("site")
+    (root / "index.html").write_text(
+        "<html><head><title>Jarvis MCP Test Page</title></head>"
+        "<body><h1>Hello from the test page</h1><button>Press me</button></body></html>"
+    )
+    handler = lambda *a, **k: SimpleHTTPRequestHandler(*a, directory=str(root), **k)
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    yield f"http://127.0.0.1:{httpd.server_address[1]}/index.html"
+    httpd.shutdown()
+
+
+@pytest.fixture(scope="class")
+def playwright(tmp_path_factory):
+    registry = ToolRegistry()
+    config = write_config(tmp_path_factory.mktemp("pw") / "mcp_config.json", {
+        "playwright": {
+            "enabled": True,
+            "description": "Browser automation tool.",
+            "command": "npx",
+            "args": ["-y", "@playwright/mcp@latest", "--headless", "--isolated"],
+        }
+    })
+    b = MCPBridge(registry)
+    b.load_from_config(config)
+    yield registry, b
+    try:
+        registry.execute_tool("playwright", {"action": "execute", "command": "browser_close"})
+    finally:
+        close_bridge(b, registry)
+
+
 @pytest.mark.skipif(not LIVE, reason="set JARVIS_MCP_LIVE=1 to run the live Playwright MCP test")
 @pytest.mark.skipif(shutil.which("npx") is None, reason="npx not installed")
 class TestLivePlaywright:
     """Uses the real @playwright/mcp server through the bridge against a local page."""
-
-    @pytest.fixture(scope="class")
-    def site(self, tmp_path_factory):
-        root = tmp_path_factory.mktemp("site")
-        (root / "index.html").write_text(
-            "<html><head><title>Jarvis MCP Test Page</title></head>"
-            "<body><h1>Hello from the test page</h1><button>Press me</button></body></html>"
-        )
-        handler = lambda *a, **k: SimpleHTTPRequestHandler(*a, directory=str(root), **k)
-        httpd = ThreadingHTTPServer(("127.0.0.1", 0), handler)
-        threading.Thread(target=httpd.serve_forever, daemon=True).start()
-        yield f"http://127.0.0.1:{httpd.server_address[1]}/index.html"
-        httpd.shutdown()
-
-    @pytest.fixture(scope="class")
-    def playwright(self, tmp_path_factory):
-        registry = ToolRegistry()
-        config = write_config(tmp_path_factory.mktemp("pw") / "mcp_config.json", {
-            "playwright": {
-                "enabled": True,
-                "description": "Browser automation tool.",
-                "command": "npx",
-                "args": ["-y", "@playwright/mcp@latest", "--headless", "--isolated"],
-            }
-        })
-        b = MCPBridge(registry)
-        b.load_from_config(config)
-        yield registry, b
-        try:
-            registry.execute_tool("playwright", {"action": "execute", "command": "browser_close"})
-        finally:
-            close_bridge(b, registry)
 
     def test_list_tools(self, playwright):
         registry, bridge = playwright

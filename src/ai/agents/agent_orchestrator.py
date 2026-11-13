@@ -244,7 +244,7 @@ class AgentOrchestrator(Events):
 
             if response.get("status") == "FAILED" and response.get("api_error"):
                 # The provider already retried transient errors; don't blame the model's format.
-                hint = " Session saved: send a message (e.g. 'continue') to retry." if response.get("transient") else ""
+                hint = "\nSession saved: send a message (e.g. 'continue') to retry." if response.get("transient") else ""
                 self.emit(AgentEventType.ERROR, current_agent, f"{response.get('error')}{hint}")
                 return self._finish("api_error", current_agent, executed, message=response.get("error", ""))
 

@@ -49,19 +49,25 @@ class JarvisServerModule(BaseModule):
 
         func.log(f"Initializing Brain Server on {self.host}:{self.port}...")
 
-        # 1. Initialize the BrainHub wrapper
-        self._brain_hub = BrainHub(config)
-        self._brain_hub.orchestrator = orchestrator
+        # 1. Use the hub the caller prepared (it may already hold a loaded model), else build one
+        self._brain_hub = self.kwargs.get("brain_hub")
+        if self._brain_hub is None:
+            self._brain_hub = BrainHub(config)
+            self._brain_hub.orchestrator = orchestrator
 
         # 2. CREATE THE APP: Pass the config object so the endpoints can access state
-        self._fastapi_app = create_app(self._brain_hub, config)
+        self._fastapi_app = create_app(self._brain_hub, config, modules=self.kwargs.get("modules"))
+        # POST /api/v1/shutdown calls this after its reply is sent.
+        self._fastapi_app.state.shutdown_handler = self.shutdown
 
         # 3. Setup Uvicorn config
         uvicorn_config = uvicorn.Config(
             app=self._fastapi_app, 
             host=self.host, 
             port=self.port, 
-            log_level="info"
+            # Request lines (the web client polls health/stats) only with --print-log.
+            log_level="warning" if func.LOCK_LOG else "info",
+            access_log=not func.LOCK_LOG,
         )
         self._uvicorn_server = uvicorn.Server(uvicorn_config)
 
@@ -71,10 +77,10 @@ class JarvisServerModule(BaseModule):
         the main Program execution.
         """
         if not self._uvicorn_server:
-            func.error("Cannot start server: Not initialized.", level="ERROR")
+            func.error("Cannot start server: Not initialized.")
             return
 
-        func.log(f"Starting Neural Link on http://{self.host}:{self.port}")
+        func.out(f"Starting Neural Link on http://{self.host}:{self.port}")
         self._server_thread = threading.Thread(target=self._uvicorn_server.run, daemon=True)
         self._server_thread.start()
         self._server_thread.join()

@@ -32,7 +32,56 @@ class ModelOrchestrator:
         self.llm:Optional[BaseModel] = None
 
     
-    def load(self, model_config_name: str, system_prompt: str, tool_registry:Optional[ToolRegistry] = None, model_config_data: Optional[dict] = None) -> BaseModel:
+    @staticmethod
+    def config_folders() -> list:
+        """The model config folders, in priority order: user models, then system models."""
+        directory = DirectoryManager()
+        return [directory.get_user_models_directory(), directory.get_system_models_directory()]
+
+    @staticmethod
+    def find_config_file(model_config_name: Optional[str]) -> Optional[str]:
+        """
+        Returns the path of a model config file, or None when it does not exist.
+
+        The name may point into a subfolder ("agents/lite"). The user models folder wins over
+        the system one. ``name`` and ``name.json`` are the same config. A name that escapes the
+        models folders ("../x", an absolute path) is never found.
+        """
+        name = (model_config_name or "default").strip().replace("\\", "/")
+        if not name.endswith(".json"):
+            name = f"{name}.json"
+        if os.path.isabs(name) or ".." in name.split("/"):
+            return None
+        for folder in ModelOrchestrator.config_folders():
+            root = os.path.realpath(folder)
+            path = os.path.realpath(os.path.join(root, name))
+            if path.startswith(root + os.sep) and os.path.isfile(path):
+                return path
+        return None
+
+    @staticmethod
+    def list_config_files() -> Dict[str, str]:
+        """
+        Every model config, including subfolders: ``{key: path}``.
+
+        The key is the path under the models folder without ``.json``, with ``/`` separators
+        ("small", "agents/lite"); it is what ``find_config_file`` accepts. A user config hides a
+        system config with the same key.
+        """
+        configs: Dict[str, str] = {}
+        for folder in reversed(ModelOrchestrator.config_folders()):
+            if not os.path.isdir(folder):
+                continue
+            for dirpath, dirnames, filenames in os.walk(folder):
+                dirnames[:] = sorted(d for d in dirnames if not d.startswith("."))
+                for filename in filenames:
+                    if filename.endswith(".json"):
+                        path = os.path.join(dirpath, filename)
+                        key = os.path.relpath(path, folder)[:-len(".json")].replace(os.sep, "/")
+                        configs[key] = path
+        return dict(sorted(configs.items()))
+
+    def load(self, model_config_name: str, system_prompt: str, tool_registry:Optional[ToolRegistry] = None, model_config_data: Optional[dict] = None, raise_errors: bool = False) -> BaseModel:
         """
         Loads a specific language model instance based on configuration.
 
@@ -46,12 +95,14 @@ class ModelOrchestrator:
             tool_registry: An optional registry containing available tools for the model.
             model_config_data: Optional pre-loaded configuration dictionary. If provided,
                                it overrides the need to load from disk.
+            raise_errors: Raise the error instead of exiting (the server must keep running).
 
         Returns:
             The initialized BaseModel instance of the loaded LLM.
 
         Raises:
-            SystemExit: If configuration loading or model initialization fails critically.
+            SystemExit: If configuration loading or model initialization fails critically
+                        (only when ``raise_errors`` is False).
         """
         if model_config_data and "model_name" in model_config_data:
             model_config_name = model_config_data["model_name"]
@@ -63,19 +114,13 @@ class ModelOrchestrator:
             model_config_name = f"{model_config_name}.json"
             
         if model_config_data is None:
-            directory = DirectoryManager()
-
-            system_folder = directory.get_system_models_directory()
-            user_folder = directory.get_user_models_directory()
-            
-            filename = os.path.join(system_folder, model_config_name)
-            
-            if os.path.exists(userfilename := os.path.join(user_folder,model_config_name )):
-                filename = userfilename 
-
+            filename = self.find_config_file(model_config_name) or os.path.join(
+                DirectoryManager().get_system_models_directory(), model_config_name)
             try:
-                model_config_data = EngineManager.load_config(filename) 
+                model_config_data = EngineManager.load_config(filename)
             except Exception as e:
+                if raise_errors:
+                    raise
                 func.error(f"ModelOrchestrator: Failed to load {filename}: {e}", level="CRITICAL")
                 sys.exit(1)
 
@@ -99,6 +144,10 @@ class ModelOrchestrator:
             return self.llm
 
         except Exception as e:
+            self.llm = None
+            self.active_model_name = ""
+            if raise_errors:
+                raise
             func.error(f"ModelOrchestrator: Failed to load model {model_config_name}: {e}", level="CRITICAL")
             sys.exit(1)
 

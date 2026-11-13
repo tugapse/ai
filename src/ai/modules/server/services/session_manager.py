@@ -189,6 +189,18 @@ class SessionManager:
         if not resolved_file_path.exists() or not resolved_file_path.is_file():
             raise SessionNotFoundError(f"Session not found: {session_path}")
 
+        if isinstance(content, list):
+            # A bare message list replaces only the messages; title and the rest stay.
+            with open(resolved_file_path, "r", encoding="utf-8") as f:
+                session = json.load(f)
+            if not isinstance(session, dict):
+                session = {}
+            session["messages"] = content
+            content = session
+        if not isinstance(content, dict) or not isinstance(content.get("messages"), list):
+            raise InvalidPathError(
+                "session_content must be a session object with a 'messages' list, or a list of messages.")
+
         try:
             with open(resolved_file_path, "w", encoding="utf-8") as f:
                 json.dump(content, f, indent=4)

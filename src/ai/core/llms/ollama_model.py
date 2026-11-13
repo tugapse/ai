@@ -77,39 +77,41 @@ class OllamaModel(BaseModel):
         self.stop_generation_event.clear()
 
         if stream:
-            try:
-                response = self.model.chat(model=self.model_name, messages=new_messages,
-                                           stream=stream, options=self.options, keep_alive=self.keep_alive)
-                for chunks in response:
-                    yield chunks['message']['content']
-                    if self.stop_generation_event.is_set():
-                        func.log("INFO: Ollama generation interrupted by stop event.")
-                        response.close()
-                        break
-            except KeyboardInterrupt:
-                func.error("\nINFO: Ctrl+C detected. Stopping Ollama generation...")
-                if 'response' in locals() and hasattr(response, 'close'):
-                    try:
-                        response.close()
-                    except Exception as e:
-                        func.log(f"WARNING: Error closing Ollama stream: {e}")
-            except Exception as e:
-                func.error(f"\nCRITICAL ERROR: An unexpected error occurred during Ollama generation: {e}")
-                import traceback
-                traceback.func.out_exc()
-                sys.exit(1)
+            return self._stream_chat(new_messages)
 
-        else:
-            try:
-                response = self.model.chat(model=self.model_name, messages=new_messages,
-                                           stream=False, options=gen_options)
-                return response['message']['content']
-            except Exception as e:
-                func.error(f"\nCRITICAL ERROR: An unexpected error occurred during Ollama (non-streaming) generation: {e}")
-                import traceback
-                traceback.func.out_exc()
-                sys.exit(1)
+        try:
+            response = self.model.chat(model=self.model_name, messages=new_messages,
+                                       stream=False, options=gen_options)
+            return response['message']['content']
+        except Exception as e:
+            func.error(f"\nCRITICAL ERROR: An unexpected error occurred during Ollama (non-streaming) generation: {e}")
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
 
+    def _stream_chat(self, new_messages: list):
+        """Yields response chunks. Kept apart so chat() is not a generator when stream=False."""
+        try:
+            response = self.model.chat(model=self.model_name, messages=new_messages,
+                                       stream=True, options=self.options, keep_alive=self.keep_alive)
+            for chunks in response:
+                yield chunks['message']['content']
+                if self.stop_generation_event.is_set():
+                    func.log("INFO: Ollama generation interrupted by stop event.")
+                    response.close()
+                    break
+        except KeyboardInterrupt:
+            func.error("\nINFO: Ctrl+C detected. Stopping Ollama generation...")
+            if 'response' in locals() and hasattr(response, 'close'):
+                try:
+                    response.close()
+                except Exception as e:
+                    func.log(f"WARNING: Error closing Ollama stream: {e}")
+        except Exception as e:
+            func.error(f"\nCRITICAL ERROR: An unexpected error occurred during Ollama generation: {e}")
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
 
     def list(self):
         """

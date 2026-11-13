@@ -1,4 +1,6 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
+
+from ai.modules.server.routers.auth import require_device
 from typing import Optional
 
 from ai.modules.server.schemas import UpdateSessionRequest
@@ -54,46 +56,8 @@ async def get_session_content(request: Request, session_path: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to load session: {e}")
 
-@router.put("/api/v1/sessions/{session_path:path}")
-async def update_session_content(
-    request: Request, session_path: str, payload: UpdateSessionRequest
-):
-    """
-    Overwrite the entire session content for a specified session path.
-
-    Expects payload.session_content to be provided.
-
-    :param request: The FastAPI Request object.
-    :param session_path: The path of the session to update.
-    :param payload: The request body containing the new session content.
-    :raises HTTPException: If the session manager is not configured (500), content is missing (400), or if the update fails (404, 400, 500).
-    :return: A success message upon successful update.
-    """
-    session_manager = request.app.state.session_manager
-    if session_manager is None:
-        raise HTTPException(
-            status_code=500, detail="Session manager not configured."
-        )
-
-    content = getattr(payload, "session_content", None)
-    if content is None:
-        raise HTTPException(
-            status_code=400, detail="Missing session_content in request."
-        )
-
-    try:
-        session_manager.update_session_content(session_path, content)
-        return {"message": "Session content updated successfully"}
-    except SessionNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except SessionInvalidPathError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to update session: {e}"
-        )
-
-@router.put("/api/v1/sessions/{session_path:path}/title")
+# The /title route is declared first: the catch-all {session_path:path} would swallow it.
+@router.put("/api/v1/sessions/{session_path:path}/title", dependencies=[Depends(require_device)])
 async def update_session_title(
     request: Request, session_path: str, payload: UpdateSessionRequest
 ):
@@ -130,7 +94,57 @@ async def update_session_title(
             status_code=500, detail=f"Failed to update session title: {e}"
         )
 
-@router.delete("/api/v1/sessions/{session_path:path}")
+@router.put("/api/v1/sessions/{session_path:path}", dependencies=[Depends(require_device)])
+async def update_session_content(
+    request: Request, session_path: str, payload: UpdateSessionRequest
+):
+    """
+    Overwrite the entire session content for a specified session path.
+
+    Expects payload.session_content to be provided.
+
+    :param request: The FastAPI Request object.
+    :param session_path: The path of the session to update.
+    :param payload: The request body containing the new session content.
+    :raises HTTPException: If the session manager is not configured (500), content is missing (400), or if the update fails (404, 400, 500).
+    :return: A success message upon successful update.
+    """
+    session_manager = request.app.state.session_manager
+    if session_manager is None:
+        raise HTTPException(
+            status_code=500, detail="Session manager not configured."
+        )
+
+    content = getattr(payload, "session_content", None)
+    if content is None:
+        raise HTTPException(
+            status_code=400, detail="Missing session_content in request."
+        )
+
+    if isinstance(content, list):
+        content = [m.model_dump() if hasattr(m, "model_dump") else m for m in content]
+        if not all(isinstance(m, dict) and "role" in m and "content" in m for m in content):
+            raise HTTPException(status_code=400, detail="Each message needs 'role' and 'content'.")
+    elif not isinstance(content, dict) or not isinstance(content.get("messages"), list):
+        raise HTTPException(
+            status_code=400,
+            detail="session_content must be a session object with a 'messages' list, or a list of messages.")
+    elif payload.session_title is not None:
+        content = {**content, "session_title": payload.session_title}
+
+    try:
+        session_manager.update_session_content(session_path, content)
+        return {"message": "Session content updated successfully"}
+    except SessionNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except SessionInvalidPathError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to update session: {e}"
+        )
+
+@router.delete("/api/v1/sessions/{session_path:path}", dependencies=[Depends(require_device)])
 async def delete_session(request: Request, session_path: str):
     """
     Delete a specific session file identified by its path.

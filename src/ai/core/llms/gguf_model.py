@@ -1,3 +1,4 @@
+import sys
 import threading
 import queue
 import gc
@@ -34,6 +35,7 @@ class GGUFImageLLM(BaseModel):
         system_prompt: str = "",
         n_ctx: int = 4000,
         model_params: dict = {},
+        mmproj_filename: str = "",
         **kwargs,
     ):
         """
@@ -46,6 +48,7 @@ class GGUFImageLLM(BaseModel):
             system_prompt: The initial system prompt context for the model.
             n_ctx: The maximum context window size for the model.
             model_params: Dictionary of parameters to pass to Llama initialization (e.g., temperature).
+            mmproj_filename: Optional vision projector file in the same repo; enables image input.
             **kwargs: Additional keyword arguments passed to the base class.
         """
         super().__init__(model_name, system_prompt=system_prompt, **kwargs)
@@ -53,6 +56,8 @@ class GGUFImageLLM(BaseModel):
         
         self.model_repo_id = model_repo_id
         self.gguf_filename = gguf_filename
+        self.mmproj_filename = mmproj_filename or ""
+        self.supports_vision = False  # set once the projector is loaded
         self._n_ctx = n_ctx
         self.llama_model = None
         self.error_queue = queue.Queue()
@@ -97,6 +102,10 @@ class GGUFImageLLM(BaseModel):
                 )
                 func.log(f"Download complete: {model_path}")
 
+            chat_handler = self._load_vision_handler() if self.mmproj_filename else None
+            if chat_handler is not None:
+                kwargs["chat_handler"] = chat_handler
+
             func.debug(f"[GGUF Engine] Loading model into memory...")
             
             with GGUFImageLLM._shared_mem_lock:
@@ -106,10 +115,13 @@ class GGUFImageLLM(BaseModel):
                     verbose=False,
                     **kwargs
                 )
+            self.supports_vision = chat_handler is not None
             func.log(f"GGUF model '{self.model_name}' ready.")
             
         except Exception as e:
             func.error(f"Failed to load GGUF: {e}")
+            # A half-built engine answers "Model not loaded." forever; let the caller decide.
+            raise RuntimeError(f"Failed to load GGUF '{self.gguf_filename}': {e}") from e
 
     def _generate_in_thread(self, messages: List[Dict[str, str]], gen_options: dict, output_queue: queue.Queue):
         """
@@ -134,6 +146,7 @@ class GGUFImageLLM(BaseModel):
                     max_tokens=gen_options.get("max_new_tokens", 1024),
                     temperature=gen_options.get("temperature", 0.7),
                     top_p=gen_options.get("top_p", 0.95),
+                    top_k=gen_options.get("top_k", 40),
                     stop=["System Response:", "User:"] 
                 )
 
@@ -204,35 +217,91 @@ class GGUFImageLLM(BaseModel):
             func.debug(f"[GGUF Engine] Tokenization failed: {e}")
             return sum(len(m['content']) for m in messages) // 4
     
+    def _download(self, filename: str) -> str:
+        """Path of a repo file in the local Hugging Face cache, downloading it if missing."""
+        try:
+            return hf_hub_download(repo_id=self.model_repo_id, filename=filename, local_files_only=True)
+        except Exception:
+            func.log(f"Downloading {filename} from {self.model_repo_id}...")
+            return hf_hub_download(repo_id=self.model_repo_id, filename=filename, local_files_only=False)
+
+    def _load_vision_handler(self):
+        """
+        The llama.cpp chat handler that reads images through the model's projector (mmproj).
+        Gemma 4 has its own handler; other models use the generic multimodal one.
+        """
+        from llama_cpp import llama_chat_format as formats
+
+        clip_path = self._download(self.mmproj_filename)
+        name = f"{self.model_repo_id} {self.gguf_filename}".lower().replace("-", "")
+        handler_cls = formats.Gemma4ChatHandler if "gemma4" in name else formats.MTMDChatHandler
+        func.log(f"[GGUF Engine] Vision enabled: {handler_cls.__name__} with {self.mmproj_filename}")
+        return handler_cls(clip_model_path=clip_path, verbose=False)
+
+    @staticmethod
+    def image_to_data_url(image) -> str:
+        """A data URL for an image given as a data URL, a file path or a PIL image."""
+        import base64
+        import io
+        import mimetypes
+
+        if isinstance(image, str) and image.startswith("data:image/"):
+            return image
+        if isinstance(image, str):
+            mime = mimetypes.guess_type(image)[0] or "image/png"
+            with open(image, "rb") as f:
+                return f"data:{mime};base64,{base64.b64encode(f.read()).decode()}"
+        buffer = io.BytesIO()
+        image.convert("RGB").save(buffer, format="PNG")
+        return f"data:image/png;base64,{base64.b64encode(buffer.getvalue()).decode()}"
+
+    def load_images(self, images: list) -> dict:
+        """A user message holding the images as OpenAI-style content parts (vision models only)."""
+        if not self.supports_vision:
+            raise ValueError(f"Model '{self.model_name}' cannot read images (no mmproj_filename in its config).")
+        return {"role": "user", "content": [
+            {"type": "image_url", "image_url": {"url": self.image_to_data_url(img)}} for img in images]}
+
+    def _attach_images(self, messages: list, images: list) -> list:
+        """Turns the last user message into text + image parts."""
+        parts = self.load_images(images)["content"]
+        for i in reversed(range(len(messages))):
+            if messages[i]["role"] == "user":
+                text = messages[i].get("content") or ""
+                messages[i]["content"] = parts + ([{"type": "text", "text": text}] if text else [])
+                break
+        return messages
+
     def chat(self, messages: list, images: list = None, stream: bool = True, options: dict = {}):
+        """
+        Returns a token generator when ``stream`` is True, otherwise the full response
+        (text, or a parsed tool action). Not a generator itself, so the non-streaming
+        result is returned directly instead of being hidden in StopIteration.
+        """
         with GGUFImageLLM._shared_mem_lock:
             if not self.llama_model:
                 func.error("[GGUF Engine] Attempted to chat but model is not loaded.")
-                if stream: yield "Model not loaded."
-                return "Model not loaded."
+                return iter(["Model not loaded."]) if stream else "Model not loaded."
 
         self.stop_generation_event.clear()
 
         # DEEP COPY: Protect history integrity
         safe_messages = [m.copy() for m in messages]
 
-        if images:
-            image_msg = self.load_images(images)
-            if image_msg:
-                for i in reversed(range(len(safe_messages))):
-                    if safe_messages[i]["role"] == "user":
-                        safe_messages[i]["content"] += f"\n{image_msg['content']}"
-                        break
-
         # Refresh System Prompt context (Time, OS, etc.)
         safe_messages = self.check_system_prompt(safe_messages)
         self._update_token_metrics(safe_messages, options)
+
+        if images:
+            # After the token count, which tokenizes text content only.
+            safe_messages = self._attach_images(safe_messages, images)
 
         current_options = self.options.copy()
         current_options.update(options)
         applied_max_new_tokens = current_options.get("max_new_tokens", 1024)
 
-        raw_text_for_counting = "\n".join([str(m.get("content", "")) for m in safe_messages])
+        raw_text_for_counting = "\n".join(
+            m["content"] if isinstance(m.get("content"), str) else "" for m in safe_messages)
         try:
             with GGUFImageLLM._shared_mem_lock:
                 est_prompt_tokens = len(self.llama_model.tokenize(raw_text_for_counting.encode("utf-8")))
@@ -242,48 +311,57 @@ class GGUFImageLLM(BaseModel):
         func.debug(f"{Color.GREEN}[GGUF Engine] Starting chat | Max Tokens: {applied_max_new_tokens} | Est. Prompt Tokens: {est_prompt_tokens}")
 
         if stream:
-            q = queue.Queue()
-            self._generation_thread = threading.Thread(
-                target=self._generate_in_thread,
-                args=(safe_messages, current_options, q),
-            )
-            self._generation_thread.start()
+            return self._stream_chat(safe_messages, current_options)
+        return self._sync_chat(safe_messages, current_options, applied_max_new_tokens)
 
-            while True:
-                try:
-                    token = q.get(timeout=0.1)
-                    if token is None: break
-                    
-                    if isinstance(token, dict) and token.get("type") == "function_call":
-                        func.log(f"{Color.CYAN}[SENTINEL]: ACTION DETECTED -> {token['name']}{Color.RESET}")
-                        self.trigger("tool_detected", token["name"])
-                        yield token
-                        return 
+    def _stream_chat(self, safe_messages: list, current_options: dict):
+        """Yields tokens (or a function_call dict) produced by the generation thread."""
+        q = queue.Queue()
+        self._generation_thread = threading.Thread(
+            target=self._generate_in_thread,
+            args=(safe_messages, current_options, q),
+        )
+        self._generation_thread.start()
+
+        while True:
+            try:
+                token = q.get(timeout=0.1)
+                if token is None: break
+
+                if isinstance(token, dict) and token.get("type") == "function_call":
+                    func.log(f"{Color.CYAN}[SENTINEL]: ACTION DETECTED -> {token['name']}{Color.RESET}")
+                    self.trigger("tool_detected", token["name"])
                     yield token
-                except queue.Empty:
-                    if self._generation_thread is None and not self._generation_thread.is_alive(): break
-                    continue
-        else:
-            func.debug("[GGUF Engine] Executing synchronous generation...")
-            with GGUFImageLLM._shared_mem_lock:
-                output = self.llama_model.create_chat_completion(
-                    messages=safe_messages,
-                    stream=False,
-                    max_tokens=applied_max_new_tokens,
-                    temperature=current_options.get("temperature", 0.7),
-                    top_p=current_options.get("top_p", 0.95)
-                )
-            
-            text = output["choices"][0]["message"]["content"]
-            usage = output.get("usage", {})
-            p_tokens = usage.get("prompt_tokens", "Unknown")
-            c_tokens = usage.get("completion_tokens", "Unknown")
-            
-            func.debug(f"{Color.GREEN}[GGUF Engine] Sync Complete. Prompt: {p_tokens} | Output: {c_tokens}")
-            
-            action = ToolRegistry.parse_manual_tags(text)
-            self.trigger(BaseModel.STREAMING_FINISHED_EVENT, text)
-            return action if action else text
+                    return
+                yield token
+            except queue.Empty:
+                # The thread always ends with a None sentinel; stop if it died without one.
+                if self._generation_thread is None or not self._generation_thread.is_alive(): break
+                continue
+
+    def _sync_chat(self, safe_messages: list, current_options: dict, applied_max_new_tokens: int):
+        """Runs a blocking completion and returns the text, or a parsed tool action."""
+        func.debug("[GGUF Engine] Executing synchronous generation...")
+        with GGUFImageLLM._shared_mem_lock:
+            output = self.llama_model.create_chat_completion(
+                messages=safe_messages,
+                stream=False,
+                max_tokens=applied_max_new_tokens,
+                temperature=current_options.get("temperature", 0.7),
+                top_p=current_options.get("top_p", 0.95),
+                top_k=current_options.get("top_k", 40),
+            )
+
+        text = output["choices"][0]["message"]["content"]
+        usage = output.get("usage", {})
+        p_tokens = usage.get("prompt_tokens", "Unknown")
+        c_tokens = usage.get("completion_tokens", "Unknown")
+
+        func.debug(f"{Color.GREEN}[GGUF Engine] Sync Complete. Prompt: {p_tokens} | Output: {c_tokens}")
+
+        action = ToolRegistry.parse_manual_tags(text)
+        self.trigger(BaseModel.STREAMING_FINISHED_EVENT, text)
+        return action if action else text
 
     def list(self) -> list:
         if self.llama_model:
@@ -296,41 +374,44 @@ class GGUFImageLLM(BaseModel):
         self.unload()
 
     def unload(self):
-        if self.llama_model is None:
+        """
+        Frees the llama.cpp model. Safe to call more than once and from __del__.
+
+        Stops a running generation first (it checks stop_generation_event per chunk), then drops
+        the Llama object under the shared lock, closes it and clears the CUDA cache.
+        """
+        if getattr(self, "llama_model", None) is None:
             func.debug("[GGUF Engine] Unload called but model is already None.")
             return
 
         func.log(f"BrainHub: Unloading {self.model_name}...")
-        model_to_unload = None
+        self.stop_generation_event.set()
+
+        thread = getattr(self, "_generation_thread", None)
+        if thread is not None and thread.is_alive() and thread is not threading.current_thread():
+            func.debug("[GGUF Engine] Waiting for generation thread to finish...")
+            thread.join(timeout=5.0)
+            if thread.is_alive():
+                func.error("[GGUF Engine] Generation thread did not terminate in time.")
 
         with GGUFImageLLM._shared_mem_lock:
-            if self.llama_model is None:
-                func.debug("[GGUF Engine] Model was unloaded by another thread.")
-                return
-            
-            self.stop_generation_event.set()
-            if hasattr(self, '_generation_thread') and self._generation_thread.is_alive():
-                func.debug(f"[GGUF Engine] Waiting for generation thread to finish...")
-                self._generation_thread.join(timeout=5.0)
-                if self._generation_thread.is_alive():
-                    func.error("[GGUF Engine] Generation thread did not terminate in time.")
-            
             model_to_unload = self.llama_model
             self.llama_model = None
-            del self._generation_thread 
-            del self.llama_model
-        
+            self._generation_thread = None
+
         if model_to_unload is not None:
-            func.debug("[GGUF Engine] Deleting Llama model object reference...")
+            func.debug("[GGUF Engine] Closing Llama model...")
+            try:
+                model_to_unload.close()
+            except Exception as e:
+                func.debug(f"[GGUF Engine] Llama.close() failed: {e}")
             del model_to_unload
-            func.debug("[GGUF Engine] Triggering garbage collection...")
             gc.collect()
             try:
                 import torch
                 if torch.cuda.is_available():
                     func.debug("[GGUF Engine] Clearing CUDA cache...")
                     torch.cuda.empty_cache()
-                    func.debug("[GGUF Engine] CUDA cache cleared.")
             except ImportError:
                 func.debug("[GGUF Engine] PyTorch not found, skipping CUDA cache clear.")
             except Exception as e:
@@ -340,6 +421,9 @@ class GGUFImageLLM(BaseModel):
         func.log(f"BrainHub: Resources cleared for {self.model_name}.")
 
     def __del__(self):
+        # During interpreter shutdown llama_cpp may already be torn down; freeing then can crash.
+        if sys.is_finalizing():
+            return
         try:
             self.unload()
         except Exception:

@@ -16,8 +16,8 @@ from ai.extras.think_parser import ThinkingAnimationHandler
 def _sanitize_token(token: str) -> str:
     """Cleans and normalizes tokens for clean file output.
 
-    Normalizes Unicode characters and removes characters outside the standard
-    printable ASCII range (excluding newline and tab).
+    Normalizes Unicode characters and removes control characters (keeping newline
+    and tab). Non-ASCII text such as accents, emoji or CJK is preserved.
 
     Args:
         token: The raw token string from the LLM.
@@ -26,7 +26,7 @@ def _sanitize_token(token: str) -> str:
         The sanitized and normalized token string.
     """
     sanitized = unicodedata.normalize('NFKC', token)
-    sanitized = re.sub(r'[^\x20-\x7E\n\t]', '', sanitized)
+    sanitized = re.sub(r'[\x00-\x08\x0b-\x1f\x7f-\x9f]', '', sanitized)
     return sanitized
 
 def ask(

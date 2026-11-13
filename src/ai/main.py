@@ -180,6 +180,8 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     sys_group.add_argument("--install", action="store_true", help="Execute dependency sync protocol")
     sys_group.add_argument("--overwrite-config", action="store_true", help="Force configuration and templates overwriting, additional templates will not be removed!")
     sys_group.add_argument("--create-tool", type=str, metavar='TOOL_NAME', help="Create a new user tool skeleton file")
+    sys_group.add_argument("--frontend", nargs="+", metavar=("list|use", "VERSION"), help="Server frontend versions: 'list', or 'use <version>|bundled' to pin one")
+    sys_group.add_argument("--server-totp-setup", action="store_true", help="Create the authenticator secret that approves risky web agent tools")
 
     # 6. Model Generation (Your existing group)
     config_group = parser.add_argument_group(f'{Color.CYAN}MODEL CONFIG GENERATION{Color.RESET}')
@@ -253,15 +255,20 @@ def run():
             prog.config.set(ProgramSetting.PRINT_DEBUG, True)
         else:
             func.ALLOW_CLEAR_CONSOLE = (not getattr(args, 'print_log', False) and not getattr(args, 'print_debug', False))
+        # Maintenance modes (e.g. --server) exit before init_config, which sets these: without
+        # this every func.log/func.debug reaches the console. func.out and func.error always do.
+        debug_console = getattr(args, 'debug_console', False)
+        func.LOCK_LOG = not (getattr(args, 'print_log', False) or debug_console)
+        func.LOCK_DEBUG = not (getattr(args, 'print_debug', False) or debug_console)
         
         from ai.cli_args import CliArgs
         cli_args_processor = CliArgs()
 
-        maintenance_keys = ['install',  'overwrite_config', 'generate_config', 'server', 'print_chat', 'list_models', 'create_tool']
+        maintenance_keys = ['install',  'overwrite_config', 'generate_config', 'server', 'print_chat', 'list_models', 'create_tool', 'server_totp_setup', 'frontend']
         if any(getattr(args, key, None) for key in maintenance_keys):
             cli_args_processor.parse_args(prog=prog, args=args, args_parser=parser,directory_manager=directory_manager)
             if is_server:
-                func.log(f"{Color.GREEN}[  ] Neural Hub is online. Press Ctrl+C to shut down.{Color.RESET}")
+                func.out(f"{Color.GREEN}[  ] Neural Hub is online. Press Ctrl+C to shut down.{Color.RESET}")
                 if prog.modules:
                     prog.modules.load_all()
             

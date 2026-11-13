@@ -117,6 +117,8 @@ class BaseModel:
         self._generation_thread = None
         self.inference_device = InferenceBackend.CPU
         self.token_info_count = TokenCountInfo()
+        # True when chat(images=...) reaches the model (Gemini, GGUF with a vision projector).
+        self.supports_vision = False
         self.tool_registry: Optional[ToolRegistry] = kargs.get("tool_registry")
         self.HIL_TOOLS = ProgramConfig.get_current().get(ProgramSetting.HIL_TOOLS)
         
@@ -383,9 +385,9 @@ class BaseModel:
 
     def unload(self) -> None:
         """
-        Abstract interface checkpoint intended to completely purge engine allocations from hardware modules.
-
-        Raises:
-            RuntimeError: If the subclass has not implemented this method.
+        Frees the engine's hardware allocations. Local engines (GGUF, ...) override this;
+        API clients hold no model memory, so by default it only stops a running stream.
         """
-        functions.error("Subclasses must implement unload to clear model resources.")
+        self.stop_generation_event.set()
+        self.join_generation_thread(5)
+        functions.debug(f"{type(self).__name__}: nothing to unload.")

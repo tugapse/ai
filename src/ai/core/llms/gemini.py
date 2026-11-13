@@ -33,6 +33,7 @@ class GeminiAPIModel(BaseModel):
     def __init__(self, model_name="gemini-2.5-flash", system_prompt="", api_key=None, use_vertex=False, project_id=None, location="global", **kargs):
         func.log(f"Initializing GeminiAPIModel for model: {model_name}")
         super().__init__(model_name, system_prompt, **kargs)
+        self.supports_vision = True
         
         self.use_vertex = use_vertex
         self.project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT")

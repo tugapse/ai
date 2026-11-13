@@ -1,3 +1,4 @@
+import ai.functions as func
 import unittest
 from unittest.mock import Mock, patch, MagicMock
 import threading
@@ -60,7 +61,7 @@ class TestJarvisServerModule(unittest.TestCase):
         self.assertEqual(self.mock_brain_hub_instance.orchestrator, self.mock_orchestrator)
 
         # 2. Verify FastAPI app was created correctly
-        self.mock_create_app.assert_called_once_with(self.mock_brain_hub_instance, self.mock_config)
+        self.mock_create_app.assert_called_once_with(self.mock_brain_hub_instance, self.mock_config, modules=None)
         self.assertEqual(self.module._fastapi_app, self.mock_fastapi_app)
 
         # 3. Verify Uvicorn was configured and its server instantiated
@@ -68,7 +69,8 @@ class TestJarvisServerModule(unittest.TestCase):
             app=self.mock_fastapi_app,
             host="127.0.0.1",
             port=8080,
-            log_level="info"
+            log_level="warning" if func.LOCK_LOG else "info",
+            access_log=not func.LOCK_LOG,
         )
         self.mock_uvicorn.Server.assert_called_once_with(self.mock_uvicorn.Config.return_value)
         self.assertEqual(self.module._uvicorn_server, self.mock_uvicorn_server)
@@ -110,3 +112,15 @@ class TestJarvisServerModule(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+def test_request_lines_only_with_print_log(monkeypatch):
+    """The web client polls health/stats: uvicorn's access log stays off unless --print-log."""
+    from unittest.mock import MagicMock, patch
+    from ai.modules.server.server_module import JarvisServerModule
+    for locked, level in ((True, "warning"), (False, "info")):
+        monkeypatch.setattr(func, "LOCK_LOG", locked)
+        with patch("ai.modules.server.server_module.uvicorn") as uv, \
+             patch("ai.modules.server.server_module.create_app"):
+            JarvisServerModule(brain_hub=MagicMock()).initialize(MagicMock(), None, None)
+            kwargs = uv.Config.call_args.kwargs
+            assert kwargs["log_level"] == level and kwargs["access_log"] is (not locked)

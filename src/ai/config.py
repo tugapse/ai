@@ -62,6 +62,13 @@ class ProgramSetting(Enum):
     VECTOR_RELEVANCE_WEIGHT = "VECTOR_RELEVANCE_WEIGHT"
     SERVER_HOST = "SERVER_HOST"    
     SERVER_PORT = "SERVER_PORT"
+    SERVER_TRUSTED_NETWORKS = "SERVER_TRUSTED_NETWORKS"  # CIDRs allowed on protected routes (default LAN + Tailscale)
+    SERVER_ALLOWED_ORIGINS = "SERVER_ALLOWED_ORIGINS"    # Browser origins allowed by CORS (default localhost:4200)
+    SERVER_FRONTEND_DIR = "SERVER_FRONTEND_DIR"          # Folder with a jarvis-web build; wins over the bundled one
+    SERVER_FRONTEND_VERSION = "SERVER_FRONTEND_VERSION"  # Cached frontend version to serve (rollback); empty = bundled
+    SERVER_TOTP_ENABLED = "SERVER_TOTP_ENABLED"          # Require authenticator codes (off in v1; needs --server-totp-setup)
+    SERVER_TOTP_TOOLS = "SERVER_TOTP_TOOLS"              # Tools whose approval needs an authenticator code
+    SERVER_AGENT_WORKDIR = "SERVER_AGENT_WORKDIR"  # Folder web agent runs work in (default ~/Ai/workspace)
 
     def __str__(self) -> str:
         """Returns the string value associated with the enum member."""

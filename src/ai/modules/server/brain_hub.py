@@ -1,9 +1,12 @@
 import os
+import threading
 from typing import Optional
 import ai.functions as func
 from ai.config import ProgramConfig, ProgramSetting
 from ai.services.history_manager import HistoryManager
 from ai.services.model_orchestrator import ModelOrchestrator
+from ai.services.engine_manager import EngineManager
+from ai.modules.server.exceptions import ModelLoadError, ModelNotFoundError
 
 
 class BrainHub:
@@ -25,6 +28,10 @@ class BrainHub:
         self.orchestrator = ModelOrchestrator(config)
         self.history_file: str = ""
         self.current_model_id: Optional[str] = None
+        # Set while a web agent run uses the model; chat requests are refused meanwhile.
+        self.agent_running = False
+        # Serialises load/unload: a swap must not run while another request is swapping.
+        self._lock = threading.RLock()
         self.history = self.new_history(None, "default", None)
         
 
@@ -65,7 +72,7 @@ class BrainHub:
         self.history = self.new_history(session_title, session_id, session_folder)
         self.load_history_from_json(session_filepath)
 
-    def add_history_message(self, role: str, content: str):
+    def add_history_message(self, role: str, content: str, images: Optional[list] = None):
             """
             Convenience method to add messages to the history from the API endpoints.
 
@@ -76,9 +83,10 @@ class BrainHub:
                 role: The role of the message (e.g., 'user', 'assistant').
                 content: The textual content of the message.
             """
-            self.history["messages"].append(
-                {"role": role, "content": content}
-            )
+            message = {"role": role, "content": content}
+            if images:
+                message["images"] = images
+            self.history["messages"].append(message)
             self.history["last_updated"] = self.get_timestamp()
             self.save_history_to_json(self.history_file)
 
@@ -101,7 +109,7 @@ class BrainHub:
                     # Validate if loaded_data is a dictionary and has the 'messages' key
                     if isinstance(loaded_data, dict) and "messages" in loaded_data and isinstance(loaded_data["messages"], list):
                         self.history = loaded_data
-                        func.log(f"BrainHub: Memory loaded from {filepath}")
+                        func.debug(f"BrainHub: Memory loaded from {filepath}")
                     else:
                         func.log(
                             f"BrainHub: Invalid session file format at {filepath}. Starting fresh.",
@@ -110,17 +118,12 @@ class BrainHub:
                         self.history["messages"] = [] # Clear messages
                         self.history["last_updated"] = None # Reset last updated timestamp
             except json.JSONDecodeError:
-                func.log(
-                    f"BrainHub: Corrupted session file at {filepath}. Starting fresh.",
-                    level="ERROR",
-                )
+                func.error(f"BrainHub: Corrupted session file at {filepath}. Starting fresh.")
                 self.history["messages"] = [] # Clear messages
                 self.history["last_updated"] = None # Reset last updated timestamp
         else:
-            func.log(
-                f"BrainHub: No session found at {filepath}. Starting fresh.",
-                level="WARN",
-            )
+            # Normal for a new session.
+            func.debug(f"BrainHub: No session found at {filepath}. Starting fresh.")
             self.history["messages"] = [] # Clear messages
             self.history["last_updated"] = None # Reset last updated timestamp
 
@@ -135,7 +138,7 @@ class BrainHub:
 
         with open(filepath, "w") as f:
             json.dump(self.history, f, indent=4)
-        func.log(f"BrainHub: Memory saved to {filepath}")
+        func.debug(f"BrainHub: Memory saved to {filepath}")
 
    
 
@@ -150,78 +153,164 @@ class BrainHub:
 
         return datetime.now().isoformat()
 
+    @staticmethod
+    def model_key(name: Optional[str]) -> str:
+        """
+        The single identity of a model on the server: its config path under the models folder,
+        lowercased, without ``.json`` ("small", "agents/lite").
+        """
+        key = (name or "default").strip().replace("\\", "/").lower()
+        if key.endswith(".json"):
+            key = key[:-len(".json")]
+        return key or "default"
+
     def get_brain(self, model_id: str, system_prompt: str, model_config_data: Optional[dict] = None):
         """
         Ensures the requested model is loaded and active for interaction.
 
-        If a different model is currently active, it is unloaded first to free up
-        GPU resources before loading the new model. It also updates the system
-        prompt if the model is already loaded.
+        The new config is resolved before anything is unloaded, so a bad model name leaves the
+        current model running. A different model is unloaded (freeing GPU memory) before the new
+        one loads. If that load fails the hub is left empty, never half-loaded.
 
         Args:
-            model_id: The identifier of the desired model.
+            model_id: The model config key (e.g. "small", "agents/lite").
             system_prompt: The system-level instruction prompt for the model.
-            model_config_data: Optional dictionary containing model configuration details,
-                                which may override the model_id.
+            model_config_data: Optional full model config sent by the client; its ``model_name``
+                                becomes the model identity.
 
         Returns:
             The active LLM object instance from the ModelOrchestrator.
+
+        Raises:
+            ModelNotFoundError: No config file exists for ``model_id``.
+            ModelLoadError: The config exists but the engine failed to load it.
         """
         if model_config_data and "model_name" in model_config_data:
             model_id = model_config_data["model_name"]
+        key = self.model_key(model_id)
 
-        if self.current_model_id and self.current_model_id != model_id:
-            func.log(f"BrainHub: Swapping {self.current_model_id} -> {model_id}")
-            self.unload_brain()
+        with self._lock:
+            llm = self.orchestrator.llm
+            if llm is not None and self.current_model_id == key:
+                if getattr(llm, "system_prompt", None) != system_prompt:
+                    func.debug(f"BrainHub: Updating system prompt for loaded model '{key}'.")
+                    llm.system_prompt = system_prompt
+                return llm
 
-        if self.orchestrator.llm:
-            if getattr(self.orchestrator.llm, "system_prompt", None) != system_prompt:
-                func.log(
-                    f"BrainHub: Updating system prompt for loaded model '{model_id}'.",
-                    level="DEBUG",
+            config_data = model_config_data
+            if config_data is None:
+                # Try the name as sent first, so a config file with capitals is still found.
+                path = (self.orchestrator.find_config_file(str(model_id or "").strip())
+                        or self.orchestrator.find_config_file(key))
+                if path is None:
+                    raise ModelNotFoundError(
+                        f"Model '{key}' not found. Available: {', '.join(self.list_available_models()) or 'none'}")
+                try:
+                    config_data = EngineManager.load_config(path)
+                except Exception as e:
+                    raise ModelLoadError(f"Invalid model config '{path}': {e}") from e
+
+            if not self.is_loadable(config_data):
+                # A Jarvis config is a client of this server: loading it would call itself.
+                raise ModelLoadError(
+                    f"Model '{key}' is a Jarvis client config; the server needs a local engine (e.g. gguf).")
+
+            if llm is not None:
+                func.out(f"BrainHub: Swapping {self.current_model_id or 'unknown'} -> {key}")
+                self.unload_brain()
+
+            try:
+                self.orchestrator.load(
+                    model_config_name=key,
+                    system_prompt=system_prompt,
+                    model_config_data=config_data,
+                    raise_errors=True,
                 )
-                self.orchestrator.llm.system_prompt = system_prompt
+            except Exception as e:
+                self.orchestrator.llm = None
+                self.current_model_id = None
+                raise ModelLoadError(f"Failed to load model '{key}': {e}") from e
+
+            self.current_model_id = key
+            func.out(f"BrainHub: {key} is now HOT.")
             return self.orchestrator.llm
-
-        if not self.orchestrator.llm:
-            self.orchestrator.load(
-                model_config_name=model_id, 
-                system_prompt=system_prompt, 
-                model_config_data=model_config_data
-            )
-            self.current_model_id = model_id
-            func.log(f"BrainHub: {model_id} is now HOT.")
-
-        return self.orchestrator.llm
 
     def unload_brain(self):
         """
-        Clears the GPU memory by calling the model's specific unload method.
+        Frees the active model. The hub state is cleared even if the engine's unload fails,
+        so the next request always starts from a known empty state.
 
-        This resets the active model state and clears the current model ID.
+        Returns:
+            The key of the model that was unloaded, or None when none was loaded.
         """
-        if self.orchestrator.llm:
-            func.log(f"BrainHub: Unloading {self.current_model_id}...")
-
-            self.orchestrator.llm.unload()
-
+        with self._lock:
+            llm = self.orchestrator.llm
+            model_id = self.current_model_id
             self.orchestrator.llm = None
+            self.orchestrator.active_model_name = ""
             self.current_model_id = None
+            if llm is None:
+                return None
+            func.out(f"BrainHub: Unloading {model_id or 'unknown'}...")
+            try:
+                llm.unload()
+            except Exception as e:
+                func.error(f"BrainHub: Unload of {model_id or 'unknown'} failed: {e}")
+            return model_id
+
+    @staticmethod
+    def is_loadable(config_data: dict) -> bool:
+        """A server can load any engine except ``jarvis``, which is a client of this server."""
+        return str(config_data.get("model_type", "")).lower() != "jarvis"
+
+    @staticmethod
+    def has_vision(config_data: dict) -> bool:
+        """Whether a config's model can read images: Gemini, or GGUF with a vision projector."""
+        model_type = str(config_data.get("model_type", "")).lower()
+        properties = config_data.get("model_properties") or {}
+        return model_type == "gemini" or (model_type == "gguf" and bool(properties.get("mmproj_filename")))
+
+    def list_model_configs(self, folder: Optional[str] = None) -> list:
+        """
+        Every model config the server knows, subfolders included, loadable or not.
+
+        Args:
+            folder: Optional subfolder of the models folder ("chat"); only configs under it are
+                    listed. Keys stay full paths ("chat/small"), so they can be sent as ``model``.
+
+        Returns:
+            Dicts sorted by key: ``key`` (what a request sends as ``model``), ``model_name``
+            (display name), ``model_type``, ``vision`` (reads images) and ``loadable`` (False for ``jarvis`` client configs
+            and for files that are not valid JSON, which also carry ``error``).
+        """
+        prefix = ""
+        if folder:
+            prefix = folder.strip().replace("\\", "/").strip("/").lower()
+            prefix = f"{prefix}/" if prefix else ""
+        configs = []
+        for key, path in self.orchestrator.list_config_files().items():
+            if prefix and not key.lower().startswith(prefix):
+                continue
+            entry = {"key": key.lower(), "model_name": key, "model_type": "", "loadable": False, "vision": False}
+            try:
+                data = EngineManager.load_config(path)
+                entry["model_name"] = data.get("model_name") or key
+                entry["model_type"] = str(data.get("model_type", ""))
+                entry["loadable"] = self.is_loadable(data)
+                entry["vision"] = self.has_vision(data)
+            except Exception as e:
+                entry["error"] = str(e)
+            configs.append(entry)
+        return configs
 
     def list_available_models(self) -> list:
         """
-        Scans the model-config folder for available JSON brains.
+        The model keys a request may ask for: loadable configs only, subfolders included.
 
         Returns:
-            A list of model names (without the .json extension) found in the configuration directory.
+            Sorted model keys ("small", "agents/lite").
         """
-        folder = self.config.get(ProgramSetting.PATHS_MODEL_CONFIGS)
-        if not folder or not os.path.exists(folder):
-            return []
-
-        return [
-            f.replace(".json", "") for f in os.listdir(folder) if f.endswith(".json")
-        ]
+        return [c["key"] for c in self.list_model_configs() if c["loadable"]]
 
     def get_stats(self) -> dict:
         """
@@ -236,6 +325,7 @@ class BrainHub:
         stats = self.orchestrator.llm.token_info_count
         return {
             "active": True,
+            "model": self.current_model_id,
             "prompt_tokens": stats.prompt_count,
             "total_tokens": stats.total_prompt_count,
             "output_tokens": stats.printed_tokens_count,

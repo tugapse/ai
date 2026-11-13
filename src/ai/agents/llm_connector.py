@@ -81,9 +81,11 @@ class LLMConnector:
 
         if agent_config:
             system_content = system_content.replace("{{TOOLS}}", self.load_tools_descriptions(agent_config))
-            self.llm.system_prompt = system_content
 
-        self.llm.system_prompt = self.load_system_prompt_agent_output_rules(self.llm.system_prompt)
+        # The same final prompt goes to llm.system_prompt and to the system message: some
+        # backends (e.g. Jarvis) send the message, others (e.g. Gemini) read the attribute.
+        system_content = self.load_system_prompt_agent_output_rules(system_content)
+        self.llm.system_prompt = system_content
 
 
         messages = [

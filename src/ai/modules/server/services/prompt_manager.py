@@ -96,7 +96,9 @@ class PromptManager:
         """
         search_root_dir = self.root_dir
         if sub_folder:
-            search_root_dir = search_root_dir / sub_folder
+            search_root_dir = (search_root_dir / sub_folder).resolve()
+            if search_root_dir != self.root_dir and self.root_dir not in search_root_dir.parents:
+                raise InvalidPathError("Access outside allowed prompt directory")
 
         if not search_root_dir.exists() or not search_root_dir.is_dir():
             return []

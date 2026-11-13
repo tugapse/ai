@@ -3,6 +3,8 @@ from unittest.mock import MagicMock
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from ai.modules.server.routers.auth import require_device
+
 from ai.modules.server.routers.sessions import router
 from ai.modules.server.services.session_manager import (
     SessionNotFoundError,
@@ -15,6 +17,8 @@ class TestSessionsRouter(unittest.TestCase):
         """Set up a test FastAPI app with the sessions router and mock dependencies."""
         self.app = FastAPI()
         self.app.include_router(router)
+        # Pairing is tested in test_auth.py; these tests cover the routes themselves.
+        self.app.dependency_overrides[require_device] = lambda: {"device_id": "test", "name": "test"}
         self.client = TestClient(self.app)
 
         # Mock the session manager

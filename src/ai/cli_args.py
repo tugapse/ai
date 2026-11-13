@@ -54,6 +54,8 @@ class CliArgs:
         """
         # 1. System/Global Actions
         self._check_nhandle_create_tool(args, directory_manager)
+        self._check_nhandle_totp_setup(args)
+        self._check_nhandle_frontend(args)
         self._check_nhandle_config_generation(prog, args, args_parser, directory_manager) 
         self._is_install(args)
         self._is_print_chat(args)
@@ -76,6 +78,100 @@ class CliArgs:
 
         self._has_message(prog, args) 
     
+    def _check_nhandle_frontend(self, args):
+        """
+        ``--frontend list``: the bundled, cached and active frontend versions.
+        ``--frontend use <version>|bundled``: pins SERVER_FRONTEND_VERSION in config.json.
+
+        :param args: The parsed command-line arguments.
+        :raises SystemExit: Always, after the command.
+        """
+        command = getattr(args, "frontend", None)
+        if not command:
+            return
+        import json as _json
+        from ai.modules.server.services import frontend as fe
+
+        config_path = os.path.join(DirectoryManager().get_root_dir(), "config.json")
+        with open(config_path, encoding="utf-8") as f:
+            settings = _json.load(f)
+        pinned = settings.get("SERVER_FRONTEND_VERSION") or "bundled"
+
+        if command[0] == "list":
+            bundled = None
+            if fe.BUNDLED_TAR.is_file():
+                try:
+                    bundled = fe.archive_version(fe.BUNDLED_TAR).get("version")
+                except Exception as e:
+                    func.out(f"Bundled frontend unreadable: {e}")
+            func.out(f"Bundled: {bundled or 'none'}   Pinned: {pinned}   Server api_level: {fe.API_LEVEL}")
+            for entry in fe.cached_versions():
+                marks = []
+                if entry["version"] == bundled:
+                    marks.append("bundled")
+                if entry["version"] == pinned:
+                    marks.append("pinned")
+                level = entry["api_level"] if entry["api_level"] is not None else "?"
+                func.out(f"  {entry['version']:<12} api_level {level:<3} {entry['built_at'] or ''}  {' '.join(marks)}")
+            sys.exit(0)
+
+        if command[0] == "use" and len(command) == 2:
+            version = command[1]
+            if version != "bundled":
+                folder = fe.cache_root() / version
+                if not (folder / "index.html").is_file():
+                    func.error(f"Frontend {version} is not in the cache. See: ai --frontend list")
+                    sys.exit(1)
+                level = fe.read_version(folder).get("api_level") or 0
+                if int(level) > fe.API_LEVEL:
+                    func.error(f"Frontend {version} needs api_level {level}; this server has {fe.API_LEVEL}.")
+                    sys.exit(1)
+            if version == "bundled":
+                settings.pop("SERVER_FRONTEND_VERSION", None)
+            else:
+                settings["SERVER_FRONTEND_VERSION"] = version
+            with open(config_path, "w", encoding="utf-8") as f:
+                _json.dump(settings, f, indent=4)
+            func.out(f"Frontend set to {version}. Restart the server to apply.")
+            sys.exit(0)
+
+        func.error("Usage: ai --frontend list | ai --frontend use <version>|bundled")
+        sys.exit(1)
+
+    def _check_nhandle_totp_setup(self, args):
+        """
+        Creates (or replaces) the server's TOTP secret and prints it for an authenticator app.
+        Run on the server machine: the secret never travels over the network.
+
+        :param args: The parsed command-line arguments.
+        :raises SystemExit: Always, after printing the secret.
+        """
+        if not getattr(args, "server_totp_setup", False):
+            return
+        from ai.modules.server.services.auth import AuthService
+        from ai.modules.server.services.totp import provisioning_uri
+
+        guard = AuthService().totp
+        if guard.enabled:
+            answer = input("A TOTP secret already exists; replacing it breaks the current authenticator entry. Replace? (y/N): ")
+            if answer.strip().lower() not in ("y", "yes"):
+                func.out("Kept the existing secret.")
+                sys.exit(0)
+        secret = guard.setup()
+        func.out(f"{Color.GREEN}TOTP enabled.{Color.RESET} Add it to your authenticator app:")
+        func.out(f"  secret: {secret}")
+        func.out(f"  uri:    {provisioning_uri(secret)}")
+        try:
+            import qrcode  # optional: shows a scannable code when installed
+            qr = qrcode.QRCode(border=1)
+            qr.add_data(provisioning_uri(secret))
+            qr.print_ascii(invert=True)
+        except ImportError:
+            pass
+        func.out(f"Stored in {guard.path} (mode 600).")
+        func.out('Codes are required only when "SERVER_TOTP_ENABLED": true is set in config.json (restart the server after).')
+        sys.exit(0)
+
     def _check_nhandle_create_tool(self, args, directory_manager: DirectoryManager):
         """
         Handles the creation of a new tool skeleton file based on the provided name.
@@ -155,27 +251,37 @@ def {function_name}(argument: str) -> str:
         """
         if args.server:
             try:
-                orchestrator = prog.models 
+                brain_hub = BrainHub(prog.config)
+                brain_hub.orchestrator = prog.models
                 if args.model:
                     try:
-                        orchestrator.load(args.model,"")
+                        # Through the hub, so it knows which model is loaded and can swap it later.
+                        brain_hub.get_brain(args.model, "")
                     except Exception as e:
-                        func.log(f"{Color.RED}[ ! ] Neural Load Failed: {e}. Starting in STANDBY.{Color.RESET}")
+                        func.error(f"Neural Load Failed: {e}. Starting in STANDBY.")
                 else:
-                    func.log(f"{Color.CYAN}[*] Neural Hub: Standby Mode. Awaiting Neural Link...{Color.RESET}")
+                    func.out(f"{Color.CYAN}[*] Neural Hub: Standby Mode. Awaiting Neural Link...{Color.RESET}")
                 
+                # Tool modules (filesystem, shell, web, ...) back the /api/v1/agent runs.
+                if prog.modules:
+                    try:
+                        prog.modules.load_all()
+                    except Exception as e:
+                        func.error(f"Server: loading modules failed, agent runs will lack their tools: {e}")
+
                 from ai.modules.server.server_module import JarvisServerModule
                 server = JarvisServerModule( 
                     host=prog.config.get(ProgramSetting.SERVER_HOST, "0.0.0.0"),
                     port=prog.config.get(ProgramSetting.SERVER_PORT, 9999),
-                    brain_hub=BrainHub(prog.config) 
+                    brain_hub=brain_hub,
+                    modules=prog.modules,
                 )
                 
-                server.initialize(prog.config, orchestrator, prog.history)
+                server.initialize(prog.config, prog.models, prog.history)
                 server.start()
                 
             except KeyboardInterrupt:
-                func.log(f"\n{Color.YELLOW}[ * ] Manual override engaged. Terminating JARVIS server.{Color.RESET}")
+                func.out(f"\n{Color.YELLOW}[ * ] Manual override engaged. Terminating JARVIS server.{Color.RESET}")
                 sys.exit(0)
                 
     def _handle_local_direct_mode(self, prog, args,directory_manager:DirectoryManager):
@@ -242,23 +348,21 @@ def {function_name}(argument: str) -> str:
             func.error("Agent mode requires a prompt. Use --msg, --task, or pipe input.")
             sys.exit(1)
 
-        try:
-            orchestrator = build_orchestrator(prog, pipeline_path, directory_manager=directory_manager)
-        except ValueError as e:
-            func.error(f"{e} Aborting.")
-            sys.exit(1)
+        from ai.agents.chat_ui.oneshot import run_one_shot
 
         session_id = args.session_id or str(uuid.uuid4())
         func.log(f"Session: {session_id}")
 
         try:
-            orchestrator.run_loop(user_prompt=user_input, session_id=session_id)
+            run_one_shot(prog, user_input, pipeline=pipeline_path, session_id=session_id,
+                         directory_manager=directory_manager)
+        except ValueError as e:
+            func.error(f"{e} Aborting.")
+            sys.exit(1)
         except Exception as e:
             func.error(f"Orchestrator Error: {e}")
             func.error(traceback.format_exc())
-        finally:
-            orchestrator.close()
-            sys.exit(0)
+        sys.exit(0)
 
     def _resolve_resume_session(self, args) -> Optional[str]:
         """

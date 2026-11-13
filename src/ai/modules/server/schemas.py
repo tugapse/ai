@@ -1,5 +1,12 @@
-from pydantic import BaseModel 
+import re
+
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional, Dict, Any
+
+MAX_IMAGES_PER_MESSAGE = 4
+MAX_IMAGE_BYTES = 10 * 1024 * 1024
+_IMAGE_DATA_URL = re.compile(r"^data:image/(png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=\s]+$")
+
 
 class ChatMessage(BaseModel):
     """
@@ -8,9 +15,26 @@ class ChatMessage(BaseModel):
     Attributes:
         role (str): The role of the sender (e.g., 'user', 'assistant').
         content (str): The textual content of the message.
+        images (Optional[List[str]]): Image data URLs (png, jpeg, webp, gif). Only the last
+            user message's images reach the model.
     """
     role: str
     content: str
+    images: Optional[List[str]] = None
+
+    @field_validator("images")
+    @classmethod
+    def _check_images(cls, images):
+        if not images:
+            return None
+        if len(images) > MAX_IMAGES_PER_MESSAGE:
+            raise ValueError(f"At most {MAX_IMAGES_PER_MESSAGE} images per message.")
+        for image in images:
+            if not _IMAGE_DATA_URL.match(image):
+                raise ValueError("Images must be data URLs: data:image/<png|jpeg|webp|gif>;base64,...")
+            if (len(image) - image.index(",") - 1) * 3 // 4 > MAX_IMAGE_BYTES:
+                raise ValueError(f"Each image must be at most {MAX_IMAGE_BYTES // (1024 * 1024)} MB.")
+        return images
 
 class ChatCompletionRequest(BaseModel):
     """
@@ -24,7 +48,8 @@ class ChatCompletionRequest(BaseModel):
         system_prompt_filename (Optional[str]): Filename path for a system prompt.
         system_prompt_content (Optional[str]): Direct content for the system prompt.
         stream (Optional[bool]): If True, the response will be streamed.
-        temperature (Optional[float]): Controls the randomness of the output (0.0 to 1.0).
+        temperature, top_p, top_k, max_tokens: Optional sampling settings for this request only.
+            They override the model config; a field left out keeps the config value.
         session_folder (Optional[str]): Directory path for session storage.
         session_id (Optional[str]): Unique identifier for the current session.
         session_title (Optional[str]): Title assigned to the current session.
@@ -36,7 +61,10 @@ class ChatCompletionRequest(BaseModel):
     system_prompt_filename: Optional[str] = None
     system_prompt_content: Optional[str] = None
     stream: Optional[bool] = False
-    temperature: Optional[float] = 0.7
+    temperature: Optional[float] = Field(None, ge=0.0, le=2.0)
+    top_p: Optional[float] = Field(None, gt=0.0, le=1.0)
+    top_k: Optional[int] = Field(None, ge=0)
+    max_tokens: Optional[int] = Field(None, ge=1)
     session_folder: Optional[str] = None
     session_id: Optional[str] = None
     session_title: Optional[str] = None
@@ -46,11 +74,12 @@ class UpdateSessionRequest(BaseModel):
     Defines the structure for updating an existing chat session.
 
     Attributes:
-        session_title (str): The new title for the session.
-        session_content (Optional[List[ChatMessage]]): Optional list of messages to append or replace in the session.
+        session_title (Optional[str]): The new title (required by the /title route).
+        session_content: For the content route: the whole session object (a dict with a
+            ``messages`` list), or a bare message list that replaces only ``messages``.
     """
-    session_title: str
-    session_content: Optional[List[ChatMessage]] = None
+    session_title: Optional[str] = None
+    session_content: Optional[Any] = None
 
 
 # --- Prompt Management Schemas ---

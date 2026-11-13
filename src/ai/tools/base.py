@@ -80,12 +80,15 @@ def resolve_path(params: Dict[str, Any]) -> str:
 
     # 4. Normalization
     normalized = raw_path.replace("@ROOT/", "").replace("@ROOT", ".")
-    absolute_target = os.path.abspath(os.path.join(get_project_root(), normalized))
+    root = os.path.realpath(get_project_root())
+    absolute_target = os.path.abspath(os.path.join(root, normalized))
 
-    # 5. Security Check
-    if not absolute_target.startswith(os.path.abspath(get_project_root())):
+    # 5. Security Check: compare whole path components after resolving symlinks, so neither
+    # a sibling folder sharing the prefix (/ws2 vs /ws) nor a link pointing outside gets through.
+    resolved = os.path.realpath(absolute_target)
+    if os.path.commonpath([root, resolved]) != root:
         raise PermissionError(f"Access denied: {raw_path} is outside project boundaries.")
-    
+
     return absolute_target
 
 def sanitize_output_path(full_path: str) -> str:
