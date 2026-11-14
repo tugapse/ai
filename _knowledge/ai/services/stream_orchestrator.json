@@ -1,0 +1,87 @@
+{
+  "component": {
+    "name": "StreamOrchestrator",
+    "source_path": "/ai/services/stream_orchestrator.py",
+    "doc_path": "/ai/services/stream_orchestrator.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "StreamOrchestrator manages the entire lifecycle of a token stream received from an AI model. It is responsible for sanitizing raw tokens, routing them through handlers (UI display or tool execution), and accumulating the final text output. It acts as a critical service layer, interfacing with SpeechBridge and OutputPrinter to manage user interaction and state tracking, including interruption handling."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/services/stream_orchestrator.py#StreamResult",
+      "label": "Class",
+      "name": "StreamResult",
+      "signature": "class StreamResult: accumulated_text: str, interrupted: bool = False, tool_calls: List[Any] = field(default_factory=list)"
+    },
+    {
+      "id": "/ai/services/stream_orchestrator.py#StreamOrchestrator",
+      "label": "Class",
+      "name": "StreamOrchestrator",
+      "signature": "class StreamOrchestrator: __init__(self, voice_module: Any, output_printer: OutputPrinter, handler_manager: Any, token_processor: Any, debug_voice: bool = False, on_tool_call: Optional[Callable[[Any], None]] = None)"
+    },
+    {
+      "id": "/ai/services/stream_orchestrator.py#StreamOrchestrator.run",
+      "label": "Method",
+      "name": "run",
+      "signature": "def run(self, stream_generator) -> StreamResult"
+    },
+    {
+      "id": "/ai/services/stream_orchestrator.py#StreamOrchestrator._sanitize",
+      "label": "Method",
+      "name": "_sanitize",
+      "signature": "def _sanitize(self, token: str) -> str"
+    },
+    {
+      "id": "/ai/services/stream_orchestrator.py#StreamOrchestrator._display_and_relay",
+      "label": "Method",
+      "name": "_display_and_relay",
+      "signature": "def _display_and_relay(self, content: str)"
+    },
+    {
+      "id": "/ai/services/stream_orchestrator.py#__init__",
+      "label": "Method",
+      "name": "__init__",
+      "signature": "def __init__(self, voice_module: Any, output_printer: OutputPrinter, handler_manager: Any, token_processor: Any, debug_voice: bool = False, on_tool_call: Optional[Callable[[Any], None]] = None)"
+    },
+    {
+      "id": "/ai/services/stream_orchestrator.py#_sanitize",
+      "label": "Method",
+      "name": "_sanitize",
+      "signature": "def _sanitize(self, token: str) -> str"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/services/stream_orchestrator.py",
+      "target": "/ai/modules/voice/speech_bridge.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/services/stream_orchestrator.py",
+      "target": "/ai/extras/output_printer.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/services/stream_orchestrator.py",
+      "target": "/ai/modules/handler_manager.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/services/stream_orchestrator.py",
+      "target": "/ai/functions.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "re",
+      "unicodedata",
+      "typing",
+      "dataclasses"
+    ],
+    "has_side_effects": true
+  }
+}

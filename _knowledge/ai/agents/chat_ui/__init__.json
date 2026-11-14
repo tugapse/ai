@@ -1,0 +1,27 @@
+{
+  "component": {
+    "name": "chat_ui",
+    "source_path": "/ai/agents/chat_ui/__init__.py",
+    "doc_path": "/ai/agents/chat_ui/__init__.json",
+    "type": "module"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module serves as the primary entry point for the interactive chat interface within the agent orchestrator. It is responsible for defining the structure necessary for user interaction via a command-line prompt environment. Architecturally, it functions as a high-level UI component layer, encapsulating session management logic while relying on underlying services for core orchestration tasks."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/agents/chat_ui/__init__.py#chat_ui",
+      "label": "Module",
+      "name": "chat_ui",
+      "signature": "N/A"
+    }
+  ],
+  "graph_edges": [],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "prompt_toolkit"
+    ],
+    "has_side_effects": false
+  }
+}

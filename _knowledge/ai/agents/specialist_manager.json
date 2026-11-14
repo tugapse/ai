@@ -1,0 +1,46 @@
+{
+  "component": {
+    "name": "SpecialistManager",
+    "source_path": "/ai/agents/specialist_manager.py",
+    "doc_path": "/ai/agents/specialist_manager.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "SpecialistManager orchestrates the execution of specialized LLM workers for complex, unstructured tasks like code generation or file modification. It acts as a service layer, reading the current state of a target file (up to 3000 characters) to build a comprehensive context payload. This payload, along with a specialist's defined role, is sent via an injected connector to an external LLM service for specialized processing."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/agents/specialist_manager.py#SpecialistManager",
+      "label": "Class",
+      "name": "SpecialistManager",
+      "signature": ""
+    },
+    {
+      "id": "/ai/agents/specialist_manager.py#is_specialist_tool",
+      "label": "Method",
+      "name": "is_specialist_tool",
+      "signature": "def is_specialist_tool(self, tool_name: str) -> bool"
+    },
+    {
+      "id": "/ai/agents/specialist_manager.py#invoke",
+      "label": "Method",
+      "name": "invoke",
+      "signature": "def invoke(self, tool_name: str, params: Dict[str, Any]) -> str"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/agents/specialist_manager.py",
+      "target": "/ai/tools/base.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "os",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

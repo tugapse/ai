@@ -1,0 +1,76 @@
+{
+  "component": {
+    "name": "SpeechBridge",
+    "source_path": "/ai/modules/voice/speech_bridge.py",
+    "doc_path": "/ai/modules/voice/speech_bridge.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "SpeechBridge acts as a critical service layer intermediary between raw text input and the voice synthesis engine. Its primary role is text preprocessing, handling tasks like markdown stripping, path transformation for pronunciation, and intelligent sentence segmentation. It manages internal state, particularly tracking code blocks, ensuring that the text handed to the voice module flows logically and maintains structural integrity."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/voice/speech_bridge.py#SpeechBridge",
+      "label": "Class",
+      "name": "SpeechBridge",
+      "signature": "class SpeechBridge"
+    },
+    {
+      "id": "/ai/modules/voice/speech_bridge.py#feed",
+      "label": "Method",
+      "name": "feed",
+      "signature": "def feed(self, text: str)"
+    },
+    {
+      "id": "/ai/modules/voice/speech_bridge.py#flush",
+      "label": "Method",
+      "name": "flush",
+      "signature": "def flush(self)"
+    },
+    {
+      "id": "/ai/modules/voice/speech_bridge.py#abort",
+      "label": "Method",
+      "name": "abort",
+      "signature": "def abort(self)"
+    },
+    {
+      "id": "/ai/modules/voice/speech_bridge.py#_replace_path_for_voice",
+      "label": "Method",
+      "name": "_replace_path_for_voice",
+      "signature": "def _replace_path_for_voice(self, match)"
+    },
+    {
+      "id": "/ai/modules/voice/speech_bridge.py#_process_text_chunk",
+      "label": "Method",
+      "name": "_process_text_chunk",
+      "signature": "def _process_text_chunk(self, text: str)"
+    },
+    {
+      "id": "/ai/modules/voice/speech_bridge.py#_send_to_voice",
+      "label": "Method",
+      "name": "_send_to_voice",
+      "signature": "def _send_to_voice(self, text: str)"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/voice/speech_bridge.py",
+      "target": "/ai/functions.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/voice/speech_bridge.py",
+      "target": "/ai/color.md",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "re",
+      "random",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

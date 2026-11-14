@@ -1,0 +1,65 @@
+{
+  "component": {
+    "name": "VibeVoiceModule",
+    "source_path": "/ai/modules/voice/vibe_module.py",
+    "doc_path": "/ai/modules/voice/vibe_module.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "VibeVoiceModule is a service class responsible for orchestrating the entire Text-to-Speech pipeline using the VibeVoice-Realtime-0.5B model. It manages hardware detection (CUDA/CPU) and loads voice embeddings from local files before initializing the model and processor. The core functionality involves preprocessing text and executing inference to generate raw audio waveforms as NumPy arrays."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/voice/vibe_module.py#VibeVoiceModule",
+      "label": "Class",
+      "name": "VibeVoiceModule",
+      "signature": "def __init__(self, model_id=\"microsoft/VibeVoice-Realtime-0.5B\", voice_file=\"pt-Spk1_man\", volume=1.0, **kwargs)"
+    },
+    {
+      "id": "/ai/modules/voice/vibe_module.py#preload",
+      "label": "Method",
+      "name": "preload",
+      "signature": "def preload(self)"
+    },
+    {
+      "id": "/ai/modules/voice/vibe_module.py#_initialize_model",
+      "label": "Method",
+      "name": "_initialize_model",
+      "signature": "def _initialize_model(self)"
+    },
+    {
+      "id": "/ai/modules/voice/vibe_module.py#_recursive_cast",
+      "label": "Method",
+      "name": "_recursive_cast",
+      "signature": "def _recursive_cast(self, obj)"
+    },
+    {
+      "id": "/ai/modules/voice/vibe_module.py#_run_inference",
+      "label": "Method",
+      "name": "_run_inference",
+      "signature": "def _run_inference(self, text: str) -> np.ndarray"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/voice/vibe_module.py",
+      "target": "/ai/modules/voice/base_module.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/voice/vibe_module.py",
+      "target": "/ai/functions.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "torch",
+      "numpy",
+      "pathlib",
+      "vibevoice"
+    ],
+    "has_side_effects": true
+  }
+}

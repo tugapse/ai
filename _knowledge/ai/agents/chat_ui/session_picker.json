@@ -1,0 +1,69 @@
+{
+  "component": {
+    "name": "SessionPicker",
+    "source_path": "/ai/agents/chat_ui/session_picker.py",
+    "doc_path": "/ai/agents/chat_ui/session_picker.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "This component implements an interactive, keyboard-driven session picker interface, primarily utilizing prompt_toolkit to manage UI rendering and user input. Its core responsibility is filtering a list of past agent sessions based on user queries (ID, request, or message) and allowing the user to select one to resume. It orchestrates session data presentation, handling display logic, navigation, and state management until a selection is confirmed or the user cancels."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/agents/chat_ui/session_picker.py#format_age",
+      "label": "Function",
+      "name": "format_age",
+      "signature": "format_age(timestamp: float, now: Optional[float] = None) -> str"
+    },
+    {
+      "id": "/ai/agents/chat_ui/session_picker.py#_one_line",
+      "label": "Function",
+      "name": "_one_line",
+      "signature": "_one_line(text: Any, limit: int) -> str"
+    },
+    {
+      "id": "/ai/agents/chat_ui/session_picker.py#filter_sessions",
+      "label": "Function",
+      "name": "filter_sessions",
+      "signature": "filter_sessions(sessions: List[Dict[str, Any]], query: str) -> List[Dict[str, Any]]"
+    },
+    {
+      "id": "/ai/agents/chat_ui/session_picker.py#render_session_row",
+      "label": "Function",
+      "name": "render_session_row",
+      "signature": "render_session_row(session: Dict[str, Any], selected: bool, width: int = 100, now: Optional[float] = None) -> str"
+    },
+    {
+      "id": "/ai/agents/chat_ui/session_picker.py#SessionPicker",
+      "label": "Class",
+      "name": "SessionPicker",
+      "signature": "class SessionPicker(self: SessionPicker, sessions: List[Dict[str, Any]])"
+    },
+    {
+      "id": "/ai/agents/chat_ui/session_picker.py#pick_session",
+      "label": "Function",
+      "name": "pick_session",
+      "signature": "pick_session(sessions: List[Dict[str, Any]]) -> Optional[str]"
+    },
+    {
+      "id": "/ai/agents/chat_ui/session_picker.py#resolve_session_id",
+      "label": "Function",
+      "name": "resolve_session_id",
+      "signature": "resolve_session_id(sessions: List[Dict[str, Any]], query: str) -> Optional[str]"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/agents/chat_ui/session_picker.py",
+      "target": "/ai/agents/chat_ui/renderer.md",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "prompt_toolkit"
+    ],
+    "has_side_effects": true
+  }
+}

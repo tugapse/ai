@@ -1,0 +1,255 @@
+{
+  "component": {
+    "name": "AgentChatApp",
+    "source_path": "/ai/agents/chat_ui/app.py",
+    "doc_path": "/ai/agents/chat_ui/app.json",
+    "type": "controller"
+  },
+  "vector_memory": {
+    "semantic_summary": "AgentChatApp serves as the primary controller for the interactive, multi-turn chat UI, built using prompt_toolkit. It manages the lifecycle of the chat session, coordinating user input, the agent's asynchronous thinking process, and the terminal display. It bridges the synchronous UI event loop with the background agent execution thread, handling state transitions, command parsing, and filesystem interactions like file mention expansion."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/agents/chat_ui/app.py#AgentChatCompleter",
+      "label": "Class",
+      "name": "AgentChatCompleter",
+      "signature": "def __init__(self, commands: Dict[str, Any])"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#expand_mentions",
+      "label": "Function",
+      "name": "expand_mentions",
+      "signature": "def expand_mentions(text: str, max_bytes: int = MAX_ATTACHMENT_BYTES) -> str"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#AgentChatApp",
+      "label": "Class",
+      "name": "AgentChatApp",
+      "signature": "def __init__(self, prog, pipeline: str = \"default.json\", session_id: Optional[str] = None, directory_manager=None, history: Optional[History] = None)"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#_build_orchestrator",
+      "label": "Method",
+      "name": "_build_orchestrator",
+      "signature": "def _build_orchestrator(self, pipeline: str)"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#_make_history",
+      "label": "Method",
+      "name": "_make_history",
+      "signature": "def _make_history(self) -> History"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#_input_height",
+      "label": "Method",
+      "name": "_input_height",
+      "signature": "def _input_height(self) -> Dimension"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#_build_application",
+      "label": "Method",
+      "name": "_build_application",
+      "signature": "def _build_application(self) -> Application"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#_key_bindings",
+      "label": "Method",
+      "name": "_key_bindings",
+      "signature": "def _key_bindings(self, busy, in_permission) -> KeyBindings"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#_live_text",
+      "label": "Method",
+      "name": "_live_text",
+      "signature": "def _live_text(self)"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#_status_text",
+      "label": "Method",
+      "name": "_status_text",
+      "signature": "def _status_text(self)"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#write",
+      "label": "Method",
+      "name": "write",
+      "signature": "def write(self, text: str) -> None"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#invalidate",
+      "label": "Method",
+      "name": "invalidate",
+      "signature": "def invalidate(self) -> None"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#flash",
+      "label": "Method",
+      "name": "flash",
+      "signature": "def flash(self, hint: str, seconds: float = 2.0) -> None"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#submit",
+      "label": "Method",
+      "name": "submit",
+      "signature": "def submit(self, text: str) -> None"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#_start_turn",
+      "label": "Method",
+      "name": "_start_turn",
+      "signature": "def _start_turn(self, text: str) -> None"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#_run_turn",
+      "label": "Method",
+      "name": "_run_turn",
+      "signature": "def _run_turn(self, prompt: str, turn_id: int) -> None"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#_turn_finished",
+      "label": "Method",
+      "name": "_turn_finished",
+      "signature": "def _turn_finished(self, result, turn_id: Optional[int] = None) -> None"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#_end_turn",
+      "label": "Method",
+      "name": "_end_turn",
+      "signature": "def _end_turn(self, reason: str) -> None"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#interrupt",
+      "label": "Method",
+      "name": "interrupt",
+      "signature": "def interrupt(self) -> None"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#exit",
+      "label": "Method",
+      "name": "exit",
+      "signature": "def exit(self) -> None"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#_ask_permission",
+      "label": "Method",
+      "name": "_ask_permission",
+      "signature": "async def _ask_permission(self, tool: str, params: Dict[str, Any]) -> str"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#_answer_permission",
+      "label": "Method",
+      "name": "_answer_permission",
+      "signature": "def _answer_permission(self, choice: str) -> None"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#new_session",
+      "label": "Method",
+      "name": "new_session",
+      "signature": "def new_session(self) -> None"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#switch_session",
+      "label": "Method",
+      "name": "switch_session",
+      "signature": "def switch_session(self, session_id: str) -> None"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#show_history",
+      "label": "Method",
+      "name": "show_history",
+      "signature": "def show_history(self, limit: int = 8) -> bool"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#switch_pipeline",
+      "label": "Method",
+      "name": "switch_pipeline",
+      "signature": "def switch_pipeline(self, pipeline: str) -> None"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#banner",
+      "label": "Method",
+      "name": "banner",
+      "signature": "def banner(self) -> str"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#run_async",
+      "label": "Method",
+      "name": "run_async",
+      "signature": "async def run_async(self, initial_message: Optional[str] = None) -> None"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#run",
+      "label": "Method",
+      "name": "run",
+      "signature": "def run(self, initial_message: Optional[str] = None) -> None"
+    },
+    {
+      "id": "/ai/agents/chat_ui/app.py#AgentChatCompleter",
+      "label": "Class",
+      "name": "AgentChatCompleter",
+      "signature": "def get_completions(self, document: Document, complete_event) -> Iterable[Completion]"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/agents/chat_ui/app.py",
+      "target": "/ai/agents/chat_ui/app.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/chat_ui/app.py",
+      "target": "/ai/agents/chat_ui/app.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/chat_ui/app.py",
+      "target": "/ai/agents/chat_ui/app.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/chat_ui/app.py",
+      "target": "/ai/agents/chat_ui/app.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/chat_ui/app.py",
+      "target": "/ai/agents/chat_ui/app.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/chat_ui/app.py",
+      "target": "/ai/agents/chat_ui/app.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/chat_ui/app.py",
+      "target": "/ai/agents/chat_ui/app.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/chat_ui/app.py",
+      "target": "/ai/agents/chat_ui/app.py",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "asyncio",
+      "threading",
+      "time",
+      "uuid",
+      "re",
+      "os",
+      "prompt_toolkit",
+      "ai.functions",
+      "ai.agents.agent_io",
+      "ai.agents.chat_ui.bridge",
+      "ai.agents.chat_ui.renderer",
+      "ai.agents.chat_ui.commands",
+      "ai.chat.chat",
+      "ai.services.directory_manager"
+    ],
+    "has_side_effects": true
+  }
+}

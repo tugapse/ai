@@ -1,0 +1,62 @@
+{
+  "component": {
+    "name": "stdin_reader",
+    "source_path": "/ai/stdin_reader.py",
+    "doc_path": "/ai/stdin_reader.json",
+    "type": "utility"
+  },
+  "vector_memory": {
+    "semantic_summary": "This utility module provides robust I/O handling specifically designed to read input piped into a CLI application without causing indefinite hangs. It analyzes the nature of sys.stdin (TTY, pipe, file) to determine the correct reading strategy. It implements specialized logic to wait for input either immediately or for a configurable duration when other inputs are also present, preventing deadlocks in agent environments."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/stdin_reader.py#read_piped_stdin",
+      "label": "Function",
+      "name": "read_piped_stdin",
+      "signature": "read_piped_stdin(has_other_input: bool, stream=None, wait: Optional[float] = None) -> str"
+    },
+    {
+      "id": "/ai/stdin_reader.py#STDIN_WAIT_ENV",
+      "label": "Variable",
+      "name": "STDIN_WAIT_ENV",
+      "signature": "STDIN_WAIT_ENV"
+    },
+    {
+      "id": "/ai/stdin_reader.py#STDIN_WAIT_DEFAULT",
+      "label": "Variable",
+      "name": "STDIN_WAIT_DEFAULT",
+      "signature": "STDIN_WAIT_DEFAULT"
+    },
+    {
+      "id": "/ai/stdin_reader.py#STDIN_HINT_AFTER",
+      "label": "Variable",
+      "name": "STDIN_HINT_AFTER",
+      "signature": "STDIN_HINT_AFTER"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/stdin_reader.py",
+      "target": "/ai/functions.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/stdin_reader.py",
+      "target": "/ai/color.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [
+      "AI_STDIN_WAIT"
+    ],
+    "external_dependencies": [
+      "os",
+      "select",
+      "stat",
+      "sys",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "component": {
+    "name": "knowledge_graph",
+    "source_path": "/ai/modules/knowledge_graph/__init__.py",
+    "doc_path": "/ai/modules/knowledge_graph/__init__.json",
+    "type": "module"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module serves as the primary public interface (facade) for the application's KnowledgeGraph functionality. Its core role is to expose the KnowledgeGraph class, sourced from the adjacent .graph submodule, allowing external systems to interact with the graph structure cleanly. It acts as an aggregation point within the core data modeling layer, providing a high-level entry point for querying and traversing the knowledge base."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/knowledge_graph/__init__.py#KnowledgeGraph",
+      "label": "Class",
+      "name": "KnowledgeGraph",
+      "signature": "N/A"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/knowledge_graph/__init__.py",
+      "target": "/ai/modules/knowledge_graph/graph.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [],
+    "has_side_effects": false
+  }
+}

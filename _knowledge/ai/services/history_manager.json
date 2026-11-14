@@ -1,0 +1,87 @@
+{
+  "component": {
+    "name": "HistoryManager",
+    "source_path": "/ai/services/history_manager.py",
+    "doc_path": "/ai/services/history_manager.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "The HistoryManager service orchestrates the complete lifecycle of chat history, acting as the bridge between in-memory chat sessions and persistent disk storage. It handles session initialization, allowing history to be loaded upon startup or swapped dynamically mid-session. Key logic ensures data integrity by preventing message duplication during loading and enforcing idempotency during message addition. It manages persistence via file I/O and interacts closely with the Chat object state."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/services/history_manager.py#HistoryManager",
+      "label": "Class",
+      "name": "HistoryManager",
+      "signature": "class HistoryManager:"
+    },
+    {
+      "id": "/ai/services/history_manager.py#__init__",
+      "label": "Method",
+      "name": "__init__",
+      "signature": "def __init__(self, chat: Chat):"
+    },
+    {
+      "id": "/ai/services/history_manager.py#initialize_session",
+      "label": "Method",
+      "name": "initialize_session",
+      "signature": "def initialize_session(self, session_paths: Dict[str, str]):"
+    },
+    {
+      "id": "/ai/services/history_manager.py#switch_active_session",
+      "label": "Method",
+      "name": "switch_active_session",
+      "signature": "def switch_active_session(self, new_chat_filepath: str):"
+    },
+    {
+      "id": "/ai/services/history_manager.py#load_history",
+      "label": "Method",
+      "name": "load_history",
+      "signature": "def load_history(self):"
+    },
+    {
+      "id": "/ai/services/history_manager.py#add_message",
+      "label": "Method",
+      "name": "add_message",
+      "signature": "def add_message(self, role: str, content: str):"
+    },
+    {
+      "id": "/ai/services/history_manager.py#save",
+      "label": "Method",
+      "name": "save",
+      "signature": "def save(self):"
+    },
+    {
+      "id": "/ai/services/history_manager.py#get_log_path",
+      "label": "Method",
+      "name": "get_log_path",
+      "signature": "def get_log_path(self) ->str:"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/services/history_manager.py",
+      "target": "/ai/chat/chat.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/services/history_manager.py",
+      "target": "/ai/core/llms/base_llm.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/services/history_manager.py",
+      "target": "/ai/functions.md",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "os",
+      "json",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

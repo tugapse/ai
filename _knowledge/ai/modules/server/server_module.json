@@ -1,0 +1,105 @@
+{
+  "component": {
+    "name": "JarvisServerModule",
+    "source_path": "/ai/modules/server/server_module.py",
+    "doc_path": "/ai/modules/server/server_module.json",
+    "type": "controller"
+  },
+  "vector_memory": {
+    "semantic_summary": "JarvisServerModule acts as the primary service controller for the JARVIS Brain Server, orchestrating the entire server stack. It manages the lifecycle of the BrainHub instance, initializing it with configurations and preparing the FastAPI application via create_app. The module is responsible for starting the server asynchronously using Uvicorn in a background thread and ensuring a controlled shutdown, including resource unloading from the BrainHub."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/server/server_module.py#JarvisServerModule",
+      "label": "Class",
+      "name": "JarvisServerModule",
+      "signature": "class JarvisServerModule(BaseModule):"
+    },
+    {
+      "id": "/ai/modules/server/server_module.py#__init__",
+      "label": "Method",
+      "name": "__init__",
+      "signature": "def __init__(self, host: str = \"0.0.0.0\", port: int = 8000, **kwargs):"
+    },
+    {
+      "id": "/ai/modules/server/server_module.py#initialize",
+      "label": "Method",
+      "name": "initialize",
+      "signature": "def initialize(self, config: Any, orchestrator: Any, history_manager: HistoryManager):"
+    },
+    {
+      "id": "/ai/modules/server/server_module.py#start",
+      "label": "Method",
+      "name": "start",
+      "signature": "def start(self):"
+    },
+    {
+      "id": "/ai/modules/server/server_module.py#get_instance",
+      "label": "Method",
+      "name": "get_instance",
+      "signature": "def get_instance(self) -> Optional[BrainHub]:"
+    },
+    {
+      "id": "/ai/modules/server/server_module.py#shutdown",
+      "label": "Method",
+      "name": "shutdown",
+      "signature": "def shutdown(self):"
+    },
+    {
+      "id": "/ai/modules/server/server_module.py#_brain_hub",
+      "label": "Variable",
+      "name": "_brain_hub",
+      "signature": "self._brain_hub: Optional[BrainHub] = None"
+    },
+    {
+      "id": "/ai/modules/server/server_module.py#_fastapi_app",
+      "label": "Variable",
+      "name": "_fastapi_app",
+      "signature": "self._fastapi_app: Optional[FastAPI] = None"
+    },
+    {
+      "id": "/ai/modules/server/server_module.py#_server_thread",
+      "label": "Variable",
+      "name": "_server_thread",
+      "signature": "self._server_thread: Optional[threading.Thread] = None"
+    },
+    {
+      "id": "/ai/modules/server/server_module.py#_uvicorn_server",
+      "label": "Variable",
+      "name": "_uvicorn_server",
+      "signature": "self._uvicorn_server: Optional[uvicorn.Server] = None"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/server/server_module.py",
+      "target": "/ai/modules/base_module.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/server/server_module.py",
+      "target": "/ai/modules/server/brain_hub.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/server/server_module.py",
+      "target": "/ai/modules/server/app.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/server/server_module.py",
+      "target": "/ai/services/history_manager.py",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "threading",
+      "typing",
+      "uvicorn",
+      "fastapi"
+    ],
+    "has_side_effects": true
+  }
+}

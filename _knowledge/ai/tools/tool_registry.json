@@ -1,0 +1,85 @@
+{
+  "component": {
+    "name": "ToolRegistry",
+    "source_path": "/ai/tools/tool_registry.py",
+    "doc_path": "/ai/tools/tool_registry.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "ToolRegistry serves as the centralized, singleton service layer managing all callable functions (tools) for the AI agent. It provides APIs to register, retrieve, and execute these tools, acting as the bridge between agent logic and backend implementation. Key functions include dynamically converting Python docstrings into LLM-consumable JSON Schemas and parsing proprietary streaming text to detect tool invocation triggers."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/tools/tool_registry.py#ToolRegistry",
+      "label": "Class",
+      "name": "ToolRegistry",
+      "signature": "class ToolRegistry"
+    },
+    {
+      "id": "/ai/tools/tool_registry.py#ToolRegistry.register_tool",
+      "label": "Method",
+      "name": "register_tool",
+      "signature": "register_tool(name: str, func_ref: Callable)"
+    },
+    {
+      "id": "/ai/tools/tool_registry.py#ToolRegistry.get_tool_info",
+      "label": "Method",
+      "name": "get_tool_info",
+      "signature": "get_tool_info(name: str) -> str"
+    },
+    {
+      "id": "/ai/tools/tool_registry.py#ToolRegistry.execute_tool",
+      "label": "Method",
+      "name": "execute_tool",
+      "signature": "execute_tool(name: str, params: Dict[str, Any]) -> Dict[str, Any]"
+    },
+    {
+      "id": "/ai/tools/tool_registry.py#ToolRegistry.get_all_tools",
+      "label": "Method",
+      "name": "get_all_tools",
+      "signature": "get_all_tools() -> dict"
+    },
+    {
+      "id": "/ai/tools/tool_registry.py#ToolRegistry.parse_docstring_to_schema",
+      "label": "Static Method",
+      "name": "parse_docstring_to_schema",
+      "signature": "parse_docstring_to_schema(func_name: str, func_ref: Callable) -> dict"
+    },
+    {
+      "id": "/ai/tools/tool_registry.py#ToolRegistry.format_tools_for_prompt",
+      "label": "Static Method",
+      "name": "format_tools_for_prompt",
+      "signature": "format_tools_for_prompt(all_tools: dict) -> str"
+    },
+    {
+      "id": "/ai/tools/tool_registry.py#ToolRegistry.parse_manual_tags",
+      "label": "Static Method",
+      "name": "parse_manual_tags",
+      "signature": "parse_manual_tags(text: str) -> Optional[dict]"
+    },
+    {
+      "id": "/ai/tools/tool_registry.py#ToolRegistry.get_tool_usage_rule",
+      "label": "Static Method",
+      "name": "get_tool_usage_rule",
+      "signature": "get_tool_usage_rule() -> str"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/tools/tool_registry.py",
+      "target": "/ai/functions.md",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "inspect",
+      "json",
+      "re",
+      "typing",
+      "yaml"
+    ],
+    "has_side_effects": true
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "component": {
+    "name": "ThinkingLogManager",
+    "source_path": "/ai/extras/thinking_log_manager.py",
+    "doc_path": "/ai/extras/thinking_log_manager.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "The ThinkingLogManager class provides a robust service for managing persistent, structured logs of the AI's internal 'thinking' processes. It ensures thread-safe operations by implementing file locking mechanisms to prevent concurrent write conflicts. The component manages two distinct log streams: a specific, user-defined log file and a global active session log. It handles filesystem interactions, including directory creation, and provides methods to write content, start sessions, and read historical logs."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/extras/thinking_log_manager.py#ThinkingLogManager",
+      "label": "Class",
+      "name": "ThinkingLogManager",
+      "signature": "def __init__(self, log_file_name: str = None, max_lock_wait_time: int = 10, lock_poll_interval: float = 0.1)"
+    },
+    {
+      "id": "/ai/extras/thinking_log_manager.py#_acquire_write_lock",
+      "label": "Method",
+      "name": "_acquire_write_lock",
+      "signature": "def _acquire_write_lock(self)"
+    },
+    {
+      "id": "/ai/extras/thinking_log_manager.py#_release_write_lock",
+      "label": "Method",
+      "name": "_release_write_lock",
+      "signature": "def _release_write_lock(self)"
+    },
+    {
+      "id": "/ai/extras/thinking_log_manager.py#write_thinking_log",
+      "label": "Method",
+      "name": "write_thinking_log",
+      "signature": "def write_thinking_log(self, content: str)"
+    },
+    {
+      "id": "/ai/extras/thinking_log_manager.py#write_session_header",
+      "label": "Method",
+      "name": "write_session_header",
+      "signature": "def write_session_header(self, tags: str = \"\")"
+    },
+    {
+      "id": "/ai/extras/thinking_log_manager.py#read_thinking_log",
+      "label": "Method",
+      "name": "read_thinking_log",
+      "signature": "def read_thinking_log(self) -> str"
+    },
+    {
+      "id": "/ai/extras/thinking_log_manager.py#DEFAULT_LOG_SUBDIR",
+      "label": "Variable",
+      "name": "DEFAULT_LOG_SUBDIR",
+      "signature": "os.path.join(\"Ai\", \"logs\", \"thinking\")"
+    },
+    {
+      "id": "/ai/extras/thinking_log_manager.py#DEFAULT_FILENAME",
+      "label": "Variable",
+      "name": "DEFAULT_FILENAME",
+      "signature": "\"thinking_process.log\""
+    },
+    {
+      "id": "/ai/extras/thinking_log_manager.py#max_lock_wait_time",
+      "label": "Variable",
+      "name": "max_lock_wait_time",
+      "signature": "int"
+    },
+    {
+      "id": "/ai/extras/thinking_log_manager.py#lock_poll_interval",
+      "label": "Variable",
+      "name": "lock_poll_interval",
+      "signature": "float"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/extras/thinking_log_manager.py",
+      "target": "/ai/services/directory_manager.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/extras/thinking_log_manager.py",
+      "target": "/ai/config.py",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "os",
+      "time",
+      "errno",
+      "datetime"
+    ],
+    "has_side_effects": true
+  }
+}

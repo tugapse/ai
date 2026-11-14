@@ -1,0 +1,122 @@
+{
+  "component": {
+    "name": "main",
+    "source_path": "/ai/main.py",
+    "doc_path": "/ai/main.json",
+    "type": "controller"
+  },
+  "vector_memory": {
+    "semantic_summary": "This component serves as the primary orchestrator for the JARVIS system, managing the entire application lifecycle. It bootstraps the environment by validating dependencies, loading configuration, and parsing command-line arguments before initiating the main operational loop. It acts as the central control plane, directing flow between subsystems like DirectoryManager and ProcessManager, and handles graceful shutdown via signal trapping."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/main.py#get_project_version",
+      "label": "Function",
+      "name": "get_project_version",
+      "signature": "get_project_version() -> str"
+    },
+    {
+      "id": "/ai/main.py#check_dependencies",
+      "label": "Function",
+      "name": "check_dependencies",
+      "signature": "check_dependencies() -> None"
+    },
+    {
+      "id": "/ai/main.py#hack_warnings",
+      "label": "Function",
+      "name": "hack_warnings",
+      "signature": "hack_warnings() -> None"
+    },
+    {
+      "id": "/ai/main.py#JarvisHelpFormatter",
+      "label": "Class",
+      "name": "JarvisHelpFormatter",
+      "signature": "class JarvisHelpFormatter(argparse.RawDescriptionHelpFormatter):"
+    },
+    {
+      "id": "/ai/main.py#load_args",
+      "label": "Function",
+      "name": "load_args",
+      "signature": "load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]"
+    },
+    {
+      "id": "/ai/main.py#_instance_mode",
+      "label": "Function",
+      "name": "_instance_mode",
+      "signature": "_instance_mode(args, maintenance_keys) -> str"
+    },
+    {
+      "id": "/ai/main.py#run",
+      "label": "Function",
+      "name": "run",
+      "signature": "run() -> None"
+    },
+    {
+      "id": "/ai/main.py#shutdown_handler",
+      "label": "Function",
+      "name": "shutdown_handler",
+      "signature": "shutdown_handler(signum, frame) -> None"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/main.py",
+      "target": "/ai/services/directory_manager.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/main.py",
+      "target": "/ai/services/process_manager.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/main.py",
+      "target": "/ai/config.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/main.py",
+      "target": "/ai/entities/model_enums.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/main.py",
+      "target": "/ai/functions.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/main.py",
+      "target": "/ai/color.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/main.py",
+      "target": "/ai/program.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/main.py",
+      "target": "/ai/cli_args.md",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [
+      "TQDM_DISABLE",
+      "BITSANDBYTES_NOWELCOME",
+      "TRANSFORMERS_VERBOSITY"
+    ],
+    "external_dependencies": [
+      "argparse",
+      "warnings",
+      "logging",
+      "traceback",
+      "time",
+      "signal",
+      "gc",
+      "re",
+      "pathlib"
+    ],
+    "has_side_effects": true
+  }
+}

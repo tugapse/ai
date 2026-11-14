@@ -1,0 +1,79 @@
+{
+  "component": {
+    "name": "OutputPrinter",
+    "source_path": "/ai/extras/output_printer.py",
+    "doc_path": "/ai/extras/output_printer.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "The OutputPrinter class manages the presentation layer for LLM tokens, controlling when and how text is displayed to the console. It implements various buffering strategies, including 'line' and 'every_x_tokens', to ensure readable output streams. It acts as a bridge between core generation logic and console I/O, utilizing functions from ai.functions for actual printing operations."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/extras/output_printer.py#OutputPrinter",
+      "label": "Class",
+      "name": "OutputPrinter",
+      "signature": "class OutputPrinter"
+    },
+    {
+      "id": "/ai/extras/output_printer.py#__init__",
+      "label": "Method",
+      "name": "__init__",
+      "signature": "def __init__(self, print_mode: str = \"token\", tokens_per_print: int = 5)"
+    },
+    {
+      "id": "/ai/extras/output_printer.py#process_and_print",
+      "label": "Method",
+      "name": "process_and_print",
+      "signature": "def process_and_print(self, token_to_display: str) -> None"
+    },
+    {
+      "id": "/ai/extras/output_printer.py#flush_buffers",
+      "label": "Method",
+      "name": "flush_buffers",
+      "signature": "def flush_buffers(self) -> None"
+    },
+    {
+      "id": "/ai/extras/output_printer.py#process_token",
+      "label": "Method",
+      "name": "process_token",
+      "signature": "def process_token(self, token_to_display: str) -> str | None"
+    },
+    {
+      "id": "/ai/extras/output_printer.py#flush",
+      "label": "Method",
+      "name": "flush",
+      "signature": "def flush(self) -> str | None"
+    },
+    {
+      "id": "/ai/extras/output_printer.py#line_buffer",
+      "label": "Variable",
+      "name": "line_buffer",
+      "signature": "self.line_buffer: str"
+    },
+    {
+      "id": "/ai/extras/output_printer.py#token_buffer",
+      "label": "Variable",
+      "name": "token_buffer",
+      "signature": "self.token_buffer: str"
+    },
+    {
+      "id": "/ai/extras/output_printer.py#buffered_token_count",
+      "label": "Variable",
+      "name": "buffered_token_count",
+      "signature": "self.buffered_token_count: int"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/extras/output_printer.py",
+      "target": "/ai/functions.md",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [],
+    "has_side_effects": true
+  }
+}

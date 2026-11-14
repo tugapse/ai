@@ -1,0 +1,100 @@
+{
+  "component": {
+    "name": "GeminiAPIModel",
+    "source_path": "/ai/core/llms/gemini.py",
+    "doc_path": "/ai/core/llms/gemini.json",
+    "type": "model"
+  },
+  "vector_memory": {
+    "semantic_summary": "GeminiAPIModel serves as the primary service layer for interfacing with Google's Gemini models, supporting both direct API key usage and Google Vertex AI integration. It encapsulates complex logic for credential management, converting internal message formats into API-specific structures, and handling synchronous or streamed generation requests. Key functionalities include managing system prompts, processing multimodal inputs via image loading, and providing robust error handling through integrated retry mechanisms."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/core/llms/gemini.py#GeminiAPIModel",
+      "label": "Class",
+      "name": "GeminiAPIModel",
+      "signature": "def __init__(self, model_name: str = \"gemini-2.5-flash\", system_prompt: str = \"\", api_key: str = None, use_vertex: bool = False, project_id: str = None, location: str = \"global\", **kargs: any)"
+    },
+    {
+      "id": "/ai/core/llms/gemini.py#chat",
+      "label": "Method",
+      "name": "chat",
+      "signature": "def chat(self, messages: list, images: list = [], stream: bool = True, options: dict = None)"
+    },
+    {
+      "id": "/ai/core/llms/gemini.py#load_images",
+      "label": "Method",
+      "name": "load_images",
+      "signature": "def load_images(self, images: list) -> list"
+    },
+    {
+      "id": "/ai/core/llms/gemini.py#is_gpu_available",
+      "label": "Method",
+      "name": "is_gpu_available",
+      "signature": "def is_gpu_available(self) -> bool"
+    },
+    {
+      "id": "/ai/core/llms/gemini.py#clean_cache",
+      "label": "Method",
+      "name": "clean_cache",
+      "signature": "def clean_cache(self)"
+    },
+    {
+      "id": "/ai/core/llms/gemini.py#_convert_messages_to_api",
+      "label": "Method",
+      "name": "_convert_messages_to_api",
+      "signature": "def _convert_messages_to_api(self, messages: list) -> list"
+    },
+    {
+      "id": "/ai/core/llms/gemini.py#_stream_generator",
+      "label": "Method",
+      "name": "_stream_generator",
+      "signature": "def _stream_generator(self, contents: list, config: types.GenerateContentConfig)"
+    },
+    {
+      "id": "/ai/core/llms/gemini.py#_generate_response_sync",
+      "label": "Method",
+      "name": "_generate_response_sync",
+      "signature": "def _generate_response_sync(self, contents: list, config: types.GenerateContentConfig)"
+    },
+    {
+      "id": "/ai/core/llms/gemini.py#_check_gcp_auth",
+      "label": "Method",
+      "name": "_check_gcp_auth",
+      "signature": "def _check_gcp_auth(self) -> bool"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/core/llms/gemini.py",
+      "target": "/ai/core/llms/base_llm.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/core/llms/gemini.py",
+      "target": "/ai/core/llms/api_retry.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/core/llms/gemini.py",
+      "target": "/ai/tools/tool_registry.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/core/llms/gemini.py",
+      "target": "/ai/functions.md",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [
+      "GEMINI_API_KEY",
+      "GOOGLE_CLOUD_PROJECT"
+    ],
+    "external_dependencies": [
+      "google-genai",
+      "PIL"
+    ],
+    "has_side_effects": true
+  }
+}

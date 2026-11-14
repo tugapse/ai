@@ -1,0 +1,33 @@
+{
+  "component": {
+    "name": "load_errors",
+    "source_path": "/ai/core/llms/load_errors.py",
+    "doc_path": "/ai/core/llms/load_errors.json",
+    "type": "interface"
+  },
+  "vector_memory": {
+    "semantic_summary": "This component defines the custom exception class GpuMemoryError, serving as a critical error contract for the LLM loading service. Its sole responsibility is to encapsulate and communicate failures specifically related to GPU memory allocation constraints during model loading. It allows higher-level logic to diagnose root causes such as insufficient VRAM by providing structured diagnostic data via its attributes. This pattern enforces clean separation between loading mechanics and application error handling."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/core/llms/load_errors.py#GpuMemoryError",
+      "label": "Class",
+      "name": "GpuMemoryError",
+      "signature": "class GpuMemoryError(RuntimeError):"
+    },
+    {
+      "id": "/ai/core/llms/load_errors.py#__init__",
+      "label": "Method",
+      "name": "__init__",
+      "signature": "def __init__(self, message: str, model_path: str = \"\", n_gpu_layers: Optional[int] = None, log_tail: str = \"\")"
+    }
+  ],
+  "graph_edges": [],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "typing"
+    ],
+    "has_side_effects": false
+  }
+}

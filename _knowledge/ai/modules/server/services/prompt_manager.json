@@ -1,0 +1,113 @@
+{
+  "component": {
+    "name": "PromptManager",
+    "source_path": "/ai/modules/server/services/prompt_manager.py",
+    "doc_path": "/ai/modules/server/services/prompt_manager.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "The PromptManager service manages the entire lifecycle of prompt assets, enforcing strict security boundaries around a designated root directory. It provides methods to list, load, save, and delete prompts, utilizing pathlib for reliable filesystem interaction. A critical function, _resolve_prompt_path, prevents directory traversal attacks by verifying that all resolved paths remain within the defined root directory structure."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/server/services/prompt_manager.py#PromptError",
+      "label": "Class",
+      "name": "PromptError",
+      "signature": "class PromptError(Exception):"
+    },
+    {
+      "id": "/ai/modules/server/services/prompt_manager.py#PromptNotFoundError",
+      "label": "Class",
+      "name": "PromptNotFoundError",
+      "signature": "class PromptNotFoundError(PromptError):"
+    },
+    {
+      "id": "/ai/modules/server/services/prompt_manager.py#InvalidPathError",
+      "label": "Class",
+      "name": "InvalidPathError",
+      "signature": "class InvalidPathError(PromptError):"
+    },
+    {
+      "id": "/ai/modules/server/services/prompt_manager.py#PromptAccessError",
+      "label": "Class",
+      "name": "PromptAccessError",
+      "signature": "class PromptAccessError(PromptError):"
+    },
+    {
+      "id": "/ai/modules/server/services/prompt_manager.py#PromptManager",
+      "label": "Class",
+      "name": "PromptManager",
+      "signature": "class PromptManager(self, root_dir: Path, logger: Optional[Any] = None):"
+    },
+    {
+      "id": "/ai/modules/server/services/prompt_manager.py#_log",
+      "label": "Method",
+      "name": "_log",
+      "signature": "def _log(self, message: str) -> None:"
+    },
+    {
+      "id": "/ai/modules/server/services/prompt_manager.py#_resolve_prompt_path",
+      "label": "Method",
+      "name": "_resolve_prompt_path",
+      "signature": "def _resolve_prompt_path(self, prompt_path: str) -> Path:"
+    },
+    {
+      "id": "/ai/modules/server/services/prompt_manager.py#list_prompts",
+      "label": "Method",
+      "name": "list_prompts",
+      "signature": "def list_prompts(self, sub_folder: Optional[str] = None) -> List[Dict]:"
+    },
+    {
+      "id": "/ai/modules/server/services/prompt_manager.py#load_prompt",
+      "label": "Method",
+      "name": "load_prompt",
+      "signature": "def load_prompt(self, prompt_path: str) -> str:"
+    },
+    {
+      "id": "/ai/modules/server/services/prompt_manager.py#save_prompt",
+      "label": "Method",
+      "name": "save_prompt",
+      "signature": "def save_prompt(self, prompt_path: str, content: str) -> None:"
+    },
+    {
+      "id": "/ai/modules/server/services/prompt_manager.py#read_prompt",
+      "label": "Method",
+      "name": "read_prompt",
+      "signature": "def read_prompt(self, prompt_path: str) -> str:"
+    },
+    {
+      "id": "/ai/modules/server/services/prompt_manager.py#create_prompt",
+      "label": "Method",
+      "name": "create_prompt",
+      "signature": "def create_prompt(self, prompt_path: str, content: str) -> Dict[str, str]:"
+    },
+    {
+      "id": "/ai/modules/server/services/prompt_manager.py#update_prompt",
+      "label": "Method",
+      "name": "update_prompt",
+      "signature": "def update_prompt(self, prompt_path: str, content: str) -> Dict[str, str]:"
+    },
+    {
+      "id": "/ai/modules/server/services/prompt_manager.py#delete_prompt",
+      "label": "Method",
+      "name": "delete_prompt",
+      "signature": "def delete_prompt(self, prompt_path: str) -> None:"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/server/services/prompt_manager.py",
+      "target": "/ai/modules/server/services/prompt_manager.py",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "pathlib",
+      "typing",
+      "os"
+    ],
+    "has_side_effects": true
+  }
+}

@@ -1,0 +1,161 @@
+{
+  "component": {
+    "name": "ModuleRegistry",
+    "source_path": "/ai/services/module_registry.py",
+    "doc_path": "/ai/services/module_registry.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "ModuleRegistry acts as the core Plugin Manager for the JARVIS system, centralizing the discovery, loading, and activation of all functional modules. It maintains a registry of active modules, allowing the application to access specialized capabilities via a unified interface. The service orchestrates initialization by checking configuration flags against a manifest, providing controlled runtime behavior. It supports dynamic retrieval, iteration, and safe lifecycle management (load/unload) of installed plugins."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/services/module_registry.py#ModuleRegistry",
+      "label": "Class",
+      "name": "ModuleRegistry",
+      "signature": "class ModuleRegistry:"
+    },
+    {
+      "id": "/ai/services/module_registry.py#__init__",
+      "label": "Method",
+      "name": "__init__",
+      "signature": "def __init__(self, config: ProgramConfig):"
+    },
+    {
+      "id": "/ai/services/module_registry.py#__getitem__",
+      "label": "Method",
+      "name": "__getitem__",
+      "signature": "def __getitem__(self, key: str) -> Optional[BaseModule]:"
+    },
+    {
+      "id": "/ai/services/module_registry.py#items",
+      "label": "Method",
+      "name": "items",
+      "signature": "def items(self):"
+    },
+    {
+      "id": "/ai/services/module_registry.py#load_all",
+      "label": "Method",
+      "name": "load_all",
+      "signature": "def load_all(self):"
+    },
+    {
+      "id": "/ai/services/module_registry.py#_load_tool_module",
+      "label": "Method",
+      "name": "_load_tool_module",
+      "signature": "def _load_tool_module(self, name: str):"
+    },
+    {
+      "id": "/ai/services/module_registry.py#tool_functions",
+      "label": "Method",
+      "name": "tool_functions",
+      "signature": "def tool_functions(self) -> Dict[str, Any]:"
+    },
+    {
+      "id": "/ai/services/module_registry.py#_load_voice_logic",
+      "label": "Method",
+      "name": "_load_voice_logic",
+      "signature": "def _load_voice_logic(self):"
+    },
+    {
+      "id": "/ai/services/module_registry.py#_load_vector_memory_logic",
+      "label": "Method",
+      "name": "_load_vector_memory_logic",
+      "signature": "def _load_vector_memory_logic(self):"
+    },
+    {
+      "id": "/ai/services/module_registry.py#_load_knowledge_graph_logic",
+      "label": "Method",
+      "name": "_load_knowledge_graph_logic",
+      "signature": "def _load_knowledge_graph_logic(self):"
+    },
+    {
+      "id": "/ai/services/module_registry.py#unload_module",
+      "label": "Method",
+      "name": "unload_module",
+      "signature": "def unload_module(self, name: str):"
+    },
+    {
+      "id": "/ai/services/module_registry.py#unload_all",
+      "label": "Method",
+      "name": "unload_all",
+      "signature": "def unload_all(self):"
+    },
+    {
+      "id": "/ai/services/module_registry.py#shutdown",
+      "label": "Method",
+      "name": "shutdown",
+      "signature": "def shutdown(self):"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/services/module_registry.py",
+      "target": "/ai/services/config_helper.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/services/module_registry.py",
+      "target": "/ai/modules/base_module.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/services/module_registry.py",
+      "target": "/ai/services/engine_manager.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/services/module_registry.py",
+      "target": "/ai/functions.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/services/module_registry.py",
+      "target": "/ai/modules.tools_filesystem",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/services/module_registry.py",
+      "target": "/ai/modules.tools_search",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/services/module_registry.py",
+      "target": "/ai/modules.tools_shell",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/services/module_registry.py",
+      "target": "/ai/modules.tools_web",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/services/module_registry.py",
+      "target": "/ai/modules.tools_notify",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/services/module_registry.py",
+      "target": "/ai/modules.voice.vibe_module",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/services/module_registry.py",
+      "target": "/ai/modules.vector_memory.vector_memory_module",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/services/module_registry.py",
+      "target": "/ai/modules.knowledge_graph",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "typing",
+      "importlib"
+    ],
+    "has_side_effects": true
+  }
+}

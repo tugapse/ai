@@ -1,0 +1,31 @@
+{
+  "component": {
+    "name": "prompts",
+    "source_path": "/ai/modules/knowledge_graph/prompts.py",
+    "doc_path": "/ai/modules/knowledge_graph/prompts.json",
+    "type": "utility"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module acts as a centralized configuration repository for complex, structured prompts used in the knowledge graph generation pipeline. It defines the precise instructions, schemas, and constraints necessary for an LLM to parse source code and output a machine-readable knowledge graph representation. Architecturally, it serves as the contract layer dictating how code relationships are formalized between the parsing logic and the language model interface."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/knowledge_graph/prompts.py#CODE_EXTRACTION_PROMPT",
+      "label": "Variable",
+      "name": "CODE_EXTRACTION_PROMPT",
+      "signature": "String containing the primary LLM instruction set."
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/knowledge_graph/prompts.py",
+      "target": "/ai/modules/knowledge_graph/prompts.md",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [],
+    "has_side_effects": false
+  }
+}

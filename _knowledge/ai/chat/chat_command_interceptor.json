@@ -1,0 +1,85 @@
+{
+  "component": {
+    "name": "ChatCommandInterceptor",
+    "source_path": "/ai/chat/chat_command_interceptor.py",
+    "doc_path": "/ai/chat/chat_command_interceptor.json",
+    "type": "controller"
+  },
+  "vector_memory": {
+    "semantic_summary": "ChatCommandInterceptor acts as a command interception layer for the chat session, routing user input to specific handlers. It manages session state persistence via save_session and load_session methods, interacting with the filesystem. The component controls the chat lifecycle by checking for reserved commands (/save, /load, /list) or executing custom handlers, ensuring proper state management within the attached Chat object."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/chat/chat_command_interceptor.py#ChatCommandInterceptor",
+      "label": "Class",
+      "name": "ChatCommandInterceptor",
+      "signature": ""
+    },
+    {
+      "id": "/ai/chat/chat_command_interceptor.py#__init__",
+      "label": "Method",
+      "name": "__init__",
+      "signature": "def __init__(self, chat: Chat, root_folder: str) -> None"
+    },
+    {
+      "id": "/ai/chat/chat_command_interceptor.py#run",
+      "label": "Method",
+      "name": "run",
+      "signature": "def run(self, command_text: str) -> None"
+    },
+    {
+      "id": "/ai/chat/chat_command_interceptor.py#handle_extra_command",
+      "label": "Method",
+      "name": "handle_extra_command",
+      "signature": "def handle_extra_command(self, command:str):"
+    },
+    {
+      "id": "/ai/chat/chat_command_interceptor.py#save_session",
+      "label": "Method",
+      "name": "save_session",
+      "signature": "def save_session(self, filename: str) -> None"
+    },
+    {
+      "id": "/ai/chat/chat_command_interceptor.py#load_session",
+      "label": "Method",
+      "name": "load_session",
+      "signature": "def load_session(self, filename: str) -> None"
+    },
+    {
+      "id": "/ai/chat/chat_command_interceptor.py#list_sessions",
+      "label": "Method",
+      "name": "list_sessions",
+      "signature": "def list_sessions(self) -> None"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/chat/chat_command_interceptor.py",
+      "target": "/ai/chat/chat.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/chat/chat_command_interceptor.py",
+      "target": "/ai/functions.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/chat/chat_command_interceptor.py",
+      "target": "/ai/color.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/chat/chat_command_interceptor.py",
+      "target": "/ai/extras/ConsoleChatReader.py",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "json",
+      "os"
+    ],
+    "has_side_effects": true
+  }
+}

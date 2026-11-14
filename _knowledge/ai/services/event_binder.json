@@ -1,0 +1,44 @@
+{
+  "component": {
+    "name": "EventBinder",
+    "source_path": "/ai/services/event_binder.py",
+    "doc_path": "/ai/services/event_binder.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "EventBinder is a service class responsible for centralizing and managing event subscriptions across the application. Its primary method, bind_core_events, establishes connections between core application events (like chat sent or output requested) and specific callback functions. It acts as an intermediary, bridging communication between Chat and BaseModel instances by registering listeners via their respective add_event methods."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/services/event_binder.py#EventBinder",
+      "label": "Class",
+      "name": "EventBinder",
+      "signature": "class EventBinder:"
+    },
+    {
+      "id": "/ai/services/event_binder.py#bind_core_events",
+      "label": "Method",
+      "name": "bind_core_events",
+      "signature": "def bind_core_events(chat: Chat, llm: BaseModel, start_chat_callback: Callable, output_requested_callback: Callable, llm_stream_finished_callback: Callable):"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/services/event_binder.py",
+      "target": "/ai/chat/chat.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/services/event_binder.py",
+      "target": "/ai/core/llms/base_llm.md",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

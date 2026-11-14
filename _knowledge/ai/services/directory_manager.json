@@ -1,0 +1,150 @@
+{
+  "component": {
+    "name": "DirectoryManager",
+    "source_path": "/ai/services/directory_manager.py",
+    "doc_path": "/ai/services/directory_manager.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "The DirectoryManager is a core utility service responsible for abstracting and managing all necessary filesystem paths for the AI application. It ensures critical directories, such as user data, system logs, and configurations, exist idempotently before application use. It intelligently resolves user directory locations by checking for application markers across active and legacy root directories, preventing runtime FileNotFoundError exceptions."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/services/directory_manager.py#DirectoryManager",
+      "label": "Class",
+      "name": "DirectoryManager",
+      "signature": ""
+    },
+    {
+      "id": "/ai/services/directory_manager.py#__init__",
+      "label": "Method",
+      "name": "__init__",
+      "signature": "def __init__(self):"
+    },
+    {
+      "id": "/ai/services/directory_manager.py#get_user_directory",
+      "label": "Method",
+      "name": "get_user_directory",
+      "signature": "def get_user_directory(self):"
+    },
+    {
+      "id": "/ai/services/directory_manager.py#get_user_tools_directory",
+      "label": "Method",
+      "name": "get_user_tools_directory",
+      "signature": "def get_user_tools_directory(self):"
+    },
+    {
+      "id": "/ai/services/directory_manager.py#get_user_pipelines_directory",
+      "label": "Method",
+      "name": "get_user_pipelines_directory",
+      "signature": "def get_user_pipelines_directory(self):"
+    },
+    {
+      "id": "/ai/services/directory_manager.py#get_user_models_directory",
+      "label": "Method",
+      "name": "get_user_models_directory",
+      "signature": "def get_user_models_directory(self):"
+    },
+    {
+      "id": "/ai/services/directory_manager.py#get_user_config_directory",
+      "label": "Method",
+      "name": "get_user_config_directory",
+      "signature": "def get_user_config_directory(self):"
+    },
+    {
+      "id": "/ai/services/directory_manager.py#_create_user_directory",
+      "label": "Method",
+      "name": "_create_user_directory",
+      "signature": "def _create_user_directory(self):"
+    },
+    {
+      "id": "/ai/services/directory_manager.py#get_system_prompts_templates_directory",
+      "label": "Method",
+      "name": "get_system_prompts_templates_directory",
+      "signature": "def get_system_prompts_templates_directory(self):"
+    },
+    {
+      "id": "/ai/services/directory_manager.py#get_system_temp_directory",
+      "label": "Method",
+      "name": "get_system_temp_directory",
+      "signature": "def get_system_temp_directory(self):"
+    },
+    {
+      "id": "/ai/services/directory_manager.py#get_system_logs_directory",
+      "label": "Method",
+      "name": "get_system_logs_directory",
+      "signature": "def get_system_logs_directory(self):"
+    },
+    {
+      "id": "/ai/services/directory_manager.py#get_system_agents_directory",
+      "label": "Method",
+      "name": "get_system_agents_directory",
+      "signature": "def get_system_agents_directory(self):"
+    },
+    {
+      "id": "/ai/services/directory_manager.py#get_system_templates_directory",
+      "label": "Method",
+      "name": "get_system_templates_directory",
+      "signature": "def get_system_templates_directory(self):"
+    },
+    {
+      "id": "/ai/services/directory_manager.py#get_system_models_directory",
+      "label": "Method",
+      "name": "get_system_models_directory",
+      "signature": "def get_system_models_directory(self):"
+    },
+    {
+      "id": "/ai/services/directory_manager.py#get_system_dir",
+      "label": "Method",
+      "name": "get_system_dir",
+      "signature": "def get_system_dir(self):"
+    },
+    {
+      "id": "/ai/services/directory_manager.py#get_root_dir",
+      "label": "Method",
+      "name": "get_root_dir",
+      "signature": "def get_root_dir(self):"
+    },
+    {
+      "id": "/ai/services/directory_manager.py#get_system_config_dir",
+      "label": "Method",
+      "name": "get_system_config_dir",
+      "signature": "def get_system_config_dir(self):"
+    },
+    {
+      "id": "/ai/services/directory_manager.py#get_pid_directory",
+      "label": "Method",
+      "name": "get_pid_directory",
+      "signature": "def get_pid_directory(self):"
+    },
+    {
+      "id": "/ai/services/directory_manager.py#get_system_pipelines_directory",
+      "label": "Method",
+      "name": "get_system_pipelines_directory",
+      "signature": "def get_system_pipelines_directory(self):"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/services/directory_manager.py",
+      "target": "/ai/functions.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/services/directory_manager.py",
+      "target": "/ai/color.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [
+      "XDG_RUNTIME_DIR"
+    ],
+    "external_dependencies": [
+      "os",
+      "shutil",
+      "tempfile"
+    ],
+    "has_side_effects": true
+  }
+}

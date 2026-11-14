@@ -1,0 +1,84 @@
+{
+  "component": {
+    "name": "base",
+    "source_path": "/ai/tools/base.py",
+    "doc_path": "/ai/tools/base.json",
+    "type": "utility"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module provides foundational utilities for defining, discovering, and safely utilizing agent tools within the application. It acts as a centralized authority for path management, enforcing security boundaries around filesystem interactions via functions like resolve_path. Core responsibilities include decorating functions as tools, collecting tool definitions from various sources, and ensuring I/O operations remain strictly within the defined project root boundaries."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/tools/base.py#PROJECT_ROOT",
+      "label": "Variable",
+      "name": "PROJECT_ROOT",
+      "signature": "str"
+    },
+    {
+      "id": "/ai/tools/base.py#get_project_root",
+      "label": "Function",
+      "name": "get_project_root",
+      "signature": "get_project_root() -> str"
+    },
+    {
+      "id": "/ai/tools/base.py#tool",
+      "label": "Function",
+      "name": "tool",
+      "signature": "tool(func: Callable) -> Callable"
+    },
+    {
+      "id": "/ai/tools/base.py#collect_tools",
+      "label": "Function",
+      "name": "collect_tools",
+      "signature": "collect_tools(*sources: Any) -> Dict[str, Callable]"
+    },
+    {
+      "id": "/ai/tools/base.py#resolve_path",
+      "label": "Function",
+      "name": "resolve_path",
+      "signature": "resolve_path(params: Dict[str, Any]) -> str"
+    },
+    {
+      "id": "/ai/tools/base.py#sanitize_output_path",
+      "label": "Function",
+      "name": "sanitize_output_path",
+      "signature": "sanitize_output_path(full_path: str) -> str"
+    },
+    {
+      "id": "/ai/tools/base.py#ensure_list",
+      "label": "Function",
+      "name": "ensure_list",
+      "signature": "ensure_list(input_val: Any) -> List[str]"
+    },
+    {
+      "id": "/ai/tools/base.py#_resolve_path",
+      "label": "Function",
+      "name": "_resolve_path",
+      "signature": "resolve_path"
+    },
+    {
+      "id": "/ai/tools/base.py#_sanitize_output_path",
+      "label": "Function",
+      "name": "_sanitize_output_path",
+      "signature": "sanitize_output_path"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/tools/base.py",
+      "target": "/ai/tools/base.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "json",
+      "os",
+      "types",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

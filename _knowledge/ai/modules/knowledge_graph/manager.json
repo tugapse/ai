@@ -1,0 +1,80 @@
+{
+  "component": {
+    "name": "KnowledgeGraphManager",
+    "source_path": "/ai/modules/knowledge_graph/manager.py",
+    "doc_path": "/ai/modules/knowledge_graph/manager.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "KnowledgeGraphManager serves as the central orchestration layer for managing the entire codebase knowledge graph lifecycle. It coordinates initial knowledge extraction from source files, which involves LLM calls to generate nodes and triples. The system then iteratively refines uncertain extractions through a multi-phase pipeline, using the graph database context to resolve ambiguities before persisting the validated knowledge."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/knowledge_graph/manager.py#KnowledgeGraphManager",
+      "label": "Class",
+      "name": "KnowledgeGraphManager",
+      "signature": "def __init__(self, db_client: Any, llm_client: Any, vectorizer_client: Any)"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/manager.py#update_knowledge_from_files",
+      "label": "Method",
+      "name": "update_knowledge_from_files",
+      "signature": "def update_knowledge_from_files(self, file_paths: List[str]) -> None"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/manager.py#analyze_file",
+      "label": "Method",
+      "name": "analyze_file",
+      "signature": "def analyze_file(self, file_path: str) -> AnalysisReport"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/manager.py#refine_knowledge",
+      "label": "Method",
+      "name": "refine_knowledge",
+      "signature": "def refine_knowledge(self, ambiguities: List[AmbiguityFlag]) -> RefinementReport"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/manager.py#query_graph",
+      "label": "Method",
+      "name": "query_graph",
+      "signature": "def query_graph(self, query_type: str, params: Dict[str, Any]) -> List[KGNode | KGEdge]"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/manager.py#_generate_initial_triples_with_llm",
+      "label": "Method",
+      "name": "_generate_initial_triples_with_llm",
+      "signature": "def _generate_initial_triples_with_llm(self, file_path: str, file_content: str) -> Tuple[List[KGNode], List[KGTriple], List[AmbiguityFlag]]"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/manager.py#_create_and_store_embedding",
+      "label": "Method",
+      "name": "_create_and_store_embedding",
+      "signature": "def _create_and_store_embedding(self, node: KGNode) -> None"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/knowledge_graph/manager.py",
+      "target": "/ai/modules/knowledge_graph/ast_parser.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/knowledge_graph/manager.py",
+      "target": "/ai/modules/knowledge_graph/prompts.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/knowledge_graph/manager.py",
+      "target": "/ai/modules/knowledge_graph/models.md",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "json",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

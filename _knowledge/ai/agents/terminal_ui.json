@@ -1,0 +1,100 @@
+{
+  "component": {
+    "name": "TerminalUI",
+    "source_path": "/ai/agents/terminal_ui.py",
+    "doc_path": "/ai/agents/terminal_ui.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "The TerminalUI class provides a dedicated utility layer for rendering high-fidelity, formatted output to the terminal. It centralizes theme loading by resolving configuration variables from environment settings or custom theme files located in user directories. It offers specific static methods for displaying headers, status updates, authentication prompts, and logging steps with consistent visual styling."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/agents/terminal_ui.py#TerminalUI",
+      "label": "Class",
+      "name": "TerminalUI",
+      "signature": "class TerminalUI:"
+    },
+    {
+      "id": "/ai/agents/terminal_ui.py#_get_var",
+      "label": "Method",
+      "name": "_get_var",
+      "signature": "def _get_var(env_name, fallback)"
+    },
+    {
+      "id": "/ai/agents/terminal_ui.py#header",
+      "label": "Method",
+      "name": "header",
+      "signature": "def header(title: str, subtitle: str = \"\")"
+    },
+    {
+      "id": "/ai/agents/terminal_ui.py#status",
+      "label": "Method",
+      "name": "status",
+      "signature": "def status(agent_name: str, task: str, is_updating: bool = True)"
+    },
+    {
+      "id": "/ai/agents/terminal_ui.py#auth_request",
+      "label": "Method",
+      "name": "auth_request",
+      "signature": "def auth_request(tool_name: str, target: str, command: str = \"\")"
+    },
+    {
+      "id": "/ai/agents/terminal_ui.py#message",
+      "label": "Method",
+      "name": "message",
+      "signature": "def message(agent_name: str, text: str, color: str = Color.GREEN)"
+    },
+    {
+      "id": "/ai/agents/terminal_ui.py#log_step",
+      "label": "Method",
+      "name": "log_step",
+      "signature": "def log_step(step_name: str, status: str = \"SUCCESS\")"
+    },
+    {
+      "id": "/ai/agents/terminal_ui.py#agent_step",
+      "label": "Method",
+      "name": "agent_step",
+      "signature": "def agent_step(status: str = \"SUCCESS\")"
+    },
+    {
+      "id": "/ai/agents/terminal_ui.py#clear_line",
+      "label": "Method",
+      "name": "clear_line",
+      "signature": "def clear_line()"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/agents/terminal_ui.py",
+      "target": "/ai/functions.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/agents/terminal_ui.py",
+      "target": "/ai/color.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [
+      "THEME_PRIMARY",
+      "THEME_SECONDARY",
+      "THEME_ACCENT",
+      "THEME_TEXT",
+      "THEME_OK",
+      "THEME_WARN",
+      "THEME_FAIL",
+      "ICON_PROMPT",
+      "ICON_SECTION",
+      "ICON_SUCCESS",
+      "ICON_ERROR",
+      "GLYPH_H_LINE"
+    ],
+    "external_dependencies": [
+      "os",
+      "re"
+    ],
+    "has_side_effects": true
+  }
+}

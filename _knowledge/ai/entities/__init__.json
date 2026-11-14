@@ -1,0 +1,31 @@
+{
+  "component": {
+    "name": "__init__",
+    "source_path": "/ai/entities/__init__.py",
+    "doc_path": "/ai/entities/__init__.json",
+    "type": "module"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module acts as the primary facade for the ai.entities package, serving as the central entry point for all related AI entity definitions. Its core responsibility is to aggregate and expose essential enumerations and structural components from within the domain. It functions as a high-level organizational layer, providing a stable interface to prevent scattered imports across the application's data model structure."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/entities/__init__.py#module",
+      "label": "Module",
+      "name": "__init__",
+      "signature": "N/A"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/entities/__init__.py",
+      "target": "/ai/entities/model_enums.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [],
+    "has_side_effects": false
+  }
+}

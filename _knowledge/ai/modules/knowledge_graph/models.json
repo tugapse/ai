@@ -1,0 +1,78 @@
+{
+  "component": {
+    "name": "models",
+    "source_path": "/ai/modules/knowledge_graph/models.py",
+    "doc_path": "/ai/modules/knowledge_graph/models.json",
+    "type": "model"
+  },
+  "vector_memory": {
+    "semantic_summary": "This component defines the core data structures for a Knowledge Graph (KG) using Pydantic models. It establishes standardized schemas for nodes (KGNode), relationships (KGEdge), and triples (KGTriple). It manages the lifecycle of knowledge extraction by incorporating reporting structures like AnalysisReport and RefinementReport to handle data integrity and iterative refinement processes."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/knowledge_graph/models.py#NodeTypes",
+      "label": "Type",
+      "name": "NodeTypes",
+      "signature": "Enum"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/models.py#RelationshipTypes",
+      "label": "Type",
+      "name": "RelationshipTypes",
+      "signature": "Enum"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/models.py#KGNode",
+      "label": "Class",
+      "name": "KGNode",
+      "signature": "class KGNode(BaseModel):"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/models.py#KGEdge",
+      "label": "Class",
+      "name": "KGEdge",
+      "signature": "class KGEdge(BaseModel):"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/models.py#KGTriple",
+      "label": "Class",
+      "name": "KGTriple",
+      "signature": "class KGTriple(BaseModel):"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/models.py#AmbiguityFlag",
+      "label": "Class",
+      "name": "AmbiguityFlag",
+      "signature": "class AmbiguityFlag(BaseModel):"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/models.py#AnalysisReport",
+      "label": "Class",
+      "name": "AnalysisReport",
+      "signature": "class AnalysisReport(BaseModel):"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/models.py#RefinementReport",
+      "label": "Class",
+      "name": "RefinementReport",
+      "signature": "class RefinementReport(BaseModel):"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/knowledge_graph/models.py",
+      "target": "/ai/modules/knowledge_graph/models.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "enum",
+      "uuid",
+      "typing",
+      "pydantic"
+    ],
+    "has_side_effects": false
+  }
+}

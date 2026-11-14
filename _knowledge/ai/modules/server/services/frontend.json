@@ -1,0 +1,97 @@
+{
+  "component": {
+    "name": "frontend",
+    "source_path": "/ai/modules/server/services/frontend.py",
+    "doc_path": "/ai/modules/server/services/frontend.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "This service manages the selection and serving path for the server's frontend interface based on a strict five-step precedence order. It prioritizes local development directories, then pinned cache versions, followed by a bundled archive, and finally a legacy folder. It utilizes filesystem operations heavily to manage and prune cached frontend assets, ensuring a valid asset is always served if possible."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/server/services/frontend.py#FrontendError",
+      "label": "Class",
+      "name": "FrontendError",
+      "signature": "class FrontendError(Exception):"
+    },
+    {
+      "id": "/ai/modules/server/services/frontend.py#cache_root",
+      "label": "Function",
+      "name": "cache_root",
+      "signature": "def cache_root() -> Path:"
+    },
+    {
+      "id": "/ai/modules/server/services/frontend.py#read_version",
+      "label": "Function",
+      "name": "read_version",
+      "signature": "def read_version(folder: Path) -> dict:"
+    },
+    {
+      "id": "/ai/modules/server/services/frontend.py#_safe_members",
+      "label": "Function",
+      "name": "_safe_members",
+      "signature": "def _safe_members(archive: tarfile.TarFile):"
+    },
+    {
+      "id": "/ai/modules/server/services/frontend.py#archive_version",
+      "label": "Function",
+      "name": "archive_version",
+      "signature": "def archive_version(tar_path: Path) -> dict:"
+    },
+    {
+      "id": "/ai/modules/server/services/frontend.py#extract",
+      "label": "Function",
+      "name": "extract",
+      "signature": "def extract(tar_path: Path, root: Optional[Path] = None) -> Tuple[Path, dict]:"
+    },
+    {
+      "id": "/ai/modules/server/services/frontend.py#cached_versions",
+      "label": "Function",
+      "name": "cached_versions",
+      "signature": "def cached_versions(root: Optional[Path] = None) -> list:"
+    },
+    {
+      "id": "/ai/modules/server/services/frontend.py#prune",
+      "label": "Function",
+      "name": "prune",
+      "signature": "def prune(keep: int = KEEP_VERSIONS, protect: tuple = (), root: Optional[Path] = None) -> None:"
+    },
+    {
+      "id": "/ai/modules/server/services/frontend.py#_setting",
+      "label": "Function",
+      "name": "_setting",
+      "signature": "def _setting(config, key: ProgramSetting) -> Optional[str]:"
+    },
+    {
+      "id": "/ai/modules/server/services/frontend.py#resolve",
+      "label": "Function",
+      "name": "resolve",
+      "signature": "def resolve(config=None, bundled: Path = BUNDLED_TAR, legacy: Path = LEGACY_DIR, root: Optional[Path] = None) -> Tuple[Optional[Path], dict]:"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/server/services/frontend.py",
+      "target": "/ai/modules/server/services/frontend.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/server/services/frontend.py",
+      "target": "/ai/modules/server/services/frontend.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "json",
+      "os",
+      "shutil",
+      "tarfile",
+      "tempfile",
+      "pathlib"
+    ],
+    "has_side_effects": true
+  }
+}

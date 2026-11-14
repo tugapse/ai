@@ -1,0 +1,71 @@
+{
+  "component": {
+    "name": "ASTParser",
+    "source_path": "/ai/modules/knowledge_graph/ast_parser.py",
+    "doc_path": "/ai/modules/knowledge_graph/ast_parser.json",
+    "type": "interface"
+  },
+  "vector_memory": {
+    "semantic_summary": "This component provides a foundational utility for syntactic analysis by defining an abstract interface for parsing source code into an Abstract Syntax Tree (AST). It includes a concrete implementation, PythonASTParser, which leverages Python's built-in 'ast' module. Its core functions involve parsing raw code strings into AST objects and recursively converting these complex AST structures into serializable dictionary formats for knowledge graph ingestion."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/knowledge_graph/ast_parser.py#ASTParser",
+      "label": "Interface",
+      "name": "ASTParser",
+      "signature": "abstractmethod parse(self, source_code: str) -> ast.AST"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/ast_parser.py#ASTParser",
+      "label": "Interface",
+      "name": "ASTParser",
+      "signature": "abstractmethod to_dict(self, node: ast.AST) -> Dict[str, Any]"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/ast_parser.py#PythonASTParser",
+      "label": "Class",
+      "name": "PythonASTParser",
+      "signature": "def parse(self, source_code: str) -> ast.AST"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/ast_parser.py#PythonASTParser",
+      "label": "Method",
+      "name": "parse",
+      "signature": "def parse(self, source_code: str) -> ast.AST"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/ast_parser.py#PythonASTParser",
+      "label": "Method",
+      "name": "to_dict",
+      "signature": "def to_dict(self, node: ast.AST) -> Dict[str, Any]"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/ast_parser.py#get_parser",
+      "label": "Function",
+      "name": "get_parser",
+      "signature": "def get_parser(language: str) -> ASTParser"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/ast_parser.py#_parsers",
+      "label": "Variable",
+      "name": "_parsers",
+      "signature": "Dict[str, Type[ASTParser]]"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/knowledge_graph/ast_parser.py",
+      "target": "/ai/modules/knowledge_graph/ast_parser.py",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "ast",
+      "abc",
+      "typing"
+    ],
+    "has_side_effects": false
+  }
+}

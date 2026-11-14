@@ -1,0 +1,70 @@
+{
+  "component": {
+    "name": "ContextFile",
+    "source_path": "/ai/core/context_file.py",
+    "doc_path": "/ai/core/context_file.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "ContextFile is a low-level utility class designed to encapsulate the logic for loading textual content from an external file path into the application's working context. Its primary function is implemented in the 'load' method, which handles file existence checks, content retrieval using pathlib, and error management. It serves as a foundational data loading mechanism utilized by higher-level services like ContextManager during system initialization."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/core/context_file.py#ContextFile",
+      "label": "Class",
+      "name": "ContextFile",
+      "signature": "def __init__(self,filename:Optional[str]= None, throw_error_on_load=THROW_ERROR_ON_LOAD_CONTEXT_FILE_NOT_EXIST) -> None"
+    },
+    {
+      "id": "/ai/core/context_file.py#load",
+      "label": "Method",
+      "name": "load",
+      "signature": "def load(self)"
+    },
+    {
+      "id": "/ai/core/context_file.py#self.filename",
+      "label": "Variable",
+      "name": "self.filename",
+      "signature": ""
+    },
+    {
+      "id": "/ai/core/context_file.py#self.content",
+      "label": "Variable",
+      "name": "self.content",
+      "signature": ""
+    },
+    {
+      "id": "/ai/core/context_file.py#self.loaded",
+      "label": "Variable",
+      "name": "self.loaded",
+      "signature": ""
+    },
+    {
+      "id": "/ai/core/context_file.py#self.throw_error_on_load",
+      "label": "Variable",
+      "name": "self.throw_error_on_load",
+      "signature": ""
+    },
+    {
+      "id": "/ai/core/context_file.py#THROW_ERROR_ON_LOAD_CONTEXT_FILE_NOT_EXIST",
+      "label": "Variable",
+      "name": "THROW_ERROR_ON_LOAD_CONTEXT_FILE_NOT_EXIST",
+      "signature": ""
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/core/context_file.py",
+      "target": "/ai/core/context_manager.md",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "logging",
+      "pathlib"
+    ],
+    "has_side_effects": true
+  }
+}

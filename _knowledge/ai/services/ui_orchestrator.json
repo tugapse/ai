@@ -1,0 +1,106 @@
+{
+  "component": {
+    "name": "UIOrchestrator",
+    "source_path": "/ai/services/ui_orchestrator.py",
+    "doc_path": "/ai/services/ui_orchestrator.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "UIOrchestrator acts as the central service layer responsible for coordinating all user-facing elements of the AI assistant. It initializes and aggregates specialized components like ThinkingLogManager, OutputPrinter, and HandlerManager using application configuration. Its core duties include managing the display of the AI's internal thought process, controlling console text streaming rates, and ensuring consistent formatting across all interactions."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/services/ui_orchestrator.py#UIOrchestrator",
+      "label": "Class",
+      "name": "UIOrchestrator",
+      "signature": ""
+    },
+    {
+      "id": "/ai/services/ui_orchestrator.py#UIOrchestrator.__init__",
+      "label": "Method",
+      "name": "__init__",
+      "signature": "def __init__(self, config: ProgramConfig)"
+    },
+    {
+      "id": "/ai/services/ui_orchestrator.py#UIOrchestrator.initialize",
+      "label": "Method",
+      "name": "initialize",
+      "signature": "def initialize(self, log_filepath: str)"
+    },
+    {
+      "id": "/ai/services/ui_orchestrator.py#UIOrchestrator.reset_turn",
+      "label": "Method",
+      "name": "reset_turn",
+      "signature": "def reset_turn(self)"
+    },
+    {
+      "id": "/ai/services/ui_orchestrator.py#UIOrchestrator.get_components",
+      "label": "Method",
+      "name": "get_components",
+      "signature": "def get_components(self)"
+    },
+    {
+      "id": "/ai/services/ui_orchestrator.py#ThinkingLogManager",
+      "label": "Class",
+      "name": "ThinkingLogManager",
+      "signature": ""
+    },
+    {
+      "id": "/ai/services/ui_orchestrator.py#OutputPrinter",
+      "label": "Class",
+      "name": "OutputPrinter",
+      "signature": ""
+    },
+    {
+      "id": "/ai/services/ui_orchestrator.py#HandlerManager",
+      "label": "Class",
+      "name": "HandlerManager",
+      "signature": ""
+    },
+    {
+      "id": "/ai/services/ui_orchestrator.py#ConsoleTokenFormatter",
+      "label": "Class",
+      "name": "ConsoleTokenFormatter",
+      "signature": ""
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/services/ui_orchestrator.py",
+      "target": "/ai/services/config_helper.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/services/ui_orchestrator.py",
+      "target": "/ai/extras/thinking_log_manager.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/services/ui_orchestrator.py",
+      "target": "/ai/extras/output_printer.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/services/ui_orchestrator.py",
+      "target": "/ai/extras/handler_manager.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/services/ui_orchestrator.py",
+      "target": "/ai/extras/console_token_formatter.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/services/ui_orchestrator.py",
+      "target": "/ai/functions.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

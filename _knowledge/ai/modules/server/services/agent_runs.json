@@ -1,0 +1,247 @@
+{
+  "component": {
+    "name": "AgentRunService",
+    "source_path": "/ai/modules/server/services/agent_runs.py",
+    "doc_path": "/ai/modules/server/services/agent_runs.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "AgentRunService is the core controller managing the lifecycle of agent execution instances over HTTP. It orchestrates runs by handling model loading via BrainHub, tracking state using AgentRun, and managing user interaction through WebAgentIO. It enforces strict filesystem boundaries via workspace control and handles API errors related to concurrency or permissions."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#AgentApiError",
+      "label": "Class",
+      "name": "AgentApiError",
+      "signature": "class AgentApiError(Exception):"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#WebAgentIO",
+      "label": "Class",
+      "name": "WebAgentIO",
+      "signature": "class WebAgentIO(AgentIO):"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#AgentRun",
+      "label": "Class",
+      "name": "AgentRun",
+      "signature": "class AgentRun:"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#AgentRunService",
+      "label": "Class",
+      "name": "AgentRunService",
+      "signature": "class AgentRunService:"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#list_pipelines",
+      "label": "Method",
+      "name": "list_pipelines",
+      "signature": "staticmethod def list_pipelines() -> List[dict]:"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#tasks_directory",
+      "label": "Method",
+      "name": "tasks_directory",
+      "signature": "staticmethod def tasks_directory() -> str:"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#list_tasks",
+      "label": "Method",
+      "name": "list_tasks",
+      "signature": "classmethod def list_tasks(cls) -> List[dict]:"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#read_task",
+      "label": "Method",
+      "name": "read_task",
+      "signature": "classmethod def read_task(cls, name: str) -> str:"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#workspace_root",
+      "label": "Method",
+      "name": "workspace_root",
+      "signature": "def workspace_root(self) -> str:"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#_workspace_path",
+      "label": "Method",
+      "name": "_workspace_path",
+      "signature": "def _workspace_path(self, relative: Optional[str]) -> str:"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#list_workspace",
+      "label": "Method",
+      "name": "list_workspace",
+      "signature": "def list_workspace(self, relative: Optional[str]) -> dict:"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#make_workspace_dir",
+      "label": "Method",
+      "name": "make_workspace_dir",
+      "signature": "def make_workspace_dir(self, relative: str) -> str:"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#resolve_cwd",
+      "label": "Method",
+      "name": "resolve_cwd",
+      "signature": "def resolve_cwd(self, cwd: Optional[str], must_exist: bool = True) -> str:"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#refused_reason",
+      "label": "Method",
+      "name": "refused_reason",
+      "signature": "def refused_reason(self, path: str) -> Optional[str]:"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#list_folder",
+      "label": "Method",
+      "name": "list_folder",
+      "signature": "def list_folder(self, path: str, hidden: bool = False) -> dict:"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#make_folder",
+      "label": "Method",
+      "name": "make_folder",
+      "signature": "def make_folder(self, path: str) -> str:"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#recent_folders",
+      "label": "Method",
+      "name": "recent_folders",
+      "signature": "staticmethod def recent_folders(limit: int = 20) -> List[dict]:"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#workspace_info",
+      "label": "Method",
+      "name": "workspace_info",
+      "signature": "def workspace_info(self) -> dict:"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#_session_dir",
+      "label": "Method",
+      "name": "_session_dir",
+      "signature": "def _session_dir(self, cwd: Optional[str]) -> str:"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#list_sessions",
+      "label": "Method",
+      "name": "list_sessions",
+      "signature": "def list_sessions(self, cwd: Optional[str] = None) -> List[Dict[str, Any]]:"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#read_session",
+      "label": "Method",
+      "name": "read_session",
+      "signature": "def read_session(self, session_id: str, cwd: Optional[str] = None) -> Dict[str, Any]:"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#workdir",
+      "label": "Method",
+      "name": "workdir",
+      "signature": "def workdir(self, cwd: Optional[str]) -> str:"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#start",
+      "label": "Method",
+      "name": "start",
+      "signature": "def start(self, prompt: str, pipeline: Optional[str] = None, task: Optional[str] = None, model: Optional[str] = None, session_id: Optional[str] = None, cwd: Optional[str] = None, on_busy: Optional[str] = None) -> AgentRun:"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#_build_run",
+      "label": "Method",
+      "name": "_build_run",
+      "signature": "def _build_run(self, build_orchestrator, session_id, pipeline, workdir, prompt) -> AgentRun:"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#_run",
+      "label": "Method",
+      "name": "_run",
+      "signature": "def _run(self, run: AgentRun, text: str, workdir: str) -> None:"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#get",
+      "label": "Method",
+      "name": "get",
+      "signature": "def get(self, run_id: str) -> AgentRun:"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#totp_tools",
+      "label": "Method",
+      "name": "totp_tools",
+      "signature": "def totp_tools(self) -> set:"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#answer_permission",
+      "label": "Method",
+      "name": "answer_permission",
+      "signature": "def answer_permission(self, run_id: str, request_id: str, decision: str, totp: Optional[str] = None) -> None:"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#current_info",
+      "label": "Method",
+      "name": "current_info",
+      "signature": "def current_info(self) -> dict:"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#cancel",
+      "label": "Method",
+      "name": "cancel",
+      "signature": "def cancel(self, run_id: str) -> None:"
+    },
+    {
+      "id": "/ai/modules/server/services/agent_runs.py#cancel_current",
+      "label": "Method",
+      "name": "cancel_current",
+      "signature": "def cancel_current(self) -> None:"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/server/services/agent_runs.py",
+      "target": "/ai/modules/server/services/directory_manager.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/server/services/agent_runs.py",
+      "target": "/ai/modules/server/brain_hub.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/server/services/agent_runs.py",
+      "target": "/ai/agents/session_manager.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/server/services/agent_runs.py",
+      "target": "/ai/functions.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/server/services/agent_runs.py",
+      "target": "/ai/agents/agent_io.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/server/services/agent_runs.py",
+      "target": "/ai/config.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/server/services/agent_runs.py",
+      "target": "/ai/agents/tool_preview.py",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "threading",
+      "time",
+      "uuid",
+      "re",
+      "json"
+    ],
+    "has_side_effects": true
+  }
+}

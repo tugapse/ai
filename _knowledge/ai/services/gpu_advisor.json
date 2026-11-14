@@ -1,0 +1,194 @@
+{
+  "component": {
+    "name": "GpuAdvisor",
+    "source_path": "/ai/services/gpu_advisor.py",
+    "doc_path": "/ai/services/gpu_advisor.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "GpuAdvisor is a critical service responsible for diagnosing and resolving GpuMemoryError exceptions when loading large language models. It queries system state via nvidia-smi to identify memory consumers and offers actionable choices to the user. It orchestrates recovery by allowing the user to use existing JARVIS servers or by automatically attempting to load the model partially onto the GPU using binary search optimization."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/services/gpu_advisor.py#GpuHolder",
+      "label": "Class",
+      "name": "GpuHolder",
+      "signature": "pid: int, name: str, used_mb: int, instance: Optional[dict] = None"
+    },
+    {
+      "id": "/ai/services/gpu_advisor.py#GpuSnapshot",
+      "label": "Class",
+      "name": "GpuSnapshot",
+      "signature": "free_mb: int, total_mb: int, holders: List[GpuHolder] = field(default_factory=list)"
+    },
+    {
+      "id": "/ai/services/gpu_advisor.py#Choice",
+      "label": "Class",
+      "name": "Choice",
+      "signature": "label: str, run: Callable[[], object]"
+    },
+    {
+      "id": "/ai/services/gpu_advisor.py#model_key",
+      "label": "Function",
+      "name": "model_key",
+      "signature": "model_key(name: Optional[str]) -> str"
+    },
+    {
+      "id": "/ai/services/gpu_advisor.py#nvidia_snapshot",
+      "label": "Function",
+      "name": "nvidia_snapshot",
+      "signature": "nvidia_snapshot(timeout: float = 5.0) -> Optional[GpuSnapshot]"
+    },
+    {
+      "id": "/ai/services/gpu_advisor.py#_gb",
+      "label": "Function",
+      "name": "_gb",
+      "signature": "_gb(mb: int) -> str"
+    },
+    {
+      "id": "/ai/services/gpu_advisor.py#GpuAdvisor",
+      "label": "Class",
+      "name": "GpuAdvisor",
+      "signature": "GpuAdvisor(config_name: str, model_config: dict, system_prompt: str, tool_registry=None, loader: Optional[Callable] = None, snapshot: Optional[Callable[[], Optional[GpuSnapshot]]] = None, instances: Optional[Callable[[], List[dict]]] = None, interactive: Optional[bool] = None, ask: Callable[[str], str] = input, find_config: Optional[Callable[[str], Optional[dict]]] = None)"
+    },
+    {
+      "id": "/ai/services/gpu_advisor.py#_registry_instances",
+      "label": "Method",
+      "name": "_registry_instances",
+      "signature": "_registry_instances() -> List[dict]"
+    },
+    {
+      "id": "/ai/services/gpu_advisor.py#_find_config",
+      "label": "Method",
+      "name": "_find_config",
+      "signature": "_find_config(key: str) -> Optional[dict]"
+    },
+    {
+      "id": "/ai/services/gpu_advisor.py#_servers",
+      "label": "Method",
+      "name": "_servers",
+      "signature": "_servers() -> List[dict]"
+    },
+    {
+      "id": "/ai/services/gpu_advisor.py#_same_model",
+      "label": "Method",
+      "name": "_same_model",
+      "signature": "_same_model(server_key: str) -> bool"
+    },
+    {
+      "id": "/ai/services/gpu_advisor.py#_via_server",
+      "label": "Method",
+      "name": "_via_server",
+      "signature": "_via_server(server: dict, server_model: str, on_busy: Optional[str] = None)"
+    },
+    {
+      "id": "/ai/services/gpu_advisor.py#_upper_bound",
+      "label": "Method",
+      "name": "_upper_bound",
+      "signature": "_upper_bound(error: GpuMemoryError, free_mb: Optional[int]) -> int"
+    },
+    {
+      "id": "/ai/services/gpu_advisor.py#_block_count",
+      "label": "Method",
+      "name": "_block_count",
+      "signature": "_block_count(model_path: str) -> Optional[int]"
+    },
+    {
+      "id": "/ai/services/gpu_advisor.py#load_partial",
+      "label": "Method",
+      "name": "load_partial",
+      "signature": "load_partial(error: GpuMemoryError)"
+    },
+    {
+      "id": "/ai/services/gpu_advisor.py#_try_layers",
+      "label": "Method",
+      "name": "_try_layers",
+      "signature": "_try_layers(layers: int)"
+    },
+    {
+      "id": "/ai/services/gpu_advisor.py#_unload",
+      "label": "Method",
+      "name": "_unload",
+      "signature": "_unload(llm)"
+    },
+    {
+      "id": "/ai/services/gpu_advisor.py#_partial",
+      "label": "Method",
+      "name": "_partial",
+      "signature": "_partial(error: GpuMemoryError, free_mb: Optional[int])"
+    },
+    {
+      "id": "/ai/services/gpu_advisor.py#_describe",
+      "label": "Method",
+      "name": "_describe",
+      "signature": "_describe(snapshot: Optional[GpuSnapshot], servers: List[dict]) -> List[str]"
+    },
+    {
+      "id": "/ai/services/gpu_advisor.py#_choices",
+      "label": "Method",
+      "name": "_choices",
+      "signature": "_choices(error: GpuMemoryError, snapshot: Optional[GpuSnapshot], servers: List[dict]) -> List[Choice]"
+    },
+    {
+      "id": "/ai/services/gpu_advisor.py#resolve",
+      "label": "Method",
+      "name": "resolve",
+      "signature": "resolve(error: GpuMemoryError)"
+    },
+    {
+      "id": "/ai/services/gpu_advisor.py#_run",
+      "label": "Method",
+      "name": "_run",
+      "signature": "_run(choice: Choice)"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/services/gpu_advisor.py",
+      "target": "/ai/services/process_manager/ProcessManager",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/services/gpu_advisor.py",
+      "target": "/ai/services/directory_manager/DirectoryManager",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/services/gpu_advisor.py",
+      "target": "/ai/services/engine_manager/EngineManager",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/services/gpu_advisor.py",
+      "target": "/ai/services/model_orchestrator/ModelOrchestrator",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/services/gpu_advisor.py",
+      "target": "/ai/core/llms/load_errors/GpuMemoryError",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/services/gpu_advisor.py",
+      "target": "/ai/functions.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/services/gpu_advisor.py",
+      "target": "/ai/color.md",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "subprocess",
+      "os",
+      "gc",
+      "dataclasses",
+      "typing",
+      "llama_cpp"
+    ],
+    "has_side_effects": true
+  }
+}

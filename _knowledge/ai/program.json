@@ -1,0 +1,268 @@
+{
+  "component": {
+    "name": "Program",
+    "source_path": "/ai/program.py",
+    "doc_path": "/ai/program.json",
+    "type": "controller"
+  },
+  "vector_memory": {
+    "semantic_summary": "Program acts as the apex orchestrator for the JARVIS application, managing the entire system lifecycle from configuration loading to shutdown. It coordinates complex interactions by driving the main event loop and the internal 'Thought-Action' agent loop. Its primary responsibilities include initializing services like ModelOrchestrator, managing tool execution via ToolRegistry, and handling user input flow through the Agent Loop. It ensures persistence by interfacing with HistoryManager and manages state transitions via ProcessManager."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/program.py#Program",
+      "label": "Class",
+      "name": "Program",
+      "signature": "class Program:"
+    },
+    {
+      "id": "/ai/program.py#Program.__init__",
+      "label": "Method",
+      "name": "__init__",
+      "signature": "def __init__(self) -> None:"
+    },
+    {
+      "id": "/ai/program.py#llm",
+      "label": "Property",
+      "name": "llm",
+      "signature": "def llm(self) -> Optional[BaseModel]:"
+    },
+    {
+      "id": "/ai/program.py#llm.setter",
+      "label": "Method",
+      "name": "llm.setter",
+      "signature": "def llm.setter(self, value):"
+    },
+    {
+      "id": "/ai/program.py#model_params",
+      "label": "Property",
+      "name": "model_params",
+      "signature": "def model_params(self) -> dict:"
+    },
+    {
+      "id": "/ai/program.py#load_config",
+      "label": "Method",
+      "name": "load_config",
+      "signature": "def load_config(self, args=None):"
+    },
+    {
+      "id": "/ai/program.py#init_config",
+      "label": "Method",
+      "name": "init_config",
+      "signature": "def init_config(self, args):"
+    },
+    {
+      "id": "/ai/program.py#init_program",
+      "label": "Method",
+      "name": "init_program",
+      "signature": "def init_program(self) -> None:"
+    },
+    {
+      "id": "/ai/program.py#start_chat",
+      "label": "Method",
+      "name": "start_chat",
+      "signature": "def start_chat(self, user_input: Optional[str]):"
+    },
+    {
+      "id": "/ai/program.py#run",
+      "label": "Method",
+      "name": "run",
+      "signature": "def run(self) -> None:"
+    },
+    {
+      "id": "/ai/program.py#shutdown",
+      "label": "Method",
+      "name": "shutdown",
+      "signature": "def shutdown(self) -> None:"
+    },
+    {
+      "id": "/ai/program.py#route_session",
+      "label": "Method",
+      "name": "route_session",
+      "signature": "def route_session(self, filepath: str) -> None:"
+    },
+    {
+      "id": "/ai/program.py#_run_agent_loop",
+      "label": "Method",
+      "name": "_run_agent_loop",
+      "signature": "def _run_agent_loop(self, stream_orchestrator: StreamOrchestrator, options: dict):"
+    },
+    {
+      "id": "/ai/program.py#_process_tool_call",
+      "label": "Method",
+      "name": "_process_tool_call",
+      "signature": "def _process_tool_call(self, tool_call: dict):"
+    },
+    {
+      "id": "/ai/program.py#_request_human_permission",
+      "label": "Method",
+      "name": "_request_human_permission",
+      "signature": "def _request_human_permission(self, name: str, args: dict) -> bool:"
+    },
+    {
+      "id": "/ai/program.py#_record_interaction",
+      "label": "Method",
+      "name": "_record_interaction",
+      "signature": "def _record_interaction(self, name: str, args: dict, result_data: dict):"
+    },
+    {
+      "id": "/ai/program.py#_inject_sentinel_warning",
+      "label": "Method",
+      "name": "_inject_sentinel_warning",
+      "signature": "def _inject_sentinel_warning(self, step_count: int):"
+    },
+    {
+      "id": "/ai/program.py#_setup_orchestrator",
+      "label": "Method",
+      "name": "_setup_orchestrator",
+      "signature": "def _setup_orchestrator(self) -> StreamOrchestrator:"
+    },
+    {
+      "id": "/ai/program.py#_cleanup_after_turn",
+      "label": "Method",
+      "name": "_cleanup_after_turn",
+      "signature": "def _cleanup_after_turn(self):"
+    },
+    {
+      "id": "/ai/program.py#_ensure_llm_loaded",
+      "label": "Method",
+      "name": "_ensure_llm_loaded",
+      "signature": "def _ensure_llm_loaded(self) -> None:"
+    },
+    {
+      "id": "/ai/program.py#_handle_agent_run_requested",
+      "label": "Method",
+      "name": "_handle_agent_run_requested",
+      "signature": "def _handle_agent_run_requested(self, prompt: str) -> None:"
+    },
+    {
+      "id": "/ai/program.py#_print_chat_header",
+      "label": "Method",
+      "name": "_print_chat_header",
+      "signature": "def _print_chat_header(self) -> None:"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/program.py",
+      "target": "/ai/chat/chat.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/program.py",
+      "target": "/ai/core/llms/base_llm.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/program.py",
+      "target": "/ai/config.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/program.py",
+      "target": "/ai/color.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/program.py",
+      "target": "/ai/core/llms/api_retry.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/program.py",
+      "target": "/ai/agents/agent.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/program.py",
+      "target": "/ai/modules/vector_memory/vector_memory_module.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/program.py",
+      "target": "/ai/modules/vector_memory/vector_memory.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/program.py",
+      "target": "/ai/modules/voice/base_module.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/program.py",
+      "target": "/ai/tools/tool_registry.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/program.py",
+      "target": "/ai/tools/tool_loader.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/program.py",
+      "target": "/ai/services/session_manager.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/program.py",
+      "target": "/ai/services/prompt_loader.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/program.py",
+      "target": "/ai/services/config_helper.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/program.py",
+      "target": "/ai/services/event_binder.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/program.py",
+      "target": "/ai/services/model_orchestrator.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/program.py",
+      "target": "/ai/services/history_manager.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/program.py",
+      "target": "/ai/services/module_registry.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/program.py",
+      "target": "/ai/services/ui_orchestrator.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/program.py",
+      "target": "/ai/services/stream_orchestrator.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/program.py",
+      "target": "/ai/services/process_manager.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/program.py",
+      "target": "/ai/functions.md",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "os",
+      "traceback",
+      "gc",
+      "json",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "component": {
+    "name": "__init__",
+    "source_path": "/ai/core/llms/hf/__init__.py",
+    "doc_path": "/ai/core/llms/hf/__init__.json",
+    "type": "module"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module serves as the primary entry point for the Hugging Face LLM integration within the system. Its core responsibility is to aggregate and expose the necessary mixins and interfaces required to interact with models loaded via the Hugging Face ecosystem. It functions as a service layer abstraction, consolidating capabilities from sub-modules like HFEngineMixin, HFModelLoaderMixin, and HFPipelineMixin for unified access by higher-level components."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/core/llms/hf/__init__.py#HFEngineMixin",
+      "label": "Class",
+      "name": "HFEngineMixin",
+      "signature": "N/A"
+    },
+    {
+      "id": "/ai/core/llms/hf/__init__.py#HFModelLoaderMixin",
+      "label": "Class",
+      "name": "HFModelLoaderMixin",
+      "signature": "N/A"
+    },
+    {
+      "id": "/ai/core/llms/hf/__init__.py#HFPipelineMixin",
+      "label": "Class",
+      "name": "HFPipelineMixin",
+      "signature": "N/A"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/core/llms/hf/__init__.py",
+      "target": "/ai/core/llms/hf/hf_engine.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/core/llms/hf/__init__.py",
+      "target": "/ai/core/llms/hf/hf_loader.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/core/llms/hf/__init__.py",
+      "target": "/ai/core/llms/hf/hf_pipeline.md",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [],
+    "has_side_effects": false
+  }
+}

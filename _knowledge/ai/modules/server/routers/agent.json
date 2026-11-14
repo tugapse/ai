@@ -1,0 +1,237 @@
+{
+  "component": {
+    "name": "agent.py",
+    "source_path": "/ai/modules/server/routers/agent.py",
+    "doc_path": "/ai/modules/server/routers/agent.json",
+    "type": "controller"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module acts as the primary API router for managing agent pipelines, tasks, and sessions, providing the web client interface. It handles request parsing, validation, and dispatches calls to underlying services like AgentRunService and pipeline management. It manages complex workflows such as initiating streaming agent runs via SSE, handling permission responses, and providing filesystem interaction hooks for the agent workspace."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/server/routers/agent.py#AgentRunRequest",
+      "label": "Class",
+      "name": "AgentRunRequest",
+      "signature": "class AgentRunRequest(BaseModel):"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#PermissionAnswer",
+      "label": "Class",
+      "name": "PermissionAnswer",
+      "signature": "class PermissionAnswer(BaseModel):"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#_service",
+      "label": "Function",
+      "name": "_service",
+      "signature": "def _service(request: Request) -> AgentRunService:"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#_audit",
+      "label": "Function",
+      "name": "_audit",
+      "signature": "def _audit(request: Request, event: str, **data) -> None:"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#_call",
+      "label": "Function",
+      "name": "_call",
+      "signature": "def _call(fn, *args, **kwargs):"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#pipelines",
+      "label": "Function",
+      "name": "pipelines",
+      "signature": "async def pipelines(request: Request):"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#PipelineContent",
+      "label": "Class",
+      "name": "PipelineContent",
+      "signature": "class PipelineContent(BaseModel):"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#PipelineCreate",
+      "label": "Class",
+      "name": "PipelineCreate",
+      "signature": "class PipelineCreate(BaseModel):"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#_pipeline_call",
+      "label": "Function",
+      "name": "_pipeline_call",
+      "signature": "def _pipeline_call(fn, *args):"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#_tools",
+      "label": "Function",
+      "name": "_tools",
+      "signature": "def _tools(request: Request) -> list:"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#tools",
+      "label": "Function",
+      "name": "tools",
+      "signature": "async def tools(request: Request):"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#pipeline",
+      "label": "Function",
+      "name": "pipeline",
+      "signature": "async def pipeline(name: str, request: Request):"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#save_pipeline",
+      "label": "Function",
+      "name": "save_pipeline",
+      "signature": "async def save_pipeline(name: str, payload: PipelineContent, request: Request):"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#create_pipeline",
+      "label": "Function",
+      "name": "create_pipeline",
+      "signature": "async def create_pipeline(payload: PipelineCreate, request: Request):"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#delete_pipeline",
+      "label": "Function",
+      "name": "delete_pipeline",
+      "signature": "async def delete_pipeline(name: str, request: Request):"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#tasks",
+      "label": "Function",
+      "name": "tasks",
+      "signature": "async def tasks(request: Request):"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#task",
+      "label": "Function",
+      "name": "task",
+      "signature": "async def task(name: str, request: Request):"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#sessions",
+      "label": "Function",
+      "name": "sessions",
+      "signature": "async def sessions(request: Request, cwd: Optional[str] = None):"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#session",
+      "label": "Function",
+      "name": "session",
+      "signature": "async def session(session_id: str, request: Request, cwd: Optional[str] = None):"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#MkdirRequest",
+      "label": "Class",
+      "name": "MkdirRequest",
+      "signature": "class MkdirRequest(BaseModel):"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#workspace",
+      "label": "Function",
+      "name": "workspace",
+      "signature": "async def workspace(request: Request):"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#fs_list",
+      "label": "Function",
+      "name": "fs_list",
+      "signature": "async def fs_list(request: Request, path: str, hidden: bool = False):"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#fs_mkdir",
+      "label": "Function",
+      "name": "fs_mkdir",
+      "signature": "async def fs_mkdir(payload: MkdirRequest, request: Request):"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#workspace_list",
+      "label": "Function",
+      "name": "workspace_list",
+      "signature": "async def workspace_list(request: Request, path: str = \"\"):"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#workspace_mkdir",
+      "label": "Function",
+      "name": "workspace_mkdir",
+      "signature": "async def workspace_mkdir(payload: MkdirRequest, request: Request):"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#start_run",
+      "label": "Function",
+      "name": "start_run",
+      "signature": "async def start_run(payload: AgentRunRequest, request: Request):"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#run_events",
+      "label": "Function",
+      "name": "run_events",
+      "signature": "async def run_events(run_id: str, request: Request, after: int = 0):"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#_stream",
+      "label": "Function",
+      "name": "_stream",
+      "signature": "async def _stream(run, after: int):"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#current_run",
+      "label": "Function",
+      "name": "current_run",
+      "signature": "async def current_run(request: Request):"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#permission",
+      "label": "Function",
+      "name": "permission",
+      "signature": "async def permission(run_id: str, payload: PermissionAnswer, request: Request):"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#cancel",
+      "label": "Function",
+      "name": "cancel",
+      "signature": "async def cancel(run_id: str, request: Request):"
+    },
+    {
+      "id": "/ai/modules/server/routers/agent.py#_sse",
+      "label": "Function",
+      "name": "_sse",
+      "signature": "def _sse(event: dict) -> str:"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/server/routers/agent.py",
+      "target": "/ai/modules/server/routers/auth.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/server/routers/agent.py",
+      "target": "/ai/modules/server/services/agent_runs.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/server/routers/agent.py",
+      "target": "/ai/modules/server/services/pipelines.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/server/routers/agent.py",
+      "target": "/ai/agents/agent_orchestrator.md",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "fastapi",
+      "pydantic",
+      "asyncio",
+      "json"
+    ],
+    "has_side_effects": true
+  }
+}

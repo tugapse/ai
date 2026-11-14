@@ -1,0 +1,151 @@
+{
+  "component": {
+    "name": "functions",
+    "source_path": "/ai/functions.py",
+    "doc_path": "/ai/functions.json",
+    "type": "utility"
+  },
+  "vector_memory": {
+    "semantic_summary": "This utility module provides a comprehensive abstraction layer for core system interactions, bridging high-level logic with OS operations. It manages file I/O (reading, writing, path resolution), console management (clearing, setting title), and sophisticated logging infrastructure. It is critical for standardizing application behavior, handling system information retrieval, and ensuring robust error handling across the application stack."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/functions.py#get_system_info_prompt_concise",
+      "label": "Function",
+      "name": "get_system_info_prompt_concise",
+      "signature": "get_system_info_prompt_concise() -> dict"
+    },
+    {
+      "id": "/ai/functions.py#set_console_title",
+      "label": "Function",
+      "name": "set_console_title",
+      "signature": "set_console_title(title: str)"
+    },
+    {
+      "id": "/ai/functions.py#clear_console",
+      "label": "Function",
+      "name": "clear_console",
+      "signature": "clear_console()"
+    },
+    {
+      "id": "/ai/functions.py#beep_console",
+      "label": "Function",
+      "name": "beep_console",
+      "signature": "beep_console()"
+    },
+    {
+      "id": "/ai/functions.py#get_files",
+      "label": "Function",
+      "name": "get_files",
+      "signature": "get_files(directory: str, extension: str = None) -> list[ContextFile]"
+    },
+    {
+      "id": "/ai/functions.py#read_file",
+      "label": "Function",
+      "name": "read_file",
+      "signature": "read_file(filename: str) -> str"
+    },
+    {
+      "id": "/ai/functions.py#resolve_path_and_get_content",
+      "label": "Function",
+      "name": "resolve_path_and_get_content",
+      "signature": "resolve_path_and_get_content(input_value: str, base_folder_setting: ProgramSetting, default_ext: str = \".md\") -> str"
+    },
+    {
+      "id": "/ai/functions.py#write_to_file",
+      "label": "Function",
+      "name": "write_to_file",
+      "signature": "write_to_file(filename: str, content: str, filemode: str = \"a\", silent: bool = False)"
+    },
+    {
+      "id": "/ai/functions.py#format_execution_time",
+      "label": "Function",
+      "name": "format_execution_time",
+      "signature": "format_execution_time(start_time: datetime.datetime, end_time: datetime.datetime) -> str"
+    },
+    {
+      "id": "/ai/functions.py#get_root_directory",
+      "label": "Function",
+      "name": "get_root_directory",
+      "signature": "get_root_directory() -> str"
+    },
+    {
+      "id": "/ai/functions.py#ensure_directory_exists",
+      "label": "Function",
+      "name": "ensure_directory_exists",
+      "signature": "ensure_directory_exists(path: str, silent: bool = False)"
+    },
+    {
+      "id": "/ai/functions.py#log",
+      "label": "Function",
+      "name": "log",
+      "signature": "log(text: str, start_line: str = \"[ * ]\", level: str = \"INFO\", **kargs)"
+    },
+    {
+      "id": "/ai/functions.py#debug",
+      "label": "Function",
+      "name": "debug",
+      "signature": "debug(text: str, start_line: str = \"[ # ]\", level: str = \"DEBUG\", **kargs)"
+    },
+    {
+      "id": "/ai/functions.py#error",
+      "label": "Function",
+      "name": "error",
+      "signature": "error(text: str, start_line: str = \"[ !! ]\", level: str = \"ERROR\", **kargs)"
+    },
+    {
+      "id": "/ai/functions.py#out",
+      "label": "Function",
+      "name": "out",
+      "signature": "out(text: str, level: str = \"\", **kargs)"
+    },
+    {
+      "id": "/ai/functions.py#get_formatted_text",
+      "label": "Function",
+      "name": "get_formatted_text",
+      "signature": "get_formatted_text(text: str, level: str = \"INFO\", start_line: str = \"[ * ]\") -> str"
+    },
+    {
+      "id": "/ai/functions.py#get_logo_asci",
+      "label": "Function",
+      "name": "get_logo_asci",
+      "signature": "get_logo_asci() -> str"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/functions.py",
+      "target": "/ai/functions.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/functions.py",
+      "target": "/ai/config.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/functions.py",
+      "target": "/ai/context_file.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/functions.py",
+      "target": "/ai/color.md",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "datetime",
+      "os",
+      "pathlib",
+      "sys",
+      "platform",
+      "socket",
+      "getpass",
+      "tempfile"
+    ],
+    "has_side_effects": true
+  }
+}

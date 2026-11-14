@@ -1,0 +1,107 @@
+{
+  "component": {
+    "name": "ModelOrchestrator",
+    "source_path": "/ai/services/model_orchestrator.py",
+    "doc_path": "/ai/services/model_orchestrator.json",
+    "type": "controller"
+  },
+  "vector_memory": {
+    "semantic_summary": "The ModelOrchestrator acts as the central controller for managing the entire lifecycle of language models within the application. Its core responsibility is to locate, load, and maintain the state of the active LLM instance, prioritizing user-defined configurations over system defaults. It abstracts complex model instantiation, relying on EngineManager for loading and DirectoryManager for path resolution. It handles critical errors like GpuMemoryError by engaging the GpuAdvisor for fallback loading strategies."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/services/model_orchestrator.py#ModelOrchestrator",
+      "label": "Class",
+      "name": "ModelOrchestrator",
+      "signature": "class ModelOrchestrator"
+    },
+    {
+      "id": "/ai/services/model_orchestrator.py#ModelOrchestrator.config_folders",
+      "label": "Method",
+      "name": "config_folders",
+      "signature": "def config_folders() -> list"
+    },
+    {
+      "id": "/ai/services/model_orchestrator.py#ModelOrchestrator.find_config_file",
+      "label": "Method",
+      "name": "find_config_file",
+      "signature": "def find_config_file(model_config_name: Optional[str]) -> Optional[str]"
+    },
+    {
+      "id": "/ai/services/model_orchestrator.py#ModelOrchestrator.list_config_files",
+      "label": "Method",
+      "name": "list_config_files",
+      "signature": "def list_config_files() -> Dict[str, str]"
+    },
+    {
+      "id": "/ai/services/model_orchestrator.py#ModelOrchestrator.load",
+      "label": "Method",
+      "name": "load",
+      "signature": "def load(model_config_name: str, system_prompt: str, tool_registry:Optional[ToolRegistry] = None, model_config_data: Optional[dict] = None, raise_errors: bool = False, gpu_fallback: bool = False) -> BaseModel"
+    },
+    {
+      "id": "/ai/services/model_orchestrator.py#ModelOrchestrator.get_params",
+      "label": "Method",
+      "name": "get_params",
+      "signature": "def get_params() -> Dict[str, Any]"
+    },
+    {
+      "id": "/ai/services/model_orchestrator.py#ModelOrchestrator.get_chat_name",
+      "label": "Method",
+      "name": "get_chat_name",
+      "signature": "def get_chat_name() -> str"
+    },
+    {
+      "id": "/ai/services/model_orchestrator.py#_init_model_params",
+      "label": "Method",
+      "name": "_init_model_params",
+      "signature": "def _init_model_params()"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/services/model_orchestrator.py",
+      "target": "/ai/services/directory_manager.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/services/model_orchestrator.py",
+      "target": "/ai/services/engine_manager.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/services/model_orchestrator.py",
+      "target": "/ai/core/llms/load_errors.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/services/model_orchestrator.py",
+      "target": "/ai/core/llms/base_llm.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/services/model_orchestrator.py",
+      "target": "/ai/services/config_helper.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/services/model_orchestrator.py",
+      "target": "/ai/tools/tool_registry.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/services/model_orchestrator.py",
+      "target": "/ai/services/gpu_advisor.py",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "os",
+      "sys",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

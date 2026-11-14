@@ -1,0 +1,70 @@
+{
+  "component": {
+    "name": "tools",
+    "source_path": "/ai/modules/tools_filesystem/tools.py",
+    "doc_path": "/ai/modules/tools_filesystem/tools.json",
+    "type": "utility"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module implements core filesystem interaction tools for the AI agent, abstracting OS operations into declarative functions like read_dir, write_file, and patch_file. It serves as a critical service layer, enabling robust reading, writing, modification, and exploration of the project structure. Functions handle path resolution, error trapping, and return standardized status dictionaries for reliable agent interaction."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/tools_filesystem/tools.py#read_dir",
+      "label": "Function",
+      "name": "read_dir",
+      "signature": "def read_dir(**kwargs) -> Dict[str, Any]"
+    },
+    {
+      "id": "/ai/modules/tools_filesystem/tools.py#read_file",
+      "label": "Function",
+      "name": "read_file",
+      "signature": "def read_file(**kwargs) -> Dict[str, Any]"
+    },
+    {
+      "id": "/ai/modules/tools_filesystem/tools.py#write_file",
+      "label": "Function",
+      "name": "write_file",
+      "signature": "def write_file(**kwargs) -> Dict[str, Any]"
+    },
+    {
+      "id": "/ai/modules/tools_filesystem/tools.py#patch_file",
+      "label": "Function",
+      "name": "patch_file",
+      "signature": "def patch_file(**kwargs) -> Dict[str, Any]"
+    },
+    {
+      "id": "/ai/modules/tools_filesystem/tools.py#read_files",
+      "label": "Function",
+      "name": "read_files",
+      "signature": "def read_files(**kwargs) -> Dict[str, Any]"
+    },
+    {
+      "id": "/ai/modules/tools_filesystem/tools.py#delete_file",
+      "label": "Function",
+      "name": "delete_file",
+      "signature": "def delete_file(**kwargs) -> Dict[str, Any]"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/tools_filesystem/tools.py",
+      "target": "/ai/modules/tools_filesystem/tools.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/tools_filesystem/tools.py",
+      "target": "/ai/modules/tools_filesystem/tools.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "os",
+      "difflib",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

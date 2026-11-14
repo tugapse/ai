@@ -1,0 +1,98 @@
+{
+  "component": {
+    "name": "MCPBridge",
+    "source_path": "/ai/tools/mcp_bridge.py",
+    "doc_path": "/ai/tools/mcp_bridge.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "MCPBridge acts as a critical service layer component, managing persistent, bidirectional connections to external Machine Control Protocol (MCP) servers. It abstracts complex I/O streaming into a unified 'Gateway' tool accessible to the main AI agent (JARVIS). Its primary role is to manage connection lifecycles, fetch server-specific tool schemas, and execute commands via a standardized interface."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/tools/mcp_bridge.py#MCPBridge",
+      "label": "Class",
+      "name": "MCPBridge",
+      "signature": "class MCPBridge"
+    },
+    {
+      "id": "/ai/tools/mcp_bridge.py#load_from_config",
+      "label": "Method",
+      "name": "load_from_config",
+      "signature": "def load_from_config(filepath: str)"
+    },
+    {
+      "id": "/ai/tools/mcp_bridge.py#connect_server",
+      "label": "Method",
+      "name": "connect_server",
+      "signature": "def connect_server(server_name: str, command: str, args: List[str], description: str, env: Optional[Dict[str, str]] = None)"
+    },
+    {
+      "id": "/ai/tools/mcp_bridge.py#_async_connect",
+      "label": "Method",
+      "name": "_async_connect",
+      "signature": "async def _async_connect(server_name: str, command: str, args: List[str], description: str, env: Optional[Dict[str, str]] = None)"
+    },
+    {
+      "id": "/ai/tools/mcp_bridge.py#_serve",
+      "label": "Method",
+      "name": "_serve",
+      "signature": "async def _serve(server_name: str, server_params: StdioServerParameters, description: str, ready: asyncio.Future)"
+    },
+    {
+      "id": "/ai/tools/mcp_bridge.py#close",
+      "label": "Method",
+      "name": "close",
+      "signature": "def close(self, timeout: float = 10.0)"
+    },
+    {
+      "id": "/ai/tools/mcp_bridge.py#_inject_gateway",
+      "label": "Method",
+      "name": "_inject_gateway",
+      "signature": "def _inject_gateway(self, server_name: str, description: str)"
+    },
+    {
+      "id": "/ai/tools/mcp_bridge.py#_format_tools_list",
+      "label": "Method",
+      "name": "_format_tools_list",
+      "signature": "def _format_tools_list(self, server_name: str) -> str"
+    },
+    {
+      "id": "/ai/tools/mcp_bridge.py#_execute_mcp_tool",
+      "label": "Method",
+      "name": "_execute_mcp_tool",
+      "signature": "async def _execute_mcp_tool(self, server_name: str, command: str, raw_params: dict) -> dict"
+    },
+    {
+      "id": "/ai/tools/mcp_bridge.py#_content_to_text",
+      "label": "Method",
+      "name": "_content_to_text",
+      "signature": "def _content_to_text(item: Any, max_len: int = 2000) -> str"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/tools/mcp_bridge.py",
+      "target": "/ai/functions.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/tools/mcp_bridge.py",
+      "target": "/ai/services/directory_manager.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "asyncio",
+      "threading",
+      "json",
+      "os",
+      "contextlib",
+      "typing",
+      "mcp"
+    ],
+    "has_side_effects": true
+  }
+}

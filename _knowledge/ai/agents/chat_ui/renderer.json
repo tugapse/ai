@@ -1,0 +1,125 @@
+{
+  "component": {
+    "name": "renderer",
+    "source_path": "/ai/agents/chat_ui/renderer.py",
+    "doc_path": "/ai/agents/chat_ui/renderer.json",
+    "type": "utility"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module provides pure, stateless rendering utilities designed to convert internal application state and structured events into formatted, ANSI-encoded strings. Its primary role is to act as the presentation layer for the chat UI, decoupling rendering logic from the core framework. It handles the visualization of user messages, agent thoughts, tool calls, and dynamic status updates using specific formatting helpers. It is designed to be thread-safe for patching stdout in a raw mode."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/agents/chat_ui/renderer.py#LiveState",
+      "label": "Class",
+      "name": "LiveState",
+      "signature": "class LiveState(dataclasses.dataclass)"
+    },
+    {
+      "id": "/ai/agents/chat_ui/renderer.py#_truncate",
+      "label": "Function",
+      "name": "_truncate",
+      "signature": "def _truncate(text: str, limit: int) -> str"
+    },
+    {
+      "id": "/ai/agents/chat_ui/renderer.py#_indent",
+      "label": "Function",
+      "name": "_indent",
+      "signature": "def _indent(text: str, prefix: str = \"  \") -> str"
+    },
+    {
+      "id": "/ai/agents/chat_ui/renderer.py#format_tokens",
+      "label": "Function",
+      "name": "format_tokens",
+      "signature": "def format_tokens(count: int) -> str"
+    },
+    {
+      "id": "/ai/agents/chat_ui/renderer.py#format_duration",
+      "label": "Function",
+      "name": "format_duration",
+      "signature": "def format_duration(seconds: float) -> str"
+    },
+    {
+      "id": "/ai/agents/chat_ui/renderer.py#summarize_params",
+      "label": "Function",
+      "name": "summarize_params",
+      "signature": "def summarize_params(tool: str, params: Dict[str, Any]) -> str"
+    },
+    {
+      "id": "/ai/agents/chat_ui/renderer.py#summarize_result",
+      "label": "Function",
+      "name": "summarize_result",
+      "signature": "def summarize_result(result: Any) -> Tuple[bool, str]"
+    },
+    {
+      "id": "/ai/agents/chat_ui/renderer.py#render_user_message",
+      "label": "Function",
+      "name": "render_user_message",
+      "signature": "def render_user_message(text: str) -> str"
+    },
+    {
+      "id": "/ai/agents/chat_ui/renderer.py#render_event",
+      "label": "Function",
+      "name": "render_event",
+      "signature": "def render_event(event: AgentEvent) -> Optional[str]"
+    },
+    {
+      "id": "/ai/agents/chat_ui/renderer.py#render_status_line",
+      "label": "Function",
+      "name": "render_status_line",
+      "signature": "def render_status_line(agent: str, status: str, phase: str = \"\") -> str"
+    },
+    {
+      "id": "/ai/agents/chat_ui/renderer.py#render_turn_summary",
+      "label": "Function",
+      "name": "render_turn_summary",
+      "signature": "def render_turn_summary(reason: str, state: LiveState) -> str"
+    },
+    {
+      "id": "/ai/agents/chat_ui/renderer.py#render_live_line",
+      "label": "Function",
+      "name": "render_live_line",
+      "signature": "def render_live_line(state: LiveState, frame: int) -> str"
+    },
+    {
+      "id": "/ai/agents/chat_ui/renderer.py#render_status_bar",
+      "label": "Function",
+      "name": "render_status_bar",
+      "signature": "def render_status_bar(model: str, session_id: str, pipeline: str, state: LiveState, hint: str = \"\") -> str"
+    },
+    {
+      "id": "/ai/agents/chat_ui/renderer.py#render_transcript",
+      "label": "Function",
+      "name": "render_transcript",
+      "signature": "def render_transcript(entries, session_id: str, request: str = \"\") -> str"
+    },
+    {
+      "id": "/ai/agents/chat_ui/renderer.py#render_permission",
+      "label": "Function",
+      "name": "render_permission",
+      "signature": "def render_permission(tool: str, params: Dict[str, Any]) -> str"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/agents/chat_ui/renderer.py",
+      "target": "/ai/agents/agent_io/agent_event.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/chat_ui/renderer.py",
+      "target": "/ai/agents/terminal_ui/terminal_ui.md",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "json",
+      "time",
+      "dataclasses",
+      "typing"
+    ],
+    "has_side_effects": false
+  }
+}

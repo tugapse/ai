@@ -1,0 +1,81 @@
+{
+  "component": {
+    "name": "ContextSentinel",
+    "source_path": "/ai/agents/context_sentinel.py",
+    "doc_path": "/ai/agents/context_sentinel.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "ContextSentinel is a critical service layer responsible for maintaining AI agent operational efficiency by monitoring computational context pressure. It actively performs memory surgery by intelligently compressing verbose tool outputs into dense, technical fact sheets. This process archives critical observational data to Long-Term Memory (LTM) before pruning the agent's conversation history to prevent context overflow."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/agents/context_sentinel.py#ContextSentinel",
+      "label": "Class",
+      "name": "ContextSentinel",
+      "signature": "class ContextSentinel"
+    },
+    {
+      "id": "/ai/agents/context_sentinel.py#enforce_limits",
+      "label": "Method",
+      "name": "enforce_limits",
+      "signature": "def enforce_limits(self, agent_name: str, memory_manager: Any, payload: Dict[str, Any], vector_memory: Optional[Any] = None) -> Tuple[Dict[str, Any], bool]:"
+    },
+    {
+      "id": "/ai/agents/context_sentinel.py#_summarize_data",
+      "label": "Method",
+      "name": "_summarize_data",
+      "signature": "def _summarize_data(self, raw_result: Any) -> str:"
+    },
+    {
+      "id": "/ai/agents/context_sentinel.py#self.connector",
+      "label": "Variable",
+      "name": "self.connector",
+      "signature": "connector: Any"
+    },
+    {
+      "id": "/ai/agents/context_sentinel.py#self.threshold",
+      "label": "Variable",
+      "name": "self.threshold",
+      "signature": "threshold: float"
+    },
+    {
+      "id": "/ai/agents/context_sentinel.py#self.max_tokens",
+      "label": "Variable",
+      "name": "self.max_tokens",
+      "signature": "max_tokens: int"
+    },
+    {
+      "id": "/ai/agents/context_sentinel.py#self.buffer",
+      "label": "Variable",
+      "name": "self.buffer",
+      "signature": "buffer: int"
+    },
+    {
+      "id": "/ai/agents/context_sentinel.py#self.last_pressure",
+      "label": "Variable",
+      "name": "self.last_pressure",
+      "signature": "last_pressure: float"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/agents/context_sentinel.py",
+      "target": "/ai/functions.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/agents/context_sentinel.py",
+      "target": "/ai/color.md",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "json",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

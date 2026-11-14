@@ -1,0 +1,146 @@
+{
+  "component": {
+    "name": "graph",
+    "source_path": "/ai/modules/knowledge_graph/graph.py",
+    "doc_path": "/ai/modules/knowledge_graph/graph.json",
+    "type": "module"
+  },
+  "vector_memory": {
+    "semantic_summary": "This component provides core data structures for modeling structured knowledge. The KnowledgeGraph class implements an in-memory graph using adjacency lists to manage nodes and labeled relationships, supporting operations like pathfinding (BFS) and DOT rendering. It integrates with VectorMemory, accessed via a Singleton Bridge pattern, to allow querying of structured data alongside semantic vectors."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/knowledge_graph/graph.py#KnowledgeGraph",
+      "label": "Class",
+      "name": "KnowledgeGraph",
+      "signature": "def __init__(self) -> None"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/graph.py#KnowledgeGraph.add_node",
+      "label": "Method",
+      "name": "add_node",
+      "signature": "def add_node(self, node_id: str, **attributes) -> str"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/graph.py#KnowledgeGraph.get_node",
+      "label": "Method",
+      "name": "get_node",
+      "signature": "def get_node(self, node_id: str) -> Optional[Dict[str, Any]]"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/graph.py#KnowledgeGraph.has_node",
+      "label": "Method",
+      "name": "has_node",
+      "signature": "def has_node(self, node_id: str) -> bool"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/graph.py#KnowledgeGraph.add_relation",
+      "label": "Method",
+      "name": "add_relation",
+      "signature": "def add_relation(self, src: str, relation: str, dst: str) -> Tuple[str, str, str]"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/graph.py#KnowledgeGraph.get_relations",
+      "label": "Method",
+      "name": "get_relations",
+      "signature": "def get_relations(self, src: Optional[str] = None) -> List[Tuple[str, str, str]]"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/graph.py#KnowledgeGraph.get_neighbors",
+      "label": "Method",
+      "name": "get_neighbors",
+      "signature": "def get_neighbors(self, node_id: str, relation: Optional[str] = None) -> List[str]"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/graph.py#KnowledgeGraph.find_path",
+      "label": "Method",
+      "name": "find_path",
+      "signature": "def find_path(self, src: str, dst: str, max_depth: int = 5) -> Optional[List[str]]"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/graph.py#KnowledgeGraph.to_dot",
+      "label": "Method",
+      "name": "to_dot",
+      "signature": "def to_dot(self) -> str"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/graph.py#KnowledgeGraph.register_with_orchestrator",
+      "label": "Method",
+      "name": "register_with_orchestrator",
+      "signature": "def register_with_orchestrator(self, bus: Any = None) -> \"Bridge\""
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/graph.py#VectorMemory",
+      "label": "Class",
+      "name": "VectorMemory",
+      "signature": "def __init__(self) -> None"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/graph.py#VectorMemory.add_vector",
+      "label": "Method",
+      "name": "add_vector",
+      "signature": "def add_vector(self, key: str, vector: List[float]) -> None"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/graph.py#VectorMemory.get_vector",
+      "label": "Method",
+      "name": "get_vector",
+      "signature": "def get_vector(self, key: str) -> Optional[List[float]]"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/graph.py#VectorMemory.as_dict",
+      "label": "Method",
+      "name": "as_dict",
+      "signature": "def as_dict(self) -> Dict"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/graph.py#GetVectorMemoryProvider",
+      "label": "Class",
+      "name": "GetVectorMemoryProvider",
+      "signature": "def __init__(self) -> None"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/graph.py#GetVectorMemoryProvider.__call__",
+      "label": "Method",
+      "name": "__call__",
+      "signature": "def __call__(self) -> VectorMemory"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/graph.py#Bridge",
+      "label": "Class",
+      "name": "Bridge",
+      "signature": "def __init__(self, bus: Any = None) -> None"
+    },
+    {
+      "id": "/ai/modules/knowledge_graph/graph.py#Bridge.expose",
+      "label": "Method",
+      "name": "expose",
+      "signature": "def expose(self) -> Dict[str, Any]"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/knowledge_graph/graph.py",
+      "target": "/ai/modules/knowledge_graph/graph.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/knowledge_graph/graph.py",
+      "target": "/ai/modules/knowledge_graph/graph.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/knowledge_graph/graph.py",
+      "target": "/ai/modules/knowledge_graph/graph.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "collections",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

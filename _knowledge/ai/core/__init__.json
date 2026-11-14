@@ -1,0 +1,25 @@
+{
+  "component": {
+    "name": "ai_core",
+    "source_path": "/ai/core/__init__.py",
+    "doc_path": "/ai/core/__init__.json",
+    "type": "module"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module serves as the primary entry point and namespace definition for the core AI functionalities. It organizes and exposes the fundamental components of the AI engine, acting as a centralized bootstrapping point. Architecturally, it provides the top-level interface for higher-level services within the AI subsystem."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/core/__init__.py#ai_core",
+      "label": "Module",
+      "name": "ai_core",
+      "signature": "N/A"
+    }
+  ],
+  "graph_edges": [],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [],
+    "has_side_effects": false
+  }
+}

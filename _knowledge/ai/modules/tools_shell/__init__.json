@@ -1,0 +1,39 @@
+{
+  "component": {
+    "name": "tools_shell",
+    "source_path": "/ai/modules/tools_shell/__init__.py",
+    "doc_path": "/ai/modules/tools_shell/__init__.json",
+    "type": "module"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module acts as the primary entry point for exposing shell execution capabilities to the AI system. It defines the `TOOLS` list, which aggregates the callable `execute_command` function, and provides the `create_module` factory. Its core role is to wrap the raw command execution logic into a standardized `ToolModule` structure for system-wide consumption."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/tools_shell/__init__.py#TOOLS",
+      "label": "Variable",
+      "name": "TOOLS",
+      "signature": "List"
+    },
+    {
+      "id": "/ai/modules/tools_shell/__init__.py#create_module",
+      "label": "Function",
+      "name": "create_module",
+      "signature": "create_module() -> ToolModule"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/tools_shell/__init__.py",
+      "target": "/ai/modules/base_module.md",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [
+      "TOOLS_SHELL_ENABLED"
+    ],
+    "external_dependencies": [],
+    "has_side_effects": true
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "component": {
+    "name": "OneShotIO",
+    "source_path": "/ai/agents/chat_ui/oneshot.py",
+    "doc_path": "/ai/agents/chat_ui/oneshot.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "OneShotIO is a specialized I/O bridge designed for running agents in a non-interactive, single-shot manner. It inherits from ChatIO and handles output directly to stdout while managing blocking input for permission prompts. Its core function is to execute an agent request to completion, stripping ANSI codes when running without a TTY, ensuring script-driven execution flows correctly."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/agents/chat_ui/oneshot.py#OneShotIO",
+      "label": "Class",
+      "name": "OneShotIO",
+      "signature": "class OneShotIO(ChatIO):"
+    },
+    {
+      "id": "/ai/agents/chat_ui/oneshot.py#_prompt_preview",
+      "label": "Function",
+      "name": "_prompt_preview",
+      "signature": "def _prompt_preview(prompt: str) -> str"
+    },
+    {
+      "id": "/ai/agents/chat_ui/oneshot.py#run_one_shot",
+      "label": "Function",
+      "name": "run_one_shot",
+      "signature": "def run_one_shot(prog, prompt: str, pipeline: str = \"default.json\", session_id: Optional[str] = None, directory_manager=None, io: Optional[OneShotIO] = None):"
+    },
+    {
+      "id": "/ai/agents/chat_ui/oneshot.py#write",
+      "label": "Method",
+      "name": "write",
+      "signature": "def write(self, text: str) -> None"
+    },
+    {
+      "id": "/ai/agents/chat_ui/oneshot.py#request_permission",
+      "label": "Method",
+      "name": "request_permission",
+      "signature": "def request_permission(self, tool: str, params: Dict[str, Any]) -> str"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/agents/chat_ui/oneshot.py",
+      "target": "/ai/agents/chat_ui/bridge/ChatIO",
+      "relation": "inherits"
+    },
+    {
+      "source": "/ai/agents/chat_ui/oneshot.py",
+      "target": "/ai/agents/chat_ui/renderer/renderer",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/chat_ui/oneshot.py",
+      "target": "/ai/agents/agent_io/PERMISSION_ALWAYS",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/chat_ui/oneshot.py",
+      "target": "/ai/agents/agent_io/PERMISSION_NO",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/chat_ui/oneshot.py",
+      "target": "/ai/agents/agent_io/PERMISSION_YES",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/chat_ui/oneshot.py",
+      "target": "/ai/agents/agent/build_orchestrator",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "re",
+      "sys",
+      "typing",
+      "uuid"
+    ],
+    "has_side_effects": true
+  }
+}

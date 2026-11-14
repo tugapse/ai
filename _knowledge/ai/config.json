@@ -1,0 +1,108 @@
+{
+  "component": {
+    "name": "ProgramConfig",
+    "source_path": "/ai/config.py",
+    "doc_path": "/ai/config.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "ProgramConfig is the central configuration service responsible for managing all application runtime parameters. It orchestrates the loading process by reading user-specific JSON files, merging them with hardcoded defaults, and ensuring necessary directories (like logs and workspaces) exist. It provides strongly-typed access to settings via the ProgramSetting Enum, acting as the single source of truth for the entire application state."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/config.py#ProgramSetting",
+      "label": "Enum",
+      "name": "ProgramSetting",
+      "signature": "Enum"
+    },
+    {
+      "id": "/ai/config.py#ProgramConfig",
+      "label": "Class",
+      "name": "ProgramConfig",
+      "signature": "class ProgramConfig(Generic[T])"
+    },
+    {
+      "id": "/ai/config.py#get",
+      "label": "Method",
+      "name": "get",
+      "signature": "def get(self, key: ProgramSetting, default: Any = None) -> Any"
+    },
+    {
+      "id": "/ai/config.py#set",
+      "label": "Method",
+      "name": "set",
+      "signature": "def set(self, key: ProgramSetting, value: Any) -> None"
+    },
+    {
+      "id": "/ai/config.py#load_predefined_config",
+      "label": "Method",
+      "name": "load_predefined_config",
+      "signature": "def load_predefined_config(self, args) -> None"
+    },
+    {
+      "id": "/ai/config.py#_ensure_user_settings",
+      "label": "Method",
+      "name": "_ensure_user_settings",
+      "signature": "def _ensure_user_settings(self) -> None"
+    },
+    {
+      "id": "/ai/config.py#save",
+      "label": "Method",
+      "name": "save",
+      "signature": "def save(self, filename: str) -> None"
+    },
+    {
+      "id": "/ai/config.py#copy_skip_existing",
+      "label": "Method",
+      "name": "copy_skip_existing",
+      "signature": "def copy_skip_existing(self, src: str, dst: str, *, follow_symlinks: bool = True) -> str"
+    },
+    {
+      "id": "/ai/config.py#copy_templates_to_user_dir",
+      "label": "Method",
+      "name": "copy_templates_to_user_dir",
+      "signature": "def copy_templates_to_user_dir(self, user_dir: Optional[str] = None) -> None"
+    },
+    {
+      "id": "/ai/config.py#_ensure_path",
+      "label": "Method",
+      "name": "_ensure_path",
+      "signature": "def _ensure_path(self, setting: ProgramSetting, subfolder: str) -> None"
+    },
+    {
+      "id": "/ai/config.py#__load_to_dict",
+      "label": "Method",
+      "name": "__load_to_dict",
+      "signature": "def __load_to_dict(self, filename: str, root_dir: Optional[str] = None) -> Optional[dict]"
+    },
+    {
+      "id": "/ai/config.py#load",
+      "label": "Method",
+      "name": "load",
+      "signature": "def load(cls, args=None) -> \"ProgramConfig\""
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/config.py",
+      "target": "/ai/config.py",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [
+      "AI_ASSISTANT_DIRECTORY"
+    ],
+    "external_dependencies": [
+      "enum",
+      "json",
+      "logging",
+      "os",
+      "tempfile",
+      "shutil",
+      "pathlib",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

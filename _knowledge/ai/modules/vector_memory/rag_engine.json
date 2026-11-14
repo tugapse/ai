@@ -1,0 +1,63 @@
+{
+  "component": {
+    "name": "RAGEngine",
+    "source_path": "/ai/modules/vector_memory/rag_engine.py",
+    "doc_path": "/ai/modules/vector_memory/rag_engine.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module implements the core logic for a Retrieval-Augmented Generation (RAG) system, utilizing ChromaDB for vector storage. It provides specialized providers, RAGChromaDBProvider and RAGEmbeddingProvider, to manage the ingestion pipeline. Key functions like ingest_text handle text chunking, embedding generation via Sentence Transformers, and deterministic upserting into the database. retrieve_context performs similarity searches, applying score and token limits for efficient context retrieval."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/vector_memory/rag_engine.py#RAGChromaDBProvider",
+      "label": "Class",
+      "name": "RAGChromaDBProvider",
+      "signature": "def __init__(self, path: str, collection_name: str)"
+    },
+    {
+      "id": "/ai/modules/vector_memory/rag_engine.py#RAGEmbeddingProvider",
+      "label": "Class",
+      "name": "RAGEmbeddingProvider",
+      "signature": "def __init__(self, model_name: str = 'all-MiniLM-L6-v2')"
+    },
+    {
+      "id": "/ai/modules/vector_memory/rag_engine.py#_chunk_text",
+      "label": "Function",
+      "name": "_chunk_text",
+      "signature": "def _chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]"
+    },
+    {
+      "id": "/ai/modules/vector_memory/rag_engine.py#ingest_text",
+      "label": "Function",
+      "name": "ingest_text",
+      "signature": "def ingest_text(text: str, metadata: Dict[str, Any], collection_name: str, db_path: str = f\"...\", chunk_size: int = 500, chunk_overlap: int = 50) -> None"
+    },
+    {
+      "id": "/ai/modules/vector_memory/rag_engine.py#retrieve_context",
+      "label": "Function",
+      "name": "retrieve_context",
+      "signature": "def retrieve_context(query: str, collection_name: str, db_path: str = \"./rag_db\", similarity_threshold: float = 0.5, max_items: int = 5, max_tokens: int = 2000) -> List[Dict[str, Any]]"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/vector_memory/rag_engine.py",
+      "target": "/ai/modules/vector_memory/vector_memory.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/vector_memory/rag_engine.py",
+      "target": "/ai/modules/vector_memory/vector_memory.md",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "chromadb",
+      "sentence-transformers"
+    ],
+    "has_side_effects": true
+  }
+}

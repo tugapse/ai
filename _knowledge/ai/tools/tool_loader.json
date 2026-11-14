@@ -1,0 +1,37 @@
+{
+  "component": {
+    "name": "tool_loader",
+    "source_path": "/ai/tools/tool_loader.py",
+    "doc_path": "/ai/tools/tool_loader.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module acts as a critical discovery service responsible for dynamically loading and integrating external user-defined functions, known as 'tools.' It scans a specified directory, using importlib to load Python modules, and introspects them to find functions marked with the _is_tool attribute. Its core role is to populate the central ToolRegistry with available capabilities, effectively bridging the filesystem layer to the core application logic."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/tools/tool_loader.py#load_and_register_user_tools",
+      "label": "Function",
+      "name": "load_and_register_user_tools",
+      "signature": "load_and_register_user_tools(registry: \"ToolRegistry\", user_tools_dir: str)"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/tools/tool_loader.py",
+      "target": "/ai/tools/tool_registry.md",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "os",
+      "sys",
+      "importlib.util",
+      "typing",
+      "ai.functions"
+    ],
+    "has_side_effects": true
+  }
+}

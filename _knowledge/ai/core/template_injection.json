@@ -1,0 +1,62 @@
+{
+  "component": {
+    "name": "TemplateInjection",
+    "source_path": "/ai/core/template_injection.py",
+    "doc_path": "/ai/core/template_injection.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "This service component manages the dynamic modification of a base system prompt by integrating external template content. It reads configuration to find injection definitions, then loads specific template files (ending in .md) from a configured directory. The core method sequentially replaces defined placeholders in the system template with the content loaded from these external sources, ensuring the prompt is contextually rich before model inference."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/core/template_injection.py#TemplateInjection",
+      "label": "Class",
+      "name": "TemplateInjection",
+      "signature": ""
+    },
+    {
+      "id": "/ai/core/template_injection.py#replace_system_template",
+      "label": "Method",
+      "name": "replace_system_template",
+      "signature": "replace_system_template() -> str"
+    },
+    {
+      "id": "/ai/core/template_injection.py#_load_injection_template",
+      "label": "Method",
+      "name": "_load_injection_template",
+      "signature": "_load_injection_template(template_name: str) -> str"
+    },
+    {
+      "id": "/ai/core/template_injection.py#ProgramConfig",
+      "label": "Type",
+      "name": "ProgramConfig",
+      "signature": ""
+    },
+    {
+      "id": "/ai/core/template_injection.py#ProgramSetting",
+      "label": "Type",
+      "name": "ProgramSetting",
+      "signature": ""
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/core/template_injection.py",
+      "target": "/ai/config.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/core/template_injection.py",
+      "target": "/ai/functions.md",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "os"
+    ],
+    "has_side_effects": true
+  }
+}

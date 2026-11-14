@@ -1,0 +1,49 @@
+{
+  "component": {
+    "name": "Color",
+    "source_path": "/ai/color.py",
+    "doc_path": "/ai/color.json",
+    "type": "utility"
+  },
+  "vector_memory": {
+    "semantic_summary": "This utility component centralizes ANSI escape codes for terminal output formatting, acting as a foundational formatting service. It provides constants for foreground, background, and various text styling attributes like bolding and underlining. It offers functions to both construct and print formatted text, ensuring consistent visual standards across the application's presentation layers."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/color.py#Color",
+      "label": "Class",
+      "name": "Color",
+      "signature": "class Color:"
+    },
+    {
+      "id": "/ai/color.py#Color.RESET",
+      "label": "Variable",
+      "name": "RESET",
+      "signature": "RESET = '\\033[0m'"
+    },
+    {
+      "id": "/ai/color.py#format_text",
+      "label": "Function",
+      "name": "format_text",
+      "signature": "def format_text(text, *colors_and_effects):"
+    },
+    {
+      "id": "/ai/color.py#pformat_text",
+      "label": "Function",
+      "name": "pformat_text",
+      "signature": "def pformat_text(text, *colors_and_effects, **kargs):"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/color.py",
+      "target": "/ai/color.py",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [],
+    "has_side_effects": true
+  }
+}

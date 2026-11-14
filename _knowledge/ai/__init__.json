@@ -1,0 +1,18 @@
+{
+  "component": {
+    "name": "ai",
+    "source_path": "/ai/__init__.py",
+    "doc_path": "/ai/__init__.json",
+    "type": "module"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module serves as the primary entry point and initialization facade for the entire AI subsystem. Its core responsibility is to define the namespace and expose the application's core AI functionalities to other components. Architecturally, it aggregates and unifies access to lower-level services, such as AI models and processors, providing a single point of interaction for the broader application framework."
+  },
+  "graph_nodes": [],
+  "graph_edges": [],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [],
+    "has_side_effects": false
+  }
+}

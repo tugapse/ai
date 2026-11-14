@@ -1,0 +1,106 @@
+{
+  "component": {
+    "name": "pipelines",
+    "source_path": "/ai/modules/server/services/pipelines.py",
+    "doc_path": "/ai/modules/server/services/pipelines.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "This service manages the complete lifecycle of execution pipelines, acting as the authoritative API for pipeline manipulation within the web editor backend. It handles locating, reading, validating, saving, creating, and deleting pipeline definitions across user and system directories. It enforces structural integrity, validates against known tools, and manages file persistence using atomic writes, raising custom PipelineErrors for all operational failures."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/server/services/pipelines.py#PipelineError",
+      "label": "Class",
+      "name": "PipelineError",
+      "signature": "class PipelineError(Exception)"
+    },
+    {
+      "id": "/ai/modules/server/services/pipelines.py#_folders",
+      "label": "Function",
+      "name": "_folders",
+      "signature": "def _folders() -> List[Tuple[str, str]]"
+    },
+    {
+      "id": "/ai/modules/server/services/pipelines.py#_check_name",
+      "label": "Function",
+      "name": "_check_name",
+      "signature": "def _check_name(name: str) -> str"
+    },
+    {
+      "id": "/ai/modules/server/services/pipelines.py#locate",
+      "label": "Function",
+      "name": "locate",
+      "signature": "def locate(name: str) -> Optional[Tuple[str, str]]"
+    },
+    {
+      "id": "/ai/modules/server/services/pipelines.py#read",
+      "label": "Function",
+      "name": "read",
+      "signature": "def read(name: str) -> dict"
+    },
+    {
+      "id": "/ai/modules/server/services/pipelines.py#validate",
+      "label": "Function",
+      "name": "validate",
+      "signature": "def validate(content: Any, known_tools: Optional[set]) -> List[str]"
+    },
+    {
+      "id": "/ai/modules/server/services/pipelines.py#_write",
+      "label": "Function",
+      "name": "_write",
+      "signature": "def _write(path: str, content: dict) -> None"
+    },
+    {
+      "id": "/ai/modules/server/services/pipelines.py#save",
+      "label": "Function",
+      "name": "save",
+      "signature": "def save(name: str, content: Any, known_tools: Optional[set]) -> dict"
+    },
+    {
+      "id": "/ai/modules/server/services/pipelines.py#create",
+      "label": "Function",
+      "name": "create",
+      "signature": "def create(name: str, content: Any, known_tools: Optional[set]) -> dict"
+    },
+    {
+      "id": "/ai/modules/server/services/pipelines.py#delete",
+      "label": "Function",
+      "name": "delete",
+      "signature": "def delete(name: str) -> dict"
+    },
+    {
+      "id": "/ai/modules/server/services/pipelines.py#list_tools",
+      "label": "Function",
+      "name": "list_tools",
+      "signature": "def list_tools(modules, hil_tools: List[str], totp_tools: set) -> List[dict]"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/server/services/pipelines.py",
+      "target": "/ai/modules/server/services/directory_manager.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/server/services/pipelines.py",
+      "target": "/ai/tools/tool_loader.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/server/services/pipelines.py",
+      "target": "/ai/tools/tool_registry.md",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "json",
+      "os",
+      "re",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "component": {
+    "name": "tools_search",
+    "source_path": "/ai/modules/tools_search/__init__.py",
+    "doc_path": "/ai/modules/tools_search/__init__.json",
+    "type": "module"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module serves as a central provider for various search utility tools, specifically aggregating 'smart_search' and 'grep_file'. Its primary role is to expose these functions through a standardized 'ToolModule' abstraction. It encapsulates the logic for content discovery, allowing higher-level services to perform deep content introspection across the project or within targeted files."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/tools_search/__init__.py#TOOLS",
+      "label": "Variable",
+      "name": "TOOLS",
+      "signature": "TOOLS = [smart_search, grep_file]"
+    },
+    {
+      "id": "/ai/modules/tools_search/__init__.py#create_module",
+      "label": "Function",
+      "name": "create_module",
+      "signature": "create_module() -> ToolModule"
+    },
+    {
+      "id": "/ai/modules/tools_search/__init__.py#smart_search",
+      "label": "Function",
+      "name": "smart_search",
+      "signature": "smart_search"
+    },
+    {
+      "id": "/ai/modules/tools_search/__init__.py#grep_file",
+      "label": "Function",
+      "name": "grep_file",
+      "signature": "grep_file"
+    },
+    {
+      "id": "/ai/modules/tools_search/__init__.py#ToolModule",
+      "label": "Type",
+      "name": "ToolModule",
+      "signature": "ToolModule"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/tools_search/__init__.py",
+      "target": "/ai/modules/base_module.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/tools_search/__init__.py",
+      "target": "/ai/modules/tools_search/tools.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/tools_search/__init__.py",
+      "target": "/ai/modules/base_module.md",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [],
+    "has_side_effects": false
+  }
+}

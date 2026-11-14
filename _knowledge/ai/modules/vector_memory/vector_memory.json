@@ -1,0 +1,155 @@
+{
+  "component": {
+    "name": "VectorMemory",
+    "source_path": "/ai/modules/vector_memory/vector_memory.py",
+    "doc_path": "/ai/modules/vector_memory/vector_memory.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "VectorMemory serves as the central orchestrator for the system's long-term memory, managing the entire lifecycle from raw text ingestion to knowledge synthesis. It coordinates specialized providers—EmbeddingProvider, VectorDBProvider, and LanguageModelProvider—to handle embedding, persistent storage in ChromaDB, and sophisticated retrieval. Its key function is to transform ephemeral context into a durable, searchable knowledge base, capable of generating high-level insights via reflection."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/vector_memory/vector_memory.py#EmbeddingProvider",
+      "label": "Interface",
+      "name": "EmbeddingProvider",
+      "signature": "def embed(self, text: str) -> List[float]"
+    },
+    {
+      "id": "/ai/modules/vector_memory/vector_memory.py#LanguageModelProvider",
+      "label": "Interface",
+      "name": "LanguageModelProvider",
+      "signature": "def rate_importance(self, text: str) -> int"
+    },
+    {
+      "id": "/ai/modules/vector_memory/vector_memory.py#VectorDBProvider",
+      "label": "Interface",
+      "name": "VectorDBProvider",
+      "signature": "def upsert(self, memory_id: str, vector: List[float], metadata: Dict[str, Any])"
+    },
+    {
+      "id": "/ai/modules/vector_memory/vector_memory.py#SentenceTransformerEmbeddingProvider",
+      "label": "Class",
+      "name": "SentenceTransformerEmbeddingProvider",
+      "signature": "def __init__(self, model_name: str = 'all-MiniLM-L6-v2')"
+    },
+    {
+      "id": "/ai/modules/vector_memory/vector_memory.py#LLMProvider",
+      "label": "Class",
+      "name": "LLMProvider",
+      "signature": "def __init__(self, llm : Optional[BaseModel])"
+    },
+    {
+      "id": "/ai/modules/vector_memory/vector_memory.py#ChromaDBProvider",
+      "label": "Class",
+      "name": "ChromaDBProvider",
+      "signature": "def __init__(self, path: str, session_id: str = \"default\")"
+    },
+    {
+      "id": "/ai/modules/vector_memory/vector_memory.py#VectorMemory",
+      "label": "Class",
+      "name": "VectorMemory",
+      "signature": "def __init__(self, session_id: str, llm: BaseModel | None = None, db_path: str = \"./agent_ltm_db\", recency_weight: float = 1.0, importance_weight: float = 1.0, relevance_weight: float = 1.0)"
+    },
+    {
+      "id": "/ai/modules/vector_memory/vector_memory.py#VectorMemory.add_memory",
+      "label": "Method",
+      "name": "add_memory",
+      "signature": "def add_memory(self, content: str, source: str, memory_type: str = \"observation\")"
+    },
+    {
+      "id": "/ai/modules/vector_memory/vector_memory.py#VectorMemory.retrieve_memories",
+      "label": "Method",
+      "name": "retrieve_memories",
+      "signature": "def retrieve_memories(self, query: str, top_k: int = 5) -> List[str]"
+    },
+    {
+      "id": "/ai/modules/vector_memory/vector_memory.py#VectorMemory.trigger_reflection",
+      "label": "Method",
+      "name": "trigger_reflection",
+      "signature": "def trigger_reflection(self, lookback_k: int = 30)"
+    },
+    {
+      "id": "/ai/modules/vector_memory/vector_memory.py#LLMProvider.rate_importance",
+      "label": "Method",
+      "name": "rate_importance",
+      "signature": "def rate_importance(self, text: str) -> int"
+    },
+    {
+      "id": "/ai/modules/vector_memory/vector_memory.py#LLMProvider.summarize_and_reflect",
+      "label": "Method",
+      "name": "summarize_and_reflect",
+      "signature": "def summarize_and_reflect(self, memories: List[str]) -> List[str]"
+    },
+    {
+      "id": "/ai/modules/vector_memory/vector_memory.py#LLMProvider.send_raw_request",
+      "label": "Method",
+      "name": "send_raw_request",
+      "signature": "def send_raw_request(self, payload: Dict[str, Any], system_prompt: str = \"\") -> str"
+    },
+    {
+      "id": "/ai/modules/vector_memory/vector_memory.py#LLMProvider._execute_llm_call",
+      "label": "Method",
+      "name": "_execute_llm_call",
+      "signature": "def _execute_llm_call(self, messages: List[Dict[str, str]]) -> str"
+    },
+    {
+      "id": "/ai/modules/vector_memory/vector_memory.py#ChromaDBProvider.upsert",
+      "label": "Method",
+      "name": "upsert",
+      "signature": "def upsert(self, memory_id: str, vector: List[float], metadata: Dict[str, Any])"
+    },
+    {
+      "id": "/ai/modules/vector_memory/vector_memory.py#ChromaDBProvider.query",
+      "label": "Method",
+      "name": "query",
+      "signature": "def query(self, vector: List[float], top_k: int) -> List[Dict[str, Any]]"
+    },
+    {
+      "id": "/ai/modules/vector_memory/vector_memory.py#VectorMemory._calculate_recency_score",
+      "label": "Method",
+      "name": "_calculate_recency_score",
+      "signature": "def _calculate_recency_score(last_accessed_at: float, decay_factor: float = 0.99) -> float"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/vector_memory/vector_memory.py",
+      "target": "/ai/modules/vector_memory/vector_memory.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/vector_memory/vector_memory.py",
+      "target": "/ai/modules/vector_memory/vector_memory.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/vector_memory/vector_memory.py",
+      "target": "/ai/modules/vector_memory/vector_memory.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/vector_memory/vector_memory.py",
+      "target": "/ai/modules/vector_memory/vector_memory.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/vector_memory/vector_memory.py",
+      "target": "/ai/modules/vector_memory/vector_memory.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/vector_memory/vector_memory.py",
+      "target": "/ai/modules/vector_memory/vector_memory.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "sentence-transformers",
+      "chromadb"
+    ],
+    "has_side_effects": true
+  }
+}
