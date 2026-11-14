@@ -161,17 +161,19 @@ class GpuAdvisor:
             func.out(f"{Color.CYAN}      It switches to {server_model} once its current work ends.{Color.RESET}")
         return self.loader(model_config=config, system_prompt=self.system_prompt, tool_registry=self.tool_registry)
 
-    def _layer_plan(self, error: GpuMemoryError, free_mb: Optional[int]) -> List[int]:
-        """GPU layer counts to try, most first, ending with CPU only (0)."""
+    def _upper_bound(self, error: GpuMemoryError, free_mb: Optional[int]) -> int:
+        """
+        Most GPU layers worth trying: what the free memory holds counting the weights only. The KV
+        cache and buffers (large with a long context) make the real number lower; the search finds it.
+        """
         blocks = self._block_count(error.model_path)
+        requested = error.n_gpu_layers if isinstance(error.n_gpu_layers, int) and error.n_gpu_layers > 0 else None
+        top = (blocks or requested or 32) - 1 if requested is None else requested - 1
         if blocks and free_mb is not None and error.model_path and os.path.isfile(error.model_path):
             per_layer_mb = os.path.getsize(error.model_path) / (1024 * 1024) / blocks
-            first = int(free_mb * self.PARTIAL_HEADROOM / per_layer_mb) if per_layer_mb > 0 else 0
-            first = max(0, min(first, blocks - 1))
-        else:
-            first = (blocks or 32) // 2
-        plan = [first, first // 2, 0]
-        return sorted({n for n in plan if n >= 0}, reverse=True)
+            if per_layer_mb > 0:
+                top = min(top, int(free_mb / per_layer_mb))
+        return max(0, top)
 
     @staticmethod
     def _block_count(model_path: str) -> Optional[int]:
@@ -187,31 +189,76 @@ class GpuAdvisor:
             func.debug(f"GpuAdvisor: cannot read the layer count of {model_path}: {e}")
             return None
 
-    def _partial(self, error: GpuMemoryError, free_mb: Optional[int]):
-        """Loads the model with fewer layers on the GPU, down to CPU only."""
-        last = error
-        func.out(f"{Color.CYAN}[ * ] Finding how much of {self.key} fits on the GPU...{Color.RESET}")
-        for layers in self._layer_plan(error, free_mb):
-            config = copy.deepcopy(self.model_config)
-            properties = config.setdefault("model_properties", {})
-            properties["n_gpu_layers"] = layers
-            if layers == 0:
-                # Really CPU only: with a CUDA build, llama.cpp still puts the KV cache and the
-                # compute buffer (which grows with n_ctx) on the GPU at 0 layers.
-                properties.update(offload_kqv=False, op_offload=False)
+    def load_partial(self, error: GpuMemoryError):
+        """
+        Loads the model with as many layers on the GPU as fit, down to CPU only, without asking.
+
+        Raises:
+            GpuMemoryError: Not even CPU only could be loaded.
+        """
+        snapshot = self.snapshot()
+        return self._partial(error, snapshot.free_mb if snapshot else None)
+
+    def _try_layers(self, layers: int):
+        """Loads the model with ``layers`` on the GPU; None when it does not fit (memory freed)."""
+        config = copy.deepcopy(self.model_config)
+        properties = config.setdefault("model_properties", {})
+        properties["n_gpu_layers"] = layers
+        if layers == 0:
+            # Really CPU only: with a CUDA build, llama.cpp still puts the KV cache and the
+            # compute buffer (which grows with n_ctx) on the GPU at 0 layers.
+            properties.update(offload_kqv=False, op_offload=False)
+        try:
+            return self.loader(model_config=config, system_prompt=self.system_prompt,
+                               tool_registry=self.tool_registry)
+        except GpuMemoryError as e:
+            func.debug(f"GpuAdvisor: {layers} GPU layers did not fit.")
+            self._last_error = e.with_traceback(None)  # its frames hold the failed attempt alive
+            del e
+            gc.collect()
+            return None
+
+    @staticmethod
+    def _unload(llm) -> None:
+        unload = getattr(llm, "unload", None)
+        if callable(unload):
             try:
-                llm = self.loader(model_config=config, system_prompt=self.system_prompt,
-                                  tool_registry=self.tool_registry)
-            except GpuMemoryError as e:
-                func.debug(f"GpuAdvisor: {layers} GPU layers did not fit.")
-                last = e.with_traceback(None)  # its frames hold the failed attempt alive
-                del e
-                gc.collect()
-                continue
-            where = f"with {layers} layers on the GPU and the rest on the CPU" if layers else "on the CPU only"
-            func.out(f"{Color.YELLOW}[ * ] Loaded {self.key} {where}: answers will be slower.{Color.RESET}")
-            return llm
-        raise last
+                unload()
+            except Exception as e:
+                func.debug(f"GpuAdvisor: unload failed: {e}")
+        gc.collect()
+
+    def _partial(self, error: GpuMemoryError, free_mb: Optional[int]):
+        """
+        Loads the model with the most GPU layers that fit (binary search: a load takes seconds, a
+        model wrongly left on the CPU costs minutes per answer), down to CPU only.
+        """
+        self._last_error = error
+        func.out(f"{Color.CYAN}[ * ] Finding how much of {self.key} fits on the GPU...{Color.RESET}")
+        top = self._upper_bound(error, free_mb)
+        llm = self._try_layers(top) if top > 0 else None
+        best, best_layers = (llm, top) if llm is not None else (None, 0)
+        lo, hi = 0, top - 1
+        while llm is None and lo < hi:
+            mid = (lo + hi + 1) // 2
+            if best is not None:
+                self._unload(best)  # a kept load would take the memory the bigger try needs
+                best = None
+            attempt = self._try_layers(mid)
+            if attempt is not None:
+                lo, best, best_layers = mid, attempt, mid
+            else:
+                hi = mid - 1
+        layers = best_layers if best is not None else lo
+        if best is None:
+            best = self._try_layers(layers)
+            if best is None and layers > 0:
+                layers, best = 0, self._try_layers(0)
+        if best is None:
+            raise self._last_error
+        where = f"with {layers} layers on the GPU and the rest on the CPU" if layers else "on the CPU only"
+        func.out(f"{Color.YELLOW}[ * ] Loaded {self.key} {where}: answers will be slower.{Color.RESET}")
+        return best
 
     # --- decision --------------------------------------------------------------------------
 

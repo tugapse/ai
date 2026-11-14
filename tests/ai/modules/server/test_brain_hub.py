@@ -256,3 +256,38 @@ class TestChatServiceBusy:
             with pytest.raises(HTTPException) as info:
                 service._resolve_brain(self.request("big", on_busy="fail"))
         assert info.value.status_code == 409 and hub.current_model_id == "small"
+
+
+class TestGpuFull:
+    """A model that does not fit in the free GPU memory is loaded partly on the GPU, not dropped."""
+
+    @pytest.fixture
+    def gpu(self, loads, monkeypatch, fake_llm):
+        from ai.core.llms.load_errors import GpuMemoryError
+        from ai.services.engine_manager import EngineManager
+        monkeypatch.setattr("ai.services.gpu_advisor.nvidia_snapshot", lambda: None)
+        state = {"fit": 99, "tried": []}
+
+        def load(model_config, system_prompt, tool_registry):
+            layers = model_config["model_properties"].get("n_gpu_layers", -1)
+            state["tried"].append(layers)
+            if layers < 0 or layers > state["fit"]:
+                raise GpuMemoryError("full")
+            llm = fake_llm(model_config["model_name"], system_prompt)
+            loads.append(llm)
+            return llm
+
+        monkeypatch.setattr(EngineManager, "load_model_instance", staticmethod(load))
+        return state
+
+    def test_swap_falls_back_to_a_partial_load(self, hub, gpu):
+        gpu["fit"] = 8
+        llm = hub.get_brain("small", "")
+        assert llm is hub.orchestrator.llm and hub.current_model_id == "small"
+        assert gpu["tried"][0] == -1 and 0 <= gpu["tried"][-1] <= 8
+
+    def test_nothing_fits_is_a_load_error_and_the_hub_stays_empty(self, hub, gpu):
+        gpu["fit"] = -1
+        with pytest.raises(ModelLoadError, match="Failed to load model .small.: full"):
+            hub.get_brain("small", "")
+        assert hub.orchestrator.llm is None and hub.current_model_id is None

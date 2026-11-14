@@ -82,7 +82,7 @@ class ModelOrchestrator:
                         configs[key] = path
         return dict(sorted(configs.items()))
 
-    def load(self, model_config_name: str, system_prompt: str, tool_registry:Optional[ToolRegistry] = None, model_config_data: Optional[dict] = None, raise_errors: bool = False) -> BaseModel:
+    def load(self, model_config_name: str, system_prompt: str, tool_registry:Optional[ToolRegistry] = None, model_config_data: Optional[dict] = None, raise_errors: bool = False, gpu_fallback: bool = False) -> BaseModel:
         """
         Loads a specific language model instance based on configuration.
 
@@ -97,6 +97,8 @@ class ModelOrchestrator:
             model_config_data: Optional pre-loaded configuration dictionary. If provided,
                                it overrides the need to load from disk.
             raise_errors: Raise the error instead of exiting (the server must keep running).
+            gpu_fallback: With ``raise_errors``, a model that does not fit in the free GPU memory is
+                          loaded partly on the GPU (down to CPU only) instead of raising.
 
         Returns:
             The initialized BaseModel instance of the loaded LLM.
@@ -147,13 +149,19 @@ class ModelOrchestrator:
         except GpuMemoryError as e:
             self.llm = None
             self.active_model_name = ""
-            if raise_errors:
+            if raise_errors and not gpu_fallback:
                 raise
-            # The GPU is full: show who holds it and offer alternatives instead of failing.
             from ai.services.gpu_advisor import GpuAdvisor
-            llm = GpuAdvisor(model_config_name, model_config_data, system_prompt, tool_registry).resolve(e)
-            if llm is None:
-                sys.exit(1)
+            advisor = GpuAdvisor(model_config_name, model_config_data, system_prompt, tool_registry,
+                                 interactive=False if raise_errors else None)
+            if raise_errors:
+                # Unattended (the server): no one to ask, so load what fits; raises if nothing does.
+                llm = advisor.load_partial(e)
+            else:
+                # The GPU is full: show who holds it and offer alternatives instead of failing.
+                llm = advisor.resolve(e)
+                if llm is None:
+                    sys.exit(1)
             self.llm = llm
             self.active_model_name = model_config_name
             self._init_model_params()
