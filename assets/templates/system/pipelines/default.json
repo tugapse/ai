@@ -21,7 +21,15 @@
         "execute_command",
         "grep_file",
         "delete_file",
-        "send_notification"
+        "send_notification",
+        "search_knowledge",
+        "get_component",
+        "knowledge_neighbors",
+        "find_symbol",
+        "read_doc",
+        "remember",
+        "knowledge_status",
+        "update_knowledge"
       ],
       "allowed_targets": [
         "MASTER",

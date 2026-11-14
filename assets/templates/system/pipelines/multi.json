@@ -6,31 +6,31 @@
   "agents": {
     "PLANNER": {
       "role": "labor",
-      "prompt_file": "agents/multi/planner_helper.md",
-      "tools": ["read_dir", "read_files", "smart_search", "send_notification"],
+      "prompt_file": "agents/multi/planner.md",
+      "tools": ["read_dir", "read_files", "smart_search", "send_notification", "search_knowledge", "get_component", "knowledge_neighbors", "find_symbol", "read_doc", "query_memory", "remember"],
       "allowed_targets": ["USER", "MASTER"]
     },
     "MASTER": {
       "role": "management",
       "prompt_file": "agents/multi/master.md",
-      "tools": ["send_notification","read_dir" , "read_files","read_file", "smart_search","web_search"],
-      "allowed_targets": ["MASTER","ENGINEER", "SECRETARY", "USER", "STOP"]
+      "tools": ["send_notification","read_dir" , "read_files","read_file", "smart_search","web_search", "search_knowledge", "get_component", "knowledge_neighbors", "find_symbol", "read_doc", "query_memory", "remember", "knowledge_status", "update_knowledge"],
+      "allowed_targets": ["MASTER", "PLANNER", "ENGINEER", "SECRETARY", "SYSTEM_OPERATOR", "USER", "STOP"]
     },
     "ENGINEER": {
       "role": "labor",
-      "prompt_file": "agents/multi/engineer.md",
-      "tools": ["read_file", "read_files", "write_file", "patch_file", "grep_file"],
+      "prompt_file": "agents/small/engineer.md",
+      "tools": ["read_file", "read_files", "write_file", "patch_file", "grep_file", "get_component", "knowledge_neighbors", "find_symbol", "read_doc"],
       "allowed_targets": ["ENGINEER","MASTER", "SECRETARY", "USER"]
     },
     "SECRETARY": {
       "role": "labor",
-      "prompt_file": "agents/multi/secretary.md",
-      "tools": ["read_dir", "read_files", "read_file", "smart_search", "grep_file", "web_search", "web_read"],
+      "prompt_file": "agents/small/secretary.md",
+      "tools": ["read_dir", "read_files", "read_file", "smart_search", "grep_file", "web_search", "web_read", "search_knowledge", "get_component", "knowledge_neighbors", "find_symbol", "read_doc"],
       "allowed_targets": ["SECRETARY","MASTER"]
     },
     "SYSTEM_OPERATOR": {
       "role": "labor",
-      "prompt_file": "agents/multi/operator.md",
+      "prompt_file": "agents/small/system_operator.md",
       "tools": ["execute_command", "send_notification"],
       "allowed_targets": ["MASTER"]
     }
