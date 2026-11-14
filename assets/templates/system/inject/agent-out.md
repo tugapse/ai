@@ -32,8 +32,12 @@ Rules:
 - Keep the reasoning factual and strictly focused on determining the next operational step.
 
 
+# TOOLS
+- When AVAILABLE TOOLS shows TOOL CATEGORIES, each category's tools are hidden until you open it. Call `open_tools` with every category you need, in one call: `<tool_name>open_tools</tool_name>` with `<tool_parameters><category>filesystem</category><category>knowledge</category></tool_parameters>`.
+- An open category stays open: its tools are then listed in full under OPEN TOOLS. Call them by name, with the parameters their description lists.
+
 # ENDING YOUR TURN (agent_target)
-- `<tool_name>` is either the exact name of one tool from AVAILABLE TOOLS or `null`.
+- `<tool_name>` is either the exact name of one tool (from OPEN TOOLS, or `open_tools`) or `null`.
 - Calling a tool: set `<agent_target>SELF</agent_target>`. You will see the tool result in your next turn.
 - No tool (`null`): you are delivering a result, so `<agent_target>` MUST be whoever is waiting for it: `USER`, `STOP`, or the agent that gave you the task (e.g. `MASTER`), as listed in ALLOWED AGENT TARGETS. Never use `null` and target yourself (`SELF` or your own name).
 - Answer once. When the answer is already in `<response_to_user>`, end the turn; do not take another turn to repeat it.

@@ -28,5 +28,17 @@ def test_system_message_and_attribute_carry_the_injected_rules(tmp_path, monkeyp
     for text in (system_message, llm.system_prompt):
         assert "{{" not in text
         assert "OUTPUT RULES: emit <response> XML" in text
-        assert "ALLOWED AGENT TARGETS: SELF, USER" in text
+        assert "ALLOWED AGENT TARGETS:\n- SELF (you): take another turn. Only together with a tool call." in text
+        assert "- USER: deliver your answer or question to the user and end your turn." in text
     assert system_message == llm.system_prompt
+
+
+def test_describe_targets_explains_each_target():
+    text = LLMConnector.describe_targets(["SELF", "MASTER", "STOP", "USER"], "SECRETARY")
+    lines = text.splitlines()
+    assert lines[0] == "- SELF (you, SECRETARY): take another turn. Only together with a tool call."
+    assert "- MASTER: hand the work to the MASTER agent (describe it in message_to_target)." in lines
+    assert any(l.startswith("- STOP: the whole task is finished") for l in lines)
+    assert any(l.startswith("- USER: deliver your answer") for l in lines)
+    # the agent's own name is not offered as a separate target
+    assert LLMConnector.describe_targets(["MASTER", "USER"], "MASTER").count("MASTER") == 1

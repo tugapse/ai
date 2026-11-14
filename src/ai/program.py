@@ -115,6 +115,17 @@ class Program:
         
         if self.modules:
             self.modules.load_all()
+            self._apply_knowledge_args(getattr(args, "knowledge", None))
+
+    def _apply_knowledge_args(self, paths) -> None:
+        """Loads --knowledge sources (relative paths resolve against the current directory)."""
+        if not paths:
+            return
+        knowledge = self.modules['knowledge'] if self.modules else None
+        if knowledge is None:
+            func.error("--knowledge ignored: the knowledge module is disabled (KNOWLEDGE_ENABLED).")
+            return
+        knowledge.add_sources(paths, base_dir=os.getcwd())
 
     def init_program(self) -> None:
         """
@@ -135,8 +146,8 @@ class Program:
         """
         func.log("Loading System tools into Jarvis system")
         if self.modules is not None:
-            for name, tool_ref in self.modules.tool_functions().items():
-                self.tool_registry.register_tool(name, tool_ref)
+            for category in self.modules.tool_categories():
+                self.tool_registry.register_category(category)
         
 
         func.log("Loading User tools into Jarvis system")
@@ -154,11 +165,20 @@ class Program:
         and registers any tools derived from the memory store into the tool registry.
         """
         if self.modules and (vector_memory := self.modules['vector_memory']):
-            vector_memory.initialize("chat_db", self.llm)
+            from ai.modules.vector_memory.vector_memory import resolve_ltm_scope
+            scope = resolve_ltm_scope(self.config.get(ProgramSetting.LTM_SCOPE, "project"), "chat", os.getcwd())
+            vector_memory.initialize("chat", self.llm, scope_key=scope)
             self.vector_memory = vector_memory.get_instance()
-            tools = self.vector_memory.tools.get_tools() if self.vector_memory else {}
-            for name, tool_ref in tools.items(): 
-                self.tool_registry.register_tool(name, tool_ref)
+            if self.vector_memory:
+                self.tool_registry.register_category(self.vector_memory.tools)
+
+        # Project knowledge (only when a source is configured, e.g. KNOWLEDGE_SOURCES or --knowledge)
+        knowledge = self.modules['knowledge'] if self.modules else None
+        store = knowledge.get_instance() if knowledge else None
+        if store is not None and store.has_sources():
+            for name, tool_ref in store.tools.get_tools().items():
+                if name != "ingest_knowledge":
+                    self.tool_registry.register_tool(name, tool_ref)
 
     # --- CHAT & AGENTIC LOOP ---
 

@@ -59,6 +59,7 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None,
     from ai.modules.server.routers.sessions import router as sessions_router
     from ai.modules.server.routers.prompts import router as prompts_router
     from ai.modules.server.routers.agent import router as agent_router
+    from ai.modules.server.routers.knowledge import router as knowledge_router
     from ai.modules.server.routers.auth import router as auth_router, require_device
     from ai.modules.server.services.auth import AuthService, CLIENT_HEADER
     from ai.modules.server.services.agent_runs import AgentRunService
@@ -66,6 +67,7 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None,
     app.include_router(sessions_router)
     app.include_router(prompts_router)
     app.include_router(agent_router)
+    app.include_router(knowledge_router)
     app.include_router(auth_router)
 
     session_manager = SessionManager(SESSION_ROOT_DIR)
@@ -75,6 +77,8 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None,
     chat_service = ChatService(brain_hub, SESSION_ROOT_DIR, config)
     app.state.chat_service = chat_service
     app.state.brain_hub = brain_hub
+    app.state.modules = modules
+    app.state.config = config
     auth = auth or AuthService(config)
     app.state.auth = auth
     agent_service = AgentRunService(brain_hub, config, modules, totp=auth.totp)

@@ -6,7 +6,37 @@ from contextlib import AsyncExitStack
 from typing import Dict, Any, List, Optional
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+import re
 import ai.functions as func
+from ai.tools.base import tool
+from ai.tools.category import ToolCategory, MAX_DESCRIPTION_CHARS
+
+
+class MCPServerCategory(ToolCategory):
+    """One MCP server as a tool category: its gateway tool, and its command list once opened."""
+
+    def __init__(self, bridge: "MCPBridge", server_name: str, description: str, gateway):
+        self.bridge = bridge
+        self.server_name = server_name
+        self.name = self.category_name(server_name)
+        line = " ".join((description or f"MCP server {server_name}").split())
+        if len(line) > MAX_DESCRIPTION_CHARS:
+            line = line[:MAX_DESCRIPTION_CHARS - 3].rstrip() + "..."
+        self.description = line
+        self._gateway = gateway
+
+    @staticmethod
+    def category_name(server_name: str) -> str:
+        name = re.sub(r"[^a-z0-9_]+", "_", str(server_name).lower()).strip("_")
+        if not name or not name[0].isalpha():
+            name = f"mcp_{name}"
+        return name[:40] if len(name) > 1 else f"mcp_{name}"
+
+    def get_category_tools(self):
+        return [self._gateway]
+
+    def describe_open(self):
+        return self.bridge._format_tools_list(self.server_name)
 
 class MCPBridge:
     """
@@ -236,6 +266,10 @@ class MCPBridge:
             self._loop.call_soon_threadsafe(self._loop.stop)
             self._thread.join(timeout=5)
 
+        unregister = getattr(type(self.registry), "unregister_category", None)
+        if unregister is not None:
+            for name in list(self.server_schemas):
+                self.registry.unregister_category(MCPServerCategory.category_name(name))
         tools = getattr(self.registry, "get_all_tools", None)
         if callable(tools):
             try:
@@ -262,8 +296,8 @@ class MCPBridge:
         # This docstring is the ONLY thing the agent sees about the server: keep it model-facing.
         docstring = (
             f"{description}\n\n"
-            "This tool is a gateway to an MCP server with its own commands. First call it with action\n"
-            "'list_tools' to see the commands and their arguments, then call it with action 'execute'.\n"
+            "This tool is a gateway to an MCP server with its own commands (listed below once the category\n"
+            "is open, or call it with action 'list_tools'). Run a command with action 'execute'.\n"
             "Pass each command argument as its own tag (e.g. <url>https://example.com</url>), or all of\n"
             "them in 'arguments'.\n\n"
             "Args:\n"
@@ -323,8 +357,12 @@ class MCPBridge:
             
         gateway_wrapper.__name__ = server_name
         gateway_wrapper.__doc__ = docstring
-        
-        self.registry.register_tool(server_name, gateway_wrapper)
+        gateway_wrapper = tool(gateway_wrapper)
+
+        if hasattr(type(self.registry), "register_category"):
+            self.registry.register_category(MCPServerCategory(self, server_name, description, gateway_wrapper))
+        else:
+            self.registry.register_tool(server_name, gateway_wrapper)
 
     def _format_tools_list(self, server_name: str) -> str:
         """

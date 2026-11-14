@@ -18,11 +18,17 @@ Using pytest_configure ensures the configuration is available when modules
 are imported, resolving the "RuntimeError: ProgramConfig not initialized."
 """
 
+import os
+import tempfile
+
 import torch
 from ai.config import ProgramConfig
 
 def pytest_configure(config):
     """
-    Loads the program configuration before test collection begins.
+    Loads the program configuration before test collection begins, in a throw-away root
+    directory: tests must never read or write the user's real AI_ASSISTANT_DIRECTORY
+    (config.json migrations, sessions, logs, knowledge registry).
     """
+    os.environ["AI_ASSISTANT_DIRECTORY"] = tempfile.mkdtemp(prefix="ai-tests-")
     ProgramConfig.load()

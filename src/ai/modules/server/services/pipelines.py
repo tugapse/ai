@@ -176,12 +176,19 @@ def list_tools(modules, hil_tools: List[str], totp_tools: set) -> List[dict]:
     from ai.tools.tool_registry import ToolRegistry
 
     found: Dict[str, Any] = {}
-    if modules is not None and hasattr(modules, "tool_functions"):
+    categories: Dict[str, str] = {}
+    if modules is not None and hasattr(modules, "tool_categories"):
+        for category in modules.tool_categories():
+            for fn in category.get_category_tools():
+                found[fn.__name__] = fn
+                categories[fn.__name__] = category.name
+    elif modules is not None and hasattr(modules, "tool_functions"):
         found.update(modules.tool_functions())
     registry = ToolRegistry()
     load_and_register_user_tools(registry, DirectoryManager().get_user_tools_directory())
     for name, ref in registry.get_all_tools().items():
         found.setdefault(name, ref)
+        categories.setdefault(name, registry.category_of(name) or "")
 
     tools = []
     for name in sorted(found):
@@ -189,6 +196,6 @@ def list_tools(modules, hil_tools: List[str], totp_tools: set) -> List[dict]:
             description = ToolRegistry.parse_docstring_to_schema(name, found[name]).get("description", "")
         except Exception:
             description = ""
-        tools.append({"name": name, "description": description,
+        tools.append({"name": name, "description": description, "category": categories.get(name, ""),
                       "needs_permission": name in hil_tools, "needs_totp": name in totp_tools})
     return tools

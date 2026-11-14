@@ -101,7 +101,13 @@ class TestConnection:
         info = registry.get_tool_info(SERVER)
         assert "Test MCP server used by the JARVIS test-suite." in info
         assert "list_tools" in info and "execute" in info
-        assert "First call it with action" in info  # teaches the list-then-execute flow
+        assert "listed below once the category" in info  # commands come with the open category
+
+    def test_server_is_a_tool_category(self, bridge, registry):
+        category = registry.get_category(registry.category_of(SERVER))
+        assert category is not None and registry.category_tools(category.name) == [SERVER]
+        assert category.description == "Test MCP server used by the JARVIS test-suite."
+        assert "Command: echo" in category.describe_open()
 
 
 # ---------------------------------------------------------------- list_tools

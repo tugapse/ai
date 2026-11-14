@@ -41,7 +41,22 @@ class TestModules:
         for name in ModuleRegistry.TOOL_MODULES:
             assert isinstance(registry[name], ToolModule), name
         assert set(registry.tool_functions()) == ALL_TOOLS
-        assert registry["voice"] is None and registry["vector_memory"] is None  # still opt-in
+        assert registry["voice"] is None  # still opt-in
+
+    @pytest.mark.parametrize("installed", [True, False])
+    def test_vector_memory_loads_by_default_when_installed(self, installed, monkeypatch):
+        from ai.services.engine_manager import EngineManager
+        monkeypatch.setattr(EngineManager, "is_engine_installed", staticmethod(lambda *a, **k: installed))
+        registry = ModuleRegistry(FakeConfig())
+        registry.load_all()
+        assert (registry["vector_memory"] is not None) is installed
+
+    def test_vector_memory_explicitly_disabled(self, monkeypatch):
+        from ai.services.engine_manager import EngineManager
+        monkeypatch.setattr(EngineManager, "is_engine_installed", staticmethod(lambda *a, **k: True))
+        registry = ModuleRegistry(FakeConfig({"VECTOR_MEMORY_ENABLED": False}))
+        registry.load_all()
+        assert registry["vector_memory"] is None
 
     @pytest.mark.parametrize("value", [False, "false", "0", "off"])
     def test_module_can_be_disabled_in_config(self, value):

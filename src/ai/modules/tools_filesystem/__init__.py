@@ -11,4 +11,5 @@ TOOLS = [read_dir, read_file, read_files, write_file, patch_file, delete_file]
 
 
 def create_module() -> ToolModule:
-    return ToolModule("tools_filesystem", TOOLS, description='Filesystem tools: list, read, write, patch and delete project files.')
+    return ToolModule("tools_filesystem", TOOLS, category="filesystem",
+                      description="List folders and read, write, patch or delete project files.")

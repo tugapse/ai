@@ -3,6 +3,7 @@ import json
 import re
 from typing import Dict, Any, Callable, Optional
 import ai.functions as func
+from ai.tools.category import ToolCategory, ToolCategoryError, validate_category
 
 
 class ToolRegistry:
@@ -23,6 +24,8 @@ class ToolRegistry:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._tools = {}
+            cls._instance._categories = {}
+            cls._instance._tool_category = {}
         return cls._instance
 
     def __init__(self):
@@ -33,7 +36,8 @@ class ToolRegistry:
 
     def register_tool(self, name: str, func_ref: Callable):
         """
-        Registers a callable function with a unique name in the registry.
+        Registers a callable function with a unique name in the registry, outside any category
+        (always visible to agents). Agent tools should come in a ToolCategory: see register_category.
 
         Args:
             name: The unique string identifier for the tool.
@@ -41,6 +45,60 @@ class ToolRegistry:
         """
         self._tools[name] = func_ref
         func.debug(f"Tool registered: {name}", level="WARN")
+
+    # --- categories ---
+    def register_category(self, category: ToolCategory) -> Dict[str, Callable]:
+        """
+        Validates a ToolCategory and registers its tools. Registering a category with the same
+        name again replaces it (its tool list may have changed).
+
+        Returns:
+            {tool_name: callable} of the category's tools.
+
+        Raises:
+            ToolCategoryError: if the category breaks the contract, or one of its tools already
+            belongs to another category.
+        """
+        tools = validate_category(category)
+        current = self._categories.get(category.name)
+        if current is not None and type(current) is not type(category):
+            raise ToolCategoryError(
+                f"Category name '{category.name}' is already used by {type(current).__name__}.")
+        for name in tools:
+            owner = self._tool_category.get(name)
+            if owner and owner != category.name and owner in self._categories:
+                raise ToolCategoryError(
+                    f"Category '{category.name}': tool '{name}' already belongs to category '{owner}'.")
+        self.unregister_category(category.name)
+        self._categories[category.name] = category
+        for name, ref in tools.items():
+            self._tools[name] = ref
+            self._tool_category[name] = category.name
+        func.debug(f"Tool category registered: {category.name} ({', '.join(tools)})")
+        return tools
+
+    def unregister_category(self, name: str) -> None:
+        """Removes a category and its tools."""
+        if self._categories.pop(name, None) is None:
+            return
+        for tool_name in [t for t, c in self._tool_category.items() if c == name]:
+            self._tool_category.pop(tool_name, None)
+            self._tools.pop(tool_name, None)
+
+    def get_categories(self) -> Dict[str, ToolCategory]:
+        return dict(self._categories)
+
+    def get_category(self, name: str) -> Optional[ToolCategory]:
+        return self._categories.get(name)
+
+    def category_of(self, tool_name: str) -> Optional[str]:
+        """The category a tool belongs to, or None for a tool registered on its own."""
+        category = self._tool_category.get(tool_name)
+        return category if category in self._categories else None
+
+    def category_tools(self, name: str) -> list:
+        """Names of the tools registered for a category, in registration order."""
+        return [t for t, c in self._tool_category.items() if c == name and t in self._tools]
 
     def get_tool_info(self, name: str) -> str:
         """

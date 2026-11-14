@@ -11,6 +11,13 @@ from typing import Any, TypeVar, Generic, Optional, overload
 T = TypeVar("T")
 
 
+
+# Runtime data the app writes under assets/templates when run from a source checkout
+# (see .gitignore). Never copied into a user directory.
+RUNTIME_TEMPLATE_DIRS = {
+    "system/frontend", "system/logs", "system/pids", "system/workspace", "workspace", "user/server",
+}
+
 class ProgramSetting(Enum):
     """
     Defines all possible configuration keys used throughout the program.
@@ -46,6 +53,8 @@ class ProgramSetting(Enum):
 
     AGENT_THOUGHT = "AGENT_THOUGHT"
     HIL_TOOLS="HIL_TOOLS"
+    AGENT_TOOL_RESULT_MAX_CHARS = "AGENT_TOOL_RESULT_MAX_CHARS"  # Longest tool result put in an agent payload (0 = no limit)
+    AGENT_TOOL_CATEGORIES = "AGENT_TOOL_CATEGORIES"  # Agents see tool categories and open them with open_tools (false = all tools always listed)
 
     VOICE_ENABLED = "VOICE_ENABLED"
     VOICE_FILE = "VOICE_FILE"
@@ -60,6 +69,21 @@ class ProgramSetting(Enum):
     VECTOR_RECENCY_WEIGHT = "VECTOR_RECENCY_WEIGHT"
     VECTOR_IMPORTANCE_WEIGHT = "VECTOR_IMPORTANCE_WEIGHT"
     VECTOR_RELEVANCE_WEIGHT = "VECTOR_RELEVANCE_WEIGHT"
+    DEFAULTS_MIGRATION = "DEFAULTS_MIGRATION"      # Last one-time config migration applied (internal)
+    LTM_SCOPE = "LTM_SCOPE"                        # project (default) | session | global: which memory a run reads/writes
+    LTM_LLM_IMPORTANCE = "LTM_LLM_IMPORTANCE"      # Ask the LLM to rate each memory (slow); default: by memory type
+    LTM_INJECT_TOP_K = "LTM_INJECT_TOP_K"          # Memories injected into the agent payload per step (0 = off)
+    LTM_MIN_RELEVANCE = "LTM_MIN_RELEVANCE"        # Minimum similarity for an injected memory
+    LTM_AUTO_REFLECT_MIN = "LTM_AUTO_REFLECT_MIN"  # New memories that trigger a reflection when a run ends (0 = off)
+    KNOWLEDGE_ENABLED = "KNOWLEDGE_ENABLED"        # Knowledge module (on unless false)
+    KNOWLEDGE_SOURCES = "KNOWLEDGE_SOURCES"        # ["path", {"id","path","kind": auto|knowledge|docs}]; relative to the workspace
+    KNOWLEDGE_SEMANTIC = "KNOWLEDGE_SEMANTIC"      # Embedding index for knowledge (default: on when the vector engine is installed)
+    KNOWLEDGE_INJECT_TOP_K = "KNOWLEDGE_INJECT_TOP_K"        # Components injected into the agent payload (0 = off)
+    KNOWLEDGE_INJECT_MAX_CHARS = "KNOWLEDGE_INJECT_MAX_CHARS"  # Character budget of the injected knowledge
+    KNOWLEDGE_OUTPUT_DIR = "KNOWLEDGE_OUTPUT_DIR"            # Where generated knowledge goes (default <root>/knowledge/<project>)
+    KNOWLEDGE_EXTENSIONS = "KNOWLEDGE_EXTENSIONS"            # Source extensions to document (default ["py"])
+    KNOWLEDGE_AUTO_UPDATE = "KNOWLEDGE_AUTO_UPDATE"          # Regenerate knowledge of files changed in a run (default true)
+    KNOWLEDGE_AUTO_UPDATE_MAX = "KNOWLEDGE_AUTO_UPDATE_MAX"  # Files regenerated per run (default 5)
     SERVER_HOST = "SERVER_HOST"    
     SERVER_PORT = "SERVER_PORT"
     SERVER_TRUSTED_NETWORKS = "SERVER_TRUSTED_NETWORKS"  # CIDRs allowed on protected routes (default LAN + Tailscale)
@@ -159,30 +183,48 @@ class ProgramConfig(Generic[T]):
         self._ensure_path(ProgramSetting.VECTOR_DB_PATH, "databases")
 
         self._ensure_user_settings()
+        if self._migrate_defaults():
+            need_save = True
 
         if need_save:
             self.save(user_config_filename)
+
+    def _migrate_defaults(self) -> bool:
+        """
+        One-time config migrations. Returns True when the config changed (and must be saved).
+
+        1: VECTOR_MEMORY_ENABLED used to be written as false automatically. Long-term memory now
+           loads by default when its engine is installed, so that automatic false is removed once;
+           a false set after this migration disables it for real.
+        """
+        try:
+            version = int(self.config.get(str(ProgramSetting.DEFAULTS_MIGRATION)) or 0)
+        except (TypeError, ValueError):
+            version = 0
+        if version >= 1:
+            return False
+        if self.config.get(str(ProgramSetting.VECTOR_MEMORY_ENABLED)) is False:
+            del self.config[str(ProgramSetting.VECTOR_MEMORY_ENABLED)]
+        self.set(ProgramSetting.DEFAULTS_MIGRATION, 1)
+        return True
 
     def _ensure_user_settings(self) -> None:
         """
         Ensures that essential user settings have default values if they are missing.
         """
-        if self.config.get(ProgramSetting.MODEL_CONFIG_NAME) is None:
+        if self.get(ProgramSetting.MODEL_CONFIG_NAME) is None:
             self.set(ProgramSetting.MODEL_CONFIG_NAME, "default.json")
 
-        if self.config.get(ProgramSetting.SYSTEM_PROMPT_FILE) is None:
+        if self.get(ProgramSetting.SYSTEM_PROMPT_FILE) is None:
             self.set(ProgramSetting.SYSTEM_PROMPT_FILE, "default")
 
-        if self.config.get(ProgramSetting.VOICE_ENABLED) is None:
+        if self.get(ProgramSetting.VOICE_ENABLED) is None:
             self.set(ProgramSetting.VOICE_ENABLED, False)
 
-        if self.config.get(ProgramSetting.VECTOR_MEMORY_ENABLED) is None:
-            self.set(ProgramSetting.VECTOR_MEMORY_ENABLED, False)
-
-        if self.config.get(ProgramSetting.AGENT_THOUGHT) is None:
+        if self.get(ProgramSetting.AGENT_THOUGHT) is None:
             self.set(ProgramSetting.AGENT_THOUGHT, False)
         
-        if self.config.get(ProgramSetting.HIL_TOOLS) is None:
+        if self.get(ProgramSetting.HIL_TOOLS) is None:
             self.set(ProgramSetting.HIL_TOOLS, ["execute_command", "write_file", "patch_file", "delete_file"])
 
     def save(self, filename: str) -> None:
@@ -216,6 +258,18 @@ class ProgramConfig(Generic[T]):
         return shutil.copy2(src, dst, follow_symlinks=follow_symlinks)
 
     
+    @staticmethod
+    def _runtime_dirs_ignore(templates_root: str):
+        """copytree ``ignore`` callable that skips RUNTIME_TEMPLATE_DIRS (relative to the templates root)."""
+        root = os.path.abspath(templates_root)
+
+        def ignore(directory: str, names):
+            rel = os.path.relpath(os.path.abspath(directory), root).replace(os.sep, "/")
+            prefix = "" if rel == "." else rel + "/"
+            return {n for n in names if prefix + n in RUNTIME_TEMPLATE_DIRS}
+
+        return ignore
+
     def copy_templates_to_user_dir(self, user_dir: Optional[str] = None) -> None:
         """
         Copies template directories and files from the application's asset folder
@@ -242,13 +296,16 @@ class ProgramConfig(Generic[T]):
             f"Copying templates from {project_root_templates_dir} to {user_dir}"
         )
 
+        ignore = self._runtime_dirs_ignore(str(project_root_templates_dir))
         try:
             for item_name in os.listdir(project_root_templates_dir):
+                if item_name in RUNTIME_TEMPLATE_DIRS:
+                    continue
                 src_item_path = os.path.join(project_root_templates_dir, item_name)
                 dest_item_path = os.path.join(user_dir, item_name)
                 
                 if os.path.isdir(src_item_path):
-                    shutil.copytree(src_item_path, dest_item_path, dirs_exist_ok=True,copy_function=self.copy_skip_existing )
+                    shutil.copytree(src_item_path, dest_item_path, dirs_exist_ok=True,copy_function=self.copy_skip_existing, ignore=ignore)
                     
                 elif os.path.isfile(src_item_path) and not os.path.exists(dest_item_path):
                     shutil.copy2(src_item_path, dest_item_path)
@@ -266,7 +323,7 @@ class ProgramConfig(Generic[T]):
             setting: The ProgramSetting enum key to update (e.g., PATHS_LOGS).
             subfolder: The name of the subdirectory to create (e.g., "logs").
         """
-        if not self.config.get(setting):
+        if not self.get(setting):
             root = self.get(ProgramSetting.ROOT_DIRECTORY)
             self.set(setting, os.path.join(root, subfolder))
 

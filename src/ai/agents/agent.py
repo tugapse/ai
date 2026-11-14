@@ -104,9 +104,9 @@ def build_orchestrator(prog, pipeline_file: str = "default.json", io=None, direc
     connector = LLMConnector(prog.llm)
     registry = ToolRegistry()
     # Built-in tools come from the enabled tool modules (ai.modules.tools_*).
-    if prog.modules is not None and hasattr(prog.modules, "tool_functions"):
-        for name, tool_ref in prog.modules.tool_functions().items():
-            registry.register_tool(name, tool_ref)
+    if prog.modules is not None and hasattr(prog.modules, "tool_categories"):
+        for category in prog.modules.tool_categories():
+            registry.register_category(category)
 
     # Dynamically load and register tools from the user-defined 'tools' directory
     directory_manager = directory_manager or DirectoryManager()

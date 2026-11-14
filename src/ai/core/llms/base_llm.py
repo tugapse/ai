@@ -130,8 +130,11 @@ class BaseModel:
         Args:
             **kwargs: Arguments potentially containing context window and token limits.
         """
-        self.token_info_count.max_context_window = self.options.get("n_ctx", 2048)
-        self.token_info_count.max_output_tokens = self.options.get("max_new_tokens", 2048)
+        # A value the backend already set (e.g. GGUF's n_ctx model property) is kept: options only
+        # carry n_ctx for some backends, and the 2048 default made the context look tiny.
+        info = self.token_info_count
+        info.max_context_window = self.options.get("n_ctx") or info.max_context_window or 2048
+        info.max_output_tokens = self.options.get("max_new_tokens") or info.max_output_tokens or 2048
 
 
     def handle_sentinel(self, content: str, is_intercepting: bool, sentinel_buffer: str):

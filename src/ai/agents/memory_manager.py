@@ -12,12 +12,14 @@ class AgentMemory:
         history: A chronological log of the agent's past interactions and thoughts.
         current_task: The current objective or state of the agent.
         manifest: A dictionary containing structured metadata about the agent's state.
+        open_categories: Tool categories the agent unlocked with open_tools.
     """
     notes: str = "System initialized."
     messages_received: list = field(default_factory=list)
     history: list = field(default_factory=list)
     current_task: str = "Waiting for tasks..."
     manifest: Dict[str, Any] = field(default_factory=dict)
+    open_categories: List[str] = field(default_factory=list)
 
 @dataclass
 class OrchestratorContext:
@@ -163,6 +165,28 @@ class MemoryManager:
         })
         memory.messages_received = []
 
+    @staticmethod
+    def _normalize_params(params: Any) -> Any:
+        """
+        Parameters as compared for loop detection: the 'intent' note is ignored, strings are stripped,
+        a one-item list equals its item and lists are order-independent (the same call written a
+        little differently is still the same call).
+        """
+        if not isinstance(params, dict):
+            return params
+
+        def norm(value):
+            if isinstance(value, str):
+                return value.strip()
+            if isinstance(value, (list, tuple)):
+                items = sorted((norm(v) for v in value), key=lambda v: json.dumps(v, sort_keys=True, default=str))
+                return items[0] if len(items) == 1 else items
+            if isinstance(value, dict):
+                return {k: norm(v) for k, v in value.items()}
+            return value
+
+        return {k: norm(v) for k, v in params.items() if k != "intent"}
+
     def check_stagnation(self, tool_name: Optional[str], params: Dict[str, Any]) -> bool:
         """
         Tracks identical tool calls to detect architectural loops.
@@ -174,7 +198,7 @@ class MemoryManager:
         Returns:
             True if a loop condition (3 or more identical calls in the recent history) is detected, False otherwise.
         """
-        current_fp = f"{tool_name}-{json.dumps(params, sort_keys=True)}"
+        current_fp = f"{tool_name}-{json.dumps(self._normalize_params(params), sort_keys=True, default=str)}"
         self.context.action_history_fp.append(current_fp)
         
         if len(self.context.action_history_fp) > 5:
@@ -201,4 +225,5 @@ class MemoryManager:
             mem.notes = "System initialized."
             mem.manifest = {}
             mem.current_task = "Waiting for tasks..."
+            mem.open_categories = []
             self.context.tool_results = []

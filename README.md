@@ -42,6 +42,8 @@ The assistant includes an **Agentic Mode** that allows the LLM to interact with 
 * **Toolbox:** Includes `smart_search`, `patch_file`, `execute_command`, and more.
 * **Safety (HITL):** Sensitive operations require manual user authorization (Human-In-The-Loop) unless explicitly whitelisted.
 * **Iteration:** Agents can self-correct and iterate through multiple steps to complete complex tasks.
+* **Tool categories:** Tools are grouped in categories (`filesystem`, `search`, `shell`, `web`, `notify`, `knowledge`, `memory`, one per MCP server, plus your own). An agent first sees only the category names and descriptions, and calls `open_tools` to unlock the ones it needs (or calls a tool directly, which opens its category). This keeps small context windows free. Set `"AGENT_TOOL_CATEGORIES": false` to list every tool from the start.
+* **Your own tools:** Python files in `<AI dir>/tools/`. Every `@tool` function must belong to a `ToolCategory` subclass (`from ai.tools import ToolCategory, tool`) with a `name` and a one-line `description`, which are checked at load time. See `tools/_example_tools.py`.
 
 
 > For a full list of available tools, safety configurations, and agentic workflows, please refer to the [**Agent Documentation**](docs/agents/agent.md).
@@ -156,6 +158,10 @@ Running a task from user/tasks folder
 | `--task-file` | `-tf` | Load directive from file. |
 | `--pipeline` | `-ppl` | Define multi-stage instruction pipeline. (defaults to default.json) |
 | `--session-id`| | LTM (Long Term Memory) session key. |
+| `--knowledge` | `-kb` | Knowledge source for the agents: a folder of component JSON (`code/extract-knowledge` task) and/or Markdown docs. Repeatable; remembered for this folder. |
+| `--build-knowledge` | | `[SRC]`: generate docs + component knowledge for this folder with the model (`--kb-mode`, `--kb-only`, `--kb-ext`, `--kb-files`, `--kb-max`, `--kb-force`). |
+| `--knowledge-list` | | Show the knowledge registered for this folder and its coverage. |
+| `--knowledge-forget` | | `ID`: stop loading a registered knowledge source for this folder. |
 | `--output-file` | `-o` | Designate clean output stream (temp-file mode). |
 
 ### Distributed Architecture
@@ -179,6 +185,46 @@ Running a task from user/tasks folder
 | `--install` | | Execute dependency sync protocol. |
 | `--overwrite-config`| | Force configuration and templates overwriting. |
 | `--create-tool` | | Create a new user tool skeleton file. |
+
+---
+
+##  Knowledge & Long-Term Memory
+
+Agents can start from what is already known about a project instead of re-exploring it.
+
+**Knowledge** has two kinds of files:
+- component JSON, one per source file (summary, symbols, dependency edges) - the `code/extract-knowledge` task;
+- Markdown documentation, one per source file - the `code/create-code-documentation` task (split into sections for semantic search, linked to the components by path).
+
+**Generate it with the app** (one model call per file and kind):
+```bash
+ai --build-knowledge            # this folder: src/ (or .), *.py, only missing/changed files
+ai --build-knowledge src --kb-ext py,ts --kb-mode all
+ai --build-knowledge --kb-mode diff:master      # files changed vs a branch
+ai --build-knowledge --kb-files src/app/main.py --kb-only knowledge
+```
+Output goes to `<root>/knowledge/<project>/{docs,knowledge}` (mirroring the source tree; `KNOWLEDGE_OUTPUT_DIR` changes the base). A `.state.json` keeps the source hash of every file, so `changed` (the default) only regenerates what changed; failed files are retried. The manifest of related files is sent inline, so dependency edges and links point at real files.
+
+**Remembered per project**: sources loaded with `--knowledge PATH`, built with `--build-knowledge`, or added by the `ingest_knowledge` tool / server API are registered for that folder (`<root>/system/knowledge/projects.json`) and loaded again whenever an agent works there - no flag needed next time. `ai --knowledge-list` shows them with the build coverage; `ai --knowledge-forget ID` removes one. `KNOWLEDGE_SOURCES` in config.json and `"knowledge": [...]` in a pipeline add more; an agent with `"knowledge": ["id", ...]` only sees those sources.
+
+**Agents** get a short `relevant_components` / `related_to_touched_files` list each step and the tools `search_knowledge`, `get_component`, `knowledge_neighbors`, `find_symbol`, `read_doc`, plus `knowledge_status` and `update_knowledge` to create or refresh the knowledge themselves. When a run changes files of a project whose knowledge was built by the app, those files are regenerated when the turn ends (`KNOWLEDGE_AUTO_UPDATE`). The server exposes the same: `/api/v1/knowledge/sources`, `/search`, `/status` and `/build` (background job, one at a time; it does not run during an agent run).
+
+**Long-term memory** keeps decisions, preferences, distilled tool outputs and one episode per finished turn, per project by default, so later sessions recall them (`long_term_memory` in the payload, `query_memory`, `remember`). It is on when its engine is installed (`ai --install`, Long Term Memory); `VECTOR_MEMORY_ENABLED: false` turns it off.
+
+| Setting | Default | Description |
+| :--- | :--- | :--- |
+| `KNOWLEDGE_ENABLED` | `true` | Knowledge module. |
+| `KNOWLEDGE_SOURCES` | `[]` | Extra sources for every project: paths or `{"id","path","kind": "auto\|knowledge\|docs"}`. |
+| `KNOWLEDGE_OUTPUT_DIR` | `<root>/knowledge` | Base folder of generated knowledge. |
+| `KNOWLEDGE_EXTENSIONS` | `["py"]` | Source extensions `--build-knowledge` documents (per project once built). |
+| `KNOWLEDGE_AUTO_UPDATE` / `KNOWLEDGE_AUTO_UPDATE_MAX` | `true` / `5` | Regenerate the knowledge of files a run changed. |
+| `KNOWLEDGE_SEMANTIC` | engine installed | Embedding index for knowledge (keyword search otherwise). |
+| `KNOWLEDGE_INJECT_TOP_K` / `KNOWLEDGE_INJECT_MAX_CHARS` | `4` / `1500` | Knowledge injected per step (0 turns it off). |
+| `VECTOR_MEMORY_ENABLED` | engine installed | Long-term memory. |
+| `LTM_SCOPE` | `project` | `project`, `session` or `global` memory. |
+| `LTM_INJECT_TOP_K` / `LTM_MIN_RELEVANCE` | `4` / `0.3` | Memories injected per step. |
+| `LTM_AUTO_REFLECT_MIN` | `15` | New memories that trigger a reflection (one LLM call) when a run ends; 0 = off. |
+| `LTM_LLM_IMPORTANCE` | `false` | Ask the LLM to rate each memory instead of rating by type. |
 
 ---
 

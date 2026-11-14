@@ -11,4 +11,5 @@ TOOLS = [web_search, web_read]
 
 
 def create_module() -> ToolModule:
-    return ToolModule("tools_web", TOOLS, description="Web tools: search the web and read pages as clean text, without launching a browser.")
+    return ToolModule("tools_web", TOOLS, category="web",
+                      description="Search the web and read web pages as clean text.")

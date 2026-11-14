@@ -11,4 +11,5 @@ TOOLS = [execute_command]
 
 
 def create_module() -> ToolModule:
-    return ToolModule("tools_shell", TOOLS, description='Shell tool: run non-interactive commands in the project.')
+    return ToolModule("tools_shell", TOOLS, category="shell",
+                      description="Run non-interactive shell commands in the project (tests, builds, git, scripts).")

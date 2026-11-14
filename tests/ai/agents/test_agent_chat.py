@@ -666,7 +666,10 @@ class TestSelfTarget:
         config = SELF_PIPELINE["agents"]["SECRETARY"]
         orch.memory = MagicMock()
         assert orch._process_agent_response({"action": {"agent_target": "self"}}, "SECRETARY", config) == "SECRETARY"
-        orch.memory.add_message_to_agent.assert_not_called()
+        # Not rejected as an invalid target; the only note is how to end a turn that called no tool.
+        messages = [c.args[1]["message"] for c in orch.memory.add_message_to_agent.call_args_list]
+        assert not any("Invalid transition target" in m for m in messages)
+        assert len(messages) == 1 and "called no tool" in messages[0]
 
     def test_prompt_shows_self_instead_of_own_name(self):
         orch, conn, _ = make_orchestrator([

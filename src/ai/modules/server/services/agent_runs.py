@@ -417,6 +417,8 @@ class AgentRunService:
         with self._lock:
             if self.busy:
                 raise AgentApiError(409, "An agent run is already in progress.")
+            if getattr(self.brain_hub, "knowledge_building", False):
+                raise AgentApiError(409, "A knowledge build is using the model; try again when it ends.")
             # Load and claim the model in one step under the hub lock, so no chat swaps it in between.
             with self.brain_hub._lock:
                 if model:

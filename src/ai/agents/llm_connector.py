@@ -126,9 +126,33 @@ class LLMConnector:
         injection = [
                 "\n\n--- DYNAMIC CONSTRAINTS ---",
                 f"AVAILABLE TOOLS:\n{tool_descriptions}" if allowed_tools else "AVAILABLE TOOLS: None.",
-                f"ALLOWED AGENT TARGETS: {', '.join(allowed_targets)}",
+                "ALLOWED AGENT TARGETS:\n" + self.describe_targets(allowed_targets, agent_config.get("name")),
             ]
         return "\n".join(injection)
+
+    @staticmethod
+    def describe_targets(allowed_targets, agent_name=None) -> str:
+        """
+        One line per allowed target with what choosing it does. The agent's own name is shown
+        as SELF, the only target that takes another turn (and only together with a tool call).
+        """
+        own = str(agent_name or "").upper()
+        lines = []
+        if own:
+            lines.append(f"- SELF (you, {own}): take another turn. Only together with a tool call.")
+        for target in allowed_targets or []:
+            t = str(target).upper()
+            if t in ("SELF", own):
+                if not own:
+                    lines.append("- SELF (you): take another turn. Only together with a tool call.")
+                continue
+            if t == "USER":
+                lines.append("- USER: deliver your answer or question to the user and end your turn.")
+            elif t == "STOP":
+                lines.append("- STOP: the whole task is finished; end the run (put the final report in response_to_user).")
+            else:
+                lines.append(f"- {t}: hand the work to the {t} agent (describe it in message_to_target).")
+        return "\n".join(lines) if lines else "- STOP"
     
     def load_system_prompt_agent_output_rules(self, system_content):
         directory_manager = DirectoryManager()

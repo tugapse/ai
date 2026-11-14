@@ -11,4 +11,5 @@ TOOLS = [smart_search, grep_file]
 
 
 def create_module() -> ToolModule:
-    return ToolModule("tools_search", TOOLS, description='Search tools: find files and content across the project, or inside one file.')
+    return ToolModule("tools_search", TOOLS, category="search",
+                      description="Find files and text across the whole project, or lines inside one file.")

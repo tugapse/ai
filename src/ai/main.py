@@ -159,6 +159,16 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     agent_group.add_argument("--task-file", "-tf", type=str, help="Load directive from file")
     agent_group.add_argument("--pipeline", "-ppl", type=str, help="Execute multi-stage instruction pipeline")
     agent_group.add_argument("--session-id", type=str, help="LTM (Long Term Memory) session key")
+    agent_group.add_argument("--knowledge", "-kb", action="append", default=None, metavar="PATH", help="Knowledge source: folder of component JSON and/or Markdown docs (repeatable; adds to KNOWLEDGE_SOURCES)")
+    agent_group.add_argument("--knowledge-list", action="store_true", help="Show the knowledge registered for this folder (sources, build settings, coverage)")
+    agent_group.add_argument("--knowledge-forget", metavar="SOURCE_ID", help="Stop loading a registered knowledge source for this folder")
+    agent_group.add_argument("--build-knowledge", nargs="?", const="", default=None, metavar="SRC", help="Generate docs + component knowledge for this folder with the model (SRC: source root, default src/ or .)")
+    agent_group.add_argument("--kb-mode", default="changed", metavar="MODE", help="With --build-knowledge: missing | changed (default) | all | diff[:branch]")
+    agent_group.add_argument("--kb-only", choices=["docs", "knowledge"], help="With --build-knowledge: generate only docs or only component knowledge")
+    agent_group.add_argument("--kb-ext", metavar="EXTS", help="With --build-knowledge: source extensions, comma separated (default KNOWLEDGE_EXTENSIONS or py)")
+    agent_group.add_argument("--kb-files", metavar="FILES", help="With --build-knowledge: only these files, comma separated")
+    agent_group.add_argument("--kb-max", type=int, default=0, metavar="N", help="With --build-knowledge: stop after N files")
+    agent_group.add_argument("--kb-force", action="store_true", help="With --build-knowledge: regenerate files that are up to date")
     agent_group.add_argument("--resume", "-r", nargs="?", const="", default=None, metavar="SESSION_ID", help="Resume an agent session: pick from a list, or pass an id/prefix (implies --agent)")
     agent_group.add_argument("--list-sessions","-ls", action="store_true", help="List all available sessions for current working directory")
     agent_group.add_argument("--output-file", "-o", type=str, help="Designate clean output stream (temp-file mode)")
@@ -259,7 +269,7 @@ def run():
     directory_manager = DirectoryManager()
     process_manager = ProcessManager(directory_manager)
     
-    maintenance_keys = ['install',  'overwrite_config', 'generate_config', 'server', 'print_chat', 'list_models', 'create_tool', 'server_totp_setup', 'frontend']
+    maintenance_keys = ['install',  'overwrite_config', 'generate_config', 'server', 'print_chat', 'list_models', 'create_tool', 'server_totp_setup', 'frontend', 'knowledge_list', 'knowledge_forget']
     ProcessManager.set_state("mode", _instance_mode(args, maintenance_keys))
     ProcessManager.set_state("activity", "starting")
 

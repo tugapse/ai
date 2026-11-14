@@ -6,7 +6,6 @@ import argparse
 from ai.entities.model_enums import ModelType
 import ai.functions as func 
 from ai.color import Color, format_text 
-import functions as func
 
 class ModelConfigManager:
     """

@@ -1,5 +1,6 @@
 from typing import Any, Optional
 import ai.functions as func
+from ai.tools.category import ToolCategory
 
 class ModuleTools:
     """
@@ -90,19 +91,23 @@ class BaseModule:
         self._instance = None
         self._is_initialized = False
 
-class ToolModule(BaseModule):
+class ToolModule(BaseModule, ToolCategory):
     """
-    A module whose only job is to expose agent tools (``@tool`` functions).
+    A module whose only job is to expose one category of agent tools (``@tool`` functions).
 
     Loaded by the ModuleRegistry like any other module and enabled/disabled with
-    ``<MODULE_NAME>_ENABLED`` in config.json. Its tools are collected by the agent
-    orchestrator and the chat program through ``get_instance().tools``.
+    ``<MODULE_NAME>_ENABLED`` in config.json. It is a ToolCategory: agents see its ``category``
+    name and ``description`` until they open it with open_tools.
     """
 
-    def __init__(self, module_name: str, tool_functions, description: str = "", **kwargs):
+    def __init__(self, module_name: str, tool_functions, description: str = "", category: str = "", **kwargs):
         super().__init__(module_name, **kwargs)
+        self.name = category or module_name.removeprefix("tools_")
         self.description = description
         self._tool_functions = list(tool_functions)
+
+    def get_category_tools(self):
+        return list(self._tool_functions)
 
     def initialize(self, *args, **kwargs):
         if self._is_initialized:

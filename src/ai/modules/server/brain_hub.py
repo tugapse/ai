@@ -75,6 +75,7 @@ class BrainHub:
         self._idle = threading.Condition(self._lock)
         self._generations = 0           # chat generations holding a ModelLease
         self._agent_running = False     # a web agent run uses the model for its whole run
+        self.knowledge_building = False  # a knowledge build (server API) uses the model
         self._swap_target: Optional[str] = None
         self._cancel_hooks: List[Callable[[], None]] = []
         self.history = self.new_history(None, "default", None)

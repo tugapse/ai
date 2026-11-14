@@ -6,6 +6,7 @@ It coordinates the JARVIS behavior mode: Standalone, Server, or Client.
 import argparse
 import os
 import sys
+import time
 import subprocess
 from pathlib import Path
 
@@ -75,12 +76,15 @@ class CliArgs:
         self._is_print_chat(args)
         self._is_list_models(args)
         self._check_nhandle_list_sessions(args)
+        self._check_nhandle_knowledge_registry(args)
 
         # 2. Mode Dispatching
         # Check for Server Mode (Main PC)
         if getattr(args, 'server', False) or getattr(args, 'relay', None):
             self._handle_server_mode(prog, args)
             os._exit(0)
+
+        self._check_nhandle_build_knowledge(prog, args)
 
         # Default to Local/Direct Task Mode
         self._handle_local_direct_mode(prog, args,directory_manager=directory_manager)
@@ -92,6 +96,92 @@ class CliArgs:
 
         self._has_message(prog, args) 
     
+    def _check_nhandle_knowledge_registry(self, args):
+        """
+        --knowledge-list: shows the knowledge registered for the current folder.
+        --knowledge-forget ID: removes a registered source for the current folder.
+        """
+        if not (getattr(args, "knowledge_list", False) or getattr(args, "knowledge_forget", None)):
+            return
+        from ai.modules.knowledge.registry import KnowledgeRegistry
+        from ai.modules.knowledge.builder import KnowledgeBuilder, resolve_build_config
+        registry = KnowledgeRegistry()
+        project = os.getcwd()
+
+        if getattr(args, "knowledge_forget", None):
+            if registry.remove_source(project, args.knowledge_forget):
+                func.out(f"Knowledge source '{args.knowledge_forget}' forgotten for {project}.", level="INFO")
+            else:
+                func.error(f"No knowledge source '{args.knowledge_forget}' registered for {project}.")
+                sys.exit(1)
+            sys.exit(0)
+
+        entry = registry.get(project)
+        func.out(f"{Color.CYAN}Knowledge for {project}{Color.RESET}")
+        if not entry.get("sources"):
+            func.out("  No sources registered. Use --knowledge PATH or --build-knowledge.")
+        for src in entry.get("sources", []):
+            mark = "" if os.path.exists(src.get("path", "")) else f" {Color.RED}(missing){Color.RESET}"
+            func.out(f"  - {src.get('id')} [{src.get('kind', 'auto')}] {src.get('path')}{mark}")
+        build = entry.get("build") or {}
+        if build:
+            cfg = resolve_build_config(project, registry)
+            status = KnowledgeBuilder(cfg).status(limit=5)
+            func.out(f"  Build: {cfg.source_root} ({', '.join(cfg.extensions)}) -> {cfg.output_dir}")
+            for kind in ("docs", "knowledge"):
+                st = status[kind]
+                func.out(f"    {kind}: {st['ok']}/{status['source_files']} ok, {st['missing']} missing, "
+                         f"{st['outdated']} outdated, {st['error']} failed")
+        sys.exit(0)
+
+    def _check_nhandle_build_knowledge(self, prog, args):
+        """
+        --build-knowledge [SRC]: generates docs and component knowledge for the current folder with
+        the loaded model, registers the output as this folder's knowledge and exits.
+        """
+        if getattr(args, "build_knowledge", None) is None:
+            return
+        module = prog.modules["knowledge"] if prog.modules else None
+        if module is None:
+            func.error("The knowledge module is disabled (KNOWLEDGE_ENABLED).")
+            sys.exit(1)
+        if not prog.llm:
+            func.error("No model loaded. Cannot build knowledge.")
+            sys.exit(1)
+        service = module.get_instance().service
+        project = os.getcwd()
+        files = [f.strip() for f in (args.kb_files or "").split(",") if f.strip()] or None
+        overrides = {
+            "source_root": args.build_knowledge or None,
+            "extensions": [args.kb_ext] if args.kb_ext else None,
+            "kinds": [args.kb_only] if args.kb_only else None,
+        }
+        cfg = service.build_config(project, **overrides)
+        func.out(f"{Color.CYAN}Building knowledge{Color.RESET}: {cfg.source_root} ({', '.join(cfg.extensions)}) -> {cfg.output_dir}")
+        started = time.time()
+
+        def progress(event):
+            label = f"[{event['index']}/{event['total']}] {event['kind']:<9} {event['file']}"
+            if event["event"] == "start":
+                func.out(f"{Color.DIM}{label} ...{Color.RESET}")
+            elif event["event"] == "done":
+                elapsed = time.time() - started
+                eta = elapsed / event["index"] * (event["total"] - event["index"]) / 60 if event["index"] else 0
+                func.out(f"{Color.GREEN}{label} ok ({event['seconds']}s, ETA {eta:.1f}m){Color.RESET}")
+            else:
+                func.out(f"{Color.RED}{label} failed: {event.get('error')}{Color.RESET}")
+
+        try:
+            report = service.build(project, llm=prog.llm, mode=args.kb_mode, files=files,
+                                   max_files=args.kb_max or None, force=args.kb_force,
+                                   on_progress=progress, **overrides)
+        except Exception as e:
+            func.error(f"Knowledge build failed: {e}")
+            sys.exit(1)
+        func.out(f"{Color.CYAN}Done{Color.RESET}: {len(report['done'])} file(s) ok, {len(report['failed'])} failed, "
+                 f"{report['remaining']} remaining, {report['seconds']}s. Output: {report['output']}")
+        sys.exit(0 if not report["failed"] else 2)
+
     def _check_nhandle_frontend(self, args):
         """
         ``--frontend list``: the bundled, cached and active frontend versions.
