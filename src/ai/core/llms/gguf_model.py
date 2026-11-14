@@ -309,23 +309,6 @@ class GGUFImageLLM(BaseModel):
         func.log(f"[GGUF Engine] Vision enabled: {handler_cls.__name__} with {self.mmproj_filename}")
         return handler_cls(clip_model_path=clip_path, verbose=False)
 
-    @staticmethod
-    def image_to_data_url(image) -> str:
-        """A data URL for an image given as a data URL, a file path or a PIL image."""
-        import base64
-        import io
-        import mimetypes
-
-        if isinstance(image, str) and image.startswith("data:image/"):
-            return image
-        if isinstance(image, str):
-            mime = mimetypes.guess_type(image)[0] or "image/png"
-            with open(image, "rb") as f:
-                return f"data:{mime};base64,{base64.b64encode(f.read()).decode()}"
-        buffer = io.BytesIO()
-        image.convert("RGB").save(buffer, format="PNG")
-        return f"data:image/png;base64,{base64.b64encode(buffer.getvalue()).decode()}"
-
     def load_images(self, images: list) -> dict:
         """A user message holding the images as OpenAI-style content parts (vision models only)."""
         if not self.supports_vision:

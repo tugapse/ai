@@ -125,6 +125,8 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None,
             "model": (brain_hub.current_model_id if loaded else None) or "JARVIS",
             "loaded": loaded,
             "available": brain_hub.list_available_models() if brain_hub else [],
+            # Relay mode: the Brain Server that runs inference (models above are its models).
+            "relay": getattr(brain_hub, "relay_url", None),
             "api_level": API_LEVEL,
             "frontend": getattr(app.state, "frontend", {"version": None, "source": "none"}),
         }
@@ -141,6 +143,8 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None,
     async def unload_model(request: Request, device: dict = Depends(require_device)):
         """
         Frees the loaded model (RAM/VRAM). The next chat request loads the model it names.
+        In relay mode only the local client is dropped: the Brain Server keeps its model loaded
+        (other clients may be using it).
 
         Returns:
             ``{"status": "unloaded", "model": <key that was loaded, or null>}``.

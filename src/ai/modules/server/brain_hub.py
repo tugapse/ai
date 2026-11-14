@@ -24,6 +24,10 @@ class ModelLease:
         self._hub = hub
         self._released = False
 
+    @property
+    def released(self) -> bool:
+        return self._released
+
     def release(self) -> None:
         if not self._released:
             self._released = True
@@ -44,14 +48,24 @@ class BrainHub:
     This class acts as the central hub, coordinating between the LLM models
     (via ModelOrchestrator) and the persistent memory storage (via HistoryManager).
     """
-    def __init__(self, config: ProgramConfig):
+    RELAY_TIMEOUT = 5.0          # seconds for the Brain Server's model list / health
+    RELAY_CACHE_SECONDS = 10.0   # the remote model list is reused this long
+    RELAY_SESSION_FOLDER = "relay"  # where the Brain Server keeps the history of relayed calls
+
+    def __init__(self, config: ProgramConfig, relay_url: Optional[str] = None):
         """
         Initializes the BrainHub with the provided program configuration.
 
         Args:
             config: The global configuration object for the program.
+            relay_url: Relay mode: the Brain Server URL. Its models are listed instead of the
+                       local configs, and loading one creates a ``jarvis`` client to it, so agent
+                       runs (tools, files, sessions) stay on this machine and only inference is remote.
         """
         self.config = config
+        self.relay_url: Optional[str] = relay_url.rstrip("/") if relay_url else None
+        self._relay_cache: Optional[tuple] = None  # (monotonic time, remote model configs)
+        self._relay_list_failed = False  # the last Brain Server listing failed (network/HTTP)
         self.orchestrator = ModelOrchestrator(config)
         self.history_file: str = ""
         self.current_model_id: Optional[str] = None
@@ -233,6 +247,25 @@ class BrainHub:
             self._publish_activity()
             return ModelLease(self)
 
+    def stop_generation_for(self, lease: ModelLease) -> bool:
+        """
+        Stops the generation held by ``lease`` (its client went away), so the model is free
+        sooner. The engine's stop event is shared by everything using the model, so it is set
+        only when this lease is the model's sole user; otherwise that generation runs to its end.
+
+        Returns:
+            True when the stop was signalled.
+        """
+        with self._lock:
+            sole_user = not lease.released and self._generations == 1 and not self._agent_running
+            stop_event = getattr(self.orchestrator.llm, "stop_generation_event", None)
+            if not sole_user or stop_event is None:
+                func.debug("BrainHub: client gone, but other work shares the model; generation runs on.")
+                return False
+            stop_event.set()
+            func.debug("BrainHub: client gone; generation stopped.")
+            return True
+
     @staticmethod
     def release_with(owner, lease: ModelLease) -> None:
         """Releases ``lease`` when ``owner`` (e.g. a streaming generator that never ran) is collected."""
@@ -344,10 +377,14 @@ class BrainHub:
                 if getattr(llm, "system_prompt", None) != system_prompt:
                     func.debug(f"BrainHub: Updating system prompt for loaded model '{key}'.")
                     llm.system_prompt = system_prompt
+                if self.relay_url:
+                    llm.on_busy = on_busy  # the Brain Server applies this request's policy
                 return llm
 
             config_data = model_config_data
-            if config_data is None:
+            if self.relay_url:
+                config_data = self._relay_config(key, on_busy)
+            elif config_data is None:
                 # Try the name as sent first, so a config file with capitals is still found.
                 path = (self.orchestrator.find_config_file(str(model_id or "").strip())
                         or self.orchestrator.find_config_file(key))
@@ -359,7 +396,7 @@ class BrainHub:
                 except Exception as e:
                     raise ModelLoadError(f"Invalid model config '{path}': {e}") from e
 
-            if not self.is_loadable(config_data):
+            if not self.relay_url and not self.is_loadable(config_data):
                 # A Jarvis config is a client of this server: loading it would call itself.
                 raise ModelLoadError(
                     f"Model '{key}' is a Jarvis client config; the server needs a local engine (e.g. gguf).")
@@ -447,21 +484,101 @@ class BrainHub:
         if folder:
             prefix = folder.strip().replace("\\", "/").strip("/").lower()
             prefix = f"{prefix}/" if prefix else ""
+        if self.relay_url:
+            return [dict(c) for c in self._remote_model_configs() if not prefix or c["key"].startswith(prefix)]
         configs = []
         for key, path in self.orchestrator.list_config_files().items():
             if prefix and not key.lower().startswith(prefix):
                 continue
-            entry = {"key": key.lower(), "model_name": key, "model_type": "", "loadable": False, "vision": False}
+            entry = {"key": key.lower(), "model_name": key, "model_type": "", "loadable": False, "vision": False,
+                     "n_ctx": None, "max_new_tokens": None}
             try:
                 data = EngineManager.load_config(path)
                 entry["model_name"] = data.get("model_name") or key
                 entry["model_type"] = str(data.get("model_type", ""))
                 entry["loadable"] = self.is_loadable(data)
                 entry["vision"] = self.has_vision(data)
+                properties = data.get("model_properties") or {}
+                entry["n_ctx"] = properties.get("n_ctx")
+                entry["max_new_tokens"] = properties.get("max_new_tokens")
             except Exception as e:
                 entry["error"] = str(e)
             configs.append(entry)
         return configs
+
+    # --- relay mode ----------------------------------------------------------------------
+
+    def _relay_get(self, path: str, params: Optional[dict] = None):
+        import httpx
+        response = httpx.get(f"{self.relay_url}{path}", params=params, timeout=self.RELAY_TIMEOUT)
+        response.raise_for_status()
+        return response.json()
+
+    def relay_health(self) -> dict:
+        """The Brain Server's ``/api/health``. Raises on a network or HTTP error."""
+        return self._relay_get("/api/health")
+
+    def _remote_model_configs(self, refresh: bool = False) -> list:
+        """
+        The Brain Server's model configs (cached RELAY_CACHE_SECONDS), keys unchanged so a client
+        sends exactly what the Brain Server knows; ``vision`` is the Brain Server's (images are
+        forwarded). An unreachable Brain Server gives an empty list.
+        """
+        import time
+        cached = self._relay_cache
+        if not refresh and cached and time.monotonic() - cached[0] < self.RELAY_CACHE_SECONDS:
+            return cached[1]
+        try:
+            data = self._relay_get("/api/v1/model-configs")
+            if not isinstance(data, list):
+                raise ValueError(f"expected a list, got {type(data).__name__}")
+        except Exception as e:
+            func.error(f"BrainHub: Brain Server {self.relay_url} model list failed: {e}")
+            self._relay_list_failed = True
+            return cached[1] if cached else []
+        self._relay_list_failed = False
+        configs = []
+        for item in data:
+            if not isinstance(item, dict) or not item.get("key"):
+                continue
+            entry = dict(item)
+            entry["key"] = self.model_key(str(item["key"]))
+            entry["vision"] = bool(item.get("vision"))
+            entry.setdefault("loadable", False)
+            configs.append(entry)
+        self._relay_cache = (time.monotonic(), configs)
+        return configs
+
+    def _relay_config(self, key: str, on_busy: str) -> dict:
+        """
+        A ``jarvis`` config that sends inference for ``key`` to the Brain Server.
+
+        Raises:
+            ModelNotFoundError: The Brain Server has no loadable model ``key``.
+        """
+        entry = next((c for c in self._remote_model_configs() if c["key"] == key), None)
+        if entry is None:  # maybe added on the Brain Server since the last listing
+            entry = next((c for c in self._remote_model_configs(refresh=True) if c["key"] == key), None)
+        if entry is None and self._relay_list_failed:
+            # The Brain Server did not answer the listing (e.g. busy generating): send the request
+            # anyway, it answers 404 with the reason if it has no such model.
+            func.out(f"BrainHub: Brain Server model list unavailable; relaying '{key}' unchecked.", level="WARNING")
+            entry = {"key": key, "loadable": True, "vision": True}  # the Brain Server refuses images it cannot read
+        if entry is None or not entry.get("loadable"):
+            raise ModelNotFoundError(
+                f"Model '{key}' not found on Brain Server {self.relay_url}. "
+                f"Available: {', '.join(self.list_available_models()) or 'none'}")
+        properties = {
+            "base_url": self.relay_url,
+            "server_model": key,
+            "on_busy": on_busy,
+            "session_folder": self.RELAY_SESSION_FOLDER,
+            "vision": bool(entry.get("vision")),
+        }
+        for name in ("n_ctx", "max_new_tokens"):
+            if entry.get(name):
+                properties[name] = entry[name]
+        return {"model_name": key, "model_type": "jarvis", "model_properties": properties}
 
     def list_available_models(self) -> list:
         """

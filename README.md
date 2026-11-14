@@ -162,6 +162,7 @@ Running a task from user/tasks folder
 | Flag | Alias | Description |
 | :--- | :--- | :--- |
 | `--server` | | Initialize Brain Server module. |
+| `--relay` | | `--relay URL`: run the server (website, agent runs, tools, files) on this machine and send only model inference to the Brain Server at URL; the website lists that server's models. Implies `--server`. Default: `SERVER_RELAY_URL` in config.json. |
 | `--modules` | | Load specific sub-modules. <module_name> |
 
 ### System Debug & Maintenance

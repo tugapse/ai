@@ -345,6 +345,30 @@ class BaseModel:
             self._generation_thread.join(timeout=timeout)
         self.stop_generation_event.clear()
 
+    # Image formats every engine and the server API accept as data URLs; others become PNG.
+    DATA_URL_IMAGE_TYPES = ("image/png", "image/jpeg", "image/webp", "image/gif")
+
+    @staticmethod
+    def image_to_data_url(image) -> str:
+        """A data URL for an image given as a data URL, a file path or a PIL image."""
+        import base64
+        import io
+        import mimetypes
+
+        if isinstance(image, str) and image.startswith("data:image/"):
+            return image
+        if isinstance(image, str):
+            mime = mimetypes.guess_type(image)[0] or ""
+            if mime in BaseModel.DATA_URL_IMAGE_TYPES:
+                with open(image, "rb") as f:
+                    return f"data:{mime};base64,{base64.b64encode(f.read()).decode()}"
+            from PIL import Image
+            with Image.open(image) as opened:  # e.g. bmp/tiff: re-encoded below
+                image = opened.copy()
+        buffer = io.BytesIO()
+        image.convert("RGB").save(buffer, format="PNG")
+        return f"data:image/png;base64,{base64.b64encode(buffer.getvalue()).decode()}"
+
     def chat(
         self,
         messages: list,

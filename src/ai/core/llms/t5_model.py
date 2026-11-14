@@ -1,5 +1,4 @@
 import threading
-import sys
 from huggingface_hub.errors import RepositoryNotFoundError, GatedRepoError
 import requests.exceptions
 import gc
@@ -8,6 +7,7 @@ import gc
 # import torch
 # from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, BitsAndBytesConfig
 import ai.functions as func
+from ai.core.llms.api_retry import LLMAPIError
 from ai.core.llms.base_llm import BaseModel
 from ai.core.events import Events
 
@@ -44,25 +44,24 @@ class T5Model(BaseModel):
             func.error(f"----------------------------------------------------\n")
             self.model = None
             self.tokenizer = None
-            sys.exit(1)
-        except RepositoryNotFoundError:
-            func.error(f"Error: Model '{self.model_name}' not found on Hugging Face Hub. Check spelling.")
+            # Load failures raise (never sys.exit): ModelOrchestrator.load exits the CLI itself,
+            # and a server reports ModelLoadError and keeps running with its current model.
+            raise RuntimeError(f"Gated model '{self.model_name}': access required.") from e
+        except RepositoryNotFoundError as e:
             self.model = None
             self.tokenizer = None
-            sys.exit(1)
+            raise RuntimeError(f"Model '{self.model_name}' not found on Hugging Face Hub. Check spelling.") from e
         except requests.exceptions.HTTPError as e:
-            func.error(f"Error: Could not download model files for '{self.model_name}'. Check network, disk space, or proxy settings.")
-            func.error(f"Details: {e}")
             self.model = None
             self.tokenizer = None
-            sys.exit(1)
+            raise RuntimeError(f"Could not download model files for '{self.model_name}'. Check network, disk space, or proxy settings. Details: {e}") from e
         except Exception as e:
             func.error(f"CRITICAL ERROR: Model initialization failed for {self.model_name}: {e}")
             import traceback
-            traceback.func.log_exc()
+            func.log(traceback.format_exc(), level="ERROR")
             self.model = None
             self.tokenizer = None
-            sys.exit(1)
+            raise
 
     def _load_llm_params(self):
         """Loads the tokenizer and Seq2Seq model from Hugging Face."""
@@ -143,6 +142,7 @@ class T5Model(BaseModel):
         context_string = self._prepare_input(messages)
 
         if self.is_gpu_available():
+            import torch  # lazy, like _load_llm_params: no module-level torch import here
             func.log("INFO: Clearing CUDA cache before generation...")
             torch.cuda.empty_cache()
             gc.collect()
@@ -186,8 +186,8 @@ class T5Model(BaseModel):
         except Exception as e:
             func.error(f"\nCRITICAL ERROR: An unexpected error occurred during T5Model generation: {e}")
             import traceback
-            traceback.func.log_exc()
-            sys.exit(1)
+            func.log(traceback.format_exc(), level="ERROR")
+            raise LLMAPIError(f"generation failed: {e}", provider="T5") from e
 
 
     def _prepare_input(self, messages: list):

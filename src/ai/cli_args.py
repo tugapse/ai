@@ -17,6 +17,7 @@ from typing import Optional
 # Configuration and Enums
 from ai.agents.session_manager import AgentSessionManager
 from ai.modules.server.brain_hub import BrainHub
+from ai.modules.server.relay import is_self_relay, normalize_relay_url
 from ai.services.process_manager import ProcessManager
 from ai.model_config_manager import ModelConfigManager
 from ai.config import ProgramConfig, ProgramSetting 
@@ -47,6 +48,7 @@ def _local_endpoint(host: str, port) -> str:
         host = f"[{host}]"
     return f"http://{host}:{port}"
 
+
 class CliArgs:
     """
     Main orchestrator for CLI input. Handles mode dispatching 
@@ -76,7 +78,7 @@ class CliArgs:
 
         # 2. Mode Dispatching
         # Check for Server Mode (Main PC)
-        if hasattr(args, 'server') and args.server:
+        if getattr(args, 'server', False) or getattr(args, 'relay', None):
             self._handle_server_mode(prog, args)
             os._exit(0)
 
@@ -261,10 +263,32 @@ def {function_name}(argument: str) -> str:
         :param args: The parsed arguments, which must contain the --server flag.
         :raises KeyboardInterrupt: Catches Ctrl+C to gracefully shut down the server.
         """
-        if args.server:
+        if args.server or getattr(args, "relay", None):
             try:
-                brain_hub = BrainHub(prog.config)
+                host = prog.config.get(ProgramSetting.SERVER_HOST, "0.0.0.0")
+                port = prog.config.get(ProgramSetting.SERVER_PORT, 9999)
+                relay = normalize_relay_url(getattr(args, "relay", None) or prog.config.get(ProgramSetting.SERVER_RELAY_URL))
+                if relay and is_self_relay(relay, host, port):
+                    func.error(f"Relay URL {relay} is this server ({host}:{port}): it would send requests to itself. "
+                               f"Point --relay at the Brain Server machine.")
+                    sys.exit(2)
+
+                brain_hub = BrainHub(prog.config, relay_url=relay)
                 brain_hub.orchestrator = prog.models
+                if relay:
+                    func.out(f"{Color.CYAN}[*] Relay mode: agents and tools run here, inference -> {relay}{Color.RESET}")
+                    try:
+                        health = brain_hub.relay_health()
+                        remote_level = health.get("api_level")
+                        from ai.modules.server.services.frontend import API_LEVEL
+                        if remote_level is not None and remote_level != API_LEVEL:
+                            func.out(f"Brain Server api_level {remote_level} differs from this one ({API_LEVEL}).",
+                                     level="WARNING")
+                        func.out(f"Brain Server online (model: {health.get('model')}, "
+                                 f"available: {', '.join(health.get('available') or []) or 'none'}).")
+                    except Exception as e:
+                        func.out(f"Brain Server at {relay} is not reachable yet ({e}); requests will retry it.",
+                                 level="WARNING")
                 if args.model:
                     try:
                         # Through the hub, so it knows which model is loaded and can swap it later.
@@ -282,9 +306,9 @@ def {function_name}(argument: str) -> str:
                         func.error(f"Server: loading modules failed, agent runs will lack their tools: {e}")
 
                 from ai.modules.server.server_module import JarvisServerModule
-                server = JarvisServerModule( 
-                    host=prog.config.get(ProgramSetting.SERVER_HOST, "0.0.0.0"),
-                    port=prog.config.get(ProgramSetting.SERVER_PORT, 9999),
+                server = JarvisServerModule(
+                    host=host,
+                    port=port,
                     brain_hub=brain_hub,
                     modules=prog.modules,
                 )

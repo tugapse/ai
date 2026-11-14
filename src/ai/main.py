@@ -166,6 +166,7 @@ def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     # 4. Distributed Architecture
     net_group = parser.add_argument_group(f'{Color.CYAN}DISTRIBUTED ARCHITECTURE{Color.RESET}')
     net_group.add_argument("--server", action="store_true", help="Initialize Brain Server module")
+    net_group.add_argument("--relay", type=str, metavar="URL", help="Run the server here (website, agents, tools) and send model inference to the Brain Server at URL (implies --server)")
     net_group.add_argument("--modules", nargs="+", default=[], help="Load specific server sub-modules")
 
     # 5. System Debug & Maintenance

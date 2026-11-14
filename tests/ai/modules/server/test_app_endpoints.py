@@ -215,3 +215,129 @@ class TestModelInUse:
         with hub.acquire("small", ""):
             assert client.post("/api/v1/model/unload").status_code == 409
         assert loads[0].unloaded == 0
+
+
+class TestGenerationDoesNotBlockTheServer:
+    """A generation runs in a worker thread: the event loop keeps answering other requests."""
+
+    @pytest.fixture(params=["text", "generator"])
+    def slow_model(self, hub, request):
+        """
+        ``text``: chat(stream=False) returns the text (GGUF, Gemini, OpenAI, Ollama).
+        ``generator``: chat() is a generator function whatever ``stream`` is, so all the work runs
+        on the first next() (HuggingFace, T5).
+        """
+        import threading
+        llm = hub.get_brain("small", "")
+        release, started = threading.Event(), threading.Event()
+
+        def tokens():
+            started.set()
+            release.wait(10)  # the model "generating"
+            yield "done"
+
+        def chat(messages, images=None, stream=True, options=None):
+            if stream or request.param == "generator":
+                return tokens()
+            return "".join(tokens())
+
+        llm.chat = chat
+        return started, release
+
+    @pytest.fixture
+    def client(self, app, paired):
+        # One event loop for every request, like uvicorn (without ``with``, each request gets its own).
+        with TestClient(app, client=("127.0.0.1", 50000), headers=paired) as shared:
+            yield shared
+
+    @pytest.mark.parametrize("stream", [False, True])
+    def test_health_answers_while_a_chat_generates(self, client, slow_model, stream):
+        import threading
+        started, release = slow_model
+        result = {}
+        chatting = threading.Thread(target=lambda: result.update(chat=chat(client, stream=stream)))
+        chatting.start()
+        try:
+            assert started.wait(5)
+            health = threading.Thread(target=lambda: result.update(health=client.get("/api/health")))
+            health.start()
+            health.join(5)
+            assert not health.is_alive(), "health blocked by the generation"
+            assert result["health"].status_code == 200
+        finally:
+            release.set()
+            chatting.join(10)
+        assert result["chat"].status_code == 200 and "done" in result["chat"].text
+
+    def test_lease_is_released_after_a_generation(self, client, hub, slow_model):
+        slow_model[1].set()
+        assert chat(client).status_code == 200
+        assert not hub.busy
+
+
+class TestActionChunks:
+    """An engine that caught a tool call returns a dict: clients get its tool call text, not a repr."""
+
+    ACTION = {"type": "function_call", "name": "read_file", "args": {"path": "x"}}
+
+    def test_non_stream_action_is_tool_call_text(self, client, hub):
+        hub.get_brain("small", "").chat = lambda *a, **k: self.ACTION
+        content = chat(client).json()["choices"][0]["message"]["content"]
+        assert content == '____@read_file {"path": "x"}'
+
+    def test_stream_action_is_tool_call_text(self, client, hub):
+        hub.get_brain("small", "").chat = lambda *a, **k: iter(["Vou ler. ", self.ACTION])
+        body = chat(client, stream=True).text
+        assert '____@read_file {\\"path\\": \\"x\\"}' in body and "'type'" not in body
+
+
+class TestClientGoneStopsTheGeneration:
+    """A stream whose client went away stops its generation, unless other work shares the model."""
+
+    def stream_then_drop(self, hub):
+        import asyncio
+        from ai.modules.server.services.chat import ChatResponseHandler
+        llm = hub.orchestrator.llm
+
+        def endless():
+            while not llm.stop_generation_event.is_set():
+                yield "token "
+
+        llm.chat = lambda *a, **k: endless()
+        lease = hub.acquire("small", "")
+
+        async def run():
+            response = await ChatResponseHandler(hub).stream_response([], lease=lease)
+            body = response.body_iterator
+            await body.__anext__()  # the client read one chunk...
+            await body.aclose()     # ...then disconnected
+
+        asyncio.run(run())
+        return llm, lease
+
+    def test_sole_user_stops(self, hub, fake_llm):
+        import threading
+        hub.get_brain("small", "")
+        hub.orchestrator.llm.stop_generation_event = threading.Event()
+        llm, lease = self.stream_then_drop(hub)
+        assert llm.stop_generation_event.is_set() and lease.released and not hub.busy
+
+    def test_shared_model_keeps_generating(self, hub):
+        import threading
+        hub.get_brain("small", "")
+        hub.orchestrator.llm.stop_generation_event = threading.Event()
+        other = hub.acquire("small", "")  # another chat on the same model
+        try:
+            llm, _ = self.stream_then_drop(hub)
+            assert not llm.stop_generation_event.is_set()
+        finally:
+            other.release()
+
+    def test_released_lease_does_not_stop(self, hub):
+        import threading
+        hub.get_brain("small", "")
+        hub.orchestrator.llm.stop_generation_event = threading.Event()
+        lease = hub.acquire("small", "")
+        lease.release()
+        assert hub.stop_generation_for(lease) is False
+        assert not hub.orchestrator.llm.stop_generation_event.is_set()

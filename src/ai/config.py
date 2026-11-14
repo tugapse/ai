@@ -68,6 +68,7 @@ class ProgramSetting(Enum):
     SERVER_FRONTEND_VERSION = "SERVER_FRONTEND_VERSION"  # Cached frontend version to serve (rollback); empty = bundled
     SERVER_TOTP_ENABLED = "SERVER_TOTP_ENABLED"          # Require authenticator codes (off in v1; needs --server-totp-setup)
     SERVER_TOTP_TOOLS = "SERVER_TOTP_TOOLS"              # Tools whose approval needs an authenticator code
+    SERVER_RELAY_URL = "SERVER_RELAY_URL"          # Brain Server URL: --server runs agents here, inference there
     SERVER_AGENT_WORKDIR = "SERVER_AGENT_WORKDIR"  # Folder web agent runs work in (default ~/Ai/workspace)
 
     def __str__(self) -> str:

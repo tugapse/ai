@@ -201,6 +201,27 @@ class ToolRegistry:
         return manual
 
     @staticmethod
+    def format_manual_tag(action: dict) -> str:
+        """
+        The tool call text for an action dict from parse_manual_tags (``____@name {args}``), so a
+        server can send it as text and a client's parser reads the same call back.
+        """
+        import json
+        args = action.get("args")
+        if isinstance(args, dict) and set(args) == {"raw"} and isinstance(args["raw"], str):
+            body = args["raw"]  # arguments the parser could not decode: kept as the model wrote them
+        else:
+            body = json.dumps(args if args is not None else {}, ensure_ascii=False, default=str)
+        return f"____@{action.get('name', '')} {body}"
+
+    @staticmethod
+    def as_text(chunk) -> str:
+        """A model output chunk as text: an action dict becomes its tool call text."""
+        if isinstance(chunk, dict) and chunk.get("type") == "function_call":
+            return ToolRegistry.format_manual_tag(chunk)
+        return chunk if isinstance(chunk, str) else str(chunk)
+
+    @staticmethod
     def parse_manual_tags(text: str) -> Optional[dict]:
         """
         Standardized regex parser for catching tool triggers in the streaming text output.

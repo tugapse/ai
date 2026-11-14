@@ -246,7 +246,11 @@ class EngineManager:
             elif model_type == ModelType.OPEN_AI:
                 llm_instance = EngineManager._create_openai_model(model_name, system_prompt, model_params, other_llm_kwargs)
             elif model_type == ModelType.JARVIS:
-                llm_instance = EngineManager._create_jarvis_model(model_name, system_prompt, model_params, other_llm_kwargs)
+                # n_ctx is the remote model's window: the agent's context sentinel needs it.
+                jarvis_kwargs = dict(other_llm_kwargs)
+                if model_properties.get("n_ctx"):
+                    jarvis_kwargs["n_ctx"] = model_properties["n_ctx"]
+                llm_instance = EngineManager._create_jarvis_model(model_name, system_prompt, model_params, jarvis_kwargs)
             else:
                 func.log(f"Unhandled model_type '{model_type.value}'.", level="ERROR")
                 raise ValueError("Invalid model configuration: unknown 'model_type'.")

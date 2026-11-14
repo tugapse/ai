@@ -43,6 +43,9 @@ class JarvisAiModel(BaseModel):
         # What the server does if server_model differs from its loaded model while that one is in
         # use: "wait", "fail" or "force" (None = the server's default, "wait").
         self.on_busy = kargs.get("on_busy")
+        # Images are forwarded; the server checks whether its model reads them. A relay sets this
+        # from the server's model list, a config can set "vision": false to refuse them locally.
+        self.supports_vision = bool(kargs.get("vision", True))
         
         # Session state details used by ChatSessionRouter on the backend
         self.session_id = kargs.get("session_id")
@@ -65,7 +68,8 @@ class JarvisAiModel(BaseModel):
 
         Args:
             messages: A list of message dictionaries containing conversation history.
-            images: A list of image data (currently unused in payload construction).
+            images: Images for the last user message (PIL images, file paths or data URLs), sent
+                as data URLs; the server answers 400 if its model cannot read images.
             stream: If True, returns a generator for streaming responses; otherwise, returns the full response string.
             options: Additional options dictionary passed to the backend.
 
@@ -85,6 +89,8 @@ class JarvisAiModel(BaseModel):
         
         if not injected_system_prompt and self.system_prompt:
             messages.insert(0, {"role": "system", "content": self.system_prompt})
+        if images:
+            messages = self._attach_images(messages, images)
 
         # Construct payload targeting the backend ChatCompletionRequest schema
         payload = {
@@ -97,10 +103,53 @@ class JarvisAiModel(BaseModel):
         }
         if self.on_busy:
             payload["on_busy"] = self.on_busy
+        payload.update(self.request_sampling(options))
 
         if stream:
             return self._run_streaming_chat(payload)
         return self._run_sync_chat(payload)
+
+    # Keys only a whole model config has (ModelParams.to_dict()), never a per-request override.
+    _CONFIG_ONLY_KEYS = ("num_ctx", "max_length", "do_sample", "quantization_bits", "use_system_prompt")
+
+    @classmethod
+    def request_sampling(cls, options: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        This request's sampling settings as server fields (temperature, top_p, top_k, max_tokens);
+        the server applies them over its model config for this request only.
+
+        ``options`` holding a whole ModelParams dict (the CLI chat passes the local config, full
+        of defaults) is not an override: nothing is sent, so the server keeps its own settings.
+        """
+        if not options or any(key in options for key in cls._CONFIG_ONLY_KEYS):
+            return {}
+        fields = {key: options[key] for key in ("temperature", "top_p", "top_k")
+                  if isinstance(options.get(key), (int, float)) and not isinstance(options.get(key), bool)}
+        max_tokens = options.get("max_tokens", options.get("max_new_tokens"))
+        if isinstance(max_tokens, int) and not isinstance(max_tokens, bool):
+            fields["max_tokens"] = max_tokens
+        return fields
+
+    MAX_IMAGES = 4  # the server's per-message limit (schemas.MAX_IMAGES_PER_MESSAGE)
+
+    def _attach_images(self, messages: List[Dict[str, Any]], images: list) -> List[Dict[str, Any]]:
+        """
+        A copy of ``messages`` whose last user message carries ``images`` as data URLs (the
+        server reads images only from the last message, when it is the user's).
+
+        Raises:
+            ValueError: More images than the server accepts, or no user message to carry them.
+        """
+        if len(images) > self.MAX_IMAGES:
+            raise ValueError(f"The Jarvis server accepts at most {self.MAX_IMAGES} images per message; got {len(images)}.")
+        index = next((i for i in range(len(messages) - 1, -1, -1) if messages[i].get("role") == "user"), None)
+        if index is None:
+            raise ValueError("Images need a user message to go with.")
+        if index != len(messages) - 1:
+            func.log(f"[{PROVIDER}] The last message is not the user's: the server will ignore its images.", level="WARN")
+        messages = list(messages)
+        messages[index] = {**messages[index], "images": [self.image_to_data_url(img) for img in images]}
+        return messages
 
     @staticmethod
     def _raise_for_status(response: httpx.Response) -> None:
