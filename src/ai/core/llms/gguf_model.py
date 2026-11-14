@@ -46,6 +46,11 @@ class GGUFImageLLM(BaseModel):
     It handles model loading, tokenization, streaming inference, and resource management.
     """
     _shared_mem_lock = threading.Lock()
+    # Free GPU memory a load must leave: llama.cpp still allocates scratch memory while it generates
+    # (it grows with the prompt), and a failed allocation then aborts the process. Measured: a 47k
+    # token prompt on gemma4 E4B needed ~170 MB more with flash attention. Model property: gpu_headroom_mb.
+    GPU_HEADROOM_MB = 384
+
     def __init__(
         self,
         model_name: str,
@@ -101,6 +106,12 @@ class GGUFImageLLM(BaseModel):
         super()._load_llm_params(**kwargs)
         kwargs.pop('verbose', None)
         kwargs.pop('print_timings', None)
+        # Flash attention by default: the attention scratch memory llama.cpp allocates while it
+        # generates stays small (without it, it grows with the context and a long prompt can need
+        # hundreds of MB more after the load; if the GPU is full by then, llama.cpp aborts the whole
+        # process). It also lowers the memory the load reserves. A model can set "flash_attn": false.
+        kwargs.setdefault('flash_attn', True)
+        headroom_mb = int(kwargs.pop('gpu_headroom_mb', self.GPU_HEADROOM_MB))
         
         model_path = ""
         oom_error = None
@@ -137,9 +148,12 @@ class GGUFImageLLM(BaseModel):
                     verbose=False,
                     **kwargs
                 )
+                self._check_gpu_headroom(headroom_mb, kwargs, model_path)
             self.supports_vision = chat_handler is not None
             func.log(f"GGUF model '{self.model_name}' ready.")
             
+        except GpuMemoryError as e:
+            oom_error = e  # the load fit but left no room to generate (see _check_gpu_headroom)
         except Exception as e:
             log_tail = "".join(list(_engine_log)[-40:])
             if not _gpu_oom_in(log_tail):
@@ -158,6 +172,27 @@ class GGUFImageLLM(BaseModel):
             # collecting) frees that memory before the caller retries with fewer GPU layers.
             gc.collect()
             raise oom_error
+
+    def _check_gpu_headroom(self, headroom_mb: int, load_kwargs: dict, model_path: str = "") -> None:
+        """
+        Unloads the model and raises GpuMemoryError when the load left less than ``headroom_mb``
+        of GPU memory free, so the caller retries with fewer GPU layers instead of crashing later.
+        Skipped for CPU-only loads and when the free memory cannot be read (no nvidia-smi).
+        """
+        if headroom_mb <= 0 or load_kwargs.get("n_gpu_layers", -1) == 0:
+            return
+        from ai.services.gpu_advisor import nvidia_snapshot
+        snapshot = nvidia_snapshot()
+        if snapshot is None or snapshot.free_mb >= headroom_mb:
+            return
+        func.debug(f"[GGUF Engine] Only {snapshot.free_mb} MB of GPU memory left after loading "
+                   f"{self.gguf_filename}; {headroom_mb} MB are needed to generate safely.")
+        self.llama_model = None
+        gc.collect()
+        raise GpuMemoryError(
+            f"Loading '{self.gguf_filename}' leaves only {snapshot.free_mb} MB of GPU memory free "
+            f"({headroom_mb} MB needed to generate).", model_path=model_path,
+            n_gpu_layers=load_kwargs.get("n_gpu_layers"))
 
     def _generate_in_thread(self, messages: List[Dict[str, str]], gen_options: dict, output_queue: queue.Queue):
         """
@@ -456,9 +491,10 @@ class GGUFImageLLM(BaseModel):
         self.stop_generation_event.clear()
         func.log(f"BrainHub: Resources cleared for {self.model_name}.")
 
-    def __del__(self):
+    def __del__(self, _is_finalizing=sys.is_finalizing):
         # During interpreter shutdown llama_cpp may already be torn down; freeing then can crash.
-        if sys.is_finalizing():
+        # Bound as a default: module globals (even ``sys``) can already be None by then.
+        if _is_finalizing():
             return
         try:
             self.unload()

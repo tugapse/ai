@@ -101,13 +101,44 @@ def test_idle_server_switch_waits_and_no_force_is_offered(loads, printed):
     assert not any("Force" in line for line in printed)
 
 
-def test_partial_load_steps_down_until_it_fits(loads, printed):
-    loads.fit_layers = 5
+@pytest.mark.parametrize("fit", [0, 1, 5, 17, 40])
+def test_partial_load_finds_the_most_layers_that_fit(loads, printed, fit):
+    loads.fit_layers = fit
     adv, _ = advisor(loads, answers=["1"])  # no server: only partial and cancel
     assert adv.resolve(error()) == "llm:gguf"
     tried = [c["model_properties"]["n_gpu_layers"] for c in loads]
-    assert tried == sorted(tried, reverse=True) and tried[-1] <= 5
+    assert tried[-1] == fit  # the model kept is the best one
+    assert len(tried) <= 9  # a search, not a walk through every layer count
+    assert any(f"with {fit} layers" in line or (fit == 0 and "CPU only" in line) for line in printed)
     assert GGUF["model_properties"]["n_gpu_layers"] == -1  # the original config is untouched
+
+
+def test_a_kept_load_is_unloaded_before_a_bigger_try(loads, printed):
+    unloaded = []
+
+    serials = iter(range(1000))
+
+    class Llm(str):
+        def __new__(cls, value):
+            obj = super().__new__(cls, value)
+            obj.serial = next(serials)
+            return obj
+
+        def unload(self):
+            unloaded.append(self.serial)
+
+    def loader(model_config, system_prompt, tool_registry):
+        n = model_config["model_properties"]["n_gpu_layers"]
+        loads.append(model_config)
+        if n < 0 or n > 10:
+            raise GpuMemoryError("full")
+        return Llm(f"llm{n}")
+
+    adv, _ = advisor(loads, answers=["1"])
+    adv.loader = loader
+    kept = adv.resolve(error())
+    assert kept == "llm10"
+    assert unloaded and kept.serial not in unloaded  # loads kept during the search were freed, not the result
 
 
 def test_cpu_only_is_the_last_resort(loads, printed):

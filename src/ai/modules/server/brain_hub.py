@@ -380,6 +380,7 @@ class BrainHub:
                     system_prompt=system_prompt,
                     model_config_data=config_data,
                     raise_errors=True,
+                    gpu_fallback=True,  # a full GPU must not leave the server without a model
                 )
             except Exception as e:
                 self.orchestrator.llm = None

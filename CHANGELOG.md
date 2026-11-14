@@ -1,5 +1,13 @@
 # Changelog
 
+## [v3.8.1] - 2026-11-14
+
+###  Bug Fixes
+- fix(gguf): Stop the CUDA abort on long prompts when the GPU fills up
+
+###  Maintenance
+- chore(release): Bump version to 3.8.1
+
 ## [v3.8.0] - 2026-11-13
 
 ###  Features
