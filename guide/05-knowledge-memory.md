@@ -57,7 +57,8 @@ This repo's own knowledge is in `_knowledge/` (JSON) and `_docs/` (Markdown).
 
 ```bash
 ./run.sh knowledge build                         # this folder: src/ (or .), only new/changed files
-./run.sh knowledge build src --ext py,ts      # source root and extensions
+./run.sh knowledge build src --ext py,ts      # source root, only these extensions
+./run.sh knowledge build --ext all            # back to every text file (forgets saved extensions)
 ./run.sh knowledge build --mode all           # regenerate everything
 ./run.sh knowledge build --mode diff:master   # files changed vs a branch
 ./run.sh knowledge build --files src/app/main.py --only knowledge
@@ -72,7 +73,7 @@ context). Use a model with a big enough context window for your largest files.
 | `SRC` (after `ai knowledge build`) | `src/` if it exists, else `.` | Source root. |
 | `--mode` | `changed` | `missing` (never built or failed), `changed` (also files whose content changed), `all`, `diff[:branch]` (changed vs a git branch, default `master`). |
 | `--only` | both | `docs` or `knowledge`. |
-| `--ext` | `KNOWLEDGE_EXTENSIONS` or `py` | Extensions, comma separated. |
+| `--ext` | the last build's, then `KNOWLEDGE_EXTENSIONS`, then every text file | Extensions, comma separated, or `all`. |
 | `--files` | — | Only these files, comma separated. |
 | `--max` | no limit | Stop after N files. |
 | `--force` | off | Regenerate files that are up to date. |
@@ -81,6 +82,17 @@ context). Use a model with a big enough context window for your largest files.
 tree (`KNOWLEDGE_OUTPUT_DIR` changes the base). A `.state.json` in each keeps the hash and status of
 every source file, so `changed` needs no git and failed files are retried next time. Folders like
 `.git`, `node_modules`, `.venv`, `dist` and `build` are skipped.
+
+**Which files.** Without `--ext` (and with nothing saved or configured), every text file is
+documented, except: hidden files and folders, files git ignores, binaries (images, fonts,
+archives, compiled files, or any file with a null byte), lockfiles (`package-lock.json`,
+`poetry.lock`, ...), minified files and source maps, and files over 256 KB. The extensions of a
+build are saved for the project, so the next build uses the same ones; `--ext all` goes back to
+every file.
+
+When two files share a name without extension (`card.component.ts` and `card.component.html`),
+their outputs keep the full name (`card.component.ts.md`, `card.component.html.md`) so one doesn't
+overwrite the other.
 
 The list of related project files is sent with each call, so dependency edges and doc links point
 at real files.
@@ -188,7 +200,7 @@ turns the recent ones into a few higher-level insights (`reflection`). Agents ca
 | `KNOWLEDGE_ENABLED` | `true` | Knowledge module. |
 | `KNOWLEDGE_SOURCES` | `[]` | Sources for every project. |
 | `KNOWLEDGE_OUTPUT_DIR` | `<root>/knowledge` | Base folder for generated knowledge. |
-| `KNOWLEDGE_EXTENSIONS` | `["py"]` | Extensions `ai knowledge build` documents (saved per project once built). |
+| `KNOWLEDGE_EXTENSIONS` | every text file | Extensions `ai knowledge build` documents (saved per project once built). `["all"]` = every text file. |
 | `KNOWLEDGE_AUTO_UPDATE` / `_MAX` | `true` / `5` | Regenerate changed files at the end of a turn. |
 | `KNOWLEDGE_SEMANTIC` | engine installed | Embedding search for knowledge. |
 | `KNOWLEDGE_INJECT_TOP_K` / `_MAX_CHARS` | `4` / `1500` | Knowledge added per step (0 = off). |

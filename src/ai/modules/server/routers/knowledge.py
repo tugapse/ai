@@ -22,7 +22,7 @@ class BuildRequest(BaseModel):
     files: Optional[List[str]] = None
     only: Optional[str] = None               # docs | knowledge
     source_root: Optional[str] = None
-    extensions: Optional[List[str]] = None
+    extensions: Optional[List[str]] = None   # None: the last build's, config, or every text file; ["all"]: every text file
     max_files: Optional[int] = None
     force: bool = False
 

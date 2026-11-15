@@ -61,6 +61,7 @@ def registry(tmp_path):
 
 
 def make_config(project, tmp_path, **kw):
+    kw.setdefault("extensions", ["py"])
     return resolve_build_config(str(project), None, None, output_dir=str(tmp_path / "out"), **kw)
 
 
@@ -68,7 +69,7 @@ class TestConfig:
     def test_defaults(self, project, registry, tmp_path):
         cfg = resolve_build_config(str(project), registry, {"KNOWLEDGE_OUTPUT_DIR": str(tmp_path / "kb")})
         assert cfg.source_root == str(project / "src")
-        assert cfg.extensions == ["py"]
+        assert cfg.extensions == [] and cfg.all_files and cfg.extensions_label == "all text files"
         assert cfg.output_dir == str(tmp_path / "kb" / project_slug(str(project)))
         assert cfg.target_rel("knowledge", "app/main.py") == "app/main.json"
 
@@ -77,6 +78,61 @@ class TestConfig:
         cfg = resolve_build_config(str(project), registry, None)
         assert cfg.source_root == str(project) and cfg.extensions == ["ts", "js"] and cfg.output_dir == str(tmp_path / "o")
         assert resolve_build_config(str(project), registry, None, extensions=[".py, md"]).extensions == ["py", "md"]
+
+
+class TestAllFiles:
+    """No --ext: every text file, without binaries, lockfiles, big or git-ignored files."""
+
+    @pytest.fixture
+    def mixed(self, tmp_path):
+        import subprocess
+        root = tmp_path / "mixed"
+        (root / "web").mkdir(parents=True)
+        (root / "web" / "card.component.ts").write_text("export class Card {}\n")
+        (root / "web" / "card.component.html").write_text("<div>card</div>\n")
+        (root / "web" / "app.min.js").write_text("var a=1;")
+        (root / "Dockerfile").write_text("FROM python:3.12\n")
+        (root / "README.md").write_text("# Mixed\n")
+        (root / "package-lock.json").write_text("{}")
+        (root / "logo.png").write_bytes(b"\x89PNG\r\n")
+        (root / "blob.dat").write_bytes(b"abc\0def")
+        (root / "big.txt").write_text("x" * (builder_mod.MAX_FILE_BYTES + 1))
+        (root / "gen").mkdir()
+        (root / "gen" / "out.py").write_text("x = 1\n")
+        (root / "secret.env").write_text("A=1\n")
+        (root / ".gitignore").write_text("gen/\n*.env\n")
+        subprocess.run(["git", "init", "-q", str(root)], check=True)
+        return root
+
+    def test_scan_skips_what_should_not_be_documented(self, mixed, tmp_path):
+        b = KnowledgeBuilder(resolve_build_config(str(mixed), None, None, output_dir=str(tmp_path / "out")))
+        assert b.scan() == ["Dockerfile", "README.md", "web/card.component.html", "web/card.component.ts"]
+        assert b.to_rel("logo.png") is None and b.to_rel("README.md") == "README.md"
+
+    def test_same_name_without_extension_keeps_full_name(self, mixed, tmp_path):
+        b = KnowledgeBuilder(resolve_build_config(str(mixed), None, None, output_dir=str(tmp_path / "out")))
+        b.scan()
+        assert b.config.target_rel("docs", "web/card.component.ts") == "web/card.component.ts.md"
+        assert b.config.target_rel("docs", "web/card.component.html") == "web/card.component.html.md"
+        assert b.config.target_rel("docs", "README.md") == "README.md"
+
+    def test_output_inside_the_project_is_not_scanned(self, mixed):
+        (mixed / "kb" / "docs").mkdir(parents=True)
+        (mixed / "kb" / "docs" / "README.md").write_text("# doc\n")
+        b = KnowledgeBuilder(resolve_build_config(str(mixed), None, None, output_dir=str(mixed / "kb")))
+        assert not [f for f in b.scan() if f.startswith("kb/")]
+
+    @pytest.mark.parametrize("value", ["all", "*", ["ALL"], ".py, all"])
+    def test_ext_all_resets_saved_extensions(self, project, registry, value):
+        registry.set_build_config(str(project), extensions=["py"])
+        assert resolve_build_config(str(project), registry, None).extensions == ["py"]
+        assert resolve_build_config(str(project), registry, None, extensions=[value] if isinstance(value, str) else value).extensions == []
+
+    def test_saved_all_wins_over_config(self, project, registry):
+        registry.set_build_config(str(project), extensions=[])
+        assert resolve_build_config(str(project), registry, {"KNOWLEDGE_EXTENSIONS": ["py"]}).extensions == []
+        assert resolve_build_config(str(project), None, {"KNOWLEDGE_EXTENSIONS": ["py"]}).extensions == ["py"]
+        assert resolve_build_config(str(project), None, {"KNOWLEDGE_EXTENSIONS": ["all"]}).extensions == []
 
 
 class TestOutputChecks:
@@ -190,7 +246,8 @@ class TestServiceAndRegistry:
 
     def test_build_registers_and_loads_outputs(self, project, registry, tmp_path):
         store = KnowledgeStore()
-        service = KnowledgeService(store=store, registry=registry, config={"KNOWLEDGE_OUTPUT_DIR": str(tmp_path / "kb")})
+        service = KnowledgeService(store=store, registry=registry, config={"KNOWLEDGE_OUTPUT_DIR": str(tmp_path / "kb"),
+                                                                       "KNOWLEDGE_EXTENSIONS": ["py"]})
         store.mark_stale(str(project / "src" / "app" / "util.py"))
         report = service.build(str(project), llm_call=FakeLLM())
         assert report["done"] == ["app/main.py", "app/util.py"]
@@ -228,7 +285,8 @@ class TestTools:
         monkeypatch.setattr(base, "PROJECT_ROOT", str(project))
         llm = FakeLLM()
         monkeypatch.setattr(builder_mod, "default_llm_call", lambda model: llm)
-        module = KnowledgeModule(registry=registry, config={"KNOWLEDGE_OUTPUT_DIR": str(tmp_path / "kb")})
+        module = KnowledgeModule(registry=registry, config={"KNOWLEDGE_OUTPUT_DIR": str(tmp_path / "kb"),
+                                                            "KNOWLEDGE_EXTENSIONS": "py"})
         store = module.get_instance()
         tools = store.tools.get_build_tools()
 
