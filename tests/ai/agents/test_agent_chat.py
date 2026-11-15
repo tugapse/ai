@@ -384,6 +384,12 @@ class TestTranscriptFormatter:
         assert "Impl" in self._plain(f.status("M", "Step 1", "Impl"))
         assert "Impl" not in self._plain(f.status("M", "Step 2", "Impl"))
 
+    def test_narration_repeating_the_step_is_dropped(self):
+        f = R.TranscriptFormatter()
+        f.status("M", "Verify the release", "")
+        assert f.feed(AgentEvent(AgentEventType.MESSAGE, text="Verify the release...", data={"narration": True})) is None
+        assert f.feed(AgentEvent(AgentEventType.MESSAGE, text="Checking tags.", data={"narration": True}))
+
     def test_narration_vs_answer(self):
         narration = self._plain(R.render_message("doing it", narration=True))
         answer = self._plain(R.render_message("All done"))

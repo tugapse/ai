@@ -435,7 +435,11 @@ class AgentChatApp:
         self.permission = (tool, params)
         self.invalidate()
         try:
-            return await self._permission_future
+            choice = await self._permission_future
+            note = R.render_permission_answer(tool, params, choice)
+            if note:
+                self.write(note)
+            return choice
         finally:
             self.permission = None
             self._permission_future = None

@@ -205,7 +205,7 @@ class TestOneShotIO:
         out = _io.StringIO()
         io = OneShotIO(out=out, read=lambda _: answer, interactive=True)
         assert io.request_permission("execute_command", {"command": "ls"}) == expected
-        assert "Permission required" in out.getvalue()
+        assert "? execute_command" in out.getvalue() and "allow" in out.getvalue()
 
     def test_permission_denied_without_terminal(self):
         def never(_):
@@ -280,3 +280,20 @@ def test_stop_for_approval_prints_how_to_resume(monkeypatch):
     assert "execute_command(git push)" in text and "waiting for the user's approval" in text
     assert "approve and continue: ai agent --resume s-stop" in text
     assert "--msg" not in text
+
+
+class TestPermissionBox:
+    def test_answered_box_is_erased_on_a_terminal(self):
+        class Tty(_io.StringIO):
+            def isatty(self):
+                return True
+        out = Tty()
+        io = OneShotIO(out=out, read=lambda _: "y", interactive=True)
+        io.request_permission("execute_command", {"command": "ls"})
+        assert "\x1b[J" in out.getvalue()
+
+    def test_always_leaves_a_note(self):
+        out = _io.StringIO()
+        io = OneShotIO(out=out, read=lambda _: "a", interactive=True)
+        io.request_permission("execute_command", {"command": "ls"})
+        assert "always allowed: 'ls' commands" in out.getvalue()

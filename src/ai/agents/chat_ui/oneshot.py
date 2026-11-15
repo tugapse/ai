@@ -14,6 +14,7 @@ When the run ends, the printed ``--resume`` hint continues the same session with
 """
 
 import re
+import shutil
 import signal
 import sys
 import threading
@@ -100,19 +101,40 @@ class OneShotIO(ChatIO):
         self.out.flush()
 
     def request_permission(self, tool: str, params: Dict[str, Any]) -> str:
-        self.write("\n" + R.render_permission(tool, params))
+        box = R.render_permission(tool, params, keys=False)
+        self.write(box)
         if not self.interactive:
             self.write(f"  {R.RED}denied: no terminal to ask for permission{R.RESET}")
             return PERMISSION_NO
         try:
-            choice = self.read("  allow? [y/a/N] ").strip().lower()
+            answer = self.read("  › ").strip().lower()
         except (EOFError, KeyboardInterrupt):
-            return PERMISSION_NO
-        if choice in ("a", "all"):
-            return PERMISSION_ALWAYS
-        if choice in ("y", "yes"):
-            return PERMISSION_YES
-        return PERMISSION_NO
+            answer = ""
+        if answer in ("a", "all", "always"):
+            choice = PERMISSION_ALWAYS
+        elif answer in ("y", "yes"):
+            choice = PERMISSION_YES
+        else:
+            choice = PERMISSION_NO
+        # The tool line that follows tells what ran: the answered box would only be noise.
+        self._erase_rows(self._rows(box) + 1)
+        note = R.render_permission_answer(tool, params, choice)
+        if note:
+            self.write(note)
+        return choice
+
+    @staticmethod
+    def _rows(text: str) -> int:
+        """Terminal rows ``text`` takes once written (long lines wrap)."""
+        width = R.terminal_width()
+        return sum(max(1, -(-R.visible_len(line) // width)) for line in text.split("\n"))
+
+    def _erase_rows(self, rows: int) -> None:
+        """Moves up ``rows`` lines and clears to the end of the screen (real terminals only)."""
+        if not self.color or rows >= shutil.get_terminal_size((80, 24)).lines:
+            return
+        self.out.write(f"\033[{rows}F\033[J")
+        self.out.flush()
 
 
 def _prompt_preview(prompt: str) -> str:

@@ -94,8 +94,8 @@ def terminal_width(default: int = 100) -> int:
 
 
 def _display_path(text: str) -> str:
-    """Paths are shown relative to the AI root: '@ROOT/' adds nothing on screen."""
-    return str(text).replace("@ROOT/", "")
+    """Paths are shown relative to the AI root ('@ROOT/' adds nothing on screen), and home as '~'."""
+    return str(text).replace("@ROOT/", "").replace(os.path.expanduser("~") + os.sep, "~" + os.sep)
 
 
 def format_tokens(count: int) -> str:
@@ -109,6 +109,9 @@ def format_duration(seconds: float) -> str:
     return f"{seconds // 60}m {seconds % 60:02d}s"
 
 
+_PAYLOAD_KEYS = {"content", "search", "replace", "text", "data", "body"}
+
+
 def summarize_params(tool: str, params: Dict[str, Any]) -> str:
     """One-line summary of a tool call's arguments."""
     if not isinstance(params, dict) or not params:
@@ -117,7 +120,7 @@ def summarize_params(tool: str, params: Dict[str, Any]) -> str:
         return _truncate(params["command"], MAX_ARG_LEN)
     for key in ("path", "file_path", "pattern", "query", "url"):
         if key in params and params[key]:
-            extra = len(params) - 1
+            extra = len([k for k in params if k not in _PAYLOAD_KEYS]) - 1
             main = _truncate(_display_path(params[key]), MAX_ARG_LEN)
             return main if extra <= 0 or key != "path" else f"{main}, +{extra}"
     parts = []
@@ -269,6 +272,11 @@ def render_status_line(agent: str, status: str, phase: str = "") -> str:
     return f"\n{TerminalUI.PRIMARY}✻{RESET} {TerminalUI.TEXT}{status.strip()}{RESET}{phase_txt}"
 
 
+def _same_text_key(text: str) -> str:
+    """Text reduced for 'says the same thing' checks: case, spacing and trailing dots/ellipsis ignored."""
+    return " ".join(str(text or "").lower().split()).rstrip(".…!: ")
+
+
 class TranscriptFormatter:
     """Groups the event stream into steps for the chat transcript.
 
@@ -279,10 +287,12 @@ class TranscriptFormatter:
     def __init__(self):
         self._pending: Optional[Tuple[str, Dict[str, Any]]] = None
         self._phase = ""
+        self._step = ""
 
     def reset(self) -> None:
         self._pending = None
         self._phase = ""
+        self._step = ""
 
     def flush(self) -> Optional[str]:
         if self._pending is None:
@@ -295,6 +305,7 @@ class TranscriptFormatter:
         # The phase is shown when it changes, not repeated on every step.
         shown = phase if phase and phase != self._phase else ""
         self._phase = phase or self._phase
+        self._step = _same_text_key(text)
         return self._join(self.flush(), render_status_line(agent, text, shown))
 
     def feed(self, event: AgentEvent) -> Optional[str]:
@@ -307,6 +318,9 @@ class TranscriptFormatter:
             tool, params = self._pending
             self._pending = None
             return render_tool_line(tool, params, event.data.get("result"), has_result=True)
+        if (t == AgentEventType.MESSAGE and event.data.get("narration") and self._step
+                and _same_text_key(event.text) == self._step):
+            return self.flush()  # says the same as the step header above it
         text = render_event(event)
         if text is None:
             return None
@@ -430,10 +444,22 @@ def render_transcript(entries, session_id: str, request: str = "") -> str:
     return "\n".join(lines)
 
 
-def render_permission(tool: str, params: Dict[str, Any]) -> str:
-    from ai.agents.tool_preview import describe_tool_request
+def render_permission(tool: str, params: Dict[str, Any], keys: bool = True) -> str:
+    """The approval box: tool and target on one line, the preview, then the choices."""
+    from ai.agents.tool_preview import always_scope, request_summary
 
-    lines = [f"{TerminalUI.WARN}{BOLD}Permission required{RESET}"]
-    lines += describe_tool_request(tool, params)
-    lines.append(f"  {GREEN}[y]{RESET} allow   {GREEN}[a]{RESET} always (see above)   {RED}[n]{RESET} deny {GREY}(esc){RESET}")
-    return "\n".join(lines)
+    subject, body = request_summary(tool, params)
+    head = f"\n{TerminalUI.WARN}?{RESET} {BOLD}{tool}{RESET}" + (f"  {subject}" if subject else "")
+    scope = always_scope(tool, params)
+    always = f"   {GREEN}a{RESET} always {GREY}({_display_path(scope)}){RESET}" if scope else ""
+    choices = f"  {GREEN}y{RESET} allow{always}   {RED}n{RESET} deny" + (f" {GREY}(esc){RESET}" if keys else "")
+    return "\n".join([head, *body, choices])
+
+
+def render_permission_answer(tool: str, params: Dict[str, Any], choice: str) -> Optional[str]:
+    """What stays in the transcript once the box is answered: only a new "always" rule is worth a line."""
+    from ai.agents.agent_io import PERMISSION_ALWAYS
+    from ai.agents.tool_preview import always_scope
+
+    scope = always_scope(tool, params) if choice == PERMISSION_ALWAYS else None
+    return f"  {GREY}✓ always allowed: {_display_path(scope)}{RESET}" if scope else None

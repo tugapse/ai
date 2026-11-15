@@ -305,3 +305,20 @@ def test_wrapper_tags_are_stripped_from_reply():
     assert _strip_wrapper_tags(None) == ""
     assert _strip_wrapper_tags("<CDATA[\nFailed.\n]]>") == "Failed."
     assert _strip_wrapper_tags("<![CDATA[ok]]>") == "ok"
+
+
+class TestPreviewLayout:
+    def test_patch_shows_only_changed_lines_with_context(self):
+        from ai.agents.tool_preview import diff_lines
+        text = plain(diff_lines('name = "ai"\nversion = "3.8.1"', 'name = "ai"\nversion = "3.9.0"'))
+        assert '- name' not in text and '+ name' not in text
+        assert '- version = "3.8.1"' in text and '+ version = "3.9.0"' in text
+
+    def test_long_command_is_split_at_operators_outside_quotes(self):
+        from ai.agents.tool_preview import command_lines
+        lines = [l.strip() for l in command_lines('git add a && git commit -m "x && y" && git push', width=40)]
+        assert lines[0] == "git add a" and lines[1] == '&& git commit -m "x && y"' and lines[2] == "&& git push"
+
+    def test_short_command_stays_on_one_line(self):
+        from ai.agents.tool_preview import command_lines
+        assert command_lines("ls -la", width=80) == ["    ls -la"]
