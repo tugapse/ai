@@ -19,6 +19,9 @@ class TestSessionsRouter(unittest.TestCase):
         self.app.include_router(router)
         # Pairing is tested in test_auth.py; these tests cover the routes themselves.
         self.app.dependency_overrides[require_device] = lambda: {"device_id": "test", "name": "test"}
+        # Reads are filtered by viewer (see test_auth.py for unpaired browsers): act as a paired device.
+        self.app.state.auth = MagicMock()
+        self.app.state.auth.peek_device.return_value = {"device_id": "test"}
         self.client = TestClient(self.app)
 
         # Mock the session manager

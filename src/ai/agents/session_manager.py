@@ -3,6 +3,7 @@ import json
 import zlib
 import base64
 import hashlib
+import shutil
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 
@@ -12,21 +13,44 @@ from ai.services.directory_manager import DirectoryManager
 class AgentSessionManager:
     """
     Manages persistence for agent sessions.
-    Stored in: <system>/logs/agents/[hash]/[session_id].json
+    Stored in: <root>/sessions/agents/[hash]/[session_id].json
     """
 
     MANIFEST_FILE = "manifest.json"
+    # The journal keeps the first state (the original request) and the last KEEP_STATES states.
+    # Each state is the full orchestrator state, so keeping every step made long runs reach
+    # tens of MB; only the last state is read back (resume), the first one for the request.
+    KEEP_STATES = 3
 
     @staticmethod
     def _get_agents_storage_root() -> str:
         """
-        Retrieves the root directory where all agent session data is stored.
+        Root folder of all agent sessions: ``<root>/sessions/agents``.
 
-        Returns:
-            str: The absolute path to the agents storage root.
+        Sessions used to live in ``<root>/system/logs/agents``; they're moved over the first time
+        (folders already present in the new place are left where they are).
         """
         directory_manager = DirectoryManager()
-        return os.path.join(directory_manager.get_system_logs_directory(), "agents")
+        root = directory_manager.get_agent_sessions_directory()
+        AgentSessionManager._migrate_legacy_storage(
+            os.path.join(directory_manager.get_system_logs_directory(), "agents"), root)
+        return root
+
+    @staticmethod
+    def _migrate_legacy_storage(old_root: str, new_root: str) -> None:
+        if not os.path.isdir(old_root):
+            return
+        try:
+            os.makedirs(new_root, exist_ok=True)
+            for name in os.listdir(old_root):
+                src, dst = os.path.join(old_root, name), os.path.join(new_root, name)
+                if not os.path.exists(dst):
+                    shutil.move(src, dst)
+            if not os.listdir(old_root):
+                os.rmdir(old_root)
+            func.log(f"AgentSessionManager: moved agent sessions from {old_root} to {new_root}")
+        except OSError as e:
+            func.error(f"AgentSessionManager: could not move sessions from {old_root}: {e}")
 
     def __init__(self, session_id: str, working_directory: Optional[str] = None):
         """
@@ -45,7 +69,7 @@ class AgentSessionManager:
         self.parent_dir = hashlib.sha256(self.working_directory.encode("utf-8")).hexdigest()[:16]
         self.session_id = session_id
 
-        # 2. Base storage folder: system/logs/agents/<hash>
+        # 2. Base storage folder: sessions/agents/<hash>
         self.storage_dir = os.path.join(self._get_agents_storage_root(), self.parent_dir)
 
         # 3. Session file: + session_id.json
@@ -82,10 +106,10 @@ class AgentSessionManager:
 
     def commit(self, orchestrator_state: Dict[str, Any], compress: bool = False):
         """
-        Persists orchestrator state to the session's JSON journal.
+        Persists orchestrator state to the session's JSON journal (one state per line).
 
-        Each state update is appended as a new line to the session file. Compression
-        can be enabled for larger state objects.
+        Only the first state and the last ``KEEP_STATES`` are kept; each entry carries ``turn``,
+        the number of states committed so far.
 
         Args:
             orchestrator_state: The current state dictionary of the orchestrator to save.
@@ -93,27 +117,51 @@ class AgentSessionManager:
         """
         func.debug(f"AgentSessionManager: Committing state for {self.session_id}")
 
-        payload = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "state": orchestrator_state,
-            "version": "1.0"
-        }
-
         try:
+            lines = self._read_lines(self.session_path)
+            turn = self._entry_turn(lines[-1], len(lines)) + 1 if lines else 1
+            payload = {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "state": orchestrator_state,
+                "version": "1.0",
+                "turn": turn,
+            }
             data = json.dumps(payload)
             if compress:
                 compressed_data = base64.b64encode(zlib.compress(data.encode())).decode()
-                payload = {"compressed": True, "data": compressed_data, "timestamp": payload["timestamp"]}
+                payload = {"compressed": True, "data": compressed_data,
+                           "timestamp": payload["timestamp"], "turn": turn}
                 data = json.dumps(payload)
 
-            with open(self.session_path, "a", encoding="utf-8") as f:
-                f.write(data + "\n")
-            
+            lines.append(data)
+            if len(lines) > self.KEEP_STATES + 1:
+                lines = lines[:1] + lines[-self.KEEP_STATES:]
+            tmp_path = self.session_path + ".tmp"
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                f.write("\n".join(lines) + "\n")
+            os.replace(tmp_path, self.session_path)
+
             func.log(f"AgentSessionManager: State committed to {self.session_path}")
 
         except Exception as e:
             func.error(f"AgentSessionManager: Commit failed for {self.session_id}: {str(e)}")
-    
+
+    @staticmethod
+    def _read_lines(path: str) -> List[str]:
+        if not os.path.exists(path):
+            return []
+        with open(path, "r", encoding="utf-8") as f:
+            return [line.rstrip("\n") for line in f if line.strip()]
+
+    @staticmethod
+    def _entry_turn(line: str, fallback: int) -> int:
+        """Turn number stored in a journal line (older journals have none: use ``fallback``)."""
+        try:
+            turn = json.loads(line).get("turn")
+        except (ValueError, AttributeError):
+            return fallback
+        return turn if isinstance(turn, int) and turn > 0 else fallback
+
     def get_session(self, turn_index: int = -1) -> Optional[Dict[str, Any]]:
         """
         Re-inflates the orchestrator state from the agent file at a specific turn index.
@@ -369,7 +417,7 @@ class AgentSessionManager:
                 "user_request": user_request,
                 "last_user_message": last_state.get("last_user_message") or user_request,
                 "updated_at": updated_at,
-                "turns": len(lines),
+                "turns": AgentSessionManager._entry_turn(lines[-1], len(lines)),
                 "iteration": last_state.get("iteration", 0),
             })
 
@@ -429,7 +477,7 @@ class AgentSessionManager:
                     entry = json.loads(line)
                     state = entry.get("state", {})
                     history.append({
-                        "turn": i,
+                        "turn": entry.get("turn", i + 1),
                         "timestamp": entry["timestamp"],
                         "agent": state.get("current_agent", "UNKNOWN"),
                         "iteration": state.get("iteration")

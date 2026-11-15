@@ -67,6 +67,10 @@ class MCPBridge:
         
         # Stores the raw tool schemas for each server: { "powerpoint": { "add_slide": {...} } }
         self.server_schemas: Dict[str, Dict[str, Any]] = {}
+        # Servers whose gateway needs the user's approval on every call ("auto_allow": false).
+        self.approval_required: set = set()
+        # Every server in the merged config (enabled or not): {name: details}.
+        self.configured: Dict[str, Dict[str, Any]] = {}
 
         # Each server lives in its own task (anyio contexts must be exited by the task that
         # entered them); setting its stop event shuts the server down cleanly.
@@ -127,6 +131,32 @@ class MCPBridge:
         except OSError:
             return open(os.devnull, "w", encoding="utf-8")
 
+    def load_from_configs(self, filepaths: List[str]):
+        """
+        Loads several config files as one: servers are merged by name, later files win (so a user
+        config can add a server, or override/disable one, without copying the others).
+        """
+        from ai.tools.mcp_config import merge
+        self.configured = merge(filepaths, on_error=lambda path, e: func.log(
+            f"[MCP] Error reading {path}: {e}", level="ERROR"))
+        self._load_servers(self.configured)
+
+    def enable_server(self, name: str) -> Dict[str, Any]:
+        """
+        Starts a configured server now (it was disabled when the run began). Its gateway tool is
+        usable from the next step.
+        """
+        details = dict(getattr(self, "configured", {}).get(name) or {})
+        if not details:
+            return {"status": "FAILED", "error": f"No MCP server named '{name}' in mcp_config.json."}
+        if name in self.server_schemas:
+            return {"status": "SUCCESS", "note": f"'{name}' is already running."}
+        details["enabled"] = True
+        self._load_servers({name: details})
+        if name not in self.server_schemas:
+            return {"status": "FAILED", "error": f"'{name}' did not start (server log: {self.get_log_path(name)})."}
+        return {"status": "SUCCESS", "tool": name, "commands": len(self.server_schemas[name])}
+
     def load_from_config(self, filepath: str):
         """
         Loads server connection details from a JSON configuration file and initiates connections.
@@ -142,23 +172,31 @@ class MCPBridge:
             with open(filepath, "r", encoding="utf-8") as f:
                 config = json.load(f)
                 
-            servers = config.get("mcpServers", {})
-            for server_name, details in servers.items():
-                if not details.get("enabled", True):
-                    func.log(f"[MCP] Skipping '{server_name}' (Disabled in config).", level="INFO")
-                    continue
-                    
-                command = details.get("command")
-                args = details.get("args", [])
-                description = details.get("description", f"Gateway tool for {server_name} MCP server.")
-                
-                if not command:
-                    continue
-                    
-                self.connect_server(server_name, command, args, description, env=details.get("env"))
-                
+            self._load_servers(config.get("mcpServers", {}) or {})
         except Exception as e:
             func.log(f"[MCP] Error loading config: {str(e)}", level="ERROR")
+
+    def _load_servers(self, servers: Dict[str, Any]):
+        """Connects every enabled server of a {name: details} mapping."""
+        for server_name, details in servers.items():
+            if not details.get("enabled", True):
+                func.log(f"[MCP] Skipping '{server_name}' (Disabled in config).", level="INFO")
+                continue
+                
+            command = details.get("command")
+            args = details.get("args", [])
+            description = details.get("description", f"Gateway tool for {server_name} MCP server.")
+            
+            if not command:
+                continue
+            if details.get("auto_allow", True) is False:
+                self.approval_required.add(server_name)
+                
+            self.connect_server(server_name, command, args, description, env=details.get("env"))
+
+    def requires_approval(self, tool_name: str) -> bool:
+        """True when ``tool_name`` is the gateway of a server configured with ``"auto_allow": false``."""
+        return tool_name in self.approval_required and tool_name in self.server_schemas
 
     def connect_server(self, server_name: str, command: str, args: List[str], description: str, env: Optional[Dict[str, str]] = None):
         """

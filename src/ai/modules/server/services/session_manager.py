@@ -104,6 +104,7 @@ class SessionManager:
                             "session_title": session_content.get("session_title"),
                             "last_updated": session_content.get("last_updated"),
                             "filename": str(file_path.relative_to(search_root_dir).with_suffix("")),
+                            "owner": session_content.get("owner"),
                         }
                         session_entries.append((file_path, session_metadata))
                         self._log(f"Loaded session metadata from: {file_path}")

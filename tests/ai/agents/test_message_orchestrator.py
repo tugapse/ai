@@ -71,7 +71,7 @@ class TestMessageOrchestrator:
         self.session_id = f"test-session-{uuid.uuid4().hex}"
 
         digest = hashlib.sha256(os.path.abspath(self.test_root).encode("utf-8")).hexdigest()[:16]
-        storage_dir = os.path.join(self.test_root, "logs", "agents", digest)
+        storage_dir = os.path.join(self.test_root, "sessions", "agents", digest)
         if os.path.isdir(storage_dir):
             for filename in os.listdir(storage_dir):
                 file_path = os.path.join(storage_dir, filename)

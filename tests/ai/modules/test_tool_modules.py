@@ -5,7 +5,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import ai.program  # noqa: F401  (startup import order, avoids a circular import)
 from ai.config import ProgramSetting
 from ai.modules.base_module import ToolModule
 from ai.services.module_registry import ModuleRegistry

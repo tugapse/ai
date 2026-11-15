@@ -167,8 +167,6 @@ def render_event(event: AgentEvent) -> Optional[str]:
         # Refused calls never produced a TOOL_CALL line, so name the tool.
         prefix = f"{RED}{BULLET}{RESET} {BOLD}{tool}{RESET}\n" if status in ("DENIED", "UNAUTHORIZED") else ""
         return f"{prefix}  {GREY}{ELBOW}{RESET}  {color}{summary}{RESET}"
-    if t == AgentEventType.SPECIALIST:
-        return f"\n{CYAN}{BULLET}{RESET} specialist {BOLD}{event.data.get('tool')}{RESET} generating…"
     if t == AgentEventType.INFO:
         if event.text == "Pipeline execution finished.":
             return None  # the turn summary covers this
@@ -257,5 +255,5 @@ def render_permission(tool: str, params: Dict[str, Any]) -> str:
 
     lines = [f"{TerminalUI.WARN}{BOLD}Permission required{RESET}"]
     lines += describe_tool_request(tool, params)
-    lines.append(f"  {GREEN}[y]{RESET} allow   {GREEN}[a]{RESET} allow all '{tool}' this session   {RED}[n]{RESET} deny {GREY}(esc){RESET}")
+    lines.append(f"  {GREEN}[y]{RESET} allow   {GREEN}[a]{RESET} always (see above)   {RED}[n]{RESET} deny {GREY}(esc){RESET}")
     return "\n".join(lines)

@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 import ai.functions as func 
-from ai.services.config_helper import ProgramConfig, ProgramSetting
+from ai.config import ProgramConfig, ProgramSetting
 from ai.core.template_injection import TemplateInjection
 
 DEFAULT_SYSTEM_PROMPT = "You are a helpful AI assistant."
@@ -26,7 +26,8 @@ class PromptLoader:
 
         Attempts to load the system prompt from several locations in order:
         1. Explicit path provided in configuration.
-        2. Directory specified in configuration, appending .md if necessary.
+        2. ``<root>/user/system-prompt/<name>.md``, then the system templates directory
+           (``PATHS_SYSTEM_TEMPLATES``, default ``<root>/system/system-prompt``).
         3. A built-in default file within the repository structure if the setting is "default".
 
         Args:
@@ -46,16 +47,20 @@ class PromptLoader:
                 func.log(f"Loaded system file from explicit path: {resolved_filepath}")
             else:
                 if not system_templates_dir:
-                    system_templates_dir = os.path.join(func.get_root_directory(), "system")
+                    system_templates_dir = os.path.join(func.get_root_directory(), "system", "system-prompt")
                     func.debug(
                         f"PromptLoader: defaulting system templates dir to {system_templates_dir}"
                     )
 
-                if system_templates_dir:
-                    template_filename = system_file_setting
-                    if not template_filename.endswith(".md"):
-                        template_filename += ".md"
-                    
+                template_filename = system_file_setting
+                if not template_filename.endswith(".md"):
+                    template_filename += ".md"
+                user_filepath = os.path.join(func.get_root_directory(), "user", "system-prompt", template_filename)
+                if os.path.isfile(user_filepath):
+                    resolved_filepath = user_filepath
+                    func.log(f"Loaded system file from user templates: {resolved_filepath}")
+
+                if system_templates_dir and not resolved_filepath:
                     system_filepath_in_templates = os.path.join(
                         system_templates_dir, template_filename
                     )
@@ -64,9 +69,9 @@ class PromptLoader:
                         func.log(f"Loaded system file from templates directory: {resolved_filepath}")
 
                 if not resolved_filepath and system_file_setting.strip().lower() == "default":
-                    repo_root = Path(__file__).resolve().parent.parent
+                    repo_root = Path(__file__).resolve().parents[3]
                     builtin_default_path = os.path.join(
-                        repo_root, "templates", "system", "default.md"
+                        repo_root, "assets", "templates", "system", "system-prompt", "default.md"
                     )
                     if os.path.exists(builtin_default_path):
                         resolved_filepath = builtin_default_path
@@ -76,13 +81,14 @@ class PromptLoader:
 
             if resolved_filepath:
                 system_prompt_content = func.read_file(resolved_filepath)
-            elif system_file_setting.strip().lower() == "default":
+            if not (system_prompt_content or "").strip() and system_file_setting.strip().lower() == "default":
+                # 'default' not found, or the shipped default.md is empty
                 func.log(
                     "Using built-in fallback system prompt for 'default'.",
                     level="WARNING",
                 )
                 system_prompt_content = DEFAULT_SYSTEM_PROMPT
-            else:
+            elif not resolved_filepath:
                 func.log(
                     f"System prompt file '{system_file_setting}' not found at any known location (explicit path or in templates dir).",
                     level="WARNING",

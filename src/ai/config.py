@@ -2,7 +2,6 @@ from enum import Enum
 import json
 import logging
 import os
-import tempfile
 from os.path import exists, dirname
 import shutil
 import pathlib
@@ -23,22 +22,15 @@ class ProgramSetting(Enum):
     Defines all possible configuration keys used throughout the program.
     Each member represents a specific setting that can be loaded or saved.
     """
-    MODEL_NAME = "MODEL_NAME"
     MODEL_CONFIG_NAME = "MODEL_CONFIG_NAME"
     ROOT_DIRECTORY = "ROOT_DIRECTORY"
     SYSTEM_PROMPT_FILE = "SYSTEM_PROMPT_FILE"
-    SYSTEM_PROMPT_FOLDER = "SYSTEM_PROMPT_FOLDER"
 
     PATHS_LOGS = "PATHS_LOGS"
-    PATHS_CHAT_LOG = "PATHS_CHAT_LOG"
-    PATHS_TASKS_TEMPLATES = "PATHS_TASKS_TEMPLATES"
     PATHS_SYSTEM_TEMPLATES = "PATHS_SYSTEM_TEMPLATES"
     PATHS_WORKSPACES = "PATHS_WORKSPACES"
     PATHS_INJECT_TEMPLATES = "PATHS_INJECT_TEMPLATES"
-    PATHS_MODEL_CONFIGS = "PATHS_MODEL_CONFIGS"
 
-    OLLAMA_HOST = "OLLAMA_HOST"
-    
     PRINT_LOG = "PRINT_LOG"
     PRINT_DEBUG = "PRINT_DEBUG"
     PRINT_OUTPUT = "PRINT_OUTPUT"
@@ -47,9 +39,6 @@ class ProgramSetting(Enum):
     PRINT_MODE = "PRINT_MODE"
     TOKENS_PER_PRINT = "TOKENS_PER_PRINT"
     ENABLE_THINKING_DISPLAY = "ENABLE_THINKING_DISPLAY"
-
-    REMOTE_MODE = "REMOTE_MODE"
-    REMOTE_URL = "REMOTE_URL"
 
     AGENT_THOUGHT = "AGENT_THOUGHT"
     HIL_TOOLS="HIL_TOOLS"
@@ -90,7 +79,7 @@ class ProgramSetting(Enum):
     SERVER_ALLOWED_ORIGINS = "SERVER_ALLOWED_ORIGINS"    # Browser origins allowed by CORS (default localhost:4200)
     SERVER_FRONTEND_DIR = "SERVER_FRONTEND_DIR"          # Folder with a jarvis-web build; wins over the bundled one
     SERVER_FRONTEND_VERSION = "SERVER_FRONTEND_VERSION"  # Cached frontend version to serve (rollback); empty = bundled
-    SERVER_TOTP_ENABLED = "SERVER_TOTP_ENABLED"          # Require authenticator codes (off in v1; needs --server-totp-setup)
+    SERVER_TOTP_ENABLED = "SERVER_TOTP_ENABLED"          # Require authenticator codes (off in v1; needs: ai server totp-setup)
     SERVER_TOTP_TOOLS = "SERVER_TOTP_TOOLS"              # Tools whose approval needs an authenticator code
     SERVER_RELAY_URL = "SERVER_RELAY_URL"          # Brain Server URL: --server runs agents here, inference there
     SERVER_AGENT_WORKDIR = "SERVER_AGENT_WORKDIR"  # Folder web agent runs work in (default ~/Ai/workspace)
@@ -154,7 +143,7 @@ class ProgramConfig(Generic[T]):
 
         default_root = os.environ.get("AI_ASSISTANT_DIRECTORY")
         if not default_root:
-            default_root = os.path.join(tempfile.gettempdir(), "ai")
+            default_root = os.path.join(os.path.expanduser("~"), "Ai")
         user_directory = os.path.abspath(default_root)
         os.makedirs(user_directory, exist_ok=True)
         user_config_filename = os.path.join(user_directory, "config.json")
@@ -168,6 +157,7 @@ class ProgramConfig(Generic[T]):
                 f"Copying default config."
             )
             self.copy_templates_to_user_dir(user_directory)
+        self.sync_system_templates(user_directory)
 
         user_config = self.__load_to_dict(user_config_filename, user_directory)
         if user_config and not need_save:
@@ -177,7 +167,6 @@ class ProgramConfig(Generic[T]):
         self.set(ProgramSetting.ROOT_DIRECTORY, user_directory)
         self.set(ProgramSetting.PRINT_MODE, "token")
 
-        self._ensure_path(ProgramSetting.PATHS_MODEL_CONFIGS, "models")
         self._ensure_path(ProgramSetting.PATHS_LOGS, "logs")
         self._ensure_path(ProgramSetting.PATHS_WORKSPACES, "workspaces")
         self._ensure_path(ProgramSetting.VECTOR_DB_PATH, "databases")
@@ -282,9 +271,7 @@ class ProgramConfig(Generic[T]):
             self.logger.warning("User directory not specified for template copy.")
             return
 
-        project_root_templates_dir = (
-            pathlib.Path(dirname(__file__)) / ".." / ".." / "assets" / "templates"
-        ).resolve()
+        project_root_templates_dir = self._templates_dir()
 
         if not os.path.exists(project_root_templates_dir):
             self.logger.warning(
@@ -313,6 +300,26 @@ class ProgramConfig(Generic[T]):
             self.logger.info("Templates copied successfully.")
         except Exception as e:
             self.logger.error(f"Error copying templates: {e}")
+
+    @staticmethod
+    def _templates_dir() -> pathlib.Path:
+        return (pathlib.Path(dirname(__file__)) / ".." / ".." / "assets" / "templates").resolve()
+
+    def sync_system_templates(self, user_dir: str) -> None:
+        """
+        Updates ``<root>/system`` with the shipped templates (see ``ai.template_sync``).
+        Hand-edited files are backed up first; ``user/`` is never touched.
+        """
+        from ai.template_sync import sync_system_templates
+
+        def skip(rel: str) -> bool:
+            return "system/" + rel in RUNTIME_TEMPLATE_DIRS
+
+        try:
+            sync_system_templates(str(self._templates_dir() / "system"),
+                                  os.path.join(user_dir, "system"), skip=skip)
+        except Exception as e:
+            self.logger.error(f"Error updating system templates: {e}")
 
     def _ensure_path(self, setting: ProgramSetting, subfolder: str) -> None:
         """

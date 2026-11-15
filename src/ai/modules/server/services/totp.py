@@ -3,7 +3,7 @@ Time-based one-time codes (RFC 6238, the format authenticator apps use) for appr
 dangerous agent tools. Pure standard library: HMAC-SHA1, 30-second steps, 6 digits.
 
 The secret lives in a file only the server user can read and is created from the server's own
-terminal (``ai --server-totp-setup``), so a web client can never read or replace it.
+terminal (``ai server totp-setup``), so a web client can never read or replace it.
 """
 
 import base64

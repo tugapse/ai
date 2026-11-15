@@ -9,7 +9,7 @@ from ai.services.directory_manager import DirectoryManager
 
 def _session_storage_dir(working_directory: str) -> str:
     digest = hashlib.sha256(os.path.abspath(working_directory).encode("utf-8")).hexdigest()[:16]
-    return os.path.join(DirectoryManager().get_system_logs_directory(), "agents", digest)
+    return os.path.join(DirectoryManager().get_agent_sessions_directory(), digest)
 
 
 def test_session_manager_uses_hashed_working_directory_for_unique_storage(tmp_path):
@@ -20,7 +20,7 @@ def test_session_manager_uses_hashed_working_directory_for_unique_storage(tmp_pa
     digest = hashlib.sha256(os.path.abspath(working_directory).encode("utf-8")).hexdigest()[:16]
 
     assert manager.parent_dir == digest
-    assert manager.storage_dir == os.path.join(directory_manager.get_system_logs_directory(), "agents", digest)
+    assert manager.storage_dir == os.path.join(directory_manager.get_agent_sessions_directory(), digest)
     assert os.path.isdir(manager.storage_dir)
     assert manager.session_path == os.path.join(manager.storage_dir, "session-123.json")
 
@@ -113,3 +113,49 @@ def test_list_sessions_returns_empty_list_when_storage_missing(tmp_path):
         os.rmdir(storage_dir)
 
     assert AgentSessionManager.list_sessions(working_directory) == []
+
+
+def test_journal_keeps_first_and_last_states_only(tmp_path):
+    working_directory = str(tmp_path / "long-run")
+    manager = AgentSessionManager("session-long", working_directory=working_directory)
+    for i in range(1, 11):
+        manager.commit({"iteration": i, "user_request": "build it"})
+
+    with open(manager.session_path, encoding="utf-8") as f:
+        entries = [json.loads(line) for line in f if line.strip()]
+    keep = AgentSessionManager.KEEP_STATES
+    assert [e["state"]["iteration"] for e in entries] == [1] + list(range(11 - keep, 11))
+    assert entries[-1]["turn"] == 10
+    assert manager.get_session()["iteration"] == 10
+
+    [listed] = AgentSessionManager.list_sessions_detailed(working_directory)
+    assert listed["turns"] == 10 and listed["user_request"] == "build it"
+
+
+def test_old_journal_without_turns_is_trimmed_on_next_commit(tmp_path):
+    working_directory = str(tmp_path / "old")
+    manager = AgentSessionManager("session-old", working_directory=working_directory)
+    with open(manager.session_path, "w", encoding="utf-8") as f:
+        for i in range(1, 8):
+            f.write(json.dumps({"timestamp": "t", "state": {"iteration": i}}) + "\n")
+
+    manager.commit({"iteration": 8})
+    with open(manager.session_path, encoding="utf-8") as f:
+        entries = [json.loads(line) for line in f if line.strip()]
+    assert len(entries) == AgentSessionManager.KEEP_STATES + 1
+    assert entries[0]["state"]["iteration"] == 1 and entries[-1]["turn"] == 8
+
+
+def test_sessions_in_old_logs_folder_are_moved(tmp_path):
+    old_root = tmp_path / "system" / "logs" / "agents"
+    new_root = tmp_path / "sessions" / "agents"
+    (old_root / "abc").mkdir(parents=True)
+    (old_root / "abc" / "s1.json").write_text("{}")
+    (old_root / "dup").mkdir()
+    (new_root / "dup").mkdir(parents=True)
+
+    AgentSessionManager._migrate_legacy_storage(str(old_root), str(new_root))
+
+    assert (new_root / "abc" / "s1.json").read_text() == "{}"
+    assert (old_root / "dup").exists()          # already in the new place: left alone
+    assert not (old_root / "abc").exists()

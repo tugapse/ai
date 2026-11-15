@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Dict, Any
 
 import ai.functions as func
-from ai.services.config_helper import ProgramConfig, ProgramSetting
+from ai.config import ProgramConfig, ProgramSetting
 from ai.services.directory_manager import DirectoryManager
 
 class SessionManager:

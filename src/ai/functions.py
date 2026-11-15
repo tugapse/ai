@@ -230,7 +230,7 @@ def format_execution_time(start_time, end_time):
 def get_root_directory() -> str:
     """
     Retrieves the configured root directory from ProgramConfig.
-    Uses the OS temp directory by default so logs/session data are not written into the project checkout.
+    Falls back to ~/Ai (the default AI folder when AI_ASSISTANT_DIRECTORY is not set).
 
     Returns:
         str: The absolute path to the root directory.

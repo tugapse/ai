@@ -165,7 +165,7 @@ class TestRelayedImages:
         from fastapi.testclient import TestClient
         from ai.modules.server.app import create_app
         monkeypatch.setattr("ai.functions.get_root_directory", lambda: str(tmp_path))
-        return TestClient(create_app(relay_hub, {}, auth=auth))
+        return TestClient(create_app(relay_hub, {}, auth=auth), client=("127.0.0.1", 50000))
 
     @staticmethod
     def chat(client, model):
@@ -215,7 +215,7 @@ def test_relayed_chat_forwards_the_request_sampling_settings(relay_hub, auth, tm
             system_prompt=system_prompt, model_name=model_config["model_name"], **model_config["model_properties"])))
     monkeypatch.setattr(JarvisAiModel, "_run_sync_chat", lambda self, payload: sent.append(payload) or "ok")
     monkeypatch.setattr("ai.functions.get_root_directory", lambda: str(tmp_path))
-    r = TestClient(create_app(relay_hub, {}, auth=auth)).post("/api/v1/chat/completions", json={
+    r = TestClient(create_app(relay_hub, {}, auth=auth), client=("127.0.0.1", 50000)).post("/api/v1/chat/completions", json={
         "model": "small", "stream": False, "temperature": 0.2, "max_tokens": 50,
         "messages": [{"role": "user", "content": "hi"}]})
     assert r.status_code == 200

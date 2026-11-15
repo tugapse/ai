@@ -410,7 +410,7 @@ class ChatService:
             options["max_tokens"] = options["max_new_tokens"] = max_tokens
         return options
 
-    async def chat_completion(self, request: ChatCompletionRequest):
+    async def chat_completion(self, request: ChatCompletionRequest, viewer=None):
         """
         Main entry point for handling chat completion requests.
 
@@ -440,9 +440,15 @@ class ChatService:
         _, session_file, target_session_id = self.session_router.build_session_path(
             request
         )
+        exists = Path(session_file).is_file()
+        if viewer is not None and not viewer.can_write(self._session_owner(session_file) if exists else None, exists):
+            # An unpaired browser may only continue the sessions it created.
+            raise HTTPException(status_code=403, detail="This session belongs to another device. Pair this device to use it.")
         self.session_router.route_memory(
             self.brain_hub, request, session_file, target_session_id
         )
+        if viewer is not None and viewer.owner and not self.brain_hub.history.get("owner"):
+            self.brain_hub.history["owner"] = viewer.owner   # saved with the next message
 
         # Off the event loop: a swap may wait for running generations, which the loop drives.
         lease = await asyncio.to_thread(self._resolve_brain, request)
@@ -452,6 +458,14 @@ class ChatService:
             if not getattr(lease, "detached", False):
                 lease.release()
             raise
+
+    @staticmethod
+    def _session_owner(session_file) -> Optional[str]:
+        try:
+            with open(session_file, "r", encoding="utf-8") as f:
+                return (json.load(f) or {}).get("owner")
+        except Exception:
+            return None
 
     async def _complete(self, request: ChatCompletionRequest, lease: ModelLease):
         """Runs the chat turn on the model held by ``lease`` (released by the caller on error)."""

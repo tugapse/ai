@@ -2,8 +2,11 @@ from typing import Dict, Any, Optional, List
 from ai.entities.model_enums import EngineType
 from ai.modules.base_module import BaseModule
 from ai.services.engine_manager import EngineManager
-from ai.services.config_helper import ProgramConfig, ProgramSetting
+from ai.config import ProgramConfig, ProgramSetting
 import ai.functions as func
+
+# Shipped in assets/voices/ (from microsoft/VibeVoice demo/voices/streaming_model).
+DEFAULT_VOICE_FILE = "pt-Spk1_man"
 
 class ModuleRegistry:
     """
@@ -142,11 +145,11 @@ class ModuleRegistry:
             The initialized VibeVoiceModule instance, or None if the engine is missing.
         """
         if not EngineManager.is_engine_installed(EngineType.VOICE_ENGINE):
-            func.log("Voice Engine not found. Run --install.", level="ERROR")
+            func.log("Voice Engine not found. Run: ai install", level="ERROR")
             return None
             
         from ai.modules.voice.vibe_module import VibeVoiceModule
-        voice = VibeVoiceModule( voice_file=self.config.get(ProgramSetting.VOICE_FILE), volume=1.5) 
+        voice = VibeVoiceModule(voice_file=self.config.get(ProgramSetting.VOICE_FILE) or DEFAULT_VOICE_FILE, volume=1.5)
         voice.preload() 
         return voice
 
@@ -161,7 +164,7 @@ class ModuleRegistry:
             The initialized VectorMemoryModule instance, or None if the engine is missing or import fails.
         """
         if not EngineManager.is_engine_installed(EngineType.VECTOR_MEMORY):
-            func.log("Vector Memory module not found. Run --install.", level="ERROR")
+            func.log("Vector Memory module not found. Run: ai install", level="ERROR")
             return None
 
         db_path = self.config.get(ProgramSetting.VECTOR_DB_PATH) or func.get_root_directory() + "/databases"

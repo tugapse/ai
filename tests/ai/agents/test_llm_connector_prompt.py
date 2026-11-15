@@ -3,7 +3,6 @@
 import os
 from types import SimpleNamespace
 
-import ai.program  # noqa: F401  (startup import order, avoids a circular import)
 from ai.agents.llm_connector import LLMConnector
 
 

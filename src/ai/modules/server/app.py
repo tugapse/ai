@@ -4,6 +4,7 @@ import asyncio
 import contextvars
 from urllib.parse import urlparse
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Any, Dict, Optional
@@ -111,7 +112,8 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None,
             f"session_id={payload.session_id!r}"
         )
 
-        return await chat_service.chat_completion(payload)
+        from ai.modules.server.services.client_access import viewer
+        return await chat_service.chat_completion(payload, viewer=viewer(request))
 
     @app.get("/api/health")
     async def health(request: Request):
@@ -191,6 +193,29 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None,
         func.out(f"Frontend {frontend_info['version'] or '?'} ({frontend_info['source']}) served from {frontend_dir}")
     
     app.add_middleware(MIMETypeFixerMiddleware)
+
+    @app.middleware("http")
+    async def trusted_networks_only(request: Request, call_next):
+        """
+        Every route (API and web UI) answers only SERVER_TRUSTED_NETWORKS; pairing comes on top.
+        Browsers also get a random ``jarvis_client`` id: until paired, a browser only sees the chat
+        sessions it created (see services/client_access.py).
+        """
+        import secrets
+        from ai.modules.server.services.auth import AuthError, CLIENT_ID_COOKIE, CLIENT_ID_TTL
+        try:
+            auth.check_network(request.client.host if request.client else "")
+        except AuthError as e:
+            return JSONResponse(status_code=e.status, content={"detail": e.detail})
+        issued = None
+        if not request.cookies.get(CLIENT_ID_COOKIE):
+            issued = request.state.client_id = secrets.token_urlsafe(24)
+        response = await call_next(request)
+        if issued:
+            response.set_cookie(CLIENT_ID_COOKIE, issued, max_age=CLIENT_ID_TTL, httponly=True,
+                                samesite="strict", secure=request.url.scheme == "https", path="/")
+        return response
+
     app.add_middleware(
         SameHostCORSMiddleware,
         # Explicit origins only: with credentials allowed, "*" would let any site use the cookie.

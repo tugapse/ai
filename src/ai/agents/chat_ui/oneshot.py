@@ -1,5 +1,5 @@
 """
-One-shot agent run (``ai --agent --msg ...``) printed with the chat UI's renderer.
+One-shot agent run (``ai agent --msg ...``) printed with the chat UI's renderer.
 
 Runs a single request to completion and exits, like the classic ``ConsoleIO`` mode,
 but the output (status lines, tool calls, results, messages, turn summary) looks the
@@ -98,7 +98,7 @@ def run_one_shot(prog, prompt: str, pipeline: str = "default.json", session_id: 
         io.write(R.render_turn_summary("done" if reason == "awaiting_user" else reason, io.state))
         if reason in ("awaiting_user", "api_error"):
             # The session is saved: the same conversation continues with --resume.
-            io.write(f"{R.GREY}  continue: ai --agent --resume {session_id} --msg \"...\"{R.RESET}")
+            io.write(f"{R.GREY}  continue: ai agent --resume {session_id} --msg \"...\"{R.RESET}")
         return result
     finally:
         io.state.busy = False

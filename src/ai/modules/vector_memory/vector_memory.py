@@ -116,7 +116,7 @@ class SentenceTransformerEmbeddingProvider(EmbeddingProvider):
         try:
             from sentence_transformers import SentenceTransformer
         except ImportError as e:
-            raise ImportError("sentence-transformers is not installed. Run --install (Long Term Memory).") from e
+            raise ImportError("sentence-transformers is not installed. Run: ai install (Long Term Memory).") from e
         func.log(f"Loading embedding model: {model_name}")
         self.model_name = model_name
         self.model = SentenceTransformer(model_name)
@@ -267,7 +267,7 @@ def get_chroma_client(path: str):
     try:
         import chromadb
     except ImportError as e:
-        raise ImportError("chromadb is not installed. Run --install (Long Term Memory).") from e
+        raise ImportError("chromadb is not installed. Run: ai install (Long Term Memory).") from e
     path = os.path.abspath(path)
     with _CHROMA_LOCK:
         if path not in _CHROMA_CLIENTS:

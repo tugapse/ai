@@ -464,7 +464,7 @@ class AgentChatApp:
                 self.loop.call_soon(self.submit, initial_message)
             await self.app.run_async()
         await asyncio.get_running_loop().run_in_executor(None, self.orchestrator.close)
-        print(f"{R.GREY}Session {self.session_id} saved. Resume with: ai --agent --session-id {self.session_id}{R.RESET}")
+        print(f"{R.GREY}Session {self.session_id} saved. Resume with: ai agent --session-id {self.session_id}{R.RESET}")
 
     def run(self, initial_message: Optional[str] = None) -> None:
         asyncio.run(self.run_async(initial_message))
@@ -472,6 +472,6 @@ class AgentChatApp:
 
 def run_agent_chat(prog, pipeline: str = "default.json", session_id: Optional[str] = None,
                    directory_manager=None, initial_message: Optional[str] = None) -> None:
-    """Entry point used by the CLI (``ai --agent`` on an interactive terminal)."""
+    """Entry point used by the CLI (``ai agent`` on an interactive terminal)."""
     app = AgentChatApp(prog, pipeline=pipeline, session_id=session_id, directory_manager=directory_manager)
     app.run(initial_message)

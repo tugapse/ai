@@ -63,6 +63,7 @@ class EngineManager:
             ModelType.CAUSAL_LM: "transformers",
             ModelType.SEQ2SEQ_LM: "transformers",
             ModelType.OPEN_AI: "openai",
+            ModelType.GEMINI: "gemini",
             EngineType.GEMINI_API: "gemini_api",
             EngineType.GEMINI_VERTEX: "gemini_vertex",
             EngineType.VOICE_ENGINE:"voice_engine",
@@ -215,7 +216,7 @@ class EngineManager:
             from ai.color import Color
             message = (
                 f"The engine for {Color.YELLOW}{model_type.value}{Color.RESET} is not installed.\n"
-                f"Run '{Color.CYAN} ai --install{Color.RESET}' to configure it."
+                f"Run '{Color.CYAN}ai install{Color.RESET}' to configure it."
             )
             func.error(message, level="ERROR")
             raise ValueError(f"engine not installed: {model_type.value}")
@@ -237,6 +238,8 @@ class EngineManager:
         try:
             if model_type == ModelType.CAUSAL_LM:
                 llm_instance = EngineManager._create_causal_lm(model_name, system_prompt, quantization_bits, model_params, other_llm_kwargs)
+            elif model_type == ModelType.SEQ2SEQ_LM:
+                llm_instance = EngineManager._create_seq2seq_lm(model_name, system_prompt, quantization_bits, model_params, other_llm_kwargs)
             elif model_type == ModelType.OLLAMA:
                 llm_instance = EngineManager._create_ollama_model(model_name, system_prompt, model_params, other_llm_kwargs)
             elif model_type == ModelType.GGUF:
@@ -287,6 +290,20 @@ class EngineManager:
             **other_llm_kwargs
         )
         func.log(f"Model '{model_name}' loaded as a Causal Language Model (HuggingFace).")
+        return llm_instance
+
+    @staticmethod
+    def _create_seq2seq_lm(model_name: str, system_prompt: str, quantization_bits: int, model_params: dict, other_llm_kwargs: dict) -> BaseModel:
+        """Instantiates a T5Model for encoder-decoder models (T5, FLAN-T5, BART)."""
+        from ai.core.llms.t5_model import T5Model
+        llm_instance = T5Model(
+            model_name=model_name,
+            system_prompt=system_prompt,
+            quantization_bits=quantization_bits,
+            model_params=model_params,
+            **other_llm_kwargs
+        )
+        func.log(f"Model '{model_name}' loaded as a Seq2Seq model (HuggingFace).")
         return llm_instance
 
     @staticmethod

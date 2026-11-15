@@ -5,7 +5,6 @@ import time
 
 import pytest
 
-import ai.program  # noqa: F401  (startup import order, avoids a circular import)
 from ai.config import ProgramConfig, ProgramSetting
 from ai.agents.agent_io import AgentEventType, PERMISSION_YES, PERMISSION_NO
 from ai.agents.tool_preview import describe_tool_request

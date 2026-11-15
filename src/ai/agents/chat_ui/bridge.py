@@ -67,8 +67,6 @@ class ChatIO(AgentIO):
             state.phase = "thinking"
         elif t == AgentEventType.TOOL_CALL:
             state.phase = f"running {event.data.get('tool')}"
-        elif t == AgentEventType.SPECIALIST:
-            state.phase = f"specialist {event.data.get('tool')}"
 
         text = render_event(event)
         if t == AgentEventType.STATUS and event.data.get("fresh"):

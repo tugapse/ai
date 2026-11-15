@@ -7,7 +7,6 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
-import ai.program  # noqa: F401  (startup import order, avoids a circular import)
 from ai.core.llms.api_retry import LLMAPIError
 from ai.core.llms.jarvis import JarvisAiModel
 

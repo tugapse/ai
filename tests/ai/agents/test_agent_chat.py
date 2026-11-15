@@ -10,9 +10,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-# Import in the same order as real startup (main -> program) to avoid the
-# ai.direct -> config_helper -> ai.program circular import.
-import ai.program  # noqa: F401
 from ai.agents import agent_orchestrator as orch_mod
 from ai.agents.agent_io import AgentEvent, AgentEventType, AgentIO, ConsoleIO, PERMISSION_NO, PERMISSION_YES
 from ai.agents.agent_orchestrator import AgentOrchestrator

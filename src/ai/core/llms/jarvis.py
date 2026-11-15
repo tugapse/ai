@@ -24,18 +24,18 @@ class JarvisAiModel(BaseModel):
         Initializes the custom API endpoint model interface.
 
         Args:
-            model_name: The name of the LLM model to use (defaults to "gpt-4o").
+            model_name: The name of the LLM model to use (defaults to AI_MODEL_NAME, else "default").
             system_prompt: The initial system prompt to guide the model's behavior.
             api_key: Optional API key for authentication (though not explicitly used in this interface).
             **kargs: Additional keyword arguments for configuration (the model JSON's model_properties):
                 base_url (else AI_API_BASE_URL), server_model (the server's model config file name,
                 else AI_SERVER_MODEL, else model_name), session_id, timeout, etc.
         """
-        model_name = model_name or os.environ.get("AI_MODEL_NAME", "gpt-4o")
+        model_name = model_name or os.environ.get("AI_MODEL_NAME", "default")
         super().__init__(model_name, system_prompt, **kargs)
         
         # Configuration routing pointing to the custom backend server
-        self.base_url = kargs.get("base_url") or os.environ.get("AI_API_BASE_URL", "http://0.0.0.0:9999")
+        self.base_url = kargs.get("base_url") or os.environ.get("AI_API_BASE_URL", "http://127.0.0.1:9999")
         self.endpoint = f"{self.base_url.rstrip('/')}/api/v1/chat/completions"
         # Which model config the server loads (its file name, e.g. "small"). model_name stays a display
         # name; it is only sent as the fallback for configs written before server_model existed.

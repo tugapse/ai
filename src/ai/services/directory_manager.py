@@ -124,6 +124,18 @@ class DirectoryManager:
             func.debug(f"{Color.GREEN}System templates directory created at: {system_templates_directory}{Color.RESET}")
         return system_templates_directory
 
+    def resolve_prompt_file(self, prompt_file: str):
+        """
+        Path of an agent prompt file (relative to system-prompt/, e.g. "agents/default.md"):
+        <root>/user/system-prompt/ first, then <root>/system/system-prompt/. None when neither has it.
+        """
+        for base in (os.path.join(self.user_directory, "system-prompt"),
+                     self.get_system_prompts_templates_directory()):
+            path = os.path.join(base, prompt_file)
+            if os.path.isfile(path):
+                return path
+        return None
+
     def get_system_temp_directory(self):
         """
         Gets the path to the system temporary files directory, creating it if necessary.
@@ -147,6 +159,10 @@ class DirectoryManager:
             os.makedirs(logs_directory)
             func.debug(f"{Color.GREEN}Logs directory created at: {logs_directory}{Color.RESET}")
         return logs_directory
+
+    def get_agent_sessions_directory(self):
+        """``<root>/sessions/agents``: agent sessions, one folder per working directory."""
+        return os.path.join(self.root_directory, "sessions", "agents")
 
     def get_system_agents_directory(self):
         """
@@ -223,7 +239,8 @@ class DirectoryManager:
             pid_directory = os.path.join(runtime_dir, "jarvis", "pids")
         else:
             import tempfile
-            pid_directory = os.path.join(tempfile.gettempdir(), f"jarvis-{os.getuid()}", "pids")
+            owner = os.getuid() if hasattr(os, "getuid") else (os.environ.get("USERNAME") or "user")
+            pid_directory = os.path.join(tempfile.gettempdir(), f"jarvis-{owner}", "pids")
         if not os.path.exists(pid_directory):
             os.makedirs(pid_directory, mode=0o700, exist_ok=True)
             func.debug(f"{Color.GREEN}PID directory created at: {pid_directory}{Color.RESET}")

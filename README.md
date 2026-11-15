@@ -1,13 +1,12 @@
-# AI Assistant
+# JARVIS AI
 
-![Version](https://img.shields.io/badge/version-3.3.0-orange)
-![Python](https://img.shields.io/badge/python-3.13%2B-blue)
+![Version](https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Ftugapse%2Fai%2Fmaster%2Fpyproject.toml&query=%24.project.version&label=version&color=orange)
+![Python](https://img.shields.io/badge/python-3.10%E2%80%933.13-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-A modular conversational AI framework built with Python. It provides a unified interface for **Ollama** and **Hugging Face Transformers**, supporting advanced file ingestion, autonomous agent workflows, and multimodal analysis.
-```python
+My own JARVIS-style personal assistant: it runs on my machine, uses my models, and can actually do things for me.
 
-
+```
       ██╗  █████╗  ██████╗  ██╗   ██╗ ██╗ ███████╗      █████╗  ██╗
       ██║ ██╔══██╗ ██╔══██╗ ██║   ██║ ██║ ██╔════╝     ██╔══██╗ ██║
       ██║ ███████║ ██████╔╝ ██║   ██║ ██║ ███████╗     ███████║ ██║
@@ -16,238 +15,171 @@ A modular conversational AI framework built with Python. It provides a unified i
   ╚════╝  ╚═╝  ╚═╝ ╚═╝  ╚═╝   ╚═══╝   ╚═╝ ╚══════╝     ╚═╝  ╚═╝ ╚═╝
 
   JUST A REASONING VIRTUAL INTELLIGENT SENTINEL AGENTIC INTERFACE
-  Version: 3.3.0
-
-  An integrated reasoning core powering autonomous agentic logic and long-term memory synthesis.
-
-  [ SYSTEM READY ] --------------------------------------------------------------------------
 ```
----
-
-##  Features
-
-* **Hybrid LLM Integration:** Toggle between Ollama and Hugging Face (GGUF/PyTorch) or openapi and gemini models.
-* **Autonomous Agents:** Enable tool-use for terminal execution, file manipulation, and smart searching.
-* **Contextual Data Ingestion:** Load text data from individual files or entire directories for analysis, reporting, or code reviews.
-* **Automated Task Pipeline:** Execute predefined logic (summarize, brainstorm, code) using prompt templates.
-* **Multimodal Support:** Analyze images using vision-capable models (VLMs).
-* **Flexible Interaction:** Persistent interactive chat mode or single-command CLI execution.
+<sub>The startup banner. Yes, the acronym was reverse-engineered.</sub>
 
 ---
 
-##  Autonomous Agents
+## Why
 
-The assistant includes an **Agentic Mode** that allows the LLM to interact with your system via a suite of tools. 
+Like a lot of people, I watched Iron Man and wanted a JARVIS of my own.
+Not a chatbot in a browser tab, but an assistant that lives on *my* machine, runs *my* models,
+knows my projects, talks back, and can actually do things for me.
 
-* **Toolbox:** Includes `smart_search`, `patch_file`, `execute_command`, and more.
-* **Safety (HITL):** Sensitive operations require manual user authorization (Human-In-The-Loop) unless explicitly whitelisted.
-* **Iteration:** Agents can self-correct and iterate through multiple steps to complete complex tasks.
-* **Tool categories:** Tools are grouped in categories (`filesystem`, `search`, `shell`, `web`, `notify`, `knowledge`, `memory`, one per MCP server, plus your own). An agent first sees only the category names and descriptions, and calls `open_tools` to unlock the ones it needs (or calls a tool directly, which opens its category). This keeps small context windows free. Set `"AGENT_TOOL_CATEGORIES": false` to list every tool from the start.
-* **Your own tools:** Python files in `<AI dir>/tools/`. Every `@tool` function must belong to a `ToolCategory` subclass (`from ai.tools import ToolCategory, tool`) with a `name` and a one-line `description`, which are checked at load time. See `tools/_example_tools.py`.
+JARVIS AI is that project. It started in April 2024 as a small script to ask a local Ollama
+model questions from the terminal and run a few prompt "tasks" (the very first one commented PHP
+code). Since then it has grown, one evening at a time, into something closer to the original idea:
+agents that read and edit code and run commands, a voice, a web interface I use from my phone and
+tablet, memory between sessions, and a "brain" server so the big model can run on the machine with
+the GPU while I work from another one.
 
+It's a pet project: an idea I like, built for fun and out of passion. It's not a product or a
+framework, and it changes a lot. It's open source in case it's useful or fun for someone else.
 
-> For a full list of available tools, safety configurations, and agentic workflows, please refer to the [**Agent Documentation**](docs/agents/agent.md).
+## What it can do today
 
----
+- **Chat** with local or remote models: Ollama, GGUF (llama.cpp), Hugging Face Transformers,
+  OpenAI-compatible APIs, Gemini, or another JARVIS running as a server.
+- **One-off tasks** from the terminal: ask a question, summarize a file, review a folder, look at an
+  image, pipe text in and out.
+- **Agents** that read and edit files, search code, run shell commands, search the web and send
+  desktop notifications. Risky actions ask for your approval first.
+- **Remember**: project knowledge generated from your code, plus long-term memory between sessions.
+- **Talk**: text-to-speech voice (VibeVoice), including Portuguese.
+- **Brain Server**: run the models on one machine and use them from the terminal on another, or from
+  the web UI on your phone or tablet.
+- **Extend** it with your own Python tools and MCP servers (`ai mcp`).
 
-##  Installation & Setup
+## Status
 
-1.  **Clone the Repository:**
-    ```bash
-    git clone https://github.com/tugapse/ai.git
-    cd ai
-    ```
-
-2.  **Install Dependencies:**
-    The integrated installer automatically detects your hardware and configures the environment.
-    ```bash
-    ./build.sh
-    ```
-
-    On Windows, run the PowerShell setup script and compile the executable:
-    ```powershell
-    .\build.ps1
-    .\compile.ps1
-    ```
-    The executable is created at `dist\ai.exe` and includes `run.ps1`, the Python source, assets, and installer. Copy the EXE and `.venv` folder together to run it without the source checkout. For example, from a folder containing both, run `.\ai.exe -m "hello"`.
-    `compile.ps1` uses the environment specified by `AI_VENV_PATH` when set; otherwise it checks for `.venv` in the project directory and its parent before falling back to `python` on `PATH`. A relative `AI_VENV_PATH` is resolved from the project directory.
-    To install additional engines, run `.\ai.exe --install` from that folder. Installation updates `installed_engines.json` beside the EXE.
-
----
-
-##  Usage
-
-### Interactive Chat Mode
-Run without arguments to start a continuous dialogue:
-```bash
-./run.sh
-```
-
-### Agent Mode (Autonomous)
-Run the assistant with tool-access enabled:
-```bash
-./run.sh --agent --msg "Locate all .py files in /src and check them for security vulnerabilities."
-```
-
-### Agent Chat (Interactive)
-Run agent mode without a prompt on an interactive terminal to open a multi-turn chat with the agent pipeline:
-```bash
-./run.sh --agent                         # new session
-./run.sh --resume                        # pick a saved agent session for this directory
-./run.sh --resume 3f2a                   # resume by id or unique prefix
-./run.sh --agent --session-id <id>       # resume a session
-./run.sh --agent --pipeline small        # use another pipeline
-```
-Tool calls, results and permission requests are shown inline while the agent works.
-
-| Key / Command | Action |
-| :--- | :--- |
-| `Enter` | Send (queued if the agent is busy) |
-| `Ctrl+J` / `Alt+Enter` | New line |
-| `Esc` | Interrupt the running turn |
-| `Ctrl+C` | Interrupt the running turn; exit when idle |
-| `Ctrl+D` | Exit on an empty line |
-| `@path` | Attach a file (Tab completes) |
-| `/help` `/clear` `/resume` `/session` `/pipeline` `/tools` `/thoughts` `/exit` | Chat commands |
-
-### Direct Command Execution
-**Ask a single question:**
-```bash
-./run.sh --msg "What is the capital of Portugal?"
-```
-
-**Summarize a file and save the output:**
-```bash
-./run.sh --file "document.txt" --task "summarize" --output-file "summary.md"
-```
-
-**Analyze a source folder:**
-Running a task from user/tasks folder
-```bash
-./run.sh --load-folder "./src" --ext "py" --task "code_review"
-```
+- Personal project, one maintainer, developed in bursts. Expect breaking changes.
+- Developed on Linux. Windows works (there's a build for it) but gets less testing.
+- Not tied to one model: I use as many as I can, because each one is better at different things.
+  Results depend a lot on the model you pick: small local models work, but agents do much better
+  with bigger ones.
 
 ---
 
-##  CLI Reference
+## Getting started
 
-### Cognitive Protocols
-| Flag | Alias | Description |
-| :--- | :--- | :--- |
-| `--help` | `-h` | Show the diagnostic help message. |
-| `--msg` | `-m` | Direct inquiry to the sentinel. |
-| `--model` | `-md` | Specify neural model configuration. |
-| `--system` | `-s` | Load named system persona from user/system folder. |
-| `--system-file` | `-sf` | Inject system prompt from disk. |
-| `--list-models` | `-l` | Audit available neural models. |
+### Install (Linux)
 
-### Asset & Context Management
-| Flag | Alias | Description |
-| :--- | :--- | :--- |
-| `--file` | `-f` | Analyze target file. |
-| `--image` | `-i` | Process visual input from image path. |
-| `--load-folder` | `-D` | Ingest directory into context. |
-| `--ext` | `-e` | Filter context ingestion by extension. |
-
-### Autonomous Operations
-| Flag | Alias | Description |
-| :--- | :--- | :--- |
-| `--agent` | | Enable agentic logic injection. Without a prompt on a TTY, opens the interactive agent chat. |
-| `--resume` | `-r` | Resume an agent session: pick from a list of this directory's sessions, or pass an id/prefix. Implies `--agent`. |
-| `--task` | `-t` | Load named directive from user/tasks folder.|
-| `--task-file` | `-tf` | Load directive from file. |
-| `--pipeline` | `-ppl` | Define multi-stage instruction pipeline. (defaults to default.json) |
-| `--session-id`| | LTM (Long Term Memory) session key. |
-| `--knowledge` | `-kb` | Knowledge source for the agents: a folder of component JSON (`code/extract-knowledge` task) and/or Markdown docs. Repeatable; remembered for this folder. |
-| `--build-knowledge` | | `[SRC]`: generate docs + component knowledge for this folder with the model (`--kb-mode`, `--kb-only`, `--kb-ext`, `--kb-files`, `--kb-max`, `--kb-force`). |
-| `--knowledge-list` | | Show the knowledge registered for this folder and its coverage. |
-| `--knowledge-forget` | | `ID`: stop loading a registered knowledge source for this folder. |
-| `--output-file` | `-o` | Designate clean output stream (temp-file mode). |
-
-### Distributed Architecture
-| Flag | Alias | Description |
-| :--- | :--- | :--- |
-| `--server` | | Initialize Brain Server module. |
-| `--relay` | | `--relay URL`: run the server (website, agent runs, tools, files) on this machine and send only model inference to the Brain Server at URL; the website lists that server's models. Implies `--server`. Default: `SERVER_RELAY_URL` in config.json. |
-| `--modules` | | Load specific sub-modules. <module_name> |
-
-### System Debug & Maintenance
-| Flag | Alias | Description |
-| :--- | :--- | :--- |
-| `--version` | `-v` | Display the system version and exit. |
-| `--show-logo` | | Display the JARVIS startup logo. |
-| `--print-chat` | `-p` | Output session history. |
-| `--print-log` | `-pl` | Enable system telemetry logs. |
-| `--print-debug`| `-pdb` | Enable verbose debug stream. |
-| `--no-out` | `-q` | Quiet mode (suppress terminal output). |
-| `--no-think-anim`| `-nta` | Disable reasoning animations. |
-| `--debug-console`| `-dc` | Lock console (disable clear-screen). |
-| `--install` | | Execute dependency sync protocol. |
-| `--overwrite-config`| | Force configuration and templates overwriting. |
-| `--create-tool` | | Create a new user tool skeleton file. |
-
----
-
-##  Knowledge & Long-Term Memory
-
-Agents can start from what is already known about a project instead of re-exploring it.
-
-**Knowledge** has two kinds of files:
-- component JSON, one per source file (summary, symbols, dependency edges) - the `code/extract-knowledge` task;
-- Markdown documentation, one per source file - the `code/create-code-documentation` task (split into sections for semantic search, linked to the components by path).
-
-**Generate it with the app** (one model call per file and kind):
 ```bash
-ai --build-knowledge            # this folder: src/ (or .), *.py, only missing/changed files
-ai --build-knowledge src --kb-ext py,ts --kb-mode all
-ai --build-knowledge --kb-mode diff:master      # files changed vs a branch
-ai --build-knowledge --kb-files src/app/main.py --kb-only knowledge
-```
-Output goes to `<root>/knowledge/<project>/{docs,knowledge}` (mirroring the source tree; `KNOWLEDGE_OUTPUT_DIR` changes the base). A `.state.json` keeps the source hash of every file, so `changed` (the default) only regenerates what changed; failed files are retried. The manifest of related files is sent inline, so dependency edges and links point at real files.
-
-**Remembered per project**: sources loaded with `--knowledge PATH`, built with `--build-knowledge`, or added by the `ingest_knowledge` tool / server API are registered for that folder (`<root>/system/knowledge/projects.json`) and loaded again whenever an agent works there - no flag needed next time. `ai --knowledge-list` shows them with the build coverage; `ai --knowledge-forget ID` removes one. `KNOWLEDGE_SOURCES` in config.json and `"knowledge": [...]` in a pipeline add more; an agent with `"knowledge": ["id", ...]` only sees those sources.
-
-**Agents** get a short `relevant_components` / `related_to_touched_files` list each step and the tools `search_knowledge`, `get_component`, `knowledge_neighbors`, `find_symbol`, `read_doc`, plus `knowledge_status` and `update_knowledge` to create or refresh the knowledge themselves. When a run changes files of a project whose knowledge was built by the app, those files are regenerated when the turn ends (`KNOWLEDGE_AUTO_UPDATE`). The server exposes the same: `/api/v1/knowledge/sources`, `/search`, `/status` and `/build` (background job, one at a time; it does not run during an agent run).
-
-**Long-term memory** keeps decisions, preferences, distilled tool outputs and one episode per finished turn, per project by default, so later sessions recall them (`long_term_memory` in the payload, `query_memory`, `remember`). It is on when its engine is installed (`ai --install`, Long Term Memory); `VECTOR_MEMORY_ENABLED: false` turns it off.
-
-| Setting | Default | Description |
-| :--- | :--- | :--- |
-| `KNOWLEDGE_ENABLED` | `true` | Knowledge module. |
-| `KNOWLEDGE_SOURCES` | `[]` | Extra sources for every project: paths or `{"id","path","kind": "auto\|knowledge\|docs"}`. |
-| `KNOWLEDGE_OUTPUT_DIR` | `<root>/knowledge` | Base folder of generated knowledge. |
-| `KNOWLEDGE_EXTENSIONS` | `["py"]` | Source extensions `--build-knowledge` documents (per project once built). |
-| `KNOWLEDGE_AUTO_UPDATE` / `KNOWLEDGE_AUTO_UPDATE_MAX` | `true` / `5` | Regenerate the knowledge of files a run changed. |
-| `KNOWLEDGE_SEMANTIC` | engine installed | Embedding index for knowledge (keyword search otherwise). |
-| `KNOWLEDGE_INJECT_TOP_K` / `KNOWLEDGE_INJECT_MAX_CHARS` | `4` / `1500` | Knowledge injected per step (0 turns it off). |
-| `VECTOR_MEMORY_ENABLED` | engine installed | Long-term memory. |
-| `LTM_SCOPE` | `project` | `project`, `session` or `global` memory. |
-| `LTM_INJECT_TOP_K` / `LTM_MIN_RELEVANCE` | `4` / `0.3` | Memories injected per step. |
-| `LTM_AUTO_REFLECT_MIN` | `15` | New memories that trigger a reflection (one LLM call) when a run ends; 0 = off. |
-| `LTM_LLM_IMPORTANCE` | `false` | Ask the LLM to rate each memory instead of rating by type. |
-
----
-
-##  Model Configuration Generation
-
-The AI Assistant provides specialized options for generating model configuration files, defining how models are loaded and behave within the application.
-
-**Generate a new configuration:**
-```bash
-python main.py --generate-config "new_model" --model-type "gguf"
+git clone https://github.com/tugapse/ai.git
+cd ai
+./build.sh            # creates .venv and installs the base dependencies
+./run.sh install    # pick the engines you want (GGUF, Ollama, OpenAI, Gemini, server, memory, voice...)
 ```
 
-* **--generate-config:** Specify the filename to save the new JSON config (you can ommit .json).
-* **--model-type:** Choose the architectural type (`ollama`, `causallm`, `gguf`, `gemini`, `openai`).
+`ai install` is interactive. GPU builds and troubleshooting: [Installation](guide/09-installation.md).
 
-For detailed instructions on configuration parameters, refer to the [**Model Configuration Manager README**](docs/model_config_manager.md).
+### Install (Windows)
+
+```powershell
+.\build.ps1           # set up the environment
+.\compile.ps1         # optional: build dist\ai.exe
+```
+
+`ai.exe` needs the `.venv` folder next to it; run `.\ai.exe install` to add engines.
+
+### Where your settings live
+
+On the first run JARVIS copies its default config and templates into `~/Ai`. To use another folder,
+set `AI_ASSISTANT_DIRECTORY`:
+
+```bash
+export AI_ASSISTANT_DIRECTORY="/path/to/my/ai-folder"
+```
+
+What's in that folder and every setting: [Configuration](guide/08-configuration.md).
+
+### First steps
+
+```bash
+./run.sh                                   # interactive chat
+./run.sh -m "What is the capital of Portugal?"
+./run.sh -f notes.txt -m "Summarize this" -o summary.md
+./run.sh -D ./src -e py -m "Review this code for bugs"   # load a folder into the context
+./run.sh -f app.py -t create-comment -o app.commented.py   # run a task (prompt template)
+./run.sh -i photo.png -m "What's in this picture?"
+git diff --staged | ./run.sh -t commit                     # pipe text in
+./run.sh agent                                 # chat with the agents
+./run.sh agent -m "Find the TODOs in src and list them by file"
+```
+
+`./run.sh` runs from the checkout. If you installed the package, the same command is `ai`.
 
 ---
 
+## A quick tour
 
-##  License
+**Agents.** `ai agent` gives the model tools: read and edit files, search code, run commands, search
+the web, send notifications. It opens a chat that shows each tool call as it happens; risky ones
+(`execute_command`, `write_file`, `patch_file`, `delete_file`) wait for your OK. Sessions are saved
+per folder (`ai agent --resume`), and pipelines (`default`, `small`, `multi`) decide which agents
+take part. → [Agents](guide/03-agents.md)
+
+**Tools.** Built-in categories (filesystem, search, shell, web, notify, knowledge, memory), MCP
+servers (shipped disabled: `ai mcp enable NAME`) and your own Python tools in
+`<AI dir>/user/tools/` (`ai tools create NAME` makes a skeleton). → [Tools](guide/04-tools.md)
+
+**Knowledge & memory.** `ai knowledge build` has the model document a project once (a summary,
+symbols and dependencies per file), so agents start from that instead of exploring from scratch.
+Long-term memory keeps decisions, preferences and a summary of each finished turn.
+→ [Knowledge & memory](guide/05-knowledge-memory.md)
+
+**Brain Server.** `ai server` serves the models, agents and a web UI from the machine with the GPU.
+Phones, tablets and other PCs on your network pair with it once; another machine's CLI can use it
+as a model (`"model_type": "jarvis"`), or run its own agents and send only inference there
+(`ai server --relay URL`). → [Server](guide/07-server.md)
+
+**Commands.** `ai --help` lists them, `ai COMMAND --help` explains one:
+
+```
+ai agent · ai sessions list · ai knowledge build|list|forget · ai models list|generate
+ai tools create · ai mcp list|enable|disable · ai server [totp-setup|frontend]
+ai install · ai config reset
+```
+
+Every command and option: [Command-line reference](guide/01-interfaces.md#command-line-reference).
+
+---
+
+## How it's organised
+
+```
+ Interfaces     CLI · chat · agent chat · web UI · voice
+ Program        startup, services, events, modules
+ Agents         pipelines, agent loop, context management
+ Tools          categories, built-in tools, MCP, your tools   │  Knowledge & memory
+ Models         Ollama · GGUF · HF · OpenAI · Gemini · JARVIS
+ Server         Brain Server · relay · API · auth · web UI
+```
+
+Each layer has a page in the [guide](guide/index.md):
+[Interfaces](guide/01-interfaces.md) ·
+[Program](guide/02-program.md) ·
+[Agents](guide/03-agents.md) ·
+[Tools](guide/04-tools.md) ·
+[Knowledge & memory](guide/05-knowledge-memory.md) ·
+[Models](guide/06-models.md) ·
+[Server](guide/07-server.md) ·
+[Configuration](guide/08-configuration.md) ·
+[Installation](guide/09-installation.md) ·
+[Development](guide/10-development.md).
+
+Per-file docs generated by the model live in `_docs/`, and `docs/` holds a viewer for the knowledge.
+
+## What's next
+
+No big promises. The focus for now is:
+- making the system more stable;
+- quality-of-life improvements (to be defined as I go).
+
+## License
+
 MIT
 
-##  Contact
-**Maintainer:** Fabio Almeida 
-**Email:** tugapse@gmail.com
+## Contact
+
+**Maintainer:** Fabio Almeida · tugapse@gmail.com

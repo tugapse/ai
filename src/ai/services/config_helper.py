@@ -6,7 +6,7 @@ from typing import Optional
 
 import ai.functions as func # Re-added import as func.debug/log is used
 
-from ai.program import ProgramConfig, ProgramSetting
+from ai.config import ProgramConfig, ProgramSetting
 
 class CliConfig:
     """
@@ -37,7 +37,7 @@ class CliConfig:
             func.debug(f"CLI override: Model config set to '{args.model}'") 
 
         if args.system:
-            system_templates_dir = config.get(ProgramSetting.PATHS_SYSTEM_TEMPLATES) or os.path.join(func.get_root_directory(), "system")
+            system_templates_dir = config.get(ProgramSetting.PATHS_SYSTEM_TEMPLATES) or os.path.join(func.get_root_directory(), "system", "system-prompt")
             filepath: str = os.path.join( system_templates_dir, args.system.replace(".md", "") + ".md")
             if os.path.exists(filepath):
                 config.set(ProgramSetting.SYSTEM_PROMPT_FILE, filepath)

@@ -12,7 +12,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import ai.program  # noqa: F401  (startup import order, avoids a circular import)
 from ai.core.llms.api_retry import LLMAPIError
 
 MESSAGES = [{"role": "user", "content": "hi"}]

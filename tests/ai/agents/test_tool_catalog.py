@@ -135,7 +135,8 @@ def test_prompt_lists_only_allowed_categories_until_opened(run):
     assert "READ_FILE_DOC" not in first and "WEB_SEARCH_DOC" not in first
     assert OPEN_TOOLS in conn.configs[0]["tools"]
     assert "READ_FILE_DOC" in second and "WEB_SEARCH_DOC" in second
-    assert "all open" in second
+    # every agent also has the MCP admin category (list/enable MCP servers): still closed here
+    assert "- mcp_servers:" in second
     result = orch.memory.context.tool_results[-1]["result"]
     assert result["opened"] == {"filesystem": ["read_file"], "web": ["web_search"]}
 
@@ -143,7 +144,7 @@ def test_prompt_lists_only_allowed_categories_until_opened(run):
 def test_unknown_category_fails_with_the_list(run):
     _, orch = run([call(OPEN_TOOLS, category="memory"), done()])
     result = orch.memory.context.tool_results[-1]["result"]
-    assert result["status"] == "FAILED" and result["available_categories"] == ["filesystem", "web"]
+    assert result["status"] == "FAILED" and sorted(result["available_categories"]) == ["filesystem", "mcp_servers", "web"]
 
 
 def test_calling_a_closed_category_tool_runs_it_and_opens_the_category(run):

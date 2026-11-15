@@ -88,7 +88,6 @@ def validate(content: Any, known_tools: Optional[set]) -> List[str]:
         if key in content and not isinstance(content[key], str):
             errors.append(f"'{key}' must be text.")
 
-    prompts_dir = os.path.realpath(DirectoryManager().get_system_prompts_templates_directory())
     targets = set(agents) | SPECIAL_TARGETS
     for agent_name, agent in agents.items():
         where = f"Agent '{agent_name}'"
@@ -103,7 +102,7 @@ def validate(content: Any, known_tools: Optional[set]) -> List[str]:
             errors.append(f"{where}: 'prompt_file' is required (e.g. agents/default.md).")
         elif os.path.isabs(prompt_file) or ".." in prompt_file.replace("\\", "/").split("/"):
             errors.append(f"{where}: 'prompt_file' must be a path inside system-prompt/ (e.g. agents/default.md).")
-        elif not os.path.isfile(os.path.join(prompts_dir, prompt_file)):
+        elif not DirectoryManager().resolve_prompt_file(prompt_file):
             errors.append(f"{where}: prompt file 'system-prompt/{prompt_file}' doesn't exist.")
 
         tools = agent.get("tools", [])

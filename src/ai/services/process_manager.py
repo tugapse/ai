@@ -1,11 +1,51 @@
 import os
-import fcntl
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
 from ai.services.directory_manager import DirectoryManager
 import ai.functions as func
+
+try:  # Unix: the registry files are guarded by flock
+    import fcntl
+except ImportError:  # Windows: no flock; liveness is checked through the PID only
+    fcntl = None
+
+
+def _try_lock(handle, exclusive: bool) -> bool:
+    """Non-blocking flock on an open file. True when taken (always True where flock is unavailable)."""
+    if fcntl is None:
+        return True
+    try:
+        fcntl.flock(handle.fileno(), (fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH) | fcntl.LOCK_NB)
+        return True
+    except BlockingIOError:
+        return False
+
+
+def _unlock(handle) -> None:
+    if fcntl is not None:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+def _windows_process_running(pid: int) -> bool:
+    """Process liveness on Windows without os.kill (which would terminate the process there)."""
+    import ctypes
+    from ctypes import wintypes
+
+    PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+    STILL_ACTIVE = 259
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, int(pid))
+    if not handle:
+        return ctypes.get_last_error() == 5  # ERROR_ACCESS_DENIED: exists, owned by someone else
+    try:
+        code = wintypes.DWORD()
+        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):
+            return True
+        return code.value == STILL_ACTIVE
+    finally:
+        kernel32.CloseHandle(handle)
 
 # Project root this instance runs from (src/ai/services/process_manager.py -> root).
 _INSTALL_PATH = str(Path(__file__).resolve().parents[3])
@@ -46,6 +86,11 @@ class ProcessManager:
         Returns:
             bool: True if the process is running, False otherwise.
         """
+        if os.name == "nt":
+            try:
+                return _windows_process_running(pid)
+            except Exception:
+                return True  # unknown: never treat a live instance as stale
         try:
             os.kill(pid, 0)
         except ProcessLookupError:
@@ -147,11 +192,7 @@ class ProcessManager:
             pid, path = int(stem), os.path.join(pid_directory, name)
             try:
                 with open(path, "r") as handle:
-                    try:
-                        fcntl.flock(handle.fileno(), fcntl.LOCK_SH | fcntl.LOCK_NB)
-                        unlocked = True
-                    except BlockingIOError:
-                        unlocked = False
+                    unlocked = _try_lock(handle, exclusive=False)
                     if unlocked and not ProcessManager.is_process_running(pid):
                         os.remove(path)
                         continue
@@ -217,12 +258,10 @@ class ProcessManager:
             os.makedirs(pid_directory, exist_ok=True)
 
         self.lock_handle = open(self.pid_file, "w+")
-        try:
-            fcntl.flock(self.lock_handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError as exc:
+        if not _try_lock(self.lock_handle, exclusive=True):
             self.lock_handle.close()
             self.lock_handle = None
-            raise RuntimeError(f"Process {self.process_id} is already running.") from exc
+            raise RuntimeError(f"Process {self.process_id} is already running.")
 
         ProcessManager._state.update({
             "pid": str(self.process_id),
@@ -244,7 +283,7 @@ class ProcessManager:
 
         if self.lock_handle is not None:
             try:
-                fcntl.flock(self.lock_handle.fileno(), fcntl.LOCK_UN)
+                _unlock(self.lock_handle)
             finally:
                 self.lock_handle.close()
                 self.lock_handle = None

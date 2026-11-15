@@ -10,7 +10,6 @@ import ai.functions as func
 from ai.config import ProgramConfig, ProgramSetting
 from ai.color import Color
 from ai.agents.agent_io import AgentIO, AgentEvent, AgentEventType, ConsoleIO, PERMISSION_ALWAYS, PERMISSION_YES
-from ai.agents.specialist_manager import SpecialistManager
 from ai.agents.memory_manager import AgentMemory, MemoryManager
 from ai.agents.context_sentinel import ContextSentinel
 from ai.agents.context_enricher import ContextEnricher, FILE_TOOLS_WRITE, paths_from_params
@@ -23,10 +22,16 @@ from ai.services.module_registry import ModuleRegistry
 from ai.modules.knowledge.sources import agent_allowed_sources
 from ai.services.process_manager import ProcessManager
 from ai.tools.mcp_bridge import MCPBridge
+from ai.tools.mcp_admin_tools import ALWAYS_GATED as MCP_ALWAYS_GATED
+from ai.agents import approval_scope
+
+# MCP admin tools given to every agent; enabling a server always needs the user's approval.
+MCP_ADMIN_TOOLS = ("list_mcp_servers", "enable_mcp_server")
+ALWAYS_GATED_TOOLS = tuple(MCP_ALWAYS_GATED)
 from ai.tools.tool_registry import ToolRegistry
 from ai.tools.category import ToolCategory, ToolCategoryError
 
-MAX_ITERATIONS = 100
+MAX_ITERATIONS = 300  # same as the shipped pipelines
 MANAGER_AGENT_ROLE = "management"
 
 STOP_SIGNAL = "STOP"
@@ -106,11 +111,6 @@ class AgentOrchestrator(Events):
         self._idle_turns: Dict[str, int] = {}
         self._turn_changed: List[str] = []  # files written in the current turn (knowledge auto-update)
 
-        # Specialized Managers
-        self.specialist_manager = SpecialistManager(
-            self.llm_connector, 
-            {"generate_doc": "Technical Writer. Deep-dive documentation."}
-        )
         self.context_sentinel = ContextSentinel(
             self.llm_connector, 
             threshold=0.9, 
@@ -121,12 +121,15 @@ class AgentOrchestrator(Events):
         self.mcp_bridge = MCPBridge(self.tool_registry)
         # Load external servers from config
         directory = DirectoryManager()
-        mcp_config = os.path.join(directory.get_user_config_directory(), "mcp_config.json")
-        if not os.path.exists(mcp_config):
-            func.log("[MCP] config not found on user directory. Using system config.", level="WARN")
-            mcp_config = os.path.join(directory.get_system_config_dir(), "mcp_config.json")
-        
-        self.mcp_bridge.load_from_config(mcp_config)
+        # system config first, then the user's: user servers are added or override by name
+        from ai.tools.mcp_config import config_paths
+        self.mcp_bridge.load_from_configs(config_paths(directory))
+        # list_mcp_servers / enable_mcp_server: every agent gets them (enabling always asks the user)
+        from ai.tools.mcp_admin_tools import MCPAdminTools
+        try:
+            self.tool_registry.register_category(MCPAdminTools(self.mcp_bridge))
+        except Exception as e:
+            func.log(f"[MCP] admin tools unavailable: {e}", level="WARN")
         
         # Memory State
         self.memory = MemoryManager(list(self.agents.keys()))
@@ -299,7 +302,7 @@ class AgentOrchestrator(Events):
             if next_agent == DONE_SIGNAL:
                 func.log(f"Cycle complete for {current_agent}. Clearing memory.", level="WARN")
                 self.memory.clear(current_agent)
-                next_agent = MASTER_AGENT
+                next_agent = self.pipeline_config.get("entry_point", MASTER_AGENT)
 
             current_agent = next_agent
 
@@ -418,6 +421,7 @@ class AgentOrchestrator(Events):
         allowed = list(self.agents.get(agent_name, {}).get("tools", []))
         if hasattr(self, "mcp_bridge"):
             allowed.extend(self.mcp_bridge.server_schemas.keys())
+            allowed.extend(MCP_ADMIN_TOOLS)
         return list(dict.fromkeys(allowed))
 
     def _assemble_agent_tools(self, agent_name: str) -> Dict[str, Callable]:
@@ -495,8 +499,6 @@ class AgentOrchestrator(Events):
             "agent_notes": mem.notes,
             "messages_received": self._capped_messages(mem.messages_received),
             "conversation_history": self._capped_history(mem.history[-10:], mem.messages_received),
-            "plan": self.memory.context.plan, # FIXME We are not fetching the plan from the response nor injecting it into the payload.
-            "current_step": self.memory.context.current_step_index,
             "recent_outcomes": self._format_recent_outcomes(self.memory.context.tool_results[-3:]),
             "context": {"files_in_project": list(set(filter(None, known_files)))}
         }
@@ -721,7 +723,7 @@ class AgentOrchestrator(Events):
 
     def _handle_tool_execution(self, tool_name: str, params: Dict[str, Any], agent: str, config: Dict[str, Any]) -> bool:
         """
-        Executes a tool, handling specialist overrides and authorization checks.
+        Executes a tool, handling authorization checks.
 
         Args:
             tool_name: The name of the tool to execute.
@@ -746,11 +748,6 @@ class AgentOrchestrator(Events):
             self.emit(AgentEventType.TOOL_RESULT, agent, tool=tool_name, params=params,
                       result={"status": "UNAUTHORIZED", "error": f"'{tool_name}' is not allowed for {agent}"})
             return False
-
-        if self.specialist_manager.is_specialist_tool(tool_name):
-            self.emit(AgentEventType.SPECIALIST, agent, tool=tool_name)
-            content = self.specialist_manager.invoke(tool_name, params)
-            params["replace" if tool_name == "patch_file" else "content"] = content
 
         if not self._gatekeeper(tool_name, params, agent):
             self.memory.add_message_to_agent(agent, {"from": "USER", "message": "Access Denied."})
@@ -1050,15 +1047,21 @@ class AgentOrchestrator(Events):
         if self.cancel_event.is_set():
             return False  # turn was interrupted: never prompt or run anything more
 
-        if tool in self.auto_authorized_tools or tool not in get_hil_tools():
+        bridge = getattr(self, "mcp_bridge", None)
+        needs_approval = (tool in get_hil_tools() or tool in ALWAYS_GATED_TOOLS
+                          or bool(bridge is not None and bridge.requires_approval(tool)))
+        always_asks = tool in ALWAYS_GATED_TOOLS
+        if not needs_approval or (not always_asks and approval_scope.is_allowed(tool, params, self.auto_authorized_tools)):
             self.emit(AgentEventType.TOOL_CALL, agent, tool=tool, params=params, gated=False)
             return True
 
         choice = self.io.request_permission(tool, params)
 
-        # TODO: Improve the mechanism to remember user choices for specific tools or paths to avoid repeated prompts in the same session.
+        # "always" covers this command / folder, not the whole tool (see approval_scope)
         if choice == PERMISSION_ALWAYS:
-            self.auto_authorized_tools.add(tool)
+            rule = approval_scope.rule_for(tool, params, never_remember=ALWAYS_GATED_TOOLS)
+            if rule:
+                self.auto_authorized_tools.add(rule)
         if choice in (PERMISSION_ALWAYS, PERMISSION_YES):
             self.emit(AgentEventType.TOOL_CALL, agent, tool=tool, params=params, gated=True)
             return True

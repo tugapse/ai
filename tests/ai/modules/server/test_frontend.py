@@ -139,5 +139,5 @@ def test_health_reports_frontend_and_api_level(hub, auth, tmp_path, monkeypatch)
     from ai.modules.server.app import create_app
     monkeypatch.setattr("ai.functions.get_root_directory", lambda: str(tmp_path))
     monkeypatch.setattr(fe, "resolve", lambda config: (None, {"version": "0.1.0", "source": "bundled"}))
-    health = TestClient(create_app(hub, {}, auth=auth)).get("/api/health").json()
+    health = TestClient(create_app(hub, {}, auth=auth), client=("127.0.0.1", 50000)).get("/api/health").json()
     assert health["api_level"] == fe.API_LEVEL and health["frontend"] == {"version": "0.1.0", "source": "bundled"}

@@ -1,6 +1,6 @@
 from typing import Optional
 
-from ai.services.config_helper import ProgramConfig, ProgramSetting
+from ai.config import ProgramConfig, ProgramSetting
 from ai.extras.thinking_log_manager import ThinkingLogManager
 from ai.extras.output_printer import OutputPrinter
 from ai.extras import HandlerManager, ConsoleTokenFormatter

@@ -2,7 +2,6 @@
 
 import pytest
 
-import ai.program  # noqa: F401  (startup import order, avoids a circular import)
 from ai.agents.xml_response_parser import ResponseParser
 
 BODY = """  <thought><![CDATA[

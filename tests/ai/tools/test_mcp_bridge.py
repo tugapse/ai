@@ -25,7 +25,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import ai.program  # noqa: F401  (startup import order, avoids a circular import)
 from ai.tools.mcp_bridge import MCPBridge
 from ai.tools.tool_registry import ToolRegistry
 
@@ -574,3 +573,125 @@ class TestLivePlaywright:
         shot = registry.execute_tool("playwright", {"action": "execute", "command": "browser_take_screenshot"})
         assert shot["status"] == "SUCCESS", shot
         assert len(shot["output"]) < 5000
+
+
+def test_auto_allow_false_requires_approval(tmp_path):
+    """"auto_allow": false gates that server's gateway; servers without it run without asking."""
+    registry = ToolRegistry()
+    bridge = MCPBridge(registry, log_dir=str(tmp_path / "logs"))
+    try:
+        bridge.load_from_config(write_config(tmp_path / "mcp.json", {
+            "gated": server_entry(auto_allow=False),
+            "free": server_entry(),
+        }))
+        assert bridge.requires_approval("gated") is True
+        assert bridge.requires_approval("free") is False
+        assert bridge.requires_approval("read_file") is False
+    finally:
+        close_bridge(bridge, registry)
+
+
+def test_gatekeeper_asks_for_gated_mcp_server():
+    """The orchestrator asks the user before running a gateway whose server says auto_allow: false."""
+    from ai.agents.agent_orchestrator import AgentOrchestrator
+    from ai.agents.agent_io import PERMISSION_NO
+
+    orch = AgentOrchestrator.__new__(AgentOrchestrator)
+    orch.cancel_event = threading.Event()
+    orch.auto_authorized_tools = set()
+    orch.mcp_bridge = MagicMock()
+    orch.mcp_bridge.requires_approval.side_effect = lambda tool: tool == "gated"
+    orch.io = MagicMock()
+    orch.io.request_permission.return_value = PERMISSION_NO
+    orch.emit = MagicMock()
+
+    assert orch._gatekeeper("gated", {}, "MASTER") is False
+    orch.io.request_permission.assert_called_once()
+    assert orch._gatekeeper("free", {}, "MASTER") is True
+
+
+def test_user_config_merges_over_system(tmp_path):
+    """User servers are added to the system ones; same name overrides (e.g. to disable one)."""
+    registry = ToolRegistry()
+    bridge = MCPBridge(registry, log_dir=str(tmp_path / "logs"))
+    connected = []
+    bridge.connect_server = lambda name, *a, **k: connected.append(name)
+    try:
+        system = write_config(tmp_path / "system.json", {"keep": server_entry(), "off": server_entry()})
+        user = write_config(tmp_path / "user.json", {"off": {"enabled": False}, "mine": server_entry()})
+        bridge.load_from_configs([system, user, str(tmp_path / "missing.json")])
+        assert sorted(connected) == ["keep", "mine"]
+    finally:
+        bridge.close()
+
+
+class _Dirs:
+    def __init__(self, root):
+        self.root = root
+
+    def get_system_config_dir(self):
+        return str(self.root / "system")
+
+    def get_user_config_directory(self):
+        return str(self.root / "user")
+
+
+def test_set_enabled_writes_only_the_flag_to_the_user_file(tmp_path):
+    from ai.tools import mcp_config
+    (tmp_path / "system").mkdir()
+    write_config(tmp_path / "system" / "mcp_config.json", {"srv": server_entry(enabled=False)})
+    dirs = _Dirs(tmp_path)
+
+    assert mcp_config.load_servers(dirs)["srv"]["enabled"] is False
+    path = mcp_config.set_enabled("srv", True, dirs)
+    assert json.load(open(path)) == {"mcpServers": {"srv": {"enabled": True}}}
+    merged = mcp_config.load_servers(dirs)["srv"]
+    assert merged["enabled"] is True and merged["command"] == sys.executable
+    with pytest.raises(KeyError):
+        mcp_config.set_enabled("nope", True, dirs)
+
+
+def test_agent_can_list_and_enable_a_disabled_server(tmp_path, monkeypatch):
+    """enable_mcp_server starts a server that was disabled; remember=true saves it for this user."""
+    from ai.tools import mcp_config
+    from ai.tools.mcp_admin_tools import MCPAdminTools
+    (tmp_path / "system").mkdir()
+    system = write_config(tmp_path / "system" / "mcp_config.json", {"srv": server_entry(enabled=False)})
+    dirs = _Dirs(tmp_path)
+    monkeypatch.setattr(mcp_config, "config_paths",
+                        lambda directory=None, _orig=mcp_config.config_paths: _orig(dirs))
+
+    registry = ToolRegistry()
+    bridge = MCPBridge(registry, log_dir=str(tmp_path / "logs"))
+    try:
+        bridge.load_from_configs([system])
+        assert "srv" not in bridge.server_schemas
+        admin = MCPAdminTools(bridge)
+
+        rows = admin.list_mcp_servers()["servers"]
+        assert rows == [dict(rows[0], name="srv", enabled=False, running=False)]
+
+        result = admin.enable_mcp_server(name="srv", remember="true")
+        assert result["status"] == "SUCCESS" and "srv" in bridge.server_schemas
+        assert mcp_config.load_servers(dirs)["srv"]["enabled"] is True
+        assert admin.enable_mcp_server(name="nope")["status"] == "FAILED"
+    finally:
+        close_bridge(bridge, registry)
+
+
+def test_enable_mcp_server_always_asks():
+    from ai.agents.agent_orchestrator import AgentOrchestrator
+    from ai.agents.agent_io import PERMISSION_NO
+
+    orch = AgentOrchestrator.__new__(AgentOrchestrator)
+    orch.cancel_event = threading.Event()
+    orch.auto_authorized_tools = set()
+    orch.mcp_bridge = MagicMock()
+    orch.mcp_bridge.requires_approval.return_value = False
+    orch.io = MagicMock()
+    orch.io.request_permission.return_value = PERMISSION_NO
+    orch.emit = MagicMock()
+
+    assert orch._gatekeeper("enable_mcp_server", {"name": "srv"}, "MASTER") is False
+    orch.io.request_permission.assert_called_once()
+    assert orch._gatekeeper("list_mcp_servers", {}, "MASTER") is True

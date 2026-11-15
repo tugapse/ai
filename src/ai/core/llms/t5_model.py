@@ -17,7 +17,7 @@ class T5Model(BaseModel):
     This model is typically used for tasks like summarization or translation,
     and handles chat by processing the full conversation context as a single input.
     """
-    def __init__(self, model_name: str, system_prompt="", quantization_bits: int = 0, **kargs):
+    def __init__(self, model_name: str, system_prompt="", quantization_bits: int = 0, model_params=None, **kargs):
         """
         Initializes the T5Model instance.
 
@@ -31,7 +31,9 @@ class T5Model(BaseModel):
 
         self.tokenizer = None
         self.model = None
-        self.quantization_bits = quantization_bits 
+        self.quantization_bits = quantization_bits
+        # Generation defaults from the config's model_properties (temperature, top_p, ...).
+        self.generation_defaults = {k: v for k, v in (model_params or {}).items() if v is not None}
 
         try:
             self._load_llm_params()
@@ -139,7 +141,7 @@ class T5Model(BaseModel):
             yield "Model loading failed during initialization. Check logs for details."
             return
 
-        context_string = self._prepare_input(messages)
+        input_text = self._prepare_input(messages)
 
         if self.is_gpu_available():
             import torch  # lazy, like _load_llm_params: no module-level torch import here
@@ -148,9 +150,9 @@ class T5Model(BaseModel):
             gc.collect()
 
         inputs = self.tokenizer(
-            context_string, 
-            return_tensors="pt", 
-            max_length=self.tokenizer.model_max_length, 
+            input_text,
+            return_tensors="pt",
+            max_length=self.tokenizer.model_max_length,
             truncation=True
         )
 
@@ -161,15 +163,9 @@ class T5Model(BaseModel):
         else:
             inputs_on_device = inputs
 
-        gen_options = self.options.to_dict() if hasattr(self, 'options') and self.options else {}
-        gen_options.update(options)
+        gen_options = dict(self.generation_defaults)
+        gen_options.update(options or {})
 
-        max_new_tokens = gen_options.get('max_new_tokens', 1024)
-        do_sample = gen_options.get('do_sample', True)
-        top_k = gen_options.get('top_k', 50)
-        top_p = gen_options.get('top_p', 0.95)
-        temperature = gen_options.get('temperature', 0.7)
-        
         func.log("INFO: T5Model does not support token-by-token streaming directly for chat. Returning full response.")
         
         try:
@@ -199,28 +195,18 @@ class T5Model(BaseModel):
             messages (list): The list of message dictionaries to be formatted.
 
         Returns:
-            dict: A dictionary containing tokenized inputs (input_ids and attention_mask).
+            str: The conversation as one text ("System: ...", "User: ...", "Jarvis Ai: ...").
         """
-        prepared_input_parts = []
+        labels = {"system": "System", "user": "User", "assistant": "Jarvis Ai"}
+        parts = []
         if self.system_prompt:
-            prepared_input_parts.append(BaseModel.create_message("system", self.system_prompt))
-
+            parts.append(f"System: {self.system_prompt}")
         for msg in messages:
-            role = msg.get('role', 'user').capitalize()
+            role = str(msg.get('role', 'user')).lower()
             content = msg.get('content', '')
-            prepared_input_parts.append(BaseModel.create_message(role, content))
-
-        input_text = ""
-        for msg in prepared_input_parts:
-            if msg['role'] == 'system':
-                input_text += f"System: {msg['content']}\n"
-            elif msg['role'] == 'user':
-                input_text += f"User: {msg['content']}\n"
-            elif msg['role'] == 'assistant':
-                input_text += f"Jarvis Ai: {msg['content']}\n"
-        
-        inputs = self.tokenizer(input_text, return_tensors="pt")
-        return inputs
+            if role in labels and content:
+                parts.append(f"{labels[role]}: {content}")
+        return "\n".join(parts) + "\n"
 
     def _generate_response(self, inputs_on_device, options: dict = {}):
         """Generates a complete response from the T5 model."""
@@ -255,6 +241,7 @@ class T5Model(BaseModel):
         """Simulates 'pulling' (downloading/loading) a Hugging Face model."""
         func.log(f"Attempting to 'pull' (download/load) Hugging Face model: {model_name}")
         try:
+            from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
             _ = AutoTokenizer.from_pretrained(model_name)
             _ = AutoModelForSeq2SeqLM.from_pretrained(model_name)
             message = f"Model {model_name} 'pulled' (downloaded/loaded) successfully."

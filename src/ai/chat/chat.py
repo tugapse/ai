@@ -324,9 +324,14 @@ class Chat(Events):
             self.agent_mode_active = True
             func.out(format_text("Agent mode activated. Enter your task.", Color.PURPLE))
             self.running_command = False
-        else:
+        elif self.events.get(self.EVENT_COMMAND_STARTED):
+            # A listener (e.g. ChatCommandInterceptor) runs it and calls terminate_command().
             self.running_command = True
             self.start_command(message)
+        else:
+            # Nobody handles other commands: say so instead of waiting forever.
+            func.out(format_text(f"Unknown command: {message.split()[0]}. Commands: /clear, /agent.", Color.RED))
+            self.running_command = False
 
     def terminate_chat(self):
         self.terminate = True

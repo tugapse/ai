@@ -1,5 +1,5 @@
 """
-Agent runs over HTTP: the same pipelines, tasks and tools as ``ai --agent``, driven by a web client.
+Agent runs over HTTP: the same pipelines, tasks and tools as ``ai agent``, driven by a web client.
 
 One run at a time: it shares the server's loaded model. A run is a background thread that
 runs ``AgentOrchestrator.run_loop``; its events go to an append-only log (each with a ``seq``)

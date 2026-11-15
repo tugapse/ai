@@ -81,7 +81,7 @@ def check_dependencies():
         WHITE = "\033[0m"
         print(f"\n{RED_B}[!] SYSTEM REJECT: MISSING DEPENDENCIES{WHITE}")
         print(f"Missing Modules : {RED_B}{', '.join(missing)}{WHITE}")
-        print(f"\n{YLW_B}[*] RESOLUTION: Run 'run.sh --install'{WHITE}")
+        print(f"\n{YLW_B}[*] RESOLUTION: Run 'run.sh install'{WHITE}")
         sys.exit(1)
 
 def hack_warnings():
@@ -96,113 +96,41 @@ def hack_warnings():
     os.environ["TRANSFORMERS_VERBOSITY"] = "error"
     logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
     warnings.filterwarnings("ignore", category=FutureWarning)
+    # torchao (imported by transformers / sentence-transformers) registers an Enum with
+    # torch's pytree, and newer torch logs a deprecation warning for it on every start.
+    # A filter, not a level: torch may reset its loggers' levels when it configures logging.
+    logging.getLogger("torch.utils._pytree").addFilter(_TorchPytreeEnumNoise())
 
-class JarvisHelpFormatter(argparse.RawDescriptionHelpFormatter):
-    """
-    Custom formatter for argparse to ensure help messages are displayed cleanly
-    and descriptions are aligned correctly.
-    """
-    def __init__(self, prog):
-        # Increased max_help_position to 50 to keep descriptions aligned
-        super().__init__(prog, max_help_position=50, width=110)
+
+class _TorchPytreeEnumNoise(logging.Filter):
+    """Drops torch's 'register_constant() on Enum subclasses is deprecated' warning (not ours to fix)."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "register_constant()" not in record.getMessage()
 
 def load_args() -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     """
-    Defines and parses flags for the JARVIS ecosystem.
+    Parses the command line (see ``ai.cli``: one module per command group, each with its own
+    ``--help``; the old top-level flags still work).
 
-    Sets up the main argument parser, including groups for Cognitive Protocols,
-    Asset Management, Autonomous Operations, Distributed Architecture,
-    System Debug, and Model Configuration.
-
-    :return: A tuple containing the ArgumentParser instance and the parsed Namespace object.
-    :rtype: tuple[argparse.ArgumentParser, argparse.Namespace]
+    :return: The ArgumentParser and the parsed Namespace.
     """
-    
-    description=f"""
-
+    description = f"""
   JUST A REASONING VIRTUAL INTELLIGENT SENTINEL AGENTIC INTERFACE
   Version: {__version__}
-  
-  An integrated reasoning core powering autonomous agentic logic and long-term memory synthesis.
-  
-  {Color.CYAN}[ SYSTEM READY ] --------------------------------------------------------------------------{Color.RESET}
+
+  My own JARVIS: chat, one-shot tasks, agents that work on your files, a Brain Server for
+  your other devices. Run it with no arguments for the chat.
+
+  {Color.CYAN}ai{Color.RESET}                              chat
+  {Color.CYAN}ai -m "..."{Color.RESET}                     one message, then exit (add -f FILE, -t TASK, -o OUT...)
+  {Color.CYAN}ai agent{Color.RESET}                        agents in this folder (ai agent --help)
 """
-    parser = argparse.ArgumentParser(
-        description=description,
-        formatter_class=JarvisHelpFormatter,
-        usage=f"{Color.CYAN}ai{Color.RESET} [OPTIONS]",
-        add_help=False,
-        epilog=f"{Color.DIM}Sentinel monitoring active. Awaiting directive.{Color.RESET}"   
-    )
-
-    # 1. Cognitive Protocols (The Core Chat/Model flags)
-    cog_group = parser.add_argument_group(f'{Color.CYAN}COGNITIVE PROTOCOLS{Color.RESET}')
-    cog_group.add_argument("-h", "--help", action="help", help="Show this diagnostic help message")
-    cog_group.add_argument("-v", "--version", action="version", version=f"JARVIS Version {__version__}", help="Display the system version and exit")
-    cog_group.add_argument("--msg", "-m", type=str, help="Direct inquiry to the sentinel")
-    cog_group.add_argument("--model", "-md", type=str, help="Specify neural model configuration")
-    cog_group.add_argument("--system", "-s", type=str, help="Load named system persona") 
-    cog_group.add_argument("--system-file", "-sf", type=str, help="Inject system prompt from disk")
-    cog_group.add_argument("--list-models", "-l", action="store_true", help="Audit available neural models")
-
-    # 2. Asset & Context Management
-    asset_group = parser.add_argument_group(f'{Color.CYAN}ASSET & CONTEXT MANAGEMENT{Color.RESET}')
-    asset_group.add_argument("--file", "-f", type=str, help="Analyze target file")
-    asset_group.add_argument("--image", "-i", type=str, help="Process visual input from path")
-    asset_group.add_argument("--load-folder", "-D", type=str, help="Ingest directory into context")
-    asset_group.add_argument("--ext", "-e", type=str, help="Filter context ingestion by extension")
-
-    # 3. Autonomous Operations (Agentic Logic)
-    agent_group = parser.add_argument_group(f'{Color.CYAN}AUTONOMOUS OPERATIONS{Color.RESET}')
-    agent_group.add_argument("--agent", action="store_true", help="Enable stage-2 agentic logic injection (no prompt on a TTY opens the agent chat)")
-    agent_group.add_argument("--task", "-t", type=str, help="Define autonomous directive")
-    agent_group.add_argument("--task-file", "-tf", type=str, help="Load directive from file")
-    agent_group.add_argument("--pipeline", "-ppl", type=str, help="Execute multi-stage instruction pipeline")
-    agent_group.add_argument("--session-id", type=str, help="LTM (Long Term Memory) session key")
-    agent_group.add_argument("--knowledge", "-kb", action="append", default=None, metavar="PATH", help="Knowledge source: folder of component JSON and/or Markdown docs (repeatable; adds to KNOWLEDGE_SOURCES)")
-    agent_group.add_argument("--knowledge-list", action="store_true", help="Show the knowledge registered for this folder (sources, build settings, coverage)")
-    agent_group.add_argument("--knowledge-forget", metavar="SOURCE_ID", help="Stop loading a registered knowledge source for this folder")
-    agent_group.add_argument("--build-knowledge", nargs="?", const="", default=None, metavar="SRC", help="Generate docs + component knowledge for this folder with the model (SRC: source root, default src/ or .)")
-    agent_group.add_argument("--kb-mode", default="changed", metavar="MODE", help="With --build-knowledge: missing | changed (default) | all | diff[:branch]")
-    agent_group.add_argument("--kb-only", choices=["docs", "knowledge"], help="With --build-knowledge: generate only docs or only component knowledge")
-    agent_group.add_argument("--kb-ext", metavar="EXTS", help="With --build-knowledge: source extensions, comma separated (default KNOWLEDGE_EXTENSIONS or py)")
-    agent_group.add_argument("--kb-files", metavar="FILES", help="With --build-knowledge: only these files, comma separated")
-    agent_group.add_argument("--kb-max", type=int, default=0, metavar="N", help="With --build-knowledge: stop after N files")
-    agent_group.add_argument("--kb-force", action="store_true", help="With --build-knowledge: regenerate files that are up to date")
-    agent_group.add_argument("--resume", "-r", nargs="?", const="", default=None, metavar="SESSION_ID", help="Resume an agent session: pick from a list, or pass an id/prefix (implies --agent)")
-    agent_group.add_argument("--list-sessions","-ls", action="store_true", help="List all available sessions for current working directory")
-    agent_group.add_argument("--output-file", "-o", type=str, help="Designate clean output stream (temp-file mode)")
-
-    # 4. Distributed Architecture
-    net_group = parser.add_argument_group(f'{Color.CYAN}DISTRIBUTED ARCHITECTURE{Color.RESET}')
-    net_group.add_argument("--server", action="store_true", help="Initialize Brain Server module")
-    net_group.add_argument("--relay", type=str, metavar="URL", help="Run the server here (website, agents, tools) and send model inference to the Brain Server at URL (implies --server)")
-    net_group.add_argument("--modules", nargs="+", default=[], help="Load specific server sub-modules")
-
-    # 5. System Debug & Maintenance
-    sys_group = parser.add_argument_group(f'{Color.CYAN}SYSTEM DEBUG & MAINTENANCE{Color.RESET}')
-    sys_group.add_argument("--show-logo", action="store_true", help="Display the JARVIS startup logo")
-    sys_group.add_argument("--print-chat", "-p", type=str, help="Output session history")
-    sys_group.add_argument("--print-log", "-pl", action="store_true", help="Enable system telemetry logs")
-    sys_group.add_argument("--print-debug", "-pdb", action="store_true", help="Enable verbose debug stream")
-    sys_group.add_argument("--no-out", "-q", action="store_true", help="Quiet mode (suppress terminal output)")
-    sys_group.add_argument("--no-think-anim", "-nta", action="store_true", help="Disable reasoning animations")
-    sys_group.add_argument("--debug-console", "-dc", action="store_true", help="Lock console (disable clear-screen)")
-    sys_group.add_argument("--install", action="store_true", help="Execute dependency sync protocol")
-    sys_group.add_argument("--overwrite-config", action="store_true", help="Force configuration and templates overwriting, additional templates will not be removed!")
-    sys_group.add_argument("--create-tool", type=str, metavar='TOOL_NAME', help="Create a new user tool skeleton file")
-    sys_group.add_argument("--frontend", nargs="+", metavar=("list|use", "VERSION"), help="Server frontend versions: 'list', or 'use <version>|bundled' to pin one")
-    sys_group.add_argument("--server-totp-setup", action="store_true", help="Create the authenticator secret that approves risky web agent tools")
-
-    # 6. Model Generation (Your existing group)
-    config_group = parser.add_argument_group(f'{Color.CYAN}MODEL CONFIG GENERATION{Color.RESET}')
-    config_group.add_argument('--generate-config', metavar='FILENAME', type=str, help="Generate new model manifest")
-    config_group.add_argument('--model-type', type=str, choices=[t.value for t in ModelType], help="Target architecture for manifest")
-
     if '-h' in sys.argv or '--help' in sys.argv:
         func.out(f"\n{__logo}")
 
-    return parser, parser.parse_args()
+    from ai.cli import parse_args
+    return parse_args(version=__version__, description=description)
 
 
 
@@ -269,7 +197,7 @@ def run():
     directory_manager = DirectoryManager()
     process_manager = ProcessManager(directory_manager)
     
-    maintenance_keys = ['install',  'overwrite_config', 'generate_config', 'server', 'print_chat', 'list_models', 'create_tool', 'server_totp_setup', 'frontend', 'knowledge_list', 'knowledge_forget']
+    maintenance_keys = ['install',  'overwrite_config', 'generate_config', 'server', 'print_chat', 'list_models', 'create_tool', 'server_totp_setup', 'frontend', 'knowledge_list', 'knowledge_forget', 'list_sessions', 'mcp_action']
     ProcessManager.set_state("mode", _instance_mode(args, maintenance_keys))
     ProcessManager.set_state("activity", "starting")
 

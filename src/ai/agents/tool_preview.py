@@ -36,8 +36,16 @@ def _target(params: Dict[str, Any]) -> str:
 
 
 def describe_tool_request(tool: str, params: Dict[str, Any]) -> List[str]:
-    """Lines describing what a gated tool call is about to do."""
+    """Lines describing what a gated tool call is about to do, and what "always" would cover."""
     params = params if isinstance(params, dict) else {}
+    lines = _describe(tool, params)
+    from ai.agents.approval_scope import describe, rule_for
+    from ai.tools.mcp_admin_tools import ALWAYS_GATED
+    lines.append(f"  {GREY}{'always':<8}= {describe(rule_for(tool, params, ALWAYS_GATED))}{RESET}")
+    return lines
+
+
+def _describe(tool: str, params: Dict[str, Any]) -> List[str]:
     label = lambda name: f"  {GREY}{name:<8}{RESET}"
     lines = [f"{label('tool')}{BOLD}{tool}{RESET}"]
 

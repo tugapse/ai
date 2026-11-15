@@ -26,9 +26,13 @@ async def get_sessions(request: Request, session_folder: Optional[str] = None):
         raise HTTPException(
             status_code=500, detail="Session manager not configured."
         )
+    from ai.modules.server.services.client_access import viewer as _viewer
     try:
         sessions = session_manager.list_sessions(session_folder)
-        return {"sessions": sessions}
+        who = _viewer(request)
+        # Paired devices see every session; an unpaired browser only the ones it created.
+        visible = [s for s in sessions if who.can_see(s.get("owner"))]
+        return {"sessions": [{k: v for k, v in s.items() if k != "owner"} for s in visible]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to load sessions: {e}")
 
@@ -47,8 +51,13 @@ async def get_session_content(request: Request, session_path: str):
         raise HTTPException(
             status_code=500, detail="Session manager not configured."
         )
+    from ai.modules.server.services.client_access import viewer as _viewer
     try:
-        return session_manager.load_session(session_path)
+        content = session_manager.load_session(session_path)
+        if not _viewer(request).can_see(content.get("owner")):
+            raise SessionNotFoundError(session_path)   # same answer as a missing session
+        content.pop("owner", None)
+        return content
     except SessionNotFoundError:
         raise HTTPException(status_code=404, detail="Session not found")
     except SessionInvalidPathError:

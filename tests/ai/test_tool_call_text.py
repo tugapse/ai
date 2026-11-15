@@ -3,7 +3,6 @@ An action dict (an engine caught a tool call in the model's output) travels as i
 text: the server sends it to clients and the CLI writes it, and the parser reads the same call back.
 """
 
-import ai.program  # noqa: F401  (startup import order, avoids a circular import)
 from ai.tools.tool_registry import ToolRegistry
 
 

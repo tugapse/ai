@@ -6,13 +6,9 @@ It coordinates the JARVIS behavior mode: Standalone, Server, or Client.
 import argparse
 import os
 import sys
-import time
-import subprocess
-from pathlib import Path
 
 import uuid
 import traceback
-import re
 from typing import Optional
 
 # Configuration and Enums
@@ -20,14 +16,12 @@ from ai.agents.session_manager import AgentSessionManager
 from ai.modules.server.brain_hub import BrainHub
 from ai.modules.server.relay import is_self_relay, normalize_relay_url
 from ai.services.process_manager import ProcessManager
-from ai.model_config_manager import ModelConfigManager
 from ai.config import ProgramConfig, ProgramSetting 
-from ai.entities.model_enums import ModelType
 
 # Core logic
 from ai.chat.chat import ChatRoles
 from ai.core.llms.base_llm import BaseModel
-from ai.color import Color, format_text
+from ai.color import Color
 from ai.direct import ask
 from ai.stdin_reader import read_piped_stdin
 
@@ -37,6 +31,7 @@ from ai.program import Program
 from ai.services.directory_manager import DirectoryManager
 from ai.tools.tool_loader import load_and_register_user_tools
 
+import ai.cli as cli
 import ai.functions as func
 
 
@@ -67,16 +62,9 @@ class CliArgs:
         :param directory_manager: The directory management service.
         :raises SystemExit: Exits the program upon successful execution of a specific CLI command.
         """
-        # 1. System/Global Actions
-        self._check_nhandle_create_tool(args, directory_manager)
-        self._check_nhandle_totp_setup(args)
-        self._check_nhandle_frontend(args)
-        self._check_nhandle_config_generation(prog, args, args_parser, directory_manager) 
-        self._is_install(args)
+        # 1. Commands that need no model: each lives in its group module (ai/cli/<group>.py)
+        cli.run_maintenance(prog, args, directory_manager)
         self._is_print_chat(args)
-        self._is_list_models(args)
-        self._check_nhandle_list_sessions(args)
-        self._check_nhandle_knowledge_registry(args)
 
         # 2. Mode Dispatching
         # Check for Server Mode (Main PC)
@@ -84,7 +72,7 @@ class CliArgs:
             self._handle_server_mode(prog, args)
             os._exit(0)
 
-        self._check_nhandle_build_knowledge(prog, args)
+        cli.run_after_model(prog, args, directory_manager)
 
         # Default to Local/Direct Task Mode
         self._handle_local_direct_mode(prog, args,directory_manager=directory_manager)
@@ -96,253 +84,10 @@ class CliArgs:
 
         self._has_message(prog, args) 
     
-    def _check_nhandle_knowledge_registry(self, args):
-        """
-        --knowledge-list: shows the knowledge registered for the current folder.
-        --knowledge-forget ID: removes a registered source for the current folder.
-        """
-        if not (getattr(args, "knowledge_list", False) or getattr(args, "knowledge_forget", None)):
-            return
-        from ai.modules.knowledge.registry import KnowledgeRegistry
-        from ai.modules.knowledge.builder import KnowledgeBuilder, resolve_build_config
-        registry = KnowledgeRegistry()
-        project = os.getcwd()
 
-        if getattr(args, "knowledge_forget", None):
-            if registry.remove_source(project, args.knowledge_forget):
-                func.out(f"Knowledge source '{args.knowledge_forget}' forgotten for {project}.", level="INFO")
-            else:
-                func.error(f"No knowledge source '{args.knowledge_forget}' registered for {project}.")
-                sys.exit(1)
-            sys.exit(0)
 
-        entry = registry.get(project)
-        func.out(f"{Color.CYAN}Knowledge for {project}{Color.RESET}")
-        if not entry.get("sources"):
-            func.out("  No sources registered. Use --knowledge PATH or --build-knowledge.")
-        for src in entry.get("sources", []):
-            mark = "" if os.path.exists(src.get("path", "")) else f" {Color.RED}(missing){Color.RESET}"
-            func.out(f"  - {src.get('id')} [{src.get('kind', 'auto')}] {src.get('path')}{mark}")
-        build = entry.get("build") or {}
-        if build:
-            cfg = resolve_build_config(project, registry)
-            status = KnowledgeBuilder(cfg).status(limit=5)
-            func.out(f"  Build: {cfg.source_root} ({', '.join(cfg.extensions)}) -> {cfg.output_dir}")
-            for kind in ("docs", "knowledge"):
-                st = status[kind]
-                func.out(f"    {kind}: {st['ok']}/{status['source_files']} ok, {st['missing']} missing, "
-                         f"{st['outdated']} outdated, {st['error']} failed")
-        sys.exit(0)
 
-    def _check_nhandle_build_knowledge(self, prog, args):
-        """
-        --build-knowledge [SRC]: generates docs and component knowledge for the current folder with
-        the loaded model, registers the output as this folder's knowledge and exits.
-        """
-        if getattr(args, "build_knowledge", None) is None:
-            return
-        module = prog.modules["knowledge"] if prog.modules else None
-        if module is None:
-            func.error("The knowledge module is disabled (KNOWLEDGE_ENABLED).")
-            sys.exit(1)
-        if not prog.llm:
-            func.error("No model loaded. Cannot build knowledge.")
-            sys.exit(1)
-        service = module.get_instance().service
-        project = os.getcwd()
-        files = [f.strip() for f in (args.kb_files or "").split(",") if f.strip()] or None
-        overrides = {
-            "source_root": args.build_knowledge or None,
-            "extensions": [args.kb_ext] if args.kb_ext else None,
-            "kinds": [args.kb_only] if args.kb_only else None,
-        }
-        cfg = service.build_config(project, **overrides)
-        func.out(f"{Color.CYAN}Building knowledge{Color.RESET}: {cfg.source_root} ({', '.join(cfg.extensions)}) -> {cfg.output_dir}")
-        started = time.time()
 
-        def progress(event):
-            label = f"[{event['index']}/{event['total']}] {event['kind']:<9} {event['file']}"
-            if event["event"] == "start":
-                func.out(f"{Color.DIM}{label} ...{Color.RESET}")
-            elif event["event"] == "done":
-                elapsed = time.time() - started
-                eta = elapsed / event["index"] * (event["total"] - event["index"]) / 60 if event["index"] else 0
-                func.out(f"{Color.GREEN}{label} ok ({event['seconds']}s, ETA {eta:.1f}m){Color.RESET}")
-            else:
-                func.out(f"{Color.RED}{label} failed: {event.get('error')}{Color.RESET}")
-
-        try:
-            report = service.build(project, llm=prog.llm, mode=args.kb_mode, files=files,
-                                   max_files=args.kb_max or None, force=args.kb_force,
-                                   on_progress=progress, **overrides)
-        except Exception as e:
-            func.error(f"Knowledge build failed: {e}")
-            sys.exit(1)
-        func.out(f"{Color.CYAN}Done{Color.RESET}: {len(report['done'])} file(s) ok, {len(report['failed'])} failed, "
-                 f"{report['remaining']} remaining, {report['seconds']}s. Output: {report['output']}")
-        sys.exit(0 if not report["failed"] else 2)
-
-    def _check_nhandle_frontend(self, args):
-        """
-        ``--frontend list``: the bundled, cached and active frontend versions.
-        ``--frontend use <version>|bundled``: pins SERVER_FRONTEND_VERSION in config.json.
-
-        :param args: The parsed command-line arguments.
-        :raises SystemExit: Always, after the command.
-        """
-        command = getattr(args, "frontend", None)
-        if not command:
-            return
-        import json as _json
-        from ai.modules.server.services import frontend as fe
-
-        config_path = os.path.join(DirectoryManager().get_root_dir(), "config.json")
-        with open(config_path, encoding="utf-8") as f:
-            settings = _json.load(f)
-        pinned = settings.get("SERVER_FRONTEND_VERSION") or "bundled"
-
-        if command[0] == "list":
-            bundled = None
-            if fe.BUNDLED_TAR.is_file():
-                try:
-                    bundled = fe.archive_version(fe.BUNDLED_TAR).get("version")
-                except Exception as e:
-                    func.out(f"Bundled frontend unreadable: {e}")
-            func.out(f"Bundled: {bundled or 'none'}   Pinned: {pinned}   Server api_level: {fe.API_LEVEL}")
-            for entry in fe.cached_versions():
-                marks = []
-                if entry["version"] == bundled:
-                    marks.append("bundled")
-                if entry["version"] == pinned:
-                    marks.append("pinned")
-                level = entry["api_level"] if entry["api_level"] is not None else "?"
-                func.out(f"  {entry['version']:<12} api_level {level:<3} {entry['built_at'] or ''}  {' '.join(marks)}")
-            sys.exit(0)
-
-        if command[0] == "use" and len(command) == 2:
-            version = command[1]
-            if version != "bundled":
-                folder = fe.cache_root() / version
-                if not (folder / "index.html").is_file():
-                    func.error(f"Frontend {version} is not in the cache. See: ai --frontend list")
-                    sys.exit(1)
-                level = fe.read_version(folder).get("api_level") or 0
-                if int(level) > fe.API_LEVEL:
-                    func.error(f"Frontend {version} needs api_level {level}; this server has {fe.API_LEVEL}.")
-                    sys.exit(1)
-            if version == "bundled":
-                settings.pop("SERVER_FRONTEND_VERSION", None)
-            else:
-                settings["SERVER_FRONTEND_VERSION"] = version
-            with open(config_path, "w", encoding="utf-8") as f:
-                _json.dump(settings, f, indent=4)
-            func.out(f"Frontend set to {version}. Restart the server to apply.")
-            sys.exit(0)
-
-        func.error("Usage: ai --frontend list | ai --frontend use <version>|bundled")
-        sys.exit(1)
-
-    def _check_nhandle_totp_setup(self, args):
-        """
-        Creates (or replaces) the server's TOTP secret and prints it for an authenticator app.
-        Run on the server machine: the secret never travels over the network.
-
-        :param args: The parsed command-line arguments.
-        :raises SystemExit: Always, after printing the secret.
-        """
-        if not getattr(args, "server_totp_setup", False):
-            return
-        from ai.modules.server.services.auth import AuthService
-        from ai.modules.server.services.totp import provisioning_uri
-
-        guard = AuthService().totp
-        if guard.enabled:
-            answer = input("A TOTP secret already exists; replacing it breaks the current authenticator entry. Replace? (y/N): ")
-            if answer.strip().lower() not in ("y", "yes"):
-                func.out("Kept the existing secret.")
-                sys.exit(0)
-        secret = guard.setup()
-        func.out(f"{Color.GREEN}TOTP enabled.{Color.RESET} Add it to your authenticator app:")
-        func.out(f"  secret: {secret}")
-        func.out(f"  uri:    {provisioning_uri(secret)}")
-        try:
-            import qrcode  # optional: shows a scannable code when installed
-            qr = qrcode.QRCode(border=1)
-            qr.add_data(provisioning_uri(secret))
-            qr.print_ascii(invert=True)
-        except ImportError:
-            pass
-        func.out(f"Stored in {guard.path} (mode 600).")
-        func.out('Codes are required only when "SERVER_TOTP_ENABLED": true is set in config.json (restart the server after).')
-        sys.exit(0)
-
-    def _check_nhandle_create_tool(self, args, directory_manager: DirectoryManager):
-        """
-        Handles the creation of a new tool skeleton file based on the provided name.
-
-        :param args: The parsed command-line arguments containing the tool name.
-        :param directory_manager: The service responsible for managing file paths.
-        :raises SystemExit: Exits if the tool name is invalid or the file already exists.
-        """
-        if not args.create_tool:
-            return
-
-        tool_name = args.create_tool
-        
-        base_name = tool_name.strip().replace(' ', '_').replace('-', '_')
-        base_name = re.sub(r'[^a-zA-Z0-9_]', '', base_name)
-        if base_name and base_name[0].isdigit():
-            base_name = '_' + base_name
-
-        if not base_name:
-            func.error("Invalid tool name. Please use alphanumeric characters, spaces, or hyphens.")
-            sys.exit(1)
-
-        filename = f"{base_name}.py"
-        function_name = base_name
-
-        user_tools_dir = directory_manager.get_user_tools_directory()
-        func.ensure_directory_exists(user_tools_dir)
-
-        file_path = os.path.join(user_tools_dir, filename)
-
-        if os.path.exists(file_path):
-            func.error(f"Tool file already exists: {file_path}")
-            sys.exit(1)
-
-        # Using double braces {{ }} for literal braces in the generated code
-        skeleton_content = f"""
-from ai.tools.base import tool
-
-@tool
-def {function_name}(argument: str) -> str:
-    \"\"\"A brief description of what this tool does.
-
-    Args:
-        argument (str): A description of the argument.
-
-    Returns:
-        str: A description of the return value.
-    \"\"\"
-    try:
-        
-        result = f"Executing {function_name} with: {{argument}}"
-
-        return {{"status": "SUCCESS", "result": result}}
-    except Exception as e:
-        return {{"status": "FAILED", "error": str(e)}}
-"""
-        try:
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(skeleton_content.strip())
-            
-            func.out(f"{Color.GREEN}[+] Tool skeleton created successfully at: {file_path}{Color.RESET}")
-
-        except Exception as e:
-            func.error(f"Failed to create tool file: {e}")
-            sys.exit(1)
-        
-        sys.exit(0)
 
 
     def _handle_server_mode(self, prog:Program, args):
@@ -511,7 +256,7 @@ def {function_name}(argument: str) -> str:
                 func.error(str(e))
                 sys.exit(1)
             if not session_id:
-                func.error(f"No agent session matching '{query}' in {os.getcwd()}. Use --list-sessions to see them.")
+                func.error(f"No agent session matching '{query}' in {os.getcwd()}. Use 'ai sessions list' to see them.")
                 sys.exit(1)
             return session_id
 
@@ -520,7 +265,7 @@ def {function_name}(argument: str) -> str:
             return None
 
         if not (sys.stdin.isatty() and sys.stdout.isatty()):
-            func.error("--resume without an id needs an interactive terminal. Use --list-sessions and --resume <id>.")
+            func.error("'ai agent --resume' without an id needs an interactive terminal. Use 'ai sessions list' and 'ai agent --resume <id>'.")
             sys.exit(1)
 
         session_id = pick_session(sessions)
@@ -554,37 +299,6 @@ def {function_name}(argument: str) -> str:
             func.error(traceback.format_exc())
             sys.exit(1)
 
-    def _check_nhandle_config_generation(self, prog, args, parser: argparse.ArgumentParser, directory_manager: DirectoryManager):
-        """
-        Generates a default model configuration file based on user input.
-
-        :param prog: The main program instance.
-        :param args: The parsed arguments containing configuration generation flags.
-        :param parser: The argument parser instance, used for error reporting.
-        :param directory_manager: The directory management service.
-        :raises SystemExit: Exits after successfully generating the config or upon failure.
-        """
-        if not args.generate_config:
-            return
-
-        if not args.model_type:
-            parser.error("The --generate-config flag requires --model-type.")
-
-        try:
-            model_type_enum = ModelType(args.model_type)
-            config_filename = args.generate_config if args.generate_config.endswith(".json") else f"{args.generate_config}.json"
-            
-            models_dir = directory_manager.get_system_models_directory()
-            func.ensure_directory_exists(models_dir)
-
-            full_filepath = os.path.join(models_dir, config_filename)
-            new_config = ModelConfigManager.generate_default_config(model_name=args.generate_config, model_type=model_type_enum)
-
-            ModelConfigManager.save_config(new_config, full_filepath) 
-            print(format_text(f"\nConfiguration saved to: {full_filepath}", Color.GREEN))
-        except Exception as e:
-            func.error(f"Config generation failed: {e}")
-        sys.exit(0)
 
     def _is_print_chat(self, args):
         """
@@ -612,67 +326,7 @@ def {function_name}(argument: str) -> str:
         reader.load()
         sys.exit(0)
 
-    def _is_install(self, args):
-        """
-        Handles the installation or updating of necessary engine components.
 
-        :param args: The parsed arguments containing the --install flag.
-        :raises FileNotFoundError: If required installer or virtual environment files are missing.
-        :raises ImportError: If the installer module cannot be loaded.
-        :raises SystemExit: Exits after installation is complete or if an error occurs.
-        """
-        if args.install:
-            import importlib.util
-            if getattr(sys, "frozen", False):
-                project_root = Path(sys.executable).resolve().parent.parent
-            else:
-                project_root = Path(__file__).resolve().parent.parent.parent
-
-            installer_path = project_root / "scripts" / "install_engines.py"
-            if not installer_path.is_file():
-                raise FileNotFoundError(
-                    f"Engine installer not found at '{installer_path}'. "
-                    "Run --install from the project checkout."
-                )
-
-            if getattr(sys, "frozen", False):
-                venv_python = project_root / ".venv" / "Scripts" / "python.exe"
-                if not venv_python.is_file():
-                    raise FileNotFoundError(
-                        f"Project virtual environment not found at '{venv_python}'. "
-                        "Run .\\build.ps1 from the project checkout first."
-                    )
-                subprocess.run(
-                    [str(venv_python), str(installer_path)],
-                    cwd=project_root,
-                    check=True,
-                )
-                func.out(
-                    "Engine installation updated the project environment. "
-                    "Run .\\compile.ps1 to include changes in the executable."
-                )
-                sys.exit(0)
-
-            spec = importlib.util.spec_from_file_location("install_engines", installer_path)
-            if spec is None or spec.loader is None:
-                raise ImportError(f"Could not load engine installer from '{installer_path}'.")
-
-            installer_module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(installer_module)
-            installer_module.main_menu()
-            sys.exit(0)
-
-    def _is_list_models(self, args):
-        """
-        Lists available models. Currently provides a placeholder message.
-
-        :param args: The parsed arguments containing the --list-models flag.
-        :raises SystemExit: Exits after displaying the status message.
-        """
-        if args.list_models:
-            # FIXME read the user dir and list all models
-            func.out("Not available at the moment: ", level="WARN")
-            sys.exit(0)
 
     def _has_output_files(self, prog, args):
         """
@@ -789,20 +443,7 @@ def {function_name}(argument: str) -> str:
             )
             sys.exit(0)
             
-    def _check_nhandle_list_sessions(self, args):
-        """
-        Lists all active agent sessions found in the current working directory.
 
-        :param args: The parsed command-line arguments containing the --list-sessions flag.
-        :raises SystemExit: Exits after displaying the session list or a 'not found' message.
-        """
-        if args.list_sessions:
-            sessions = AgentSessionManager.list_sessions(os.getcwd())
-            if not sessions:
-                func.out("No agent sessions found.", level="INFO")
-                sys.exit(0)
 
-            func.out("Agent Sessions:", level="INFO")
-            for session in sessions:
-                func.out(f"Session ID: {session['session_id']}, User Request: {session.get('user_request', 'N/A')}", level="INFO")
-            sys.exit(0)
+
+

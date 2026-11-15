@@ -148,12 +148,22 @@ class TestCommandHandling:
         mock_chat_dependencies["func"].out.assert_called_with(ANY)
 
     def test_run_command_triggers_event(self, chat_instance: Chat):
-        """Tests that other commands trigger the EVENT_COMMAND_STARTED."""
+        """Tests that other commands trigger the EVENT_COMMAND_STARTED when something listens to it."""
         command_text = "/some_other_command"
+        chat_instance.events[chat_instance.EVENT_COMMAND_STARTED] = [lambda data: None]
         chat_instance.run_command(command_text)
         
         assert chat_instance.running_command is True
         chat_instance.trigger.assert_called_once_with(chat_instance.EVENT_COMMAND_STARTED, command_text)
+
+    def test_unknown_command_without_listener_does_not_block(self, chat_instance: Chat, mock_chat_dependencies):
+        """With no command handler, an unknown command is reported and the prompt comes back."""
+        chat_instance.events.pop(chat_instance.EVENT_COMMAND_STARTED, None)
+        chat_instance.run_command("/nope")
+
+        assert chat_instance.running_command is False
+        chat_instance.trigger.assert_not_called()
+        mock_chat_dependencies["func"].out.assert_called_with(ANY)
 
 class TestChatInteraction:
     def test_send_chat_triggers_event(self, chat_instance: Chat):

@@ -1,10 +1,9 @@
-"""One-shot ``ai --agent --msg ...`` runs printed with the chat UI renderer."""
+"""One-shot ``ai agent --msg ...`` runs printed with the chat UI renderer."""
 
 import io as _io
 
 import pytest
 
-import ai.program  # noqa: F401  (startup import order, avoids a circular import)
 from ai.agents.agent_io import PERMISSION_ALWAYS, PERMISSION_NO, PERMISSION_YES
 from ai.agents.chat_ui import oneshot
 from ai.agents.chat_ui.oneshot import OneShotIO, run_one_shot
@@ -72,7 +71,7 @@ class TestRunOneShot:
         assert len(conn.requests) == 1
         assert "OK again" not in text
         assert "Done in" in text
-        assert "ai --agent --resume s-user-end" in text
+        assert "ai agent --resume s-user-end" in text
 
     def test_question_is_shown_with_resume_hint(self, monkeypatch):
         out = _io.StringIO()
@@ -86,7 +85,7 @@ class TestRunOneShot:
         run_one_shot(prog=None, prompt="pick one", session_id="s-q", io=io)
 
         text = out.getvalue()
-        assert text.index("Which file?") < text.index("ai --agent --resume s-q")
+        assert text.index("Which file?") < text.index("ai agent --resume s-q")
 
     def test_closes_orchestrator_on_error(self, monkeypatch):
         orch, _, _ = make_orchestrator([], io=OneShotIO(out=_io.StringIO(), interactive=False))
@@ -161,4 +160,4 @@ def test_api_error_prints_resume_hint(monkeypatch):
     assert result.reason == "api_error"
     assert "Connection refused\nSession saved" in text
     assert "Model API unavailable" in text
-    assert "ai --agent --resume s-api" in text
+    assert "ai agent --resume s-api" in text

@@ -1,18 +1,24 @@
 {
   "mcpServers": {
     "playwright": {
-      "enabled": true,
+      "enabled": false,
       "auto_allow": true,
       "description": "Browser automation tool. Use this to navigate websites, click elements, extract text, and interact with web applications.",
       "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest"]
+      "args": [
+        "-y",
+        "@playwright/mcp@latest"
+      ]
     },
     "github": {
-      "enabled": true,
+      "enabled": false,
       "auto_allow": true,
       "description": "Interact with the GitHub API. Use this to read repositories, create issues, review PRs, and manage branches.",
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"]
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ]
     }
   }
 }
