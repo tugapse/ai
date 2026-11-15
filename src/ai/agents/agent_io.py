@@ -56,7 +56,8 @@ class AgentIO:
         blocking_user_input: When True, a USER-targeted question is answered
             inline via ``request_user_input`` and the loop keeps going. When
             False, the loop ends the turn and returns ``awaiting_user`` so the
-            caller can collect the answer as the next chat message.
+            caller can collect the answer as the next chat message. An empty
+            answer ends the turn too.
     """
     blocking_user_input: bool = True
     # One-shot runs (``ai agent -m``/``-t``) use the pipeline's ``oneshot_hil_tools`` when it has one.
@@ -72,7 +73,7 @@ class AgentIO:
         return PERMISSION_NO
 
     def request_user_input(self, agent: str, prompt: str) -> str:
-        """Asks the user a question and returns the answer (blocking mode only)."""
+        """Asks the user a question and returns the answer (blocking mode only). An empty answer ends the turn."""
         return ""
 
 

@@ -708,11 +708,11 @@ class AgentOrchestrator(Events):
         # already shown; don't print a generic question on top of it.
         if question or not msg:
             self.emit(AgentEventType.QUESTION, agent, prompt)
-        if self.io.blocking_user_input:
-            reply = self.io.request_user_input(agent, prompt)
+        reply = self.io.request_user_input(agent, prompt).strip() if self.io.blocking_user_input else ""
+        if reply:
             self.memory.add_message_to_agent(agent, {"from": "USER", "message": reply, "task": reply})
         else:
-            # Non-blocking UIs: end the turn; the next user message is the reply.
+            # Non-blocking UIs, or no reply: end the turn; the next user message is the reply.
             self._awaiting_user = prompt
         return agent
 

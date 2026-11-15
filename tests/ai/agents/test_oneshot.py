@@ -51,12 +51,12 @@ class TestRunOneShot:
         run(monkeypatch, [{"response_to_user": "hi", "action": {"agent_target": "STOP"}}], OneShotIO(out=tty, interactive=False))
         assert "\x1b[" in tty.getvalue()
 
-    def test_handing_back_to_user_ends_the_run(self, monkeypatch):
-        """Agents target USER when done; a one-shot run must stop there, not loop on an empty reply."""
+    def test_handing_back_to_user_without_terminal_ends_the_run(self, monkeypatch):
+        """Agents target USER when done; with nobody to answer the run stops there."""
         def never(_):
-            raise AssertionError("one-shot must not wait for a reply")
+            raise AssertionError("must not wait for a reply without a terminal")
         out = _io.StringIO()
-        io = OneShotIO(out=out, read=never, interactive=True)
+        io = OneShotIO(out=out, read=never, interactive=False)
         orch, conn, _ = make_orchestrator([
             {"response_to_user": "OK", "action": {"agent_target": "USER"}},
             {"response_to_user": "OK again", "action": {"agent_target": "USER"}},
@@ -73,9 +73,107 @@ class TestRunOneShot:
         assert "Done in" in text
         assert "ai agent --resume s-user-end" in text
 
+    def test_reply_in_the_terminal_continues_the_run(self, monkeypatch):
+        prompts = []
+        replies = iter(["", "  ", "yes, go ahead"])
+        def read(prompt):
+            prompts.append(prompt)
+            answer = next(replies, None)
+            if answer is None:
+                raise KeyboardInterrupt
+            return answer
+        out = _io.StringIO()
+        io = OneShotIO(out=out, read=read, interactive=True)
+        orch, conn, reg = make_orchestrator([
+            {"action": {"agent_target": "USER", "message_to_target": "Release 1.2.0?"}},
+            {"action": {"tool_name": "read_file", "tool_parameters": {"path": "a"}}},
+            {"response_to_user": "Released.", "action": {"agent_target": "USER"}},
+        ], io=io)
+        orch.close = lambda: None
+        monkeypatch.setattr("ai.agents.agent.build_orchestrator", lambda *a, **k: orch)
+
+        result = run_one_shot(prog=None, prompt="release", session_id="s-reply", io=io)
+
+        text = out.getvalue()
+        assert len(prompts) == 4  # two empty lines are asked again, then Ctrl+C at the end
+        assert reg.executed == [("read_file", {"path": "a"})]
+        assert "yes, go ahead" in str(conn.requests[1])
+        assert result.reason == "awaiting_user"
+        assert text.index("Release 1.2.0?") < text.index("Ctrl+C to finish") < text.index("Released.") < text.index("Done in")
+
+    @pytest.mark.parametrize("answer", [EOFError, KeyboardInterrupt])
+    def test_ctrl_c_or_eof_ends_the_run(self, monkeypatch, answer):
+        def read(_):
+            if isinstance(answer, type):
+                raise answer
+            return answer
+        io = OneShotIO(out=_io.StringIO(), read=read, interactive=True)
+        orch, conn, _ = make_orchestrator([
+            {"response_to_user": "Done.", "action": {"agent_target": "USER"}},
+            {"response_to_user": "never", "action": {"agent_target": "USER"}},
+        ], io=io)
+        orch.close = lambda: None
+        monkeypatch.setattr("ai.agents.agent.build_orchestrator", lambda *a, **k: orch)
+
+        result = run_one_shot(prog=None, prompt="x", session_id="s-empty", io=io)
+
+        assert result.reason == "awaiting_user"
+        assert len(conn.requests) == 1
+
+    def test_ctrl_c_while_waiting_does_not_reach_the_app_signal_handler(self):
+        import signal
+        def app_handler(*_):
+            raise SystemExit(0)
+        seen = []
+        def read(_):
+            seen.append(signal.getsignal(signal.SIGINT))
+            raise KeyboardInterrupt
+        previous = signal.signal(signal.SIGINT, app_handler)
+        try:
+            io = OneShotIO(out=_io.StringIO(), read=read, interactive=True)
+            assert io.request_user_input("MASTER", "ok?") == ""
+            assert seen == [signal.default_int_handler]
+            assert signal.getsignal(signal.SIGINT) is app_handler
+        finally:
+            signal.signal(signal.SIGINT, previous)
+
+    def test_waiting_for_the_reply_is_not_counted_in_the_run_time(self, monkeypatch):
+        io = OneShotIO(out=_io.StringIO(), read=lambda _: "ok", interactive=True)
+        io.state.turn_started = 100.0
+        clock = iter([1000.0, 1060.0])
+        monkeypatch.setattr(oneshot.time, "monotonic", lambda: next(clock))
+        io.request_user_input("MASTER", "ok?")
+        assert io.state.turn_started == 160.0
+
+    def test_auto_reply_without_terminal_until_no_progress(self, monkeypatch):
+        from test_agent_chat import PIPELINE
+        out = _io.StringIO()
+        io = OneShotIO(out=out, read=lambda _: pytest.fail("must not prompt"), interactive=False)
+        orch, conn, reg = make_orchestrator([
+            {"action": {"agent_target": "USER", "message_to_target": "Proceed?"}},
+            {"action": {"tool_name": "read_file", "tool_parameters": {"path": "a"}}},
+            {"response_to_user": "Done.", "action": {"agent_target": "USER"}},
+            {"response_to_user": "Still done.", "action": {"agent_target": "USER"}},
+            {"response_to_user": "never", "action": {"agent_target": "USER"}},
+        ], io=io, pipeline={**PIPELINE, "oneshot_auto_reply": "Go ahead."})
+        orch.close = lambda: None
+        monkeypatch.setattr("ai.agents.agent.build_orchestrator", lambda *a, **k: orch)
+
+        result = run_one_shot(prog=None, prompt="release", session_id="s-auto", io=io)
+
+        text = out.getvalue()
+        assert result.reason == "awaiting_user"
+        assert reg.executed == [("read_file", {"path": "a"})]
+        # "Proceed?" → auto reply; "Done." after a tool → auto reply; "Still done." with no tool → stop.
+        assert len(conn.requests) == 4
+        assert text.count("Go ahead.") == 2
+        assert "never" not in text
+
     def test_question_is_shown_with_resume_hint(self, monkeypatch):
         out = _io.StringIO()
-        io = OneShotIO(out=out, interactive=True)
+        def ctrl_c(_):
+            raise KeyboardInterrupt
+        io = OneShotIO(out=out, read=ctrl_c, interactive=True)
         orch, _, _ = make_orchestrator([
             {"action": {"agent_target": "USER", "message_to_target": "Which file?"}},
         ], io=io)

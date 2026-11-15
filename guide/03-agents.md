@@ -156,6 +156,7 @@ and who it can hand work to. Three ship with JARVIS (in `system/pipelines/`):
 | `max_iterations` | Max steps per turn (default 300, like the shipped pipelines). |
 | `knowledge` | Optional: extra knowledge sources for this pipeline. |
 | `oneshot_hil_tools` | Optional: in one-shot runs (`ai agent -m` / `-t`), the only tools that need approval; see [Approvals](#approvals-human-in-the-loop). |
+| `oneshot_auto_reply` | Optional: in one-shot runs without a terminal, the reply sent when an agent hands control to you; see [One-shot runs](#one-shot-runs). |
 | `agents.<NAME>.role` | `management` gets your message as its objective; `labor` gets the task it was handed. |
 | `agents.<NAME>.prompt_file` | System prompt, relative to `system-prompt/`: `user/system-prompt/` is checked first, then `system/system-prompt/` (or an absolute path). |
 | `agents.<NAME>.tools` | Tools this agent may call. Anything else is refused. |
@@ -220,6 +221,21 @@ With this key, in a one-shot run:
 
 The interactive chat and the web UI ignore this key and keep using `HIL_TOOLS`. An empty list
 (`[]`) lets a one-shot run use every tool without asking.
+
+When an agent hands control back to you in a one-shot run (it has a question, or it is done):
+- **with a terminal**, you are asked for a reply. Type it and the run goes on in the same
+  session; press Ctrl+C (or Ctrl+D) to end the run. An empty line is not taken as an answer. The
+  time spent waiting is not counted in the run time;
+- **without a terminal**, the run ends and prints `continue: ai agent --resume <id> --msg "..."`,
+  unless the pipeline sets an automatic reply:
+
+```json
+"oneshot_auto_reply": "Proceed with your best judgment; the user is not available to answer."
+```
+
+  The agent gets that text as your reply and carries on. Agents also hand control back when they
+  are done, so the reply is sent again only if the agent ran a tool since the previous one;
+  otherwise the run ends. Off by default.
 
 From the web UI, tools in `SERVER_TOTP_TOOLS` can also require an authenticator code (see the
 [Server](07-server.md#security)).
