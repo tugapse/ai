@@ -1,0 +1,84 @@
+{
+  "component": {
+    "name": "totp",
+    "source_path": "/ai/modules/server/services/totp.py",
+    "doc_path": "/ai/modules/server/services/totp.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "This component implements the Time-based One-Time Password (TOTP) generation and verification logic according to RFC 6238. It serves as a critical security utility layer, managing secret keys via file I/O for high-privilege agent action approval. Core functionality relies on HMAC-SHA1 hashing against a time counter, incorporating a window check to mitigate clock drift and prevent replay attacks."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/server/services/totp.py#totp",
+      "label": "module",
+      "name": "totp",
+      "signature": ""
+    },
+    {
+      "id": "/ai/modules/server/services/totp.py#generate_secret",
+      "label": "Function",
+      "name": "generate_secret",
+      "signature": "generate_secret() -> str"
+    },
+    {
+      "id": "/ai/modules/server/services/totp.py#code_at",
+      "label": "Function",
+      "name": "code_at",
+      "signature": "code_at(secret: str, counter: int) -> str"
+    },
+    {
+      "id": "/ai/modules/server/services/totp.py#provisioning_uri",
+      "label": "Function",
+      "name": "provisioning_uri",
+      "signature": "provisioning_uri(secret: str, account: str = \"server\", issuer: str = \"Jarvis\") -> str"
+    },
+    {
+      "id": "/ai/modules/server/services/totp.py#TotpGuard",
+      "label": "Class",
+      "name": "TotpGuard",
+      "signature": ""
+    },
+    {
+      "id": "/ai/modules/server/services/totp.py#TotpGuard.enabled",
+      "label": "Property",
+      "name": "enabled",
+      "signature": "enabled -> bool"
+    },
+    {
+      "id": "/ai/modules/server/services/totp.py#TotpGuard.setup",
+      "label": "Method",
+      "name": "setup",
+      "signature": "setup() -> str"
+    },
+    {
+      "id": "/ai/modules/server/services/totp.py#TotpGuard.verify",
+      "label": "Method",
+      "name": "verify",
+      "signature": "verify(code: Optional[str]) -> bool"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/server/services/totp.py",
+      "target": "/ai/modules/server/services/totp.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "base64",
+      "hashlib",
+      "hmac",
+      "json",
+      "os",
+      "secrets",
+      "struct",
+      "threading",
+      "time",
+      "urllib.parse"
+    ],
+    "has_side_effects": true
+  }
+}

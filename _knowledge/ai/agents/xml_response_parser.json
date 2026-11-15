@@ -1,0 +1,126 @@
+{
+  "component": {
+    "name": "ResponseParser",
+    "source_path": "/ai/agents/xml_response_parser.py",
+    "doc_path": "/ai/agents/xml_response_parser.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "The ResponseParser class is a critical service layer component designed to ingest raw, unstructured strings from an LLM and transform them into a canonical Python dictionary model. It specializes in extracting structured data, prioritizing XML parsing, but falling back to robust regex-based field extraction if the primary structure is corrupted. Its core function is to reliably capture 'thought', 'action', 'manifest', and 'response_to_user' fields regardless of LLM formatting inconsistencies."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/agents/xml_response_parser.py#ResponseParser",
+      "label": "Class",
+      "name": "ResponseParser",
+      "signature": "class ResponseParser"
+    },
+    {
+      "id": "/ai/agents/xml_response_parser.py#ResponseParser.__init__",
+      "label": "Method",
+      "name": "__init__",
+      "signature": "def __init__(self, parameter_mode: str = \"xml\")"
+    },
+    {
+      "id": "/ai/agents/xml_response_parser.py#ResponseParser.parse",
+      "label": "Method",
+      "name": "parse",
+      "signature": "def parse(self, raw_string: str) -> Dict[str, Any]"
+    },
+    {
+      "id": "/ai/agents/xml_response_parser.py#ResponseParser._extract_params",
+      "label": "Method",
+      "name": "_extract_params",
+      "signature": "def _extract_params(self, element: Optional[ET.Element]) -> Dict[str, Any]"
+    },
+    {
+      "id": "/ai/agents/xml_response_parser.py#ResponseParser._preprocess_xml",
+      "label": "Method",
+      "name": "_preprocess_xml",
+      "signature": "def _preprocess_xml(self, xml_string: str) -> str"
+    },
+    {
+      "id": "/ai/agents/xml_response_parser.py#ResponseParser._sanitize_block",
+      "label": "Method",
+      "name": "_sanitize_block",
+      "signature": "def _sanitize_block(self, xml_string: str, tag: str) -> str"
+    },
+    {
+      "id": "/ai/agents/xml_response_parser.py#ResponseParser._sanitize_tool_params",
+      "label": "Method",
+      "name": "_sanitize_tool_params",
+      "signature": "def _sanitize_tool_params(self, xml_string: str) -> str"
+    },
+    {
+      "id": "/ai/agents/xml_response_parser.py#ResponseParser._strip_noise",
+      "label": "Method",
+      "name": "_strip_noise",
+      "signature": "def _strip_noise(text: str) -> str"
+    },
+    {
+      "id": "/ai/agents/xml_response_parser.py#ResponseParser._candidate_block",
+      "label": "Method",
+      "name": "_candidate_block",
+      "signature": "def _candidate_block(self, text: str) -> str"
+    },
+    {
+      "id": "/ai/agents/xml_response_parser.py#ResponseParser._clean_value",
+      "label": "Method",
+      "name": "_clean_value",
+      "signature": "def _clean_value(value: str) -> str"
+    },
+    {
+      "id": "/ai/agents/xml_response_parser.py#ResponseParser._find_tag",
+      "label": "Method",
+      "name": "_find_tag",
+      "signature": "def _find_tag(self, text: str, tag: str, stop_tags=()) -> Optional[re.Match]"
+    },
+    {
+      "id": "/ai/agents/xml_response_parser.py#ResponseParser._extract_fields",
+      "label": "Method",
+      "name": "_extract_fields",
+      "signature": "def _extract_fields(self, text: str) -> Dict[str, Any]"
+    },
+    {
+      "id": "/ai/agents/xml_response_parser.py#ResponseParser._extract_params_text",
+      "label": "Method",
+      "name": "_extract_params_text",
+      "signature": "def _extract_params_text(self, inner: str) -> Dict[str, Any]"
+    },
+    {
+      "id": "/ai/agents/xml_response_parser.py#ResponseParser._merge",
+      "label": "Method",
+      "name": "_merge",
+      "signature": "def _merge(primary: Dict[str, Any], fallback: Dict[str, Any]) -> Dict[str, Any]"
+    },
+    {
+      "id": "/ai/agents/xml_response_parser.py#ResponseParser._has_instruction",
+      "label": "Method",
+      "name": "_has_instruction",
+      "signature": "def _has_instruction(self, result: Dict[str, Any]) -> bool"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/agents/xml_response_parser.py",
+      "target": "/ai/agents/xml_response_parser.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/agents/xml_response_parser.py",
+      "target": "/ai/functions.md",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "xml.etree.ElementTree",
+      "html",
+      "json",
+      "re",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

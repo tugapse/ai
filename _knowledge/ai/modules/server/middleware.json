@@ -1,0 +1,51 @@
+{
+  "component": {
+    "name": "MIMETypeFixerMiddleware",
+    "source_path": "/ai/modules/server/middleware.py",
+    "doc_path": "/ai/modules/server/middleware.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "This middleware intercepts ASGI HTTP requests to enforce correct Content-Type MIME headers for static assets like .js, .css, and .png. It acts as a request interceptor, checking the path extension and ensuring the 'Content-Type' header is present before passing control to the next application layer. Its core responsibility is maintaining web standard compliance for static file delivery within the ASGI stack."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/server/middleware.py#MIMETypeFixerMiddleware",
+      "label": "Class",
+      "name": "MIMETypeFixerMiddleware",
+      "signature": "class MIMETypeFixerMiddleware"
+    },
+    {
+      "id": "/ai/modules/server/middleware.py#__init__",
+      "label": "Method",
+      "name": "__init__",
+      "signature": "def __init__(self, app)"
+    },
+    {
+      "id": "/ai/modules/server/middleware.py#__call__",
+      "label": "Method",
+      "name": "__call__",
+      "signature": "async def __call__(self, scope, receive, send)"
+    },
+    {
+      "id": "/ai/modules/server/middleware.py#_determine_mime_type",
+      "label": "Method",
+      "name": "_determine_mime_type",
+      "signature": "def _determine_mime_type(self, path: str) -> str"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/server/middleware.py",
+      "target": "/ai/functions.md",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

@@ -120,7 +120,8 @@ class TestListing:
         (folders[1] / "broken.json").write_text("{not json")
         configs = {c["key"]: c for c in hub.list_model_configs()}
         assert configs["small"] == {"key": "small", "model_name": "Display small",
-                                    "model_type": "gguf", "loadable": True, "vision": False}
+                                    "model_type": "gguf", "loadable": True, "vision": False,
+                                    "n_ctx": None, "max_new_tokens": None}
         assert configs["default"]["loadable"] is False and configs["default"]["model_type"] == "jarvis"
         assert configs["broken"]["loadable"] is False and "error" in configs["broken"]
 

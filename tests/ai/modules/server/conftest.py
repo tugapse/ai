@@ -8,7 +8,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import ai.program  # noqa: F401  (startup import order, avoids a circular import)
 from ai.core.llms.base_llm import TokenCountInfo
 from ai.modules.server.brain_hub import BrainHub
 from ai.services.engine_manager import EngineManager

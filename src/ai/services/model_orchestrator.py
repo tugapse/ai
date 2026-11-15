@@ -7,7 +7,7 @@ from ai.services.directory_manager import DirectoryManager
 from ai.services.engine_manager import EngineManager
 from ai.core.llms.load_errors import GpuMemoryError
 from ai.core.llms.base_llm import ModelParams, BaseModel
-from ai.services.config_helper import ProgramConfig, ProgramSetting
+from ai.config import ProgramConfig, ProgramSetting
 from ai.tools.tool_registry import ToolRegistry
 
 class ModelOrchestrator:

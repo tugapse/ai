@@ -1,0 +1,96 @@
+{
+  "component": {
+    "name": "direct",
+    "source_path": "/ai/direct.py",
+    "doc_path": "/ai/direct.json",
+    "type": "controller"
+  },
+  "vector_memory": {
+    "semantic_summary": "This component, `direct`, acts as the primary synchronous controller for executing single, direct queries against a Language Model (LLM). It manages the entire LLM interaction lifecycle, handling token streaming, sanitization, and output persistence. It orchestrates the flow between the LLM provider, UI feedback mechanisms, and configuration management to translate user intent into a standardized response stream."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/direct.py#_sanitize_token",
+      "label": "Function",
+      "name": "_sanitize_token",
+      "signature": "def _sanitize_token(token: str) -> str"
+    },
+    {
+      "id": "/ai/direct.py#ask",
+      "label": "Function",
+      "name": "ask",
+      "signature": "def ask(llm: BaseModel, input_message: Union[str, List[Dict[str, str]]], write_to_file: bool = False, output_filename: Optional[str] = None, hide_think_anim: bool = False, print_output: bool = True, stream: bool = True, on_token: Optional[Callable[[str], None]] = None) -> None"
+    },
+    {
+      "id": "/ai/direct.py#ProgramConfig",
+      "label": "Class",
+      "name": "ProgramConfig",
+      "signature": "class ProgramConfig"
+    },
+    {
+      "id": "/ai/direct.py#UIOrchestrator",
+      "label": "Class",
+      "name": "UIOrchestrator",
+      "signature": "class UIOrchestrator"
+    },
+    {
+      "id": "/ai/direct.py#BaseModel",
+      "label": "Class",
+      "name": "BaseModel",
+      "signature": "class BaseModel"
+    },
+    {
+      "id": "/ai/direct.py#ThinkingAnimationHandler",
+      "label": "Class",
+      "name": "ThinkingAnimationHandler",
+      "signature": "class ThinkingAnimationHandler"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/direct.py",
+      "target": "/ai/functions.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/direct.py",
+      "target": "/ai/color.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/direct.py",
+      "target": "/ai/core/llms/base_llm.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/direct.py",
+      "target": "/ai/chat/chat.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/direct.py",
+      "target": "/ai/config.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/direct.py",
+      "target": "/ai/services/ui_orchestrator.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/direct.py",
+      "target": "/ai/extras/think_parser.md",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "unicodedata",
+      "re",
+      "time",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

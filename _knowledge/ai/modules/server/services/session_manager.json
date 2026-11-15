@@ -1,0 +1,112 @@
+{
+  "component": {
+    "name": "SessionManager",
+    "source_path": "/ai/modules/server/services/session_manager.py",
+    "doc_path": "/ai/modules/server/services/session_manager.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "SessionManager is the core persistence service responsible for managing the complete lifecycle of application sessions, storing state as JSON files within a sandboxed root directory. It provides robust methods for loading, saving, updating, and deleting sessions while strictly enforcing path boundaries to prevent directory traversal attacks. This service abstracts file I/O and JSON serialization, acting as the dedicated persistence layer for session data within the application's service architecture."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/server/services/session_manager.py#SessionError",
+      "label": "Class",
+      "name": "SessionError",
+      "signature": "class SessionError(Exception):"
+    },
+    {
+      "id": "/ai/modules/server/services/session_manager.py#SessionNotFoundError",
+      "label": "Class",
+      "name": "SessionNotFoundError",
+      "signature": "class SessionNotFoundError(SessionError):"
+    },
+    {
+      "id": "/ai/modules/server/services/session_manager.py#InvalidPathError",
+      "label": "Class",
+      "name": "InvalidPathError",
+      "signature": "class InvalidPathError(SessionError):"
+    },
+    {
+      "id": "/ai/modules/server/services/session_manager.py#SessionAccessError",
+      "label": "Class",
+      "name": "SessionAccessError",
+      "signature": "class SessionAccessError(SessionError):"
+    },
+    {
+      "id": "/ai/modules/server/services/session_manager.py#SessionManager",
+      "label": "Class",
+      "name": "SessionManager",
+      "signature": "class SessionManager:"
+    },
+    {
+      "id": "/ai/modules/server/services/session_manager.py#_log",
+      "label": "Method",
+      "name": "_log",
+      "signature": "def _log(self, message: str) -> None:"
+    },
+    {
+      "id": "/ai/modules/server/services/session_manager.py#_resolve_session_path",
+      "label": "Method",
+      "name": "_resolve_session_path",
+      "signature": "def _resolve_session_path(self, session_path: str) -> Path:"
+    },
+    {
+      "id": "/ai/modules/server/services/session_manager.py#list_sessions",
+      "label": "Method",
+      "name": "list_sessions",
+      "signature": "def list_sessions(self, session_folder: Optional[str] = None) -> List[Dict]:"
+    },
+    {
+      "id": "/ai/modules/server/services/session_manager.py#load_session",
+      "label": "Method",
+      "name": "load_session",
+      "signature": "def load_session(self, session_path: str) -> Dict:"
+    },
+    {
+      "id": "/ai/modules/server/services/session_manager.py#save_session",
+      "label": "Method",
+      "name": "save_session",
+      "signature": "def save_session(self, session_path: str, data: Dict) -> None:"
+    },
+    {
+      "id": "/ai/modules/server/services/session_manager.py#update_session_content",
+      "label": "Method",
+      "name": "update_session_content",
+      "signature": "def update_session_content(self, session_path: str, content: Dict) -> None:"
+    },
+    {
+      "id": "/ai/modules/server/services/session_manager.py#update_session_title",
+      "label": "Method",
+      "name": "update_session_title",
+      "signature": "def update_session_title(self, session_path: str, title: str) -> Dict:"
+    },
+    {
+      "id": "/ai/modules/server/services/session_manager.py#delete_session",
+      "label": "Method",
+      "name": "delete_session",
+      "signature": "def delete_session(self, session_path: str) -> None:"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/server/services/session_manager.py",
+      "target": "/ai/modules/server/controllers/main_controller.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/server/services/session_manager.py",
+      "target": "/ai/modules/server/services/session_service.md",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "pathlib",
+      "typing",
+      "json"
+    ],
+    "has_side_effects": true
+  }
+}

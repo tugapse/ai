@@ -1,0 +1,90 @@
+{
+  "component": {
+    "name": "command_executor",
+    "source_path": "/ai/chat/command_executor.py",
+    "doc_path": "/ai/chat/command_executor.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "This component implements a system for executing commands, providing both synchronous and asynchronous execution patterns via threading. It defines a core contract (`CommandExecutor`) that manages command lifecycle and callback dispatching. The `AsyncExecutor` leverages `threading.Thread` to run the command logic concurrently, ensuring non-blocking behavior essential for responsive services."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/chat/command_executor.py#ExecutorResult",
+      "label": "Class",
+      "name": "ExecutorResult",
+      "signature": "def __init__(self, result, error=None) -> None"
+    },
+    {
+      "id": "/ai/chat/command_executor.py#CommandExecutor",
+      "label": "Class",
+      "name": "CommandExecutor",
+      "signature": "def __init__(self, command, finish_callback) -> None"
+    },
+    {
+      "id": "/ai/chat/command_executor.py#_trigger_callback",
+      "label": "Method",
+      "name": "_trigger_callback",
+      "signature": "def _trigger_callback(self, result, error=None)"
+    },
+    {
+      "id": "/ai/chat/command_executor.py#run",
+      "label": "Method",
+      "name": "run",
+      "signature": "def run(self, *args, **kargs)"
+    },
+    {
+      "id": "/ai/chat/command_executor.py#output_requested",
+      "label": "Method",
+      "name": "output_requested",
+      "signature": "def output_requested(self)"
+    },
+    {
+      "id": "/ai/chat/command_executor.py#AsyncExecutor",
+      "label": "Class",
+      "name": "AsyncExecutor",
+      "signature": "def __init__(self, command, finish_callback) -> None"
+    },
+    {
+      "id": "/ai/chat/command_executor.py#_run_thread",
+      "label": "Method",
+      "name": "_run_thread",
+      "signature": "def _run_thread(self)"
+    },
+    {
+      "id": "/ai/chat/command_executor.py#terminate",
+      "label": "Method",
+      "name": "terminate",
+      "signature": "def terminate(self)"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/chat/command_executor.py",
+      "target": "/ai/chat/command_executor.py",
+      "relation": "inherits"
+    },
+    {
+      "source": "/ai/chat/command_executor.py",
+      "target": "/ai/chat/command_executor.py",
+      "relation": "calls"
+    },
+    {
+      "source": "/ai/chat/command_executor.py",
+      "target": "/ai/chat/command_executor.py",
+      "relation": "calls"
+    },
+    {
+      "source": "/ai/chat/command_executor.py",
+      "target": "/ai/chat/command_executor.py",
+      "relation": "calls"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "threading"
+    ],
+    "has_side_effects": true
+  }
+}

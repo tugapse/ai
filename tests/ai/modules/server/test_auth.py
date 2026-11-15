@@ -138,6 +138,16 @@ class TestProtectedRoutes:
         r = outside.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
         assert r.status_code == 403 and "denied_network" in audit_events(auth)
 
+    @pytest.mark.parametrize("method,url", [
+        ("get", "/api/health"), ("get", "/api/v1/sessions"), ("get", "/api/v1/prompts"),
+        ("get", "/api/v1/model-configs"), ("get", "/api/v1/stats"), ("get", "/"),
+        ("post", "/api/v1/chat/completions"),
+    ])
+    def test_untrusted_network_is_403_on_every_route(self, app, method, url):
+        outside = TestClient(app, client=("8.8.8.8", 1234))
+        kwargs = {"json": {"model": "small", "messages": [{"role": "user", "content": "hi"}]}} if method == "post" else {}
+        assert getattr(outside, method)(url, **kwargs).status_code == 403
+
     def test_untrusted_network_cannot_start_pairing(self, app):
         outside = TestClient(app, client=("8.8.8.8", 1234))
         assert outside.post("/api/v1/auth/pair/start", json={}).status_code == 403
@@ -206,3 +216,44 @@ class TestCors:
         other = lan.options("/api/v1/auth/me", headers={
             "Origin": "http://192.168.1.99:4200", "Access-Control-Request-Method": "GET"})
         assert "access-control-allow-origin" not in other.headers
+
+
+class TestSessionsPerBrowser:
+    """Until it pairs, a browser only sees (and continues) the chat sessions it created."""
+
+    @staticmethod
+    def chat(client, session_id, headers=WEB):
+        return client.post("/api/v1/chat/completions", headers=headers, json={
+            "model": "small", "session_id": session_id, "messages": [{"role": "user", "content": "hi"}]})
+
+    @staticmethod
+    def ids(client):
+        return [s["session_id"] for s in client.get("/api/v1/sessions").json()["sessions"]]
+
+    def test_browser_gets_a_client_id_cookie(self, browser):
+        browser.get("/api/health")
+        assert browser.cookies.get("jarvis_client")
+
+    def test_unpaired_browsers_only_see_their_own_sessions(self, app, auth):
+        a = TestClient(app, client=LOCAL, base_url="http://127.0.0.1:9999")
+        b = TestClient(app, client=LOCAL, base_url="http://127.0.0.1:9999")
+        assert self.chat(a, "from-a").status_code == 200
+        assert self.chat(b, "from-b").status_code == 200
+
+        assert self.ids(a) == ["from-a"] and self.ids(b) == ["from-b"]
+        assert a.get("/api/v1/sessions/from-a").status_code == 200
+        assert b.get("/api/v1/sessions/from-a").status_code == 404
+        assert "owner" not in a.get("/api/v1/sessions/from-a").json()
+        assert self.chat(b, "from-a").status_code == 403
+
+        pair(b, auth)
+        assert sorted(self.ids(b)) == ["from-a", "from-b"]
+        assert b.get("/api/v1/sessions/from-a").status_code == 200
+        assert self.chat(b, "from-a").status_code == 200
+
+    def test_cookieless_clients_keep_working(self, app):
+        """jarvis CLI clients and relays send no cookie: chat works as before, but they list nothing."""
+        cli = TestClient(app, client=LOCAL, base_url="http://127.0.0.1:9999", cookies=None)
+        r = cli.post("/api/v1/chat/completions", json={
+            "model": "small", "session_id": "cli", "messages": [{"role": "user", "content": "hi"}]})
+        assert r.status_code == 200

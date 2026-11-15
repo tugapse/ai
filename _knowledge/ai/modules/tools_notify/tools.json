@@ -1,0 +1,53 @@
+{
+  "component": {
+    "name": "tools",
+    "source_path": "/ai/modules/tools_notify/tools.py",
+    "doc_path": "/ai/modules/tools_notify/tools.json",
+    "type": "module"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module implements the `send_notification` tool, which abstracts platform-specific desktop alerting mechanisms. It checks the system platform (Linux or macOS) to invoke native tools like `notify-send` or `osascript`. If no native notifier is available, it falls back to outputting a terminal bell character. Its primary role is providing asynchronous, attention-grabbing feedback to the user during long-running agent tasks."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/tools_notify/tools.py#send_notification",
+      "label": "Function",
+      "name": "send_notification",
+      "signature": "def send_notification(**kwargs) -> Dict[str, Any]"
+    },
+    {
+      "id": "/ai/modules/tools_notify/tools.py#_notify_command",
+      "label": "Function",
+      "name": "_notify_command",
+      "signature": "def _notify_command(title: str, message: str, urgency: str) -> Optional[List[str]]"
+    },
+    {
+      "id": "/ai/modules/tools_notify/tools.py#_applescript_str",
+      "label": "Function",
+      "name": "_applescript_str",
+      "signature": "def _applescript_str(value: str) -> str"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/tools_notify/tools.py",
+      "target": "/ai/modules/tools_notify/tools.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/tools_notify/tools.py",
+      "target": "/ai.tools.base/base.md",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "shutil",
+      "subprocess",
+      "sys",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

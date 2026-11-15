@@ -64,9 +64,14 @@ def load_pipeline_config(prog, pipeline_file: str) -> dict:
         for agent_name, agent_data in config.get("agents", {}).items():
             prompt_file = agent_data.get("prompt_file")
             if prompt_file:
-                full_prompt_path = prompt_file if os.path.isabs(prompt_file) else os.path.join(directory.get_system_prompts_templates_directory(), prompt_file)
-                if not os.path.exists(full_prompt_path):
-                    func.error(f"Prompt file missing for agent {agent_name}: {full_prompt_path}")
+                if os.path.isabs(prompt_file):
+                    full_prompt_path = prompt_file if os.path.exists(prompt_file) else None
+                else:
+                    # user/system-prompt/ wins over system/system-prompt/ (like models and pipelines)
+                    full_prompt_path = directory.resolve_prompt_file(prompt_file)
+                if not full_prompt_path:
+                    func.error(f"Prompt file missing for agent {agent_name}: {prompt_file} "
+                               f"(looked in user/system-prompt/ and system/system-prompt/)")
                     return {}
                 agent_data["prompt_file_path"] = full_prompt_path
         
@@ -104,9 +109,9 @@ def build_orchestrator(prog, pipeline_file: str = "default.json", io=None, direc
     connector = LLMConnector(prog.llm)
     registry = ToolRegistry()
     # Built-in tools come from the enabled tool modules (ai.modules.tools_*).
-    if prog.modules is not None and hasattr(prog.modules, "tool_functions"):
-        for name, tool_ref in prog.modules.tool_functions().items():
-            registry.register_tool(name, tool_ref)
+    if prog.modules is not None and hasattr(prog.modules, "tool_categories"):
+        for category in prog.modules.tool_categories():
+            registry.register_category(category)
 
     # Dynamically load and register tools from the user-defined 'tools' directory
     directory_manager = directory_manager or DirectoryManager()

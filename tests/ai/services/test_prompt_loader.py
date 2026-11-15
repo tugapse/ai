@@ -33,6 +33,8 @@ class TestPromptLoader:
         self.mock_func = self.patcher_func.start()
         self.mock_template_injection_class = self.patcher_template_injection.start()
         self.mock_pathlib = self.patcher_pathlib.start()
+        # no user/system-prompt override in these tests (exists() decides the rest)
+        self.mock_os_path.isfile.return_value = False
 
         # Mock the TemplateInjection class to return a mock instance
         self.mock_template_instance = MagicMock()

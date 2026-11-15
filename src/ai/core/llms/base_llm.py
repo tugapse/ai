@@ -130,8 +130,11 @@ class BaseModel:
         Args:
             **kwargs: Arguments potentially containing context window and token limits.
         """
-        self.token_info_count.max_context_window = self.options.get("n_ctx", 2048)
-        self.token_info_count.max_output_tokens = self.options.get("max_new_tokens", 2048)
+        # A value the backend already set (e.g. GGUF's n_ctx model property) is kept: options only
+        # carry n_ctx for some backends, and the 2048 default made the context look tiny.
+        info = self.token_info_count
+        info.max_context_window = self.options.get("n_ctx") or info.max_context_window or 2048
+        info.max_output_tokens = self.options.get("max_new_tokens") or info.max_output_tokens or 2048
 
 
     def handle_sentinel(self, content: str, is_intercepting: bool, sentinel_buffer: str):
@@ -344,6 +347,30 @@ class BaseModel:
         if self._generation_thread is not None and self._generation_thread.is_alive():
             self._generation_thread.join(timeout=timeout)
         self.stop_generation_event.clear()
+
+    # Image formats every engine and the server API accept as data URLs; others become PNG.
+    DATA_URL_IMAGE_TYPES = ("image/png", "image/jpeg", "image/webp", "image/gif")
+
+    @staticmethod
+    def image_to_data_url(image) -> str:
+        """A data URL for an image given as a data URL, a file path or a PIL image."""
+        import base64
+        import io
+        import mimetypes
+
+        if isinstance(image, str) and image.startswith("data:image/"):
+            return image
+        if isinstance(image, str):
+            mime = mimetypes.guess_type(image)[0] or ""
+            if mime in BaseModel.DATA_URL_IMAGE_TYPES:
+                with open(image, "rb") as f:
+                    return f"data:{mime};base64,{base64.b64encode(f.read()).decode()}"
+            from PIL import Image
+            with Image.open(image) as opened:  # e.g. bmp/tiff: re-encoded below
+                image = opened.copy()
+        buffer = io.BytesIO()
+        image.convert("RGB").save(buffer, format="PNG")
+        return f"data:image/png;base64,{base64.b64encode(buffer.getvalue()).decode()}"
 
     def chat(
         self,

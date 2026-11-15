@@ -7,9 +7,14 @@ real servers configured in mcp_config.json (e.g. ``npx @playwright/mcp``).
 
 import base64
 
-from mcp.server.mcpserver import MCPServer
-from mcp.server.mcpserver.exceptions import ToolError
-from mcp.server.mcpserver.utilities.types import Image
+try:  # mcp >= 2
+    from mcp.server.mcpserver import MCPServer
+    from mcp.server.mcpserver.exceptions import ToolError
+    from mcp.server.mcpserver.utilities.types import Image
+except ImportError:  # mcp 1.x
+    from mcp.server.fastmcp import FastMCP as MCPServer
+    from mcp.server.fastmcp.exceptions import ToolError
+    from mcp.server.fastmcp.utilities.types import Image
 
 server = MCPServer("jarvis-test-server", log_level="CRITICAL")
 

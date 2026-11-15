@@ -1,0 +1,97 @@
+{
+  "component": {
+    "name": "VectorMemoryModule",
+    "source_path": "/ai/modules/vector_memory/vector_memory_module.py",
+    "doc_path": "/ai/modules/vector_memory/vector_memory_module.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "VectorMemoryModule acts as a controlled service layer wrapper for the core VectorMemory system, managing its lifecycle. Its primary role is to defer the instantiation of the heavy VectorMemory object until a valid session context (session_id and BaseModel) is available via the initialize method. It provides guarded access to the underlying instance via get_instance and ensures proper resource cleanup through shutdown, adhering to a service pattern for module registry integration."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/vector_memory/vector_memory_module.py#VectorMemoryModule",
+      "label": "Class",
+      "name": "VectorMemoryModule",
+      "signature": ""
+    },
+    {
+      "id": "/ai/modules/vector_memory/vector_memory_module.py#__init__",
+      "label": "Method",
+      "name": "__init__",
+      "signature": "def __init__(self, db_path: str, **kwargs)"
+    },
+    {
+      "id": "/ai/modules/vector_memory/vector_memory_module.py#initialize",
+      "label": "Method",
+      "name": "initialize",
+      "signature": "def initialize(self, session_id: str,llm:BaseModel)"
+    },
+    {
+      "id": "/ai/modules/vector_memory/vector_memory_module.py#get_instance",
+      "label": "Method",
+      "name": "get_instance",
+      "signature": "def get_instance(self) -> Optional[VectorMemory]"
+    },
+    {
+      "id": "/ai/modules/vector_memory/vector_memory_module.py#shutdown",
+      "label": "Method",
+      "name": "shutdown",
+      "signature": "def shutdown(self)"
+    },
+    {
+      "id": "/ai/modules/vector_memory/vector_memory_module.py#self",
+      "label": "Variable",
+      "name": "self",
+      "signature": ""
+    },
+    {
+      "id": "/ai/modules/vector_memory/vector_memory_module.py#db_path",
+      "label": "Variable",
+      "name": "db_path",
+      "signature": ""
+    },
+    {
+      "id": "/ai/modules/vector_memory/vector_memory_module.py#kwargs",
+      "label": "Variable",
+      "name": "kwargs",
+      "signature": ""
+    },
+    {
+      "id": "/ai/modules/vector_memory/vector_memory_module.py#_instance",
+      "label": "Variable",
+      "name": "_instance",
+      "signature": ""
+    },
+    {
+      "id": "/ai/modules/vector_memory/vector_memory_module.py#_is_initialized",
+      "label": "Variable",
+      "name": "_is_initialized",
+      "signature": ""
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/vector_memory/vector_memory_module.py",
+      "target": "/ai/modules/base_module/base_module.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/vector_memory/vector_memory_module.py",
+      "target": "/ai/core/llms/base_llm/base_llm.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/vector_memory/vector_memory_module.py",
+      "target": "/ai/modules/vector_memory/vector_memory.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

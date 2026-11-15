@@ -10,7 +10,7 @@ while true; do
     echo "[$(date)] Starting AI Engine..."
     
     # Run the engine. The script will pause right here and wait for it.
-    $AI_ENGINE --server
+    $AI_ENGINE server
     
     # Capture the exit code (our "catch" block)
     EXIT_CODE=$?

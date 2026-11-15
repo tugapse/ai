@@ -1,0 +1,193 @@
+{
+  "component": {
+    "name": "BrainHub",
+    "source_path": "/ai/modules/server/brain_hub.py",
+    "doc_path": "/ai/modules/server/brain_hub.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "BrainHub is the central orchestration hub managing the lifecycle of loaded language models and session history. It coordinates model swapping via ModelOrchestrator, handles session persistence using HistoryManager, and controls system state via ProcessManager. Its core responsibility is ensuring the correct LLM is active, managing concurrency using internal locks, and enforcing state policies like 'wait', 'fail', or 'force' during model transitions."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/server/brain_hub.py#ModelLease",
+      "label": "Class",
+      "name": "ModelLease",
+      "signature": "def __init__(self, hub: \"BrainHub\")"
+    },
+    {
+      "id": "/ai/modules/server/brain_hub.py#BrainHub",
+      "label": "Class",
+      "name": "BrainHub",
+      "signature": "def __init__(self, config: ProgramConfig, relay_url: Optional[str] = None)"
+    },
+    {
+      "id": "/ai/modules/server/brain_hub.py#BrainHub.new_history",
+      "label": "Method",
+      "name": "new_history",
+      "signature": "def new_history(self, session_title: Optional[str], session_id: str, session_folder: Optional[str]) -> dict"
+    },
+    {
+      "id": "/ai/modules/server/brain_hub.py#BrainHub.route_memory",
+      "label": "Method",
+      "name": "route_memory",
+      "signature": "def route_memory(self, session_filepath: str, session_title: Optional[str], session_id: str, session_folder: Optional[str])"
+    },
+    {
+      "id": "/ai/modules/server/brain_hub.py#BrainHub.add_history_message",
+      "label": "Method",
+      "name": "add_history_message",
+      "signature": "def add_history_message(self, role: str, content: str, images: Optional[list] = None)"
+    },
+    {
+      "id": "/ai/modules/server/brain_hub.py#BrainHub.load_history_from_json",
+      "label": "Method",
+      "name": "load_history_from_json",
+      "signature": "def load_history_from_json(self, filepath: str)"
+    },
+    {
+      "id": "/ai/modules/server/brain_hub.py#BrainHub.save_history_to_json",
+      "label": "Method",
+      "name": "save_history_to_json",
+      "signature": "def save_history_to_json(self, filepath: str)"
+    },
+    {
+      "id": "/ai/modules/server/brain_hub.py#BrainHub.get_timestamp",
+      "label": "Method",
+      "name": "get_timestamp",
+      "signature": "def get_timestamp(self) -> str"
+    },
+    {
+      "id": "/ai/modules/server/brain_hub.py#BrainHub.model_key",
+      "label": "Static Method",
+      "name": "model_key",
+      "signature": "def model_key(model_name: Optional[str]) -> str"
+    },
+    {
+      "id": "/ai/modules/server/brain_hub.py#BrainHub.agent_running",
+      "label": "Property",
+      "name": "agent_running",
+      "signature": "def __get__(self, instance, owner) -> bool"
+    },
+    {
+      "id": "/ai/modules/server/brain_hub.py#BrainHub.busy",
+      "label": "Property",
+      "name": "busy",
+      "signature": "def __get__(self, instance, owner) -> bool"
+    },
+    {
+      "id": "/ai/modules/server/brain_hub.py#BrainHub.add_cancel_hook",
+      "label": "Method",
+      "name": "add_cancel_hook",
+      "signature": "def add_cancel_hook(self, hook: Callable[[], None]) -> None"
+    },
+    {
+      "id": "/ai/modules/server/brain_hub.py#BrainHub.acquire",
+      "label": "Method",
+      "name": "acquire",
+      "signature": "def acquire(self, model_id: str, system_prompt: str, model_config_data: Optional[dict] = None, on_busy: str = ON_BUSY_WAIT) -> ModelLease"
+    },
+    {
+      "id": "/ai/modules/server/brain_hub.py#BrainHub.release_with",
+      "label": "Static Method",
+      "name": "release_with",
+      "signature": "def release_with(owner, lease: ModelLease) -> None"
+    },
+    {
+      "id": "/ai/modules/server/brain_hub.py#BrainHub.get_brain",
+      "label": "Method",
+      "name": "get_brain",
+      "signature": "def get_brain(self, model_id: str, system_prompt: str, model_config_data: Optional[dict] = None, on_busy: str = ON_BUSY_WAIT)"
+    },
+    {
+      "id": "/ai/modules/server/brain_hub.py#BrainHub.unload_brain",
+      "label": "Method",
+      "name": "unload_brain",
+      "signature": "def unload_brain(self)"
+    },
+    {
+      "id": "/ai/modules/server/brain_hub.py#BrainHub.list_model_configs",
+      "label": "Method",
+      "name": "list_model_configs",
+      "signature": "def list_model_configs(self, folder: Optional[str] = None) -> list"
+    },
+    {
+      "id": "/ai/modules/server/brain_hub.py#BrainHub.list_available_models",
+      "label": "Method",
+      "name": "list_available_models",
+      "signature": "def list_available_models(self) -> list"
+    },
+    {
+      "id": "/ai/modules/server/brain_hub.py#BrainHub.get_stats",
+      "label": "Method",
+      "name": "get_stats",
+      "signature": "def get_stats(self) -> dict"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/server/brain_hub.py",
+      "target": "/ai/modules/server/brain_hub.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/server/brain_hub.py",
+      "target": "/ai/services/model_orchestrator.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/server/brain_hub.py",
+      "target": "/ai/services/history_manager.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/server/brain_hub.py",
+      "target": "/ai/services/process_manager.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/server/brain_hub.py",
+      "target": "/ai/functions.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/brain_hub.py",
+      "target": "/ai/config.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/brain_hub.py",
+      "target": "/ai/services/history_manager.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/brain_hub.py",
+      "target": "/ai/services/model_orchestrator.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/brain_hub.py",
+      "target": "/ai/services/engine_manager.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/brain_hub.py",
+      "target": "/ai/modules/server/exceptions.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/brain_hub.py",
+      "target": "/ai/services/process_manager.md",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "httpx",
+      "json",
+      "datetime"
+    ],
+    "has_side_effects": true
+  }
+}

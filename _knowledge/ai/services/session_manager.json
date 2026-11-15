@@ -1,0 +1,82 @@
+{
+  "component": {
+    "name": "SessionManager",
+    "source_path": "/ai/services/session_manager.py",
+    "doc_path": "/ai/services/session_manager.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "The SessionManager class is a core service responsible for managing application session state and persistence across restarts. Its primary function, initialize_session_paths, determines session continuity by checking a 'last_session.id' file's modification time against a 5-minute threshold. If the session is 'warm', it resumes the existing ID; otherwise, it generates a new timestamped ID. It ensures necessary log and chat directories exist and configures global error/log file pointers for the active session."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/services/session_manager.py#SessionManager",
+      "label": "Class",
+      "name": "SessionManager",
+      "signature": ""
+    },
+    {
+      "id": "/ai/services/session_manager.py#initialize_session_paths",
+      "label": "Method",
+      "name": "initialize_session_paths",
+      "signature": "initialize_session_paths(config: ProgramConfig) -> Dict[str, str]"
+    },
+    {
+      "id": "/ai/services/session_manager.py#directory_manager",
+      "label": "Variable",
+      "name": "directory_manager",
+      "signature": ""
+    },
+    {
+      "id": "/ai/services/session_manager.py#session_id_pointer",
+      "label": "Variable",
+      "name": "session_id_pointer",
+      "signature": ""
+    },
+    {
+      "id": "/ai/services/session_manager.py#session_timestamp",
+      "label": "Variable",
+      "name": "session_timestamp",
+      "signature": ""
+    },
+    {
+      "id": "/ai/services/session_manager.py#session_paths",
+      "label": "Variable",
+      "name": "session_paths",
+      "signature": ""
+    },
+    {
+      "id": "/ai/services/session_manager.py#last_id",
+      "label": "Variable",
+      "name": "last_id",
+      "signature": ""
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/services/session_manager.py",
+      "target": "/ai/services/directory_manager.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/services/session_manager.py",
+      "target": "/ai/functions.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/services/session_manager.py",
+      "target": "/ai/services/config_helper.py",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "os",
+      "time",
+      "datetime",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

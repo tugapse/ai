@@ -1,0 +1,106 @@
+{
+  "component": {
+    "name": "OpenAIAPIModel",
+    "source_path": "/ai/core/llms/open_ai.py",
+    "doc_path": "/ai/core/llms/open_ai.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "OpenAIAPIModel serves as a generalized, OpenAI-compatible service layer for interacting with various LLM providers, abstracting API nuances. Its core function is to enforce a 'Sentinel Protocol' by flattening native tool calls into pure text markers for consistent interception. It manages configuration, integrates robust retry logic, and tracks telemetry metrics during chat completions or streaming responses."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/core/llms/open_ai.py#OpenAIAPIModel",
+      "label": "Class",
+      "name": "OpenAIAPIModel",
+      "signature": "class OpenAIAPIModel(BaseModel):"
+    },
+    {
+      "id": "/ai/core/llms/open_ai.py#__init__",
+      "label": "Method",
+      "name": "__init__",
+      "signature": "def __init__(self, model_name: Optional[str] = None, system_prompt: Optional[str] = \"\", api_key: Optional[str] = None, **kargs: Any):"
+    },
+    {
+      "id": "/ai/core/llms/open_ai.py#_load_llm_params",
+      "label": "Method",
+      "name": "_load_llm_params",
+      "signature": "def _load_llm_params(self, **kargs) -> None:"
+    },
+    {
+      "id": "/ai/core/llms/open_ai.py#_convert_messages",
+      "label": "Method",
+      "name": "_convert_messages",
+      "signature": "def _convert_messages(self, messages: List[Dict[str, str]]) -> List[Dict[str, str]]:"
+    },
+    {
+      "id": "/ai/core/llms/open_ai.py#chat",
+      "label": "Method",
+      "name": "chat",
+      "signature": "def chat(self, messages: List[Dict[str, str]], tools: Optional[List[Dict[str, Any]]] = None, stream: bool = True, options: Optional[Dict[str, Any]] = None) -> Union[str, Dict[str, Any], Generator[Union[str, Dict[str, Any]], None, None]]:"
+    },
+    {
+      "id": "/ai/core/llms/open_ai.py#_run_streaming_chat",
+      "label": "Method",
+      "name": "_run_streaming_chat",
+      "signature": "def _run_streaming_chat(self, formatted_msgs: List[Dict[str, str]]) -> Generator[Union[str, Dict[str, Any]], None, None]:"
+    },
+    {
+      "id": "/ai/core/llms/open_ai.py#_update_token_metrics",
+      "label": "Method",
+      "name": "_update_token_metrics",
+      "signature": "def _update_token_metrics(self, usage: Any) -> None:"
+    },
+    {
+      "id": "/ai/core/llms/open_ai.py#clean_cache",
+      "label": "Method",
+      "name": "clean_cache",
+      "signature": "def clean_cache(self) -> None:"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/core/llms/open_ai.py",
+      "target": "/ai/core/llms/base_llm.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/core/llms/open_ai.py",
+      "target": "/ai/core/llms/api_retry.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/core/llms/open_ai.py",
+      "target": "/ai/functions.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/core/llms/open_ai.py",
+      "target": "/ai/tools/tool_registry.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/core/llms/open_ai.py",
+      "target": "/ai/core/llms/api_retry.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/core/llms/open_ai.py",
+      "target": "/ai/color.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [
+      "AI_MODEL_NAME",
+      "AI_API_KEY",
+      "AI_API_VERSION",
+      "AI_AZURE_ENDPOINT"
+    ],
+    "external_dependencies": [
+      "openai",
+      "httpx"
+    ],
+    "has_side_effects": true
+  }
+}

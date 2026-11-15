@@ -1,0 +1,63 @@
+{
+  "component": {
+    "name": "MemoryTools",
+    "source_path": "/ai/modules/vector_memory/memory_tools.py",
+    "doc_path": "/ai/modules/vector_memory/memory_tools.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "MemoryTools acts as a service layer abstraction for managing long-term memory by wrapping a persistent vector store instance. It centralizes operations, providing standardized interfaces like query_memory and trigger_reflection to the core agent logic. Its primary role is to mediate between the agent and the underlying vector persistence mechanism, handling retrieval and archiving of knowledge.",
+    "domain_responsibilities": "Memory Management, Knowledge Retrieval, State Archiving"
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/vector_memory/memory_tools.py#MemoryTools",
+      "label": "Class",
+      "name": "MemoryTools",
+      "signature": "class MemoryTools"
+    },
+    {
+      "id": "/ai/modules/vector_memory/memory_tools.py#__init__",
+      "label": "Method",
+      "name": "__init__",
+      "signature": "def __init__(self, vector_memory_instance: Optional[Any] = None) -> None"
+    },
+    {
+      "id": "/ai/modules/vector_memory/memory_tools.py#get_tools",
+      "label": "Method",
+      "name": "get_tools",
+      "signature": "def get_tools(self) -> Dict[str, Callable]"
+    },
+    {
+      "id": "/ai/modules/vector_memory/memory_tools.py#query_memory",
+      "label": "Method",
+      "name": "query_memory",
+      "signature": "def query_memory(self, **kwargs) -> Dict[str, Any]"
+    },
+    {
+      "id": "/ai/modules/vector_memory/memory_tools.py#trigger_reflection",
+      "label": "Method",
+      "name": "trigger_reflection",
+      "signature": "def trigger_reflection(self, **kwargs) -> Dict[str, Any]"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/vector_memory/memory_tools.py",
+      "target": "/ai/functions.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/vector_memory/memory_tools.py",
+      "target": "/ai/tools/base.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

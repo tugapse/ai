@@ -27,6 +27,21 @@ def vector_memory_instance(mock_providers):
     memory = VectorMemory(session_id="test_session", llm=connector)
     return memory
 
+class TestScope:
+    def test_project_scope_uses_workspace(self, tmp_path):
+        from ai.modules.vector_memory.vector_memory import resolve_ltm_scope
+        assert resolve_ltm_scope("project", "s1", str(tmp_path)) == f"project:{tmp_path}"
+        assert resolve_ltm_scope(None, "s1", str(tmp_path)) == f"project:{tmp_path}"
+        assert resolve_ltm_scope("session", "s1", str(tmp_path)) == "session:s1"
+        assert resolve_ltm_scope("global", "s1", str(tmp_path)) == "global"
+
+    def test_collection_comes_from_scope(self, mock_providers, mocker):
+        import ai.modules.vector_memory.vector_memory as vm
+        provider = mocker.patch.object(vm, 'ChromaDBProvider')
+        vm.VectorMemory(session_id="s1", scope_key="project:/repo")
+        provider.assert_called_once_with(path="./agent_ltm_db", session_id="project:/repo")
+
+
 class TestVectorMemory:
 
     def test_initialization(self, vector_memory_instance, mock_providers):
@@ -39,32 +54,36 @@ class TestVectorMemory:
         assert vector_memory_instance.tools is not None
 
     def test_add_memory(self, vector_memory_instance, mock_providers):
-        """Test the add_memory method."""
+        """add_memory embeds and stores the content; importance comes from the memory type (no LLM call)."""
         db, embedder, llm = mock_providers
-        
         content = "This is a test memory."
-        source = "test_source"
-        
-        # Mock provider responses
-        llm.rate_importance.return_value = 8
         embedder.embed.return_value = [0.1] * 10
-        
-        vector_memory_instance.add_memory(content, source)
-        
-        # Assertions
-        llm.rate_importance.assert_called_once_with(content)
+
+        memory_id = vector_memory_instance.add_memory(content, "test_source", memory_type="decision")
+
+        llm.rate_importance.assert_not_called()
         embedder.embed.assert_called_once_with(content)
-        
         expected_id = hashlib.sha256(content.encode()).hexdigest()
-        
-        db.upsert.assert_called_once()
-        args, kwargs = db.upsert.call_args
+        assert memory_id == expected_id
+        kwargs = db.upsert.call_args.kwargs
         assert kwargs['memory_id'] == expected_id
         assert kwargs['vector'] == [0.1] * 10
         metadata = kwargs['metadata']
         assert metadata['content'] == content
-        assert metadata['source'] == source
+        assert metadata['source'] == "test_source"
+        assert metadata['type'] == "decision"
         assert metadata['importance'] == 8
+        assert metadata['session_id'] == "test_session"
+        assert vector_memory_instance.new_memories == 1
+
+    def test_add_memory_llm_importance(self, vector_memory_instance, mock_providers):
+        """With llm_importance on, the LLM rates the memory."""
+        db, embedder, llm = mock_providers
+        vector_memory_instance.llm_importance = True
+        llm.rate_importance.return_value = 9
+        vector_memory_instance.add_memory("rate me", "src")
+        llm.rate_importance.assert_called_once_with("rate me")
+        assert db.upsert.call_args.kwargs['metadata']['importance'] == 9
 
     def test_add_memory_no_content(self, vector_memory_instance, mock_providers):
         """Test that add_memory does nothing if content is empty."""
@@ -101,17 +120,30 @@ class TestVectorMemory:
         vector_memory_instance.relevance_weight = 1.0
         
         retrieved = vector_memory_instance.retrieve_memories(query, top_k=2)
-        
+
         embedder.embed.assert_called_once_with(query)
-        db.query.assert_called_once_with(vector=[0.2] * 10, top_k=6) # top_k * 3
-        
-        # Check that the highest scored memory is first
-        # Score for memory 1: (0.99**1)*1 + (10/10)*1 + 0.9*1 = 0.99 + 1.0 + 0.9 = 2.89
-        # Score for memory 2: (0.99**24)*1 + (2/10)*1 + 0.7*1 = ~0.78 + 0.2 + 0.7 = ~1.68
-        # Score for memory 3: (0.99**2)*1 + (5/10)*1 + 0.8*1 = ~0.98 + 0.5 + 0.8 = ~2.28
-        assert len(retrieved) == 2
-        assert retrieved[0] == 'memory 1'
-        assert retrieved[1] == 'memory 3'
+        db.query.assert_called_once_with(vector=[0.2] * 10, top_k=6, where=None)  # top_k * 3
+
+        # Score 1: 0.99 + 1.0 + 0.9 = 2.89 ; score 2: ~0.78 + 0.2 + 0.7 ; score 3: ~0.98 + 0.5 + 0.8
+        assert retrieved == ['memory 1', 'memory 3']
+
+        # The returned memories get their access time refreshed
+        ids, metas = db.update_metadata.call_args.args
+        assert ids == ['id1', 'id3']
+        assert all(m['last_accessed_at'] == current_time for m in metas)
+
+    def test_search_filters_type_and_relevance(self, vector_memory_instance, mock_providers):
+        db, embedder, llm = mock_providers
+        embedder.embed.return_value = [0.2] * 10
+        now = time.time()
+        db.query.return_value = [
+            {'id': 'a', 'score': 0.8, 'metadata': {'content': 'keep', 'type': 'decision', 'last_accessed_at': now, 'importance': 8}},
+            {'id': 'b', 'score': 0.1, 'metadata': {'content': 'drop', 'type': 'decision', 'last_accessed_at': now, 'importance': 8}},
+        ]
+        hits = vector_memory_instance.search("q", top_k=3, types=["decision"], min_relevance=0.3)
+        assert db.query.call_args.kwargs['where'] == {"type": "decision"}
+        assert [h['content'] for h in hits] == ['keep']
+        assert hits[0]['type'] == 'decision'
 
     def test_retrieve_memories_no_query(self, vector_memory_instance, mock_providers):
         """Test retrieve_memories with an empty query string."""

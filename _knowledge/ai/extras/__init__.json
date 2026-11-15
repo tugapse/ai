@@ -1,0 +1,51 @@
+{
+  "component": {
+    "name": "__init__",
+    "source_path": "/ai/extras/__init__.py",
+    "doc_path": "/ai/extras/__init__.json",
+    "type": "module"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module serves as the primary facade for the ai.extras package, aggregating core AI functionalities. It consolidates access points for console interaction, output formatting, thought process parsing, logging, and handler management. Architecturally, it simplifies system-wide access to these specialized tools by exposing them under a single namespace. It primarily acts as an aggregator, routing calls to specific submodules within the package."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/extras/__init__.py#HandlerManager",
+      "label": "Class",
+      "name": "HandlerManager",
+      "signature": "class HandlerManager"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/extras/__init__.py",
+      "target": "/ai/extras/console.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/extras/__init__.py",
+      "target": "/ai/extras/output_printer.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/extras/__init__.py",
+      "target": "/ai/extras/think_parser.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/extras/__init__.py",
+      "target": "/ai/extras/thinking_log_manager.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/extras/__init__.py",
+      "target": "/ai/extras/handler_manager.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [],
+    "has_side_effects": false
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "component": {
+    "name": "agent",
+    "source_path": "/ai/agents/agent.py",
+    "doc_path": "/ai/agents/agent.json",
+    "type": "controller"
+  },
+  "vector_memory": {
+    "semantic_summary": "This component serves as the high-level facade (`Agent` class) for managing and executing complex agentic workflows. It encapsulates the entire lifecycle, orchestrating initialization of the ToolRegistry, LLMConnector, and AgentOrchestrator based on a pipeline configuration. Its primary role is to manage session state and delegate the main execution flow via the `run` method."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/agents/agent.py#load_pipeline_config",
+      "label": "Function",
+      "name": "load_pipeline_config",
+      "signature": "def load_pipeline_config(prog, pipeline_file: str) -> dict"
+    },
+    {
+      "id": "/ai/agents/agent.py#build_orchestrator",
+      "label": "Function",
+      "name": "build_orchestrator",
+      "signature": "def build_orchestrator(prog, pipeline_file: str = \"default.json\", io=None, directory_manager: Optional[DirectoryManager] = None) -> AgentOrchestrator"
+    },
+    {
+      "id": "/ai/agents/agent.py#Agent",
+      "label": "Class",
+      "name": "Agent",
+      "signature": "class Agent(Events)"
+    },
+    {
+      "id": "/ai/agents/agent.py#Agent.__init__",
+      "label": "Method",
+      "name": "__init__",
+      "signature": "def __init__(self, prog, pipeline_file: str = \"default.json\")"
+    },
+    {
+      "id": "/ai/agents/agent.py#Agent.run",
+      "label": "Method",
+      "name": "run",
+      "signature": "def run(self, user_prompt: str, session_id: str = \"\")"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/agents/agent.py",
+      "target": "/ai/config.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/agents/agent.py",
+      "target": "/ai/services/directory_manager.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/agents/agent.py",
+      "target": "/ai/tools/tool_registry.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/agents/agent.py",
+      "target": "/ai/agents/llm_connector.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/agents/agent.py",
+      "target": "/ai/agents/agent_orchestrator.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/agents/agent.py",
+      "target": "/ai/core/events.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/agents/agent.py",
+      "target": "/ai/functions.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "uuid",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "component": {
+    "name": "tools_filesystem",
+    "source_path": "/ai/modules/tools_filesystem/__init__.py",
+    "doc_path": "/ai/modules/tools_filesystem/__init__.json",
+    "type": "module"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module serves as the central interface for filesystem operations within the AI agent framework. It aggregates core utility functions—such as reading, writing, listing, patching, and deleting files—into a unified, standardized API. It abstracts underlying file interactions, allowing other system components to perform necessary persistence and data manipulation tasks predictably."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/tools_filesystem/__init__.py#TOOLS",
+      "label": "Variable",
+      "name": "TOOLS",
+      "signature": "TOOLS: list"
+    },
+    {
+      "id": "/ai/modules/tools_filesystem/__init__.py#create_module",
+      "label": "Function",
+      "name": "create_module",
+      "signature": "create_module() -> ToolModule"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/tools_filesystem/__init__.py",
+      "target": "/ai/modules/tools_filesystem/tools.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/tools_filesystem/__init__.py",
+      "target": "/ai/modules/base_module.md",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [
+      "TOOLS_FILESYSTEM_ENABLED"
+    ],
+    "external_dependencies": [],
+    "has_side_effects": true
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "component": {
+    "name": "CliConfig",
+    "source_path": "/ai/services/config_helper.py",
+    "doc_path": "/ai/services/config_helper.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "CliConfig acts as a configuration service responsible for bridging parsed CLI arguments into the central ProgramConfig state. Its primary method, apply_cli_args_to_config, selectively overrides configuration settings like model names, system prompts, and logging flags based on the provided argparse.Namespace. It validates file paths against the filesystem and manages state side effects, such as setting global logging locks, ensuring configuration integrity based on user input."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/services/config_helper.py#CliConfig",
+      "label": "Class",
+      "name": "CliConfig",
+      "signature": ""
+    },
+    {
+      "id": "/ai/services/config_helper.py#apply_cli_args_to_config",
+      "label": "Method",
+      "name": "apply_cli_args_to_config",
+      "signature": "apply_cli_args_to_config(config: ProgramConfig, args: Optional[argparse.Namespace])"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/services/config_helper.py",
+      "target": "/ai/program.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/services/config_helper.py",
+      "target": "/ai/functions.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "os",
+      "argparse",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

@@ -11,4 +11,5 @@ TOOLS = [send_notification]
 
 
 def create_module() -> ToolModule:
-    return ToolModule("tools_notify", TOOLS, description="Notification tool: desktop notifications so the agent can tell you when something is done.")
+    return ToolModule("tools_notify", TOOLS, category="notify",
+                      description="Send a desktop notification to the user, e.g. when a long task is done.")

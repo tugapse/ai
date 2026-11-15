@@ -1,0 +1,92 @@
+{
+  "component": {
+    "name": "HFEngineMixin",
+    "source_path": "/ai/core/llms/hf/hf_engine.py",
+    "doc_path": "/ai/core/llms/hf/hf_engine.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "This component serves as the service layer for interfacing with Hugging Face transformers models, encapsulating complex generation logic. It manages both synchronous and asynchronous (threaded) inference modes, utilizing CustomStoppingCriteria for external termination control. Key responsibilities include parameter normalization, model lifecycle management (pull), and robust error handling for network and runtime failures."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/core/llms/hf/hf_engine.py#CustomStoppingCriteria",
+      "label": "Class",
+      "name": "CustomStoppingCriteria",
+      "signature": "def __call__(self, input_ids: 'torch.LongTensor', scores: 'torch.FloatTensor', **kwargs) -> bool"
+    },
+    {
+      "id": "/ai/core/llms/hf/hf_engine.py#HFEngineMixin",
+      "label": "Class",
+      "name": "HFEngineMixin",
+      "signature": "def _extract_generation_params(self, options: dict) -> tuple"
+    },
+    {
+      "id": "/ai/core/llms/hf/hf_engine.py#HFEngineMixin",
+      "label": "Method",
+      "name": "list",
+      "signature": "def list(self) -> list"
+    },
+    {
+      "id": "/ai/core/llms/hf/hf_engine.py#HFEngineMixin",
+      "label": "Method",
+      "name": "pull",
+      "signature": "def pull(self, model_name, stream=True) -> Awaitable[str] | str"
+    },
+    {
+      "id": "/ai/core/llms/hf/hf_engine.py#HFEngineMixin",
+      "label": "Method",
+      "name": "_generate_response",
+      "signature": "def _generate_response(self, input_data, options: dict = {}) -> str"
+    },
+    {
+      "id": "/ai/core/llms/hf/hf_engine.py#HFEngineMixin",
+      "label": "Method",
+      "name": "_generate_in_thread",
+      "signature": "def _generate_in_thread(self, model, tokenizer, generation_kwargs, error_queue, streamer, stop_event: threading.Event)"
+    },
+    {
+      "id": "/ai/core/llms/hf/hf_engine.py#HFEngineMixin",
+      "label": "Method",
+      "name": "join_generation_thread",
+      "signature": "def join_generation_thread(self, timeout: float = None)"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/core/llms/hf/hf_engine.py",
+      "target": "/ai/core/llms/base_llm.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/core/llms/hf/hf_engine.py",
+      "target": "/ai/core/events.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/core/llms/hf/hf_engine.py",
+      "target": "/ai/functions.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/core/llms/hf/hf_engine.py",
+      "target": "/ai/color.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/core/llms/hf/hf_engine.py",
+      "target": "/ai/tools/tool_registry.md",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "threading",
+      "torch",
+      "transformers",
+      "traceback"
+    ],
+    "has_side_effects": true
+  }
+}

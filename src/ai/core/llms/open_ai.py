@@ -147,16 +147,30 @@ class OpenAIAPIModel(BaseModel):
 
         return formatted
 
-    def chat(self, messages: List[Dict[str, str]], tools: Optional[List[Dict[str, Any]]] = None, stream: bool = True, options: Optional[Dict[str, Any]] = None) -> Union[str, Dict[str, Any], Generator[Union[str, Dict[str, Any]], None, None]]:
+    def _request_options(self, options: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """The model's options with this request's sampling settings applied (OpenAI has no top_k)."""
+        request_kwargs = {**self.options}
+        for key, value in (options or {}).items():
+            if key in ("temperature", "top_p") and "temperature" in self.options:  # not on reasoning models
+                request_kwargs[key] = value
+            elif key in ("max_tokens", "max_new_tokens"):
+                limit_key = "max_completion_tokens" if "max_completion_tokens" in self.options else "max_tokens"
+                request_kwargs[limit_key] = value
+        return request_kwargs
+
+    def chat(self, messages: List[Dict[str, str]], images: Optional[list] = None, stream: bool = True,
+             options: Optional[Dict[str, Any]] = None, tools: Optional[List[Dict[str, Any]]] = None) -> Union[str, Dict[str, Any], Generator[Union[str, Dict[str, Any]], None, None]]:
         """
         Executes a pure-text chat completion request to the configured API provider.
         Native API tool passing is deliberately bypassed to enforce the Sentinel Protocol.
 
         Args:
             messages (List[Dict[str, str]]): The conversation history to send to the LLM.
-            tools (Optional[List[Dict[str, Any]]]): List of available tools (currently bypassed for protocol enforcement).
+            images: Not supported (supports_vision is False, so the server refuses images first).
             stream (bool): If True, returns a generator for streaming responses; otherwise, returns the final text/action.
-            options (Optional[Dict[str, Any]]): Additional LLM configuration options.
+            options (Optional[Dict[str, Any]]): This request's sampling settings (temperature,
+                top_p, max_tokens/max_new_tokens); they override the model config.
+            tools (Optional[List[Dict[str, Any]]]): List of available tools (currently bypassed for protocol enforcement).
 
         Returns:
             Union[str, Dict[str, Any], Generator[Union[str, Dict[str, Any]], None, None]]: 
@@ -175,11 +189,11 @@ class OpenAIAPIModel(BaseModel):
             self.system_prompt = dynamic_system_prompt
 
         formatted_msgs = self._convert_messages(messages)
-        request_kwargs = {**self.options}
+        request_kwargs = self._request_options(options)
 
         try:
             if stream:
-                return self._run_streaming_chat(formatted_msgs)
+                return self._run_streaming_chat(formatted_msgs, request_kwargs)
             else:
                 response = call_with_retry(
                     lambda: self.client.chat.completions.create(
@@ -218,17 +232,19 @@ class OpenAIAPIModel(BaseModel):
             self.trigger(BaseModel.STREAMING_FINISHED_EVENT)
             raise err from e
 
-    def _run_streaming_chat(self, formatted_msgs: List[Dict[str, str]]) -> Generator[Union[str, Dict[str, Any]], None, None]:
+    def _run_streaming_chat(self, formatted_msgs: List[Dict[str, str]],
+                            request_kwargs: Optional[Dict[str, Any]] = None) -> Generator[Union[str, Dict[str, Any]], None, None]:
         """
         Handles the streaming logic, including telemetry retrieval and Sentinel text interception.
 
         Args:
             formatted_msgs (List[Dict[str, str]]): The conversation history formatted for the API.
+            request_kwargs: The request options (see _request_options); the model's options when omitted.
 
         Yields:
             Union[str, Dict[str, Any]]: Chunks of text or detected tool action objects during streaming.
         """
-        request_kwargs = {**self.options}
+        request_kwargs = dict(request_kwargs if request_kwargs is not None else self.options)
         request_kwargs["stream_options"] = {"include_usage": True}
 
         sentinel_buffer = ""

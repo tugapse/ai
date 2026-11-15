@@ -1,0 +1,95 @@
+{
+  "component": {
+    "name": "MemoryManager",
+    "source_path": "/ai/agents/memory_manager.py",
+    "doc_path": "/ai/agents/memory_manager.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "The MemoryManager serves as the central state service for the entire AI orchestration system, managing both global context and individual agent states. It provides critical methods for serialization and loading of the entire system state, enabling task persistence. Its core logic involves transactional state mutation across agents and the global context, while also implementing loop detection via tool call fingerprint tracking."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/agents/memory_manager.py#AgentMemory",
+      "label": "Class",
+      "name": "AgentMemory",
+      "signature": ""
+    },
+    {
+      "id": "/ai/agents/memory_manager.py#OrchestratorContext",
+      "label": "Class",
+      "name": "OrchestratorContext",
+      "signature": ""
+    },
+    {
+      "id": "/ai/agents/memory_manager.py#MemoryManager",
+      "label": "Class",
+      "name": "MemoryManager",
+      "signature": ""
+    },
+    {
+      "id": "/ai/agents/memory_manager.py#MemoryManager.serialize",
+      "label": "Method",
+      "name": "serialize",
+      "signature": "serialize() -> Dict[str, Any]"
+    },
+    {
+      "id": "/ai/agents/memory_manager.py#MemoryManager.load_state",
+      "label": "Method",
+      "name": "load_state",
+      "signature": "load_state(data: Dict[str, Any])"
+    },
+    {
+      "id": "/ai/agents/memory_manager.py#MemoryManager.get_agent_memory",
+      "label": "Method",
+      "name": "get_agent_memory",
+      "signature": "get_agent_memory(agent_name: str) -> Optional[AgentMemory]"
+    },
+    {
+      "id": "/ai/agents/memory_manager.py#MemoryManager.add_message_to_agent",
+      "label": "Method",
+      "name": "add_message_to_agent",
+      "signature": "add_message_to_agent(target_agent: str, message_payload: Dict[str, Any])"
+    },
+    {
+      "id": "/ai/agents/memory_manager.py#MemoryManager.record_tool_result",
+      "label": "Method",
+      "name": "record_tool_result",
+      "signature": "record_tool_result(agent_name: str, tool_name: str, params: Dict[str, Any], result: Dict[str, Any])"
+    },
+    {
+      "id": "/ai/agents/memory_manager.py#MemoryManager.update_agent_history_and_notes",
+      "label": "Method",
+      "name": "update_agent_history_and_notes",
+      "signature": "update_agent_history_and_notes(agent_name: str, response: Dict[str, Any])"
+    },
+    {
+      "id": "/ai/agents/memory_manager.py#MemoryManager.check_stagnation",
+      "label": "Method",
+      "name": "check_stagnation",
+      "signature": "check_stagnation(tool_name: Optional[str], params: Dict[str, Any]) -> bool"
+    },
+    {
+      "id": "/ai/agents/memory_manager.py#MemoryManager.clear",
+      "label": "Method",
+      "name": "clear",
+      "signature": "clear(agent: str)"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/agents/memory_manager.py",
+      "target": "/ai/agents/memory_manager.py",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "json",
+      "dataclasses",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

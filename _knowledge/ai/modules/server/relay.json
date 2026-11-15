@@ -1,0 +1,40 @@
+{
+  "component": {
+    "name": "relay",
+    "source_path": "/ai/modules/server/relay.py",
+    "doc_path": "/ai/modules/server/relay.json",
+    "type": "module"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module provides utility functions for managing server relay configurations, specifically for routing model inference to a remote Brain Server. It handles the normalization of URLs to ensure correct protocol and format. Key functions determine if a relay request targets the local machine, preventing infinite request loops during self-relay scenarios."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/server/relay.py#normalize_relay_url",
+      "label": "Function",
+      "name": "normalize_relay_url",
+      "signature": "normalize_relay_url(url: Optional[str]) -> Optional[str]"
+    },
+    {
+      "id": "/ai/modules/server/relay.py#is_self_relay",
+      "label": "Function",
+      "name": "is_self_relay",
+      "signature": "is_self_relay(relay_url: str, host: str, port) -> bool"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/server/relay.py",
+      "target": "/ai/modules/server/relay.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "socket",
+      "urllib.parse"
+    ],
+    "has_side_effects": false
+  }
+}

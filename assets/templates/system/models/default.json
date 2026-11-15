@@ -1,16 +1,17 @@
 {
-    "model_name": "Gemma 4 - E2B",
-    "model_type": "gguf",
-    "model_properties": {
-        "gguf_filename": "gemma-4-E2B-it-Q4_K_M.gguf",
-        "model_repo_id": "unsloth/gemma-4-E2B-it-GGUF",
-        "n_gpu_layers": -1,
-        "n_ctx": 32192,
-        "max_new_tokens": 8192,
-        "temperature": 0.5,
-        "top_p": 0.95,
-        "top_k": 20,
-        "presence_penalty": 1.4,
-        "frequency_penalty": 1.8
-    }
+  "model_name": "gemma4",
+  "model_type": "gguf",
+  "model_properties": {
+    "gguf_filename": "gemma-4-E4B-it-Q4_K_M.gguf",
+    "model_repo_id": "unsloth/gemma-4-E4B-it-GGUF",
+    "n_gpu_layers": -1,
+    "n_ctx": 35000,
+    "verbose": false,
+    "max_new_tokens": 12096,
+    "temperature": 0.3,
+    "top_p": 0.95,
+    "top_k": 64,
+    "presence_penalty": 0,
+    "frequency_penalty": 0
+  }
 }

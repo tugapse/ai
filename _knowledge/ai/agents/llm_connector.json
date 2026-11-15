@@ -1,0 +1,112 @@
+{
+  "component": {
+    "name": "LLMConnector",
+    "source_path": "/ai/agents/llm_connector.py",
+    "doc_path": "/ai/agents/llm_connector.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "LLMConnector serves as the primary Service Layer component, abstracting all communication with various Language Model backends. It manages the lifecycle of LLM interactions, handling system prompt injection, tool description loading, and agent output rule application. It supports both structured (XML) and raw text requests, implementing robust error handling including partial stream retries for reliable API interaction."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/agents/llm_connector.py#LLMConnector",
+      "label": "Class",
+      "name": "LLMConnector",
+      "signature": "class LLMConnector"
+    },
+    {
+      "id": "/ai/agents/llm_connector.py#get_context_limit",
+      "label": "Method",
+      "name": "get_context_limit",
+      "signature": "get_context_limit() -> int"
+    },
+    {
+      "id": "/ai/agents/llm_connector.py#get_max_tokens",
+      "label": "Method",
+      "name": "get_max_tokens",
+      "signature": "get_max_tokens() -> int"
+    },
+    {
+      "id": "/ai/agents/llm_connector.py#send_request",
+      "label": "Method",
+      "name": "send_request",
+      "signature": "send_request(json_input: Dict[str, Any], system_prompt_path: str, agent_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]"
+    },
+    {
+      "id": "/ai/agents/llm_connector.py#send_raw_request",
+      "label": "Method",
+      "name": "send_raw_request",
+      "signature": "send_raw_request(payload: Dict[str, Any], system_prompt: str = \"\") -> str"
+    },
+    {
+      "id": "/ai/agents/llm_connector.py#_execute_llm_call",
+      "label": "Method",
+      "name": "_execute_llm_call",
+      "signature": "_execute_llm_call(messages: List[Dict[str, str]]) -> str"
+    },
+    {
+      "id": "/ai/agents/llm_connector.py#load_tools_descriptions",
+      "label": "Method",
+      "name": "load_tools_descriptions",
+      "signature": "load_tools_descriptions(agent_config)"
+    },
+    {
+      "id": "/ai/agents/llm_connector.py#load_system_prompt_agent_output_rules",
+      "label": "Method",
+      "name": "load_system_prompt_agent_output_rules",
+      "signature": "load_system_prompt_agent_output_rules(system_content)"
+    },
+    {
+      "id": "/ai/agents/llm_connector.py#PARTIAL_STREAM_RETRIES",
+      "label": "Variable",
+      "name": "PARTIAL_STREAM_RETRIES",
+      "signature": "2"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/agents/llm_connector.py",
+      "target": "/ai/agents/xml_response_parser.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/agents/llm_connector.py",
+      "target": "/ai/core/llms/base_llm.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/agents/llm_connector.py",
+      "target": "/ai/chat/chat.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/agents/llm_connector.py",
+      "target": "/ai/direct.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/agents/llm_connector.py",
+      "target": "/ai/services/directory_manager.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/agents/llm_connector.py",
+      "target": "/ai/core/llms/api_retry.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "os",
+      "typing",
+      "Callable",
+      "Dict",
+      "Any",
+      "List",
+      "Optional"
+    ],
+    "has_side_effects": true
+  }
+}

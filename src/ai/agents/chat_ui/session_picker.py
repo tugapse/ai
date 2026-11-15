@@ -1,5 +1,5 @@
 """
-Inline session picker used by ``ai --resume``.
+Inline session picker used by ``ai agent --resume``.
 
     Resume an agent session  (↑/↓ move · type to filter · enter open · esc cancel)
     filter: api_

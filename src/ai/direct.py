@@ -8,6 +8,7 @@ from typing import Callable, Union, Optional, List, Dict
 import ai.functions as func
 from ai.color import Color
 from ai.core.llms.base_llm import BaseModel
+from ai.tools.tool_registry import ToolRegistry
 from ai.chat.chat import ChatRoles
 from ai.config import ProgramConfig, ProgramSetting
 from ai.services.ui_orchestrator import UIOrchestrator
@@ -87,11 +88,15 @@ def ask(
         func.write_to_file(output_filename, "")
 
     try:
-        for raw_token in llm.chat(messages, stream=stream):
+        output = llm.chat(messages, stream=stream)
+        # A whole reply (stream=False) is one token; iterating a str/dict would split it.
+        tokens = [output] if isinstance(output, (str, dict)) else output
+        for raw_token in tokens:
             if first_token_time is None:
                 first_token_time = time()
 
-            token = _sanitize_token(raw_token)
+            # An action dict (the engine caught a tool call) becomes its tool call text.
+            token = _sanitize_token(ToolRegistry.as_text(raw_token))
             if not token:
                 continue
 

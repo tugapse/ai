@@ -1,0 +1,122 @@
+{
+  "component": {
+    "name": "AgentSessionManager",
+    "source_path": "/ai/agents/session_manager.py",
+    "doc_path": "/ai/agents/session_manager.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "AgentSessionManager is the core persistence layer for agent sessions, responsible for managing the lifecycle of an agent's interaction history. It uses SHA256 hashes of working directories to namespace session storage within a structured filesystem. The class provides methods to commit state updates to a journal file, hydrate past states, and list sessions based on directory context. It heavily relies on file I/O and JSON serialization/deserialization for reliable state management."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/agents/session_manager.py#AgentSessionManager",
+      "label": "Class",
+      "name": "AgentSessionManager",
+      "signature": "class AgentSessionManager"
+    },
+    {
+      "id": "/ai/agents/session_manager.py#_get_agents_storage_root",
+      "label": "Method",
+      "name": "_get_agents_storage_root",
+      "signature": "staticmethod def _get_agents_storage_root() -> str"
+    },
+    {
+      "id": "/ai/agents/session_manager.py#__init__",
+      "label": "Method",
+      "name": "__init__",
+      "signature": "def __init__(self, session_id: str, working_directory: Optional[str] = None)"
+    },
+    {
+      "id": "/ai/agents/session_manager.py#_ensure_storage",
+      "label": "Method",
+      "name": "_ensure_storage",
+      "signature": "def _ensure_storage(self)"
+    },
+    {
+      "id": "/ai/agents/session_manager.py#commit",
+      "label": "Method",
+      "name": "commit",
+      "signature": "def commit(self, orchestrator_state: Dict[str, Any], compress: bool = False)"
+    },
+    {
+      "id": "/ai/agents/session_manager.py#get_session",
+      "label": "Method",
+      "name": "get_session",
+      "signature": "def get_session(self, turn_index: int = -1) -> Optional[Dict[str, Any]]"
+    },
+    {
+      "id": "/ai/agents/session_manager.py#get_working_directory_for_hash",
+      "label": "Method",
+      "name": "get_working_directory_for_hash",
+      "signature": "staticmethod def get_working_directory_for_hash(hash_code: str) -> Optional[str]"
+    },
+    {
+      "id": "/ai/agents/session_manager.py#list_all_projects",
+      "label": "Method",
+      "name": "list_all_projects",
+      "signature": "staticmethod def list_all_projects() -> List[Dict[str, str]]"
+    },
+    {
+      "id": "/ai/agents/session_manager.py#_extract_user_request_from_entry",
+      "label": "Method",
+      "name": "_extract_user_request_from_entry",
+      "signature": "staticmethod def _extract_user_request_from_entry(entry: Dict[str, Any]) -> Optional[str]"
+    },
+    {
+      "id": "/ai/agents/session_manager.py#list_sessions",
+      "label": "Method",
+      "name": "list_sessions",
+      "signature": "staticmethod def list_sessions(working_directory: Optional[str] = None) -> list"
+    },
+    {
+      "id": "/ai/agents/session_manager.py#_read_entry_state",
+      "label": "Method",
+      "name": "_read_entry_state",
+      "signature": "staticmethod def _read_entry_state(line: str) -> Optional[Dict[str, Any]]"
+    },
+    {
+      "id": "/ai/agents/session_manager.py#list_sessions_detailed",
+      "label": "Method",
+      "name": "list_sessions_detailed",
+      "signature": "staticmethod def list_sessions_detailed(working_directory: Optional[str] = None) -> List[Dict[str, Any]]"
+    },
+    {
+      "id": "/ai/agents/session_manager.py#extract_transcript",
+      "label": "Method",
+      "name": "extract_transcript",
+      "signature": "staticmethod def extract_transcript(state: Optional[Dict[str, Any]], limit: int = 8) -> List[Dict[str, str]]"
+    },
+    {
+      "id": "/ai/agents/session_manager.py#get_history_summary",
+      "label": "Method",
+      "name": "get_history_summary",
+      "signature": "def get_history_summary(self) -> list"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/agents/session_manager.py",
+      "target": "/ai/services/directory_manager.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/session_manager.py",
+      "target": "/ai/functions.md",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "os",
+      "json",
+      "zlib",
+      "base64",
+      "hashlib",
+      "datetime",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

@@ -1,0 +1,116 @@
+{
+  "component": {
+    "name": "BaseModule",
+    "source_path": "/ai/modules/base_module.py",
+    "doc_path": "/ai/modules/base_module.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "This component defines the foundational blueprint for all pluggable modules within the JARVIS system. It enforces a standard lifecycle (`initialize`, `shutdown`) and manages module state via the `ModuleTools` container. Its core role is to provide a predictable contract for how concrete modules interact with the core agent framework, ensuring robust initialization and cleanup procedures across the system."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/base_module.py#ModuleTools",
+      "label": "Class",
+      "name": "ModuleTools",
+      "signature": "class ModuleTools"
+    },
+    {
+      "id": "/ai/modules/base_module.py#BaseModule",
+      "label": "Class",
+      "name": "BaseModule",
+      "signature": "class BaseModule(BaseModule)"
+    },
+    {
+      "id": "/ai/modules/base_module.py#ToolModule",
+      "label": "Class",
+      "name": "ToolModule",
+      "signature": "class ToolModule(BaseModule)"
+    },
+    {
+      "id": "/ai/modules/base_module.py#ModuleTools.register_tool",
+      "label": "Method",
+      "name": "register_tool",
+      "signature": "register_tool(self, name: str, func: Any)"
+    },
+    {
+      "id": "/ai/modules/base_module.py#ModuleTools.get_tools",
+      "label": "Method",
+      "name": "get_tools",
+      "signature": "get_tools(self) -> dict"
+    },
+    {
+      "id": "/ai/modules/base_module.py#BaseModule.initialize",
+      "label": "Method",
+      "name": "initialize",
+      "signature": "initialize(self, *args, **kwargs)"
+    },
+    {
+      "id": "/ai/modules/base_module.py#BaseModule.get_instance",
+      "label": "Method",
+      "name": "get_instance",
+      "signature": "get_instance(self) -> Any"
+    },
+    {
+      "id": "/ai/modules/base_module.py#BaseModule.is_active",
+      "label": "Property",
+      "name": "is_active",
+      "signature": "is_active(self) -> bool"
+    },
+    {
+      "id": "/ai/modules/base_module.py#BaseModule.shutdown",
+      "label": "Method",
+      "name": "shutdown",
+      "signature": "shutdown(self)"
+    },
+    {
+      "id": "/ai/modules/base_module.py#ToolModule.__init__",
+      "label": "Method",
+      "name": "__init__",
+      "signature": "__init__(self, module_name: str, tool_functions: list, description: str = \"\", **kwargs)"
+    },
+    {
+      "id": "/ai/modules/base_module.py#ToolModule.initialize",
+      "label": "Method",
+      "name": "initialize",
+      "signature": "initialize(self, *args, **kwargs)"
+    },
+    {
+      "id": "/ai/modules/base_module.py#ToolModule.get_instance",
+      "label": "Method",
+      "name": "get_instance",
+      "signature": "get_instance(self)"
+    },
+    {
+      "id": "/ai/modules/base_module.py#ToolModule.tool_names",
+      "label": "Property",
+      "name": "tool_names",
+      "signature": "tool_names(self) -> list"
+    },
+    {
+      "id": "/ai/modules/base_module.py#ToolModule.shutdown",
+      "label": "Method",
+      "name": "shutdown",
+      "signature": "shutdown(self)"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/base_module.py",
+      "target": "/ai/modules/base_module.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/base_module.py",
+      "target": "/ai/modules/base_module.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

@@ -1,6 +1,5 @@
 """Tokens written to the agent output file keep non-ASCII text and lose only control characters."""
 
-import ai.program  # noqa: F401  (startup import order, avoids a circular import)
 from ai.direct import _sanitize_token
 
 

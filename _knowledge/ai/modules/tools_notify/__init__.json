@@ -1,0 +1,56 @@
+{
+  "component": {
+    "name": "tools_notify",
+    "source_path": "/ai/modules/tools_notify/__init__.py",
+    "doc_path": "/ai/modules/tools_notify/__init__.json",
+    "type": "module"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module serves as the primary entry point for the notification toolset, responsible for initializing and exposing the `send_notification` capability. It aggregates the necessary tool functions into a `ToolModule` instance, allowing the core agent to trigger asynchronous user feedback. It manages the tool registration process, making the notification mechanism discoverable by the agent system."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/tools_notify/__init__.py#ToolModule",
+      "label": "Type",
+      "name": "ToolModule",
+      "signature": "N/A"
+    },
+    {
+      "id": "/ai/modules/tools_notify/__init__.py#send_notification",
+      "label": "Function",
+      "name": "send_notification",
+      "signature": "N/A"
+    },
+    {
+      "id": "/ai/modules/tools_notify/__init__.py#TOOLS",
+      "label": "Variable",
+      "name": "TOOLS",
+      "signature": "N/A"
+    },
+    {
+      "id": "/ai/modules/tools_notify/__init__.py#create_module",
+      "label": "Function",
+      "name": "create_module",
+      "signature": "def create_module() -> ToolModule"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/tools_notify/__init__.py",
+      "target": "/ai/modules/base_module.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/tools_notify/__init__.py",
+      "target": "/ai/modules/tools_notify/tools.md",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [
+      "TOOLS_NOTIFY_ENABLED"
+    ],
+    "external_dependencies": [],
+    "has_side_effects": true
+  }
+}

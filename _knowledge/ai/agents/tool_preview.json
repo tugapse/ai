@@ -1,0 +1,57 @@
+{
+  "component": {
+    "name": "tool_preview",
+    "source_path": "/ai/agents/tool_preview.py",
+    "doc_path": "/ai/agents/tool_preview.json",
+    "type": "utility"
+  },
+  "vector_memory": {
+    "semantic_summary": "This utility module provides functions to generate human-readable, ANSI-colored previews for tool calls requiring Human-in-the-Loop (HIL) approval. It translates complex tool parameters into concise summaries, dispatching logic based on the specified tool name. It integrates filesystem checks via os.path.exists for operations like file writing and handles parameter parsing for various tool types."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/agents/tool_preview.py#_clip",
+      "label": "Function",
+      "name": "_clip",
+      "signature": "def _clip(line: str) -> str"
+    },
+    {
+      "id": "/ai/agents/tool_preview.py#_block",
+      "label": "Function",
+      "name": "_block",
+      "signature": "def _block(text: str, prefix: str, color: str, limit: int = MAX_PREVIEW_LINES) -> List[str]"
+    },
+    {
+      "id": "/ai/agents/tool_preview.py#_target",
+      "label": "Function",
+      "name": "_target",
+      "signature": "def _target(params: Dict[str, Any]) -> str"
+    },
+    {
+      "id": "/ai/agents/tool_preview.py#describe_tool_request",
+      "label": "Function",
+      "name": "describe_tool_request",
+      "signature": "def describe_tool_request(tool: str, params: Dict[str, Any]) -> List[str]"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/agents/tool_preview.py",
+      "target": "/os.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/agents/tool_preview.py",
+      "target": "/typing.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "os",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

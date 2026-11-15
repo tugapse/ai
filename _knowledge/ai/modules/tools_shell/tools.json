@@ -1,0 +1,55 @@
+{
+  "component": {
+    "name": "tools",
+    "source_path": "/ai/modules/tools_shell/tools.py",
+    "doc_path": "/ai/modules/tools_shell/tools.json",
+    "type": "utility"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module provides a core utility for executing arbitrary, non-interactive shell commands within the project context. The primary function, execute_command, handles command execution, path substitution using '@ROOT', and enforces strict non-interactive constraints to prevent blocking prompts. It manages timeouts and uses specific environment variables to ensure subprocesses run without user input, making it essential for automated agent workflows."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/tools_shell/tools.py#execute_command",
+      "label": "Function",
+      "name": "execute_command",
+      "signature": "def execute_command(**kwargs) -> Dict[str, Any]"
+    },
+    {
+      "id": "/ai/modules/tools_shell/tools.py#_run_non_interactive",
+      "label": "Function",
+      "name": "_run_non_interactive",
+      "signature": "def _run_non_interactive(command: str, cwd: str, timeout: float)"
+    },
+    {
+      "id": "/ai/modules/tools_shell/tools.py#_kill_process_tree",
+      "label": "Function",
+      "name": "_kill_process_tree",
+      "signature": "def _kill_process_tree(process: subprocess.Popen)"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/tools_shell/tools.py",
+      "target": "/ai/modules/tools_shell/tools.py",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [
+      "PAGER",
+      "GIT_PAGER",
+      "GIT_TERMINAL_PROMPT",
+      "GIT_EDITOR",
+      "DEBIAN_FRONTEND",
+      "PIP_NO_INPUT",
+      "CI"
+    ],
+    "external_dependencies": [
+      "os",
+      "subprocess",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

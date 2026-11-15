@@ -38,29 +38,27 @@ class TestChatCommandInterceptor:
         assert interceptor_instance.extra_commands == []
 
     def test_run_invalid_command(self, mock_func, interceptor, mock_chat):
-        """Tests that an invalid command prints an error and terminates."""
-        command_text = "/invalid_command"
-        interceptor.run(command_text)
-        
-        mock_func.out.assert_called_once_with("Invalid Command")
+        """An unknown command says so, lists the commands, and gives the prompt back."""
+        interceptor.run("/invalid_command")
+
+        message = mock_func.out.call_args[0][0]
+        assert "Unknown command: /invalid_command" in message and "/save NAME" in message
         mock_chat.terminate_command.assert_called_once()
 
     def test_run_delegates_to_save_session(self, mock_func, interceptor, mock_chat):
-        """Tests if `/save` command correctly calls save_session."""
+        """`/save NAME` saves NAME.json."""
         with patch.object(interceptor, 'save_session') as mock_save:
-            command_text = "/save my_session"
-            interceptor.run(command_text)
-            
-            mock_save.assert_called_once_with("my_session")
+            interceptor.run("/save my_session")
+
+            mock_save.assert_called_once_with("my_session.json")
             mock_chat.terminate_command.assert_called_once()
 
     def test_run_delegates_to_load_session(self, mock_func, interceptor, mock_chat):
-        """Tests if `/load` command correctly calls load_session."""
+        """`/load NAME` loads NAME.json (an explicit .json is kept)."""
         with patch.object(interceptor, 'load_session') as mock_load:
-            command_text = "/load another_session"
-            interceptor.run(command_text)
-            
-            mock_load.assert_called_once_with("another_session")
+            interceptor.run("/load another_session.json")
+
+            mock_load.assert_called_once_with("another_session.json")
             mock_chat.terminate_command.assert_called_once()
 
     def test_run_delegates_to_list_sessions(self, mock_func, interceptor, mock_chat):
@@ -72,19 +70,19 @@ class TestChatCommandInterceptor:
             mock_list.assert_called_once()
             mock_chat.terminate_command.assert_called_once()
 
-    def test_run_command_without_argument_raises_error(self, mock_func, interceptor, mock_chat):
-        """Tests that commands requiring an argument raise an error if not provided."""
-        with pytest.raises(IndexError):
-            interceptor.run("/save")
-        # The command should not be terminated because the exception happens before
-        mock_chat.terminate_command.assert_not_called()
+    def test_run_command_without_argument_shows_usage(self, mock_func, interceptor, mock_chat):
+        """`/save` or `/load` without a name print the usage and give the prompt back."""
+        for command in ("/save", "/load"):
+            mock_chat.reset_mock()
+            interceptor.run(command)
+            mock_func.out.assert_called_with(f"Usage: {command} NAME", level="WARNING")
+            mock_chat.terminate_command.assert_called_once()
 
-        # Reset mock for next assertion
-        mock_chat.reset_mock()
-
-        with pytest.raises(IndexError):
-            interceptor.run("/load")
-        mock_chat.terminate_command.assert_not_called()
+    def test_session_name_stays_inside_the_folder(self, mock_func, interceptor, mock_chat):
+        """Names can't point outside the sessions folder."""
+        with patch.object(interceptor, 'save_session') as mock_save:
+            interceptor.run("/save ../../etc/evil")
+            mock_save.assert_called_once_with("evil.json")
 
 
     @patch('ai.chat.chat_command_interceptor.json')

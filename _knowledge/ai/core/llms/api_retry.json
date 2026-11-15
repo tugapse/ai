@@ -1,0 +1,96 @@
+{
+  "component": {
+    "name": "api_retry",
+    "source_path": "/ai/core/llms/api_retry.py",
+    "doc_path": "/ai/core/llms/api_retry.json",
+    "type": "utility"
+  },
+  "vector_memory": {
+    "semantic_summary": "This component provides a robust resilience layer for interacting with external LLM APIs, focusing on managing transient network and service failures. It implements exponential backoff and jittered retries for recoverable errors like timeouts and rate limits (429, 503). It strictly distinguishes between transient errors, which are retried, and permanent configuration errors, which cause immediate failure, abstracting complex network instability from upstream consumers."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/core/llms/api_retry.py#LLMAPIError",
+      "label": "Class",
+      "name": "LLMAPIError",
+      "signature": "class LLMAPIError(RuntimeError)"
+    },
+    {
+      "id": "/ai/core/llms/api_retry.py#status_of",
+      "label": "Function",
+      "name": "status_of",
+      "signature": "def status_of(exc: BaseException) -> Optional[int]"
+    },
+    {
+      "id": "/ai/core/llms/api_retry.py#is_transient",
+      "label": "Function",
+      "name": "is_transient",
+      "signature": "def is_transient(exc: BaseException) -> bool"
+    },
+    {
+      "id": "/ai/core/llms/api_retry.py#retry_after_seconds",
+      "label": "Function",
+      "name": "retry_after_seconds",
+      "signature": "def retry_after_seconds(exc: BaseException) -> Optional[float]"
+    },
+    {
+      "id": "/ai/core/llms/api_retry.py#RetryPolicy",
+      "label": "Class",
+      "name": "RetryPolicy",
+      "signature": "class RetryPolicy"
+    },
+    {
+      "id": "/ai/core/llms/api_retry.py#RetryPolicy.from_config",
+      "label": "Method",
+      "name": "from_config",
+      "signature": "def from_config(cls, *sources: dict) -> \"RetryPolicy\""
+    },
+    {
+      "id": "/ai/core/llms/api_retry.py#RetryPolicy.delay",
+      "label": "Method",
+      "name": "delay",
+      "signature": "def delay(self, attempt: int, exc: Optional[BaseException] = None) -> float"
+    },
+    {
+      "id": "/ai/core/llms/api_retry.py#wrap_error",
+      "label": "Function",
+      "name": "wrap_error",
+      "signature": "def wrap_error(exc: BaseException, provider: str, attempts: int, partial: bool = False) -> LLMAPIError"
+    },
+    {
+      "id": "/ai/core/llms/api_retry.py#_wait",
+      "label": "Function",
+      "name": "_wait",
+      "signature": "def _wait(seconds: float, stop_event: Optional[threading.Event]) -> bool"
+    },
+    {
+      "id": "/ai/core/llms/api_retry.py#call_with_retry",
+      "label": "Function",
+      "name": "call_with_retry",
+      "signature": "def call_with_retry(fn: Callable[[], T], policy: RetryPolicy, provider: str, stop_event: Optional[threading.Event] = None) -> T"
+    },
+    {
+      "id": "/ai/core/llms/api_retry.py#stream_with_retry",
+      "label": "Function",
+      "name": "stream_with_retry",
+      "signature": "def stream_with_retry(open_stream: Callable[[], Iterable[Any]], policy: RetryPolicy, provider: str, stop_event: Optional[threading.Event] = None) -> Iterator[Any]"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/core/llms/api_retry.py",
+      "target": "/ai/functions.md",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "random",
+      "threading",
+      "dataclasses",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

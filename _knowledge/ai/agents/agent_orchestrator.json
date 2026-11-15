@@ -1,0 +1,273 @@
+{
+  "component": {
+    "name": "AgentOrchestrator",
+    "source_path": "/ai/agents/agent_orchestrator.py",
+    "doc_path": "/ai/agents/agent_orchestrator.json",
+    "type": "controller"
+  },
+  "vector_memory": {
+    "semantic_summary": "AgentOrchestrator serves as the central control plane for the multi-agent system, managing execution flow, state transitions, and inter-agent communication. It drives the pipeline using a Finite State Machine dictated by LLM outputs, handling context distillation via ContextSentinel and ensuring state persistence through AgentSessionManager. Its primary role is to orchestrate interactions between specialized agents, managing lifecycle events from initiation to completion or failure."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/agents/agent_orchestrator.py#AgentOrchestrator",
+      "label": "Class",
+      "name": "AgentOrchestrator",
+      "signature": "class AgentOrchestrator(Events)"
+    },
+    {
+      "id": "/ai/agents/agent_orchestrator.py#TurnResult",
+      "label": "Class",
+      "name": "TurnResult",
+      "signature": "class TurnResult(dataclass)"
+    },
+    {
+      "id": "/ai/agents/agent_orchestrator.py#emit",
+      "label": "Method",
+      "name": "emit",
+      "signature": "def emit(self, event_type: AgentEventType, agent: Optional[str] = None, text: str = \"\", **data):"
+    },
+    {
+      "id": "/ai/agents/agent_orchestrator.py#_publish_activity",
+      "label": "Method",
+      "name": "_publish_activity",
+      "signature": "def _publish_activity(self, agent: Optional[str], text: str, data: dict) -> None:"
+    },
+    {
+      "id": "/ai/agents/agent_orchestrator.py#cancel",
+      "label": "Method",
+      "name": "cancel",
+      "signature": "def cancel(self):"
+    },
+    {
+      "id": "/ai/agents/agent_orchestrator.py#close",
+      "label": "Method",
+      "name": "close",
+      "signature": "def close(self):"
+    },
+    {
+      "id": "/ai/agents/agent_orchestrator.py#reset_state",
+      "label": "Method",
+      "name": "reset_state",
+      "signature": "def reset_state(self):"
+    },
+    {
+      "id": "/ai/agents/agent_orchestrator.py#run_loop",
+      "label": "Method",
+      "name": "run_loop",
+      "signature": "def run_loop(self, user_prompt: str, session_id: str) -> TurnResult:"
+    },
+    {
+      "id": "/ai/agents/agent_orchestrator.py#_finish",
+      "label": "Method",
+      "name": "_finish",
+      "signature": "def _finish(self, reason: str, agent: Optional[str], executed: int, message: Optional[str] = None) -> TurnResult:"
+    },
+    {
+      "id": "/ai/agents/agent_orchestrator.py#_get_saved_session",
+      "label": "Method",
+      "name": "_get_saved_session",
+      "signature": "def _get_saved_session(self, session_id: str, user_prompt: str)->tuple[int, str]:"
+    },
+    {
+      "id": "/ai/agents/agent_orchestrator.py#_capture_state",
+      "label": "Method",
+      "name": "_capture_state",
+      "signature": "def _capture_state(self, next_agent: str, iteration: int,user_request: str) -> Dict[str, Any]:"
+    },
+    {
+      "id": "/ai/agents/agent_orchestrator.py#_apply_state",
+      "label": "Method",
+      "name": "_apply_state",
+      "signature": "def _apply_state(self, state: Dict[str, Any]):"
+    },
+    {
+      "id": "/ai/agents/agent_orchestrator.py#_allowed_tools",
+      "label": "Method",
+      "name": "_allowed_tools",
+      "signature": "def _allowed_tools(self, agent_name: str) -> List[str]:"
+    },
+    {
+      "id": "/ai/agents/agent_orchestrator.py#_assemble_agent_tools",
+      "label": "Method",
+      "name": "_assemble_agent_tools",
+      "signature": "def _assemble_agent_tools(self, agent_name: str) -> Dict[str, Callable]:"
+    },
+    {
+      "id": "/ai/agents/agent_orchestrator.py#_prepare_payload",
+      "label": "Method",
+      "name": "_prepare_payload",
+      "signature": "def _prepare_payload(self, user_prompt: str, agent: str) -> Dict[str, Any]:"
+    },
+    {
+      "id": "/ai/agents/agent_orchestrator.py#_process_agent_response",
+      "label": "Method",
+      "name": "_process_agent_response",
+      "signature": "def _process_agent_response(self, response: Dict[str, Any], agent: str, config: Dict[str, Any]) -> str:"
+    },
+    {
+      "id": "/ai/agents/agent_orchestrator.py#_handle_tool_execution",
+      "label": "Method",
+      "name": "_handle_tool_execution",
+      "signature": "def _handle_tool_execution(self, tool_name: str, params: Dict[str, Any], agent: str, config: Dict[str, Any]) -> bool:"
+    },
+    {
+      "id": "/ai/agents/agent_orchestrator.py#_initialize_modules",
+      "label": "Method",
+      "name": "_initialize_modules",
+      "signature": "def _initialize_modules(self):"
+    },
+    {
+      "id": "/ai/agents/agent_orchestrator.py#_format_recent_outcomes",
+      "label": "Method",
+      "name": "_format_recent_outcomes",
+      "signature": "def _format_recent_outcomes(self, outcomes: list, length=3000) -> list:"
+    },
+    {
+      "id": "/ai/agents/agent_orchestrator.py#_handle_format_error",
+      "label": "Method",
+      "name": "_handle_format_error",
+      "signature": "def _handle_format_error(self, agent: str, error: str) -> bool:"
+    },
+    {
+      "id": "/ai/agents/agent_orchestrator.py#_gatekeeper",
+      "label": "Method",
+      "name": "_gatekeeper",
+      "signature": "def _gatekeeper(self, tool: str, params: Dict[str, Any], agent: Optional[str] = None) -> bool:"
+    },
+    {
+      "id": "/ai/agents/agent_orchestrator.py#_targets_for_prompt",
+      "label": "Method",
+      "name": "_targets_for_prompt",
+      "signature": "def _targets_for_prompt(agent: str, config: Dict[str, Any]) -> List[str]:"
+    },
+    {
+      "id": "/ai/agents/agent_orchestrator.py#_resolve_target_alias",
+      "label": "Method",
+      "name": "_resolve_target_alias",
+      "signature": "def _resolve_target_alias(target: str, agent: str) -> str:"
+    },
+    {
+      "id": "/ai/agents/agent_orchestrator.py#_validate_target",
+      "label": "Method",
+      "name": "_validate_target",
+      "signature": "def _validate_target(self, target: str, is_empty: bool, agent: str, config: Dict[str, Any]) -> str:"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/agents/agent_orchestrator.py",
+      "target": "/ai/agents/llm_connector.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/agents/agent_orchestrator.py",
+      "target": "/ai/config.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/agents/agent_orchestrator.py",
+      "target": "/ai/agents/agent_io.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/agents/agent_orchestrator.py",
+      "target": "/ai/agents/specialist_manager.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/agents/agent_orchestrator.py",
+      "target": "/ai/agents/memory_manager.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/agents/agent_orchestrator.py",
+      "target": "/ai/agents/context_sentinel.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/agents/agent_orchestrator.py",
+      "target": "/ai/agents/session_manager.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/agents/agent_orchestrator.py",
+      "target": "/ai/services/directory_manager.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/agents/agent_orchestrator.py",
+      "target": "/ai/services/module_registry.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/agents/agent_orchestrator.py",
+      "target": "/ai/services/process_manager.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/agents/agent_orchestrator.py",
+      "target": "/ai/tools/mcp_bridge.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/agents/agent_orchestrator.py",
+      "target": "/ai/tools/tool_registry.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/agents/agent_orchestrator.py",
+      "target": "/ai/agents/memory_manager.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/agent_orchestrator.py",
+      "target": "/ai/agents/context_sentinel.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/agent_orchestrator.py",
+      "target": "/ai/agents/session_manager.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/agent_orchestrator.py",
+      "target": "/ai/tools/tool_registry.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/agent_orchestrator.py",
+      "target": "/ai/agents/specialist_manager.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/agent_orchestrator.py",
+      "target": "/ai/services/directory_manager.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/agent_orchestrator.py",
+      "target": "/ai/services/module_registry.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/agent_orchestrator.py",
+      "target": "/ai/agents/agent_io.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/agent_orchestrator.py",
+      "target": "/ai/tools/mcp_bridge.py",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "threading",
+      "dataclasses",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

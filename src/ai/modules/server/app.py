@@ -4,6 +4,7 @@ import asyncio
 import contextvars
 from urllib.parse import urlparse
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Any, Dict, Optional
@@ -59,6 +60,7 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None,
     from ai.modules.server.routers.sessions import router as sessions_router
     from ai.modules.server.routers.prompts import router as prompts_router
     from ai.modules.server.routers.agent import router as agent_router
+    from ai.modules.server.routers.knowledge import router as knowledge_router
     from ai.modules.server.routers.auth import router as auth_router, require_device
     from ai.modules.server.services.auth import AuthService, CLIENT_HEADER
     from ai.modules.server.services.agent_runs import AgentRunService
@@ -66,6 +68,7 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None,
     app.include_router(sessions_router)
     app.include_router(prompts_router)
     app.include_router(agent_router)
+    app.include_router(knowledge_router)
     app.include_router(auth_router)
 
     session_manager = SessionManager(SESSION_ROOT_DIR)
@@ -75,6 +78,8 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None,
     chat_service = ChatService(brain_hub, SESSION_ROOT_DIR, config)
     app.state.chat_service = chat_service
     app.state.brain_hub = brain_hub
+    app.state.modules = modules
+    app.state.config = config
     auth = auth or AuthService(config)
     app.state.auth = auth
     agent_service = AgentRunService(brain_hub, config, modules, totp=auth.totp)
@@ -107,7 +112,8 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None,
             f"session_id={payload.session_id!r}"
         )
 
-        return await chat_service.chat_completion(payload)
+        from ai.modules.server.services.client_access import viewer
+        return await chat_service.chat_completion(payload, viewer=viewer(request))
 
     @app.get("/api/health")
     async def health(request: Request):
@@ -125,6 +131,8 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None,
             "model": (brain_hub.current_model_id if loaded else None) or "JARVIS",
             "loaded": loaded,
             "available": brain_hub.list_available_models() if brain_hub else [],
+            # Relay mode: the Brain Server that runs inference (models above are its models).
+            "relay": getattr(brain_hub, "relay_url", None),
             "api_level": API_LEVEL,
             "frontend": getattr(app.state, "frontend", {"version": None, "source": "none"}),
         }
@@ -141,6 +149,8 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None,
     async def unload_model(request: Request, device: dict = Depends(require_device)):
         """
         Frees the loaded model (RAM/VRAM). The next chat request loads the model it names.
+        In relay mode only the local client is dropped: the Brain Server keeps its model loaded
+        (other clients may be using it).
 
         Returns:
             ``{"status": "unloaded", "model": <key that was loaded, or null>}``.
@@ -183,6 +193,29 @@ def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None,
         func.out(f"Frontend {frontend_info['version'] or '?'} ({frontend_info['source']}) served from {frontend_dir}")
     
     app.add_middleware(MIMETypeFixerMiddleware)
+
+    @app.middleware("http")
+    async def trusted_networks_only(request: Request, call_next):
+        """
+        Every route (API and web UI) answers only SERVER_TRUSTED_NETWORKS; pairing comes on top.
+        Browsers also get a random ``jarvis_client`` id: until paired, a browser only sees the chat
+        sessions it created (see services/client_access.py).
+        """
+        import secrets
+        from ai.modules.server.services.auth import AuthError, CLIENT_ID_COOKIE, CLIENT_ID_TTL
+        try:
+            auth.check_network(request.client.host if request.client else "")
+        except AuthError as e:
+            return JSONResponse(status_code=e.status, content={"detail": e.detail})
+        issued = None
+        if not request.cookies.get(CLIENT_ID_COOKIE):
+            issued = request.state.client_id = secrets.token_urlsafe(24)
+        response = await call_next(request)
+        if issued:
+            response.set_cookie(CLIENT_ID_COOKIE, issued, max_age=CLIENT_ID_TTL, httponly=True,
+                                samesite="strict", secure=request.url.scheme == "https", path="/")
+        return response
+
     app.add_middleware(
         SameHostCORSMiddleware,
         # Explicit origins only: with credentials allowed, "*" would let any site use the cookie.

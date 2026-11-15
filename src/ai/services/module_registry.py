@@ -1,9 +1,12 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from ai.entities.model_enums import EngineType
 from ai.modules.base_module import BaseModule
 from ai.services.engine_manager import EngineManager
-from ai.services.config_helper import ProgramConfig, ProgramSetting
+from ai.config import ProgramConfig, ProgramSetting
 import ai.functions as func
+
+# Shipped in assets/voices/ (from microsoft/VibeVoice demo/voices/streaming_model).
+DEFAULT_VOICE_FILE = "pt-Spk1_man"
 
 class ModuleRegistry:
     """
@@ -27,7 +30,7 @@ class ModuleRegistry:
         self._manifest = {
             "voice": self._load_voice_logic,
             "vector_memory": self._load_vector_memory_logic,
-            "knowledge_graph": self._load_knowledge_graph_logic
+            "knowledge": self._load_knowledge_logic,
         }
 
         # Built-in agent tool modules (ai.modules.tools_*). Enabled unless the config
@@ -36,6 +39,11 @@ class ModuleRegistry:
         for name in self.TOOL_MODULES:
             self._manifest[name] = (lambda n=name: self._load_tool_module(n))
             self._enabled_by_default.add(name)
+        # Knowledge is cheap until a source is configured, so it is on unless disabled.
+        self._enabled_by_default.add("knowledge")
+        # Long-term memory is on when its engine is installed, unless VECTOR_MEMORY_ENABLED is false.
+        if EngineManager.is_engine_installed(EngineType.VECTOR_MEMORY):
+            self._enabled_by_default.add("vector_memory")
 
     def __getitem__(self, key: str) -> Optional[BaseModule]:
         """
@@ -105,6 +113,11 @@ class ModuleRegistry:
             func.error(f"ModuleRegistry: failed to load tool module '{name}': {e}")
             return None
 
+    def tool_categories(self) -> List[Any]:
+        """The active tool modules (each one is a ToolCategory)."""
+        from ai.modules.base_module import ToolModule
+        return [mod for mod in self._active_modules.values() if isinstance(mod, ToolModule)]
+
     def tool_functions(self) -> Dict[str, Any]:
         """All tools exposed by the active tool modules: {tool_name: callable}."""
         from ai.modules.base_module import ToolModule
@@ -132,11 +145,11 @@ class ModuleRegistry:
             The initialized VibeVoiceModule instance, or None if the engine is missing.
         """
         if not EngineManager.is_engine_installed(EngineType.VOICE_ENGINE):
-            func.log("Voice Engine not found. Run --install.", level="ERROR")
+            func.log("Voice Engine not found. Run: ai install", level="ERROR")
             return None
             
         from ai.modules.voice.vibe_module import VibeVoiceModule
-        voice = VibeVoiceModule( voice_file=self.config.get(ProgramSetting.VOICE_FILE), volume=1.5) 
+        voice = VibeVoiceModule(voice_file=self.config.get(ProgramSetting.VOICE_FILE) or DEFAULT_VOICE_FILE, volume=1.5)
         voice.preload() 
         return voice
 
@@ -151,7 +164,7 @@ class ModuleRegistry:
             The initialized VectorMemoryModule instance, or None if the engine is missing or import fails.
         """
         if not EngineManager.is_engine_installed(EngineType.VECTOR_MEMORY):
-            func.log("Vector Memory module not found. Run --install.", level="ERROR")
+            func.log("Vector Memory module not found. Run: ai install", level="ERROR")
             return None
 
         db_path = self.config.get(ProgramSetting.VECTOR_DB_PATH) or func.get_root_directory() + "/databases"
@@ -160,6 +173,7 @@ class ModuleRegistry:
             "recency_weight": self.config.get(ProgramSetting.VECTOR_RECENCY_WEIGHT, 1.0),
             "importance_weight": self.config.get(ProgramSetting.VECTOR_IMPORTANCE_WEIGHT, 1.0),
             "relevance_weight": self.config.get(ProgramSetting.VECTOR_RELEVANCE_WEIGHT, 1.0),
+            "llm_importance": bool(self.config.get(ProgramSetting.LTM_LLM_IMPORTANCE, False)),
         }
 
         try:
@@ -171,35 +185,32 @@ class ModuleRegistry:
             func.error(f"Failed to import VectorMemoryModule. Error: {e}", level="ERROR")
             return None
 
-    def _load_knowledge_graph_logic(self):
+    def _load_knowledge_logic(self):
         """
-        Boots the KnowledgeGraph module wrapper.
+        Boots the KnowledgeModule (project knowledge: component JSON + Markdown docs).
 
-        Imports and instantiates the KnowledgeGraph. It attempts to call preload()
-        and then attempts to register the graph with the orchestrator if the
-        method exists, handling potential integration errors gracefully.
+        Sources come from KNOWLEDGE_SOURCES (loaded now), the pipeline, --knowledge and runtime
+        feeds. Semantic search is used when the vector engine is installed (KNOWLEDGE_SEMANTIC).
 
         Returns:
-            The initialized KnowledgeGraph instance, or None if loading fails.
+            The KnowledgeModule instance, or None if it cannot be imported.
         """
         try:
-            from ai.modules.knowledge_graph import KnowledgeGraph
-            kg = KnowledgeGraph()
-            if hasattr(kg, "preload"):
-                kg.preload()
-            # Auto-wire Knowledge Graph integration with orchestrator if available, else bootstrap module-level
-            try:
-                if hasattr(kg, "register_with_orchestrator"):
-                    kg.register_with_orchestrator()
-                else:
-                    from ai.modules.knowledge_graph import register_with_orchestrator as _kg_reg
-                    _kg_reg()
-            except Exception as _e:
-                func.debug(f"KG integration hook failed: {_e}")
-            func.log("KnowledgeGraphModule loaded.")
-            return kg
+            from ai.modules.knowledge.knowledge_module import KnowledgeModule
+            semantic = self.config.get(ProgramSetting.KNOWLEDGE_SEMANTIC, None)
+            if semantic is None:
+                semantic = EngineManager.is_engine_installed(EngineType.VECTOR_MEMORY)
+            db_path = self.config.get(ProgramSetting.VECTOR_DB_PATH) or func.get_root_directory() + "/databases"
+            module = KnowledgeModule(
+                db_path=db_path,
+                use_vectors=bool(semantic),
+                config_sources=self.config.get(ProgramSetting.KNOWLEDGE_SOURCES, []) or [],
+                config=self.config,
+            )
+            module.initialize()
+            return module
         except Exception as e:
-            func.error(f"Failed to import KnowledgeGraphModule. Error: {e}", level="ERROR")
+            func.error(f"Failed to load KnowledgeModule. Error: {e}", level="ERROR")
             return None
 
     def unload_module(self, name: str):

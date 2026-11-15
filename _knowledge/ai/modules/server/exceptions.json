@@ -1,0 +1,67 @@
+{
+  "component": {
+    "name": "SessionError",
+    "source_path": "/ai/modules/server/exceptions.py",
+    "doc_path": "/ai/modules/server/exceptions.json",
+    "type": "interface"
+  },
+  "vector_memory": {
+    "semantic_summary": "This component defines a hierarchy of custom exceptions for robust session management and server-side model handling. It encapsulates specific failure modes, such as session file absence, invalid path traversal, or generic I/O errors. It also provides domain-specific exceptions for model selection and loading failures, acting as the primary error contract for interacting modules."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/server/exceptions.py#SessionError",
+      "label": "Class",
+      "name": "SessionError",
+      "signature": "class SessionError(Exception):"
+    },
+    {
+      "id": "/ai/modules/server/exceptions.py#SessionNotFoundError",
+      "label": "Class",
+      "name": "SessionNotFoundError",
+      "signature": "class SessionNotFoundError(SessionError):"
+    },
+    {
+      "id": "/ai/modules/server/exceptions.py#InvalidPathError",
+      "label": "Class",
+      "name": "InvalidPathError",
+      "signature": "class InvalidPathError(SessionError):"
+    },
+    {
+      "id": "/ai/modules/server/exceptions.py#SessionAccessError",
+      "label": "Class",
+      "name": "SessionAccessError",
+      "signature": "class SessionAccessError(SessionError):"
+    },
+    {
+      "id": "/ai/modules/server/exceptions.py#ModelError",
+      "label": "Class",
+      "name": "ModelError",
+      "signature": "class ModelError(Exception):"
+    },
+    {
+      "id": "/ai/modules/server/exceptions.py#ModelNotFoundError",
+      "label": "Class",
+      "name": "ModelNotFoundError",
+      "signature": "class ModelNotFoundError(ModelError):"
+    },
+    {
+      "id": "/ai/modules/server/exceptions.py#ModelLoadError",
+      "label": "Class",
+      "name": "ModelLoadError",
+      "signature": "class ModelLoadError(ModelError):"
+    },
+    {
+      "id": "/ai/modules/server/exceptions.py#ModelBusyError",
+      "label": "Class",
+      "name": "ModelBusyError",
+      "signature": "class ModelBusyError(ModelError):"
+    }
+  ],
+  "graph_edges": [],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [],
+    "has_side_effects": false
+  }
+}

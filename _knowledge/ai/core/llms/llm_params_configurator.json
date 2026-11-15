@@ -1,0 +1,55 @@
+{
+  "component": {
+    "name": "LLMParamsConfigurator",
+    "source_path": "/ai/core/llms/llm_params_configurator.py",
+    "doc_path": "/ai/core/llms/llm_params_configurator.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "This component acts as a critical service layer translator for LLM generation parameters, centralizing configuration logic. It manages a catalog of universal generation properties and maps them to the specific naming conventions required by different backend libraries like Hugging Face or GGUF loaders. Its primary role is to ensure interoperability by converting generic user inputs into runtime-specific parameter dictionaries, while enforcing type and compatibility checks."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/core/llms/llm_params_configurator.py#LLMParamsConfigurator",
+      "label": "Class",
+      "name": "LLMParamsConfigurator",
+      "signature": ""
+    },
+    {
+      "id": "/ai/core/llms/llm_params_configurator.py#LLMParamsConfigurator.__init__",
+      "label": "Method",
+      "name": "__init__",
+      "signature": "def __init__(self)"
+    },
+    {
+      "id": "/ai/core/llms/llm_params_configurator.py#LLMParamsConfigurator.available_properties",
+      "label": "Variable",
+      "name": "available_properties",
+      "signature": ""
+    },
+    {
+      "id": "/ai/core/llms/llm_params_configurator.py#LLMParamsConfigurator.model_param_compatibility",
+      "label": "Variable",
+      "name": "model_param_compatibility",
+      "signature": ""
+    },
+    {
+      "id": "/ai/core/llms/llm_params_configurator.py#LLMParamsConfigurator.prepare_llm_params",
+      "label": "Method",
+      "name": "prepare_llm_params",
+      "signature": "def prepare_llm_params(self, model_type: str, user_params: dict = {}) -> dict"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/core/llms/llm_params_configurator.py",
+      "target": "/ai/core/llms/llm_params_configurator.py",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [],
+    "has_side_effects": true
+  }
+}

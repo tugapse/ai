@@ -13,6 +13,36 @@ class ResponseParser:
     def __init__(self, parameter_mode: str = "xml"):
         self.parameter_mode = parameter_mode
 
+    # Parameters whose value is code/text where leading whitespace is meaningful.
+    CODE_PARAMS = ("search", "replace", "content")
+
+    @staticmethod
+    def _trim_block(text: str, keep_indent: bool = True) -> str:
+        """
+        Cleans a tool parameter value without touching its indentation (patch_file search blocks
+        must match the file exactly): a value written as a block (with line breaks) only loses its
+        blank first/last lines. Inline values (paths, numbers, names) are fully stripped.
+        """
+        text = (text or "").replace("\r\n", "\n")
+        if not keep_indent or "\n" not in text:
+            return text.strip()          # inline value, or not code: path, number, name
+        lines = text.split("\n")
+        while lines and not lines[0].strip():
+            lines.pop(0)
+        while lines and not lines[-1].strip():
+            lines.pop()
+        return "\n".join(lines)
+
+    @classmethod
+    def _param_value(cls, raw: str, tag: str = "content") -> str:
+        """A tool parameter from raw response text: CDATA unwrapped (or entities unescaped), then _trim_block."""
+        value = raw.strip()
+        if "<![CDATA[" in value:
+            value = re.sub(r"<!\[CDATA\[(.*?)(?:\]\]>|$)", r"\1", value, flags=re.DOTALL)
+        else:
+            value = html.unescape(raw)
+        return cls._trim_block(value, keep_indent=tag in cls.CODE_PARAMS)
+
     def _extract_params(self, element: Optional[ET.Element]) -> Dict[str, Any]:
         if element is None:
             return {}
@@ -27,7 +57,7 @@ class ResponseParser:
         params = {}
         for child in element:
             tag = child.tag
-            text = (child.text or "").strip()
+            text = self._trim_block(child.text or "", keep_indent=tag in self.CODE_PARAMS)
             
             if tag in params:
                 if isinstance(params[tag], list):
@@ -295,7 +325,8 @@ class ResponseParser:
 
         params: Dict[str, Any] = {}
         for m in re.finditer(r"<\s*([a-zA-Z0-9_]+)\s*>(.*?)<\s*/\s*\1\s*>", inner, flags=re.DOTALL):
-            tag, value = m.group(1), self._clean_value(m.group(2))
+            tag = m.group(1)
+            value = self._param_value(m.group(2), tag)
             if tag in params:
                 params[tag] = params[tag] + [value] if isinstance(params[tag], list) else [params[tag], value]
             else:

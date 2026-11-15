@@ -1,0 +1,43 @@
+{
+  "component": {
+    "name": "tools_search/tools",
+    "source_path": "/ai/modules/tools_search/tools.py",
+    "doc_path": "/ai/modules/tools_search/tools.json",
+    "type": "utility"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module provides two core utility functions, smart_search and grep_file, designed for codebase introspection. smart_search performs wide-ranging searches across file names and contents using os.walk and subprocess calls to grep, supporting pagination. grep_file allows targeted pattern matching within a single file, showing context lines. Both tools bridge the AI's reasoning layer with the physical filesystem structure."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/tools_search/tools.py#smart_search",
+      "label": "Function",
+      "name": "smart_search",
+      "signature": "def smart_search(**kwargs) -> Dict[str, Any]"
+    },
+    {
+      "id": "/ai/modules/tools_search/tools.py#grep_file",
+      "label": "Function",
+      "name": "grep_file",
+      "signature": "def grep_file(**kwargs) -> Dict[str, Any]"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/tools_search/tools.py",
+      "target": "/ai/tools/base.md",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "os",
+      "re",
+      "subprocess",
+      "typing",
+      "math"
+    ],
+    "has_side_effects": true
+  }
+}

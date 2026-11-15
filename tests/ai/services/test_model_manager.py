@@ -139,3 +139,44 @@ class TestEngineManager:
                 "prompt",
                 None,
             )
+
+
+def test_gemini_model_type_is_checked(tmp_path, monkeypatch):
+    """`gemini` configs are checked against the installer's 'gemini' id (they used to always pass)."""
+    status = tmp_path / "installed_engines.json"
+    monkeypatch.setenv("AI_ENGINE_STATUS_FILE", str(status))
+    status.write_text('{"gemini": {"installed": false}}', encoding="utf-8")
+    assert EngineManager.is_engine_installed(ModelType.GEMINI, "gemini-2.5-flash") is False
+    status.write_text('{"gemini": {"installed": true}, "gemini_vertex": {"installed": true}}', encoding="utf-8")
+    assert EngineManager.is_engine_installed(ModelType.GEMINI, "gemini-2.5-flash") is True
+    assert EngineManager.is_engine_installed(ModelType.GEMINI, "vertex-gemini") is True
+
+
+def test_seq2seq_lm_loads_t5_model(monkeypatch):
+    pytest.importorskip("huggingface_hub")
+    monkeypatch.setattr(EngineManager, "is_engine_installed", staticmethod(lambda *a, **k: True))
+    created = {}
+
+    class FakeT5:
+        def __init__(self, **kwargs):
+            created.update(kwargs)
+
+    import ai.core.llms.t5_model as t5
+    monkeypatch.setattr(t5, "T5Model", FakeT5)
+    config = {"model_name": "google/flan-t5-small", "model_type": "seq2seq_lm",
+              "model_properties": {"temperature": 0.2, "quantization_bits": 0}}
+    instance = EngineManager.load_model_instance(config, "sys", None)
+    assert isinstance(instance, FakeT5)
+    assert created["model_name"] == "google/flan-t5-small"
+    assert created["model_params"]["temperature"] == 0.2
+
+
+def test_t5_prompt_text_keeps_every_role():
+    pytest.importorskip("huggingface_hub")
+    from ai.core.llms.t5_model import T5Model
+    model = T5Model.__new__(T5Model)
+    model.system_prompt = "Be brief."
+    text = model._prepare_input([{"role": "user", "content": "Hi"},
+                                 {"role": "assistant", "content": "Hello"},
+                                 {"role": "tool", "content": "ignored"}])
+    assert text == "System: Be brief.\nUser: Hi\nJarvis Ai: Hello\n"

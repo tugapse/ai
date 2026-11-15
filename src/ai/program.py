@@ -1,5 +1,6 @@
 import os
 import traceback
+import uuid
 import gc
 import json
 from typing import Optional, Any, Dict
@@ -12,11 +13,12 @@ from ai.color import Color
 from ai.core.llms.api_retry import LLMAPIError
 
 # Agent & Tools
-from ai.agents.agent import Agent
+from ai.agents.agent import build_orchestrator
 from ai.modules.vector_memory.vector_memory_module import VectorMemoryModule
 from ai.modules.vector_memory.vector_memory import VectorMemory
 from ai.modules.voice.base_module import BaseVoiceModule
 from ai.tools.tool_registry import ToolRegistry
+from ai.services.directory_manager import DirectoryManager
 from ai.tools.tool_loader import load_and_register_user_tools
 
 # Services Orchestration
@@ -55,8 +57,6 @@ class Program:
         self.llm_initialized = False
         self.tool_registry = ToolRegistry()
         self.vector_memory : Optional[VectorMemory] = None
-        self.allow_tools = False
-        self._active_tools_system_prompt = ""
 
 
     @property
@@ -115,6 +115,17 @@ class Program:
         
         if self.modules:
             self.modules.load_all()
+            self._apply_knowledge_args(getattr(args, "knowledge", None))
+
+    def _apply_knowledge_args(self, paths) -> None:
+        """Loads --knowledge sources (relative paths resolve against the current directory)."""
+        if not paths:
+            return
+        knowledge = self.modules['knowledge'] if self.modules else None
+        if knowledge is None:
+            func.error("--knowledge ignored: the knowledge module is disabled (KNOWLEDGE_ENABLED).")
+            return
+        knowledge.add_sources(paths, base_dir=os.getcwd())
 
     def init_program(self) -> None:
         """
@@ -135,18 +146,15 @@ class Program:
         """
         func.log("Loading System tools into Jarvis system")
         if self.modules is not None:
-            for name, tool_ref in self.modules.tool_functions().items():
-                self.tool_registry.register_tool(name, tool_ref)
+            for category in self.modules.tool_categories():
+                self.tool_registry.register_category(category)
         
 
         func.log("Loading User tools into Jarvis system")
-        user_tools_dir = os.path.join(func.get_root_directory(), "tools")
-        load_and_register_user_tools(self.tool_registry, user_tools_dir)
+        # Same folder as the agents (user/tools). The plain chat doesn't offer tools to the model
+        # (/agent does); the registry only runs a tool call a model emits on its own, with HIL.
+        load_and_register_user_tools(self.tool_registry, DirectoryManager().get_user_tools_directory())
         self._load_vector_memory()
-        
-        if self.models and self.allow_tools:
-            self._active_tools_system_prompt = ToolRegistry.format_tools_for_prompt(self.tool_registry.get_all_tools())
-            func.debug(f"Program: Dynamic tool protocol injected into System Prompt. {self._active_tools_system_prompt}", level="DEBUG")
     
     def _load_vector_memory(self):
         """
@@ -154,11 +162,20 @@ class Program:
         and registers any tools derived from the memory store into the tool registry.
         """
         if self.modules and (vector_memory := self.modules['vector_memory']):
-            vector_memory.initialize("chat_db", self.llm)
+            from ai.modules.vector_memory.vector_memory import resolve_ltm_scope
+            scope = resolve_ltm_scope(self.config.get(ProgramSetting.LTM_SCOPE, "project"), "chat", os.getcwd())
+            vector_memory.initialize("chat", self.llm, scope_key=scope)
             self.vector_memory = vector_memory.get_instance()
-            tools = self.vector_memory.tools.get_tools() if self.vector_memory else {}
-            for name, tool_ref in tools.items(): 
-                self.tool_registry.register_tool(name, tool_ref)
+            if self.vector_memory:
+                self.tool_registry.register_category(self.vector_memory.tools)
+
+        # Project knowledge (only when a source is configured, e.g. KNOWLEDGE_SOURCES or --knowledge)
+        knowledge = self.modules['knowledge'] if self.modules else None
+        store = knowledge.get_instance() if knowledge else None
+        if store is not None and store.has_sources():
+            for name, tool_ref in store.tools.get_tools().items():
+                if name != "ingest_knowledge":
+                    self.tool_registry.register_tool(name, tool_ref)
 
     # --- CHAT & AGENTIC LOOP ---
 
@@ -344,9 +361,8 @@ class Program:
         If not loaded, it dynamically loads the LLM, incorporating the system prompt
         and any active tools into the system prompt context.
         """
-        if not self.allow_tools: self._active_tools_system_prompt = ""
         system_file = self.config.get(ProgramSetting.SYSTEM_PROMPT_FILE)
-        system_prompt = PromptLoader.load_system_prompt(self.config, system_file) + self._active_tools_system_prompt
+        system_prompt = PromptLoader.load_system_prompt(self.config, system_file)
         
         if not self.llm_initialized:
             func.log("Program: Lazily loading LLM...", level="DEBUG")
@@ -370,14 +386,17 @@ class Program:
         Initializes the Agent if necessary and executes its run method with the provided prompt.
         :param prompt: The prompt string triggering the agent execution.
         """
-        if not self.agent:
-            self.agent = Agent(self)
-        if self.agent:
-            try:
-                self.agent.run(user_prompt=prompt)
-            except Exception as e:
-                func.log(f"Agent execution failed: {e}", level="ERROR")
-                func.log(traceback.format_exc(), level="ERROR")
+        try:
+            if not self.agent:
+                # Same wiring as --agent: built-in, MCP and user tools, tool categories.
+                self.agent = build_orchestrator(self)
+            self.agent.run_loop(prompt, str(uuid.uuid4()))
+        except Exception as e:
+            func.error(f"Agent execution failed: {e}")
+            func.log(traceback.format_exc(), level="ERROR")
+        finally:
+            # Give the prompt back to the user (the chat waits while running_command is set).
+            self.chat.terminate_command()
 
     def run(self) -> None:
         """
@@ -386,7 +405,6 @@ class Program:
         handling graceful shutdown upon interruption.
         """
         func.log("Program: Interface active.")
-        self.allow_tools = True
         if not self.llm:
             raise RuntimeError("LLM failed to initialize. Cannot start chat loop.")
 
@@ -400,6 +418,10 @@ class Program:
             llm_stream_finished_callback=lambda _: None,  
         )
         self.chat.add_event(Chat.EVENT_AGENT_RUN_REQUESTED, self._handle_agent_run_requested)
+        # /save, /load, /list (and a clear message for unknown commands)
+        from ai.chat.chat_command_interceptor import ChatCommandInterceptor
+        self.command_interceptor = ChatCommandInterceptor(
+            self.chat, os.path.join(func.get_root_directory(), "sessions", "chat"))
 
         try:        
             if func.ALLOW_CLEAR_CONSOLE: 

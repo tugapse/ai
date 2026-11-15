@@ -1,0 +1,164 @@
+{
+  "component": {
+    "name": "EngineManager",
+    "source_path": "/ai/services/engine_manager.py",
+    "doc_path": "/ai/services/engine_manager.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "EngineManager serves as the central orchestration layer responsible for managing the lifecycle of various AI model engines. It acts as a factory and validation gatekeeper, abstracting model loading complexity by checking system configuration for engine installation status. Its core methods handle configuration loading, saving, and the dispatching of model instantiation based on the specified model type (e.g., GGUF, OpenAI, Gemini). It manages interactions with the filesystem and handles specific runtime errors like GpuMemoryError."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/services/engine_manager.py#EngineManager",
+      "label": "Class",
+      "name": "EngineManager",
+      "signature": ""
+    },
+    {
+      "id": "/ai/services/engine_manager.py#is_engine_installed",
+      "label": "Method",
+      "name": "is_engine_installed",
+      "signature": "is_engine_installed(module_type: Union[ModelType,EngineType], module_name: str = \"\") -> bool"
+    },
+    {
+      "id": "/ai/services/engine_manager.py#generate_default_config",
+      "label": "Method",
+      "name": "generate_default_config",
+      "signature": "generate_default_config(model_name: str, model_type: ModelType) -> dict"
+    },
+    {
+      "id": "/ai/services/engine_manager.py#load_config",
+      "label": "Method",
+      "name": "load_config",
+      "signature": "load_config(filepath: str) -> dict"
+    },
+    {
+      "id": "/ai/services/engine_manager.py#save_config",
+      "label": "Method",
+      "name": "save_config",
+      "signature": "save_config(config: dict, filepath: str)"
+    },
+    {
+      "id": "/ai/services/engine_manager.py#load_model_instance",
+      "label": "Method",
+      "name": "load_model_instance",
+      "signature": "load_model_instance(model_config: dict, system_prompt: str, tool_registry:Optional[ToolRegistry]) -> BaseModel"
+    },
+    {
+      "id": "/ai/services/engine_manager.py#_create_causal_lm",
+      "label": "Method",
+      "name": "_create_causal_lm",
+      "signature": "_create_causal_lm(model_name: str, system_prompt: str, quantization_bits: int, model_params: dict, other_llm_kwargs: dict) -> BaseModel"
+    },
+    {
+      "id": "/ai/services/engine_manager.py#_create_ollama_model",
+      "label": "Method",
+      "name": "_create_ollama_model",
+      "signature": "_create_ollama_model(model_name: str, system_prompt: str, model_params: dict, other_llm_kwargs: dict) -> BaseModel"
+    },
+    {
+      "id": "/ai/services/engine_manager.py#_create_gguf_model",
+      "label": "Method",
+      "name": "_create_gguf_model",
+      "signature": "_create_gguf_model(model_name: str, system_prompt: str, model_properties: dict, model_params: dict, other_llm_kwargs: dict) -> BaseModel"
+    },
+    {
+      "id": "/ai/services/engine_manager.py#_create_gemini_model",
+      "label": "Method",
+      "name": "_create_gemini_model",
+      "signature": "_create_gemini_model(model_name: str, system_prompt: str, model_params: dict, other_llm_kwargs: dict) -> BaseModel"
+    },
+    {
+      "id": "/ai/services/engine_manager.py#_create_openai_model",
+      "label": "Method",
+      "name": "_create_openai_model",
+      "signature": "_create_openai_model(model_name: str, system_prompt: str, model_params: dict, other_llm_kwargs: dict) -> BaseModel"
+    },
+    {
+      "id": "/ai/services/engine_manager.py#_create_jarvis_model",
+      "label": "Method",
+      "name": "_create_jarvis_model",
+      "signature": "_create_jarvis_model(model_name: str, system_prompt: str, model_params: dict, other_llm_kwargs: dict) -> BaseModel"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/services/engine_manager.py",
+      "target": "/ai/functions.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/services/engine_manager.py",
+      "target": "/ai/entities/model_enums.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/services/engine_manager.py",
+      "target": "/ai/core/llms/base_llm.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/services/engine_manager.py",
+      "target": "/ai/services/process_manager.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/services/engine_manager.py",
+      "target": "/ai/core/llms/load_errors.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/services/engine_manager.py",
+      "target": "/ai/tools/tool_registry.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/services/engine_manager.py",
+      "target": "/ai/color.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/services/engine_manager.py",
+      "target": "/ai/core/llms/huggingface_model.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/services/engine_manager.py",
+      "target": "/ai/core/llms/ollama_model.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/services/engine_manager.py",
+      "target": "/ai/core/llms/gguf_model.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/services/engine_manager.py",
+      "target": "/ai/core/llms/gemini.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/services/engine_manager.py",
+      "target": "/ai/core/llms/open_ai.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/services/engine_manager.py",
+      "target": "/ai/core/llms/jarvis.md",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [
+      "AI_ENGINE_STATUS_FILE"
+    ],
+    "external_dependencies": [
+      "json",
+      "os",
+      "sys",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

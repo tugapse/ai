@@ -7,7 +7,6 @@ from types import SimpleNamespace
 
 import pytest
 
-import ai.program  # noqa: F401  (startup import order, avoids a circular import)
 from ai.agents.session_manager import AgentSessionManager
 from ai.agents.chat_ui import session_picker as sp
 

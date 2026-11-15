@@ -1,0 +1,102 @@
+{
+  "component": {
+    "name": "ConsoleChatReader",
+    "source_path": "/ai/extras/console.py",
+    "doc_path": "/ai/extras/console.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "ConsoleChatReader is a presentation utility responsible for rendering structured chat history from a JSON file directly to the console. It parses message objects, distinguishing between User and Assistant roles to apply specific visual formatting. It utilizes ConsoleTokenFormatter to handle token-level formatting, particularly for code blocks, and interacts with filesystem I/O and standard output streams."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/extras/console.py#ConsoleChatReader",
+      "label": "Class",
+      "name": "ConsoleChatReader",
+      "signature": "class ConsoleChatReader"
+    },
+    {
+      "id": "/ai/extras/console.py#ConsoleChatReader.__init__",
+      "label": "Method",
+      "name": "__init__",
+      "signature": "def __init__(self, filename: str) -> None"
+    },
+    {
+      "id": "/ai/extras/console.py#ConsoleChatReader.load",
+      "label": "Method",
+      "name": "load",
+      "signature": "def load(self)"
+    },
+    {
+      "id": "/ai/extras/console.py#ConsoleChatReader._print_chat",
+      "label": "Method",
+      "name": "_print_chat",
+      "signature": "def _print_chat(self,chat_message)"
+    },
+    {
+      "id": "/ai/extras/console.py#ConsoleChatReader.color_text",
+      "label": "Method",
+      "name": "color_text",
+      "signature": "def color_text(self, text: str)"
+    },
+    {
+      "id": "/ai/extras/console.py#ConsoleTokenFormatter",
+      "label": "Class",
+      "name": "ConsoleTokenFormatter",
+      "signature": "class ConsoleTokenFormatter"
+    },
+    {
+      "id": "/ai/extras/console.py#ConsoleTokenFormatter.__init__",
+      "label": "Method",
+      "name": "__init__",
+      "signature": "def __init__(self) -> None"
+    },
+    {
+      "id": "/ai/extras/console.py#ConsoleTokenFormatter.process_token",
+      "label": "Method",
+      "name": "process_token",
+      "signature": "def process_token(self, token)"
+    },
+    {
+      "id": "/ai/extras/console.py#ConsoleTokenFormatter.clear_process_token",
+      "label": "Method",
+      "name": "clear_process_token",
+      "signature": "def clear_process_token(self)"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/extras/console.py",
+      "target": "/ai/chat/chat.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/extras/console.py",
+      "target": "/ai/color.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/extras/console.py",
+      "target": "/ai.functions",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/extras/console.py",
+      "target": "/ai/extras/console.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/extras/console.py",
+      "target": "/ai/extras/console.py",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "json",
+      "pathlib"
+    ],
+    "has_side_effects": true
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "component": {
+    "name": "schemas",
+    "source_path": "/ai/modules/server/schemas.py",
+    "doc_path": "/ai/modules/server/schemas.json",
+    "type": "model"
+  },
+  "vector_memory": {
+    "semantic_summary": "This component defines the strict data contracts for the AI server backend using Pydantic models. It manages schemas for chat interactions (ChatMessage, ChatCompletionRequest) and prompt management (Prompt, PromptData). Core logic includes validating image data URLs and sizes within ChatMessage. It serves as the central data integrity layer for API communication."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/server/schemas.py#ChatMessage",
+      "label": "Class",
+      "name": "ChatMessage",
+      "signature": "class ChatMessage(BaseModel):"
+    },
+    {
+      "id": "/ai/modules/server/schemas.py#_check_images",
+      "label": "Method",
+      "name": "_check_images",
+      "signature": "def _check_images(cls, images):"
+    },
+    {
+      "id": "/ai/modules/server/schemas.py#ChatCompletionRequest",
+      "label": "Class",
+      "name": "ChatCompletionRequest",
+      "signature": "class ChatCompletionRequest(BaseModel):"
+    },
+    {
+      "id": "/ai/modules/server/schemas.py#UpdateSessionRequest",
+      "label": "Class",
+      "name": "UpdateSessionRequest",
+      "signature": "class UpdateSessionRequest(BaseModel):"
+    },
+    {
+      "id": "/ai/modules/server/schemas.py#Prompt",
+      "label": "Class",
+      "name": "Prompt",
+      "signature": "class Prompt(BaseModel):"
+    },
+    {
+      "id": "/ai/modules/server/schemas.py#PromptData",
+      "label": "Class",
+      "name": "PromptData",
+      "signature": "class PromptData(Prompt):"
+    },
+    {
+      "id": "/ai/modules/server/schemas.py#PromptUpdateRequest",
+      "label": "Class",
+      "name": "PromptUpdateRequest",
+      "signature": "class PromptUpdateRequest(BaseModel):"
+    },
+    {
+      "id": "/ai/modules/server/schemas.py#PromptCreateRequest",
+      "label": "Class",
+      "name": "PromptCreateRequest",
+      "signature": "class PromptCreateRequest(BaseModel):"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/server/schemas.py",
+      "target": "/ai/modules/server/schemas.md",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "re",
+      "pydantic"
+    ],
+    "has_side_effects": false
+  }
+}

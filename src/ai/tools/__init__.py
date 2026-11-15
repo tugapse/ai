@@ -1,4 +1,8 @@
 """
-This module serves as the package initializer for the AI tools directory.
-It is intended to expose necessary components for AI tooling functionalities.
+Agent tools package: the @tool marker, the ToolCategory contract and the registry.
 """
+
+from ai.tools.base import tool
+from ai.tools.category import ToolCategory, ToolCategoryError
+
+__all__ = ["tool", "ToolCategory", "ToolCategoryError"]

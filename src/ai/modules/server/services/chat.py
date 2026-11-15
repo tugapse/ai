@@ -2,6 +2,7 @@ from pathlib import Path
 import asyncio
 import os
 import json
+import threading
 from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException
@@ -12,6 +13,22 @@ from ai.modules.server.brain_hub import BrainHub, ModelLease, ON_BUSY_WAIT
 from ai.modules.server.exceptions import ModelBusyError, ModelLoadError, ModelNotFoundError
 from ai.modules.server.schemas import ChatCompletionRequest
 from ai.services.prompt_loader import PromptLoader
+from ai.tools.tool_registry import ToolRegistry
+
+_END_OF_STREAM = object()  # next() default: the model's chunk generator is exhausted
+
+
+def _close_quietly(chunks) -> None:
+    """Closes an engine's chunk generator; one still running in a worker closes when it finishes."""
+    close = getattr(chunks, "close", None)
+    if close is None:
+        return
+    try:
+        close()
+    except ValueError:
+        pass  # "generator already executing": its worker drops the last reference, which closes it
+    except Exception as e:
+        func.debug(f"Closing an abandoned model stream failed: {e}")
 
 
 class ChatSessionRouter:
@@ -157,19 +174,33 @@ class ChatResponseHandler:
         self._ensure_llm_available("streaming")
 
         async def event_generator():
+            chunks, finished = None, False
             try:
-                raw_output = self.brain_hub.orchestrator.llm.chat(
+                # The engine call and every next() block until the model produces (prompt
+                # processing can take seconds): they run in a worker thread so the event loop keeps
+                # serving other requests (health, stats, other chats) meanwhile.
+                raw_output = await asyncio.to_thread(
+                    self.brain_hub.orchestrator.llm.chat,
                     formatted_messages, images=images or None, stream=True, options=options or {}
                 )
                 func.debug("Streaming response generator started.")
                 completed_response = ""
 
-                for chunk in raw_output:
+                # A whole reply (text, or an action dict) is one chunk; iterating a dict would send its keys.
+                chunks = iter([raw_output]) if isinstance(raw_output, (str, dict)) else iter(raw_output)
+                while True:
+                    chunk = await asyncio.to_thread(next, chunks, _END_OF_STREAM)
+                    if chunk is _END_OF_STREAM:
+                        finished = True
+                        break
                     if chunk:
-                        completed_response += str(chunk)
-                        payload = {"choices": [{"delta": {"content": str(chunk)}}]}
+                        # An action dict (the engine caught a tool call) goes out as its tool call
+                        # text, which the client parses back, not as a Python repr.
+                        text = ToolRegistry.as_text(chunk)
+                        completed_response += text
+                        payload = {"choices": [{"delta": {"content": text}}]}
                         yield f"data: {json.dumps(payload)}\n\n"
-                        func.debug(f"Streamed chunk: '{str(chunk)[:50]}...'")
+                        func.debug(f"Streamed chunk: '{text[:50]}...'")
 
                 func.debug("Streaming response completed.")
                 self.brain_hub.add_history_message("assistant", completed_response)
@@ -181,6 +212,13 @@ class ChatResponseHandler:
                 func.error(f"Streaming Error: {e}")
                 yield f"data: {json.dumps({'error': str(e)})}\n\n"
             finally:
+                if chunks is not None and not finished:
+                    # Client gone mid-stream: stop the generation (unless other work shares the
+                    # model), and close the engine generator off the event loop (closing can block:
+                    # HF joins its generation thread for up to 5 s).
+                    if lease is not None:
+                        self.brain_hub.stop_generation_for(lease)
+                    threading.Thread(target=_close_quietly, args=(chunks,), daemon=True).start()
                 if lease is not None:
                     lease.release()
 
@@ -208,10 +246,11 @@ class ChatResponseHandler:
         raw_output = self.brain_hub.orchestrator.llm.chat(
             formatted_messages, images=images or None, stream=False, options=options or {}
         )
-        if isinstance(raw_output, str):
-            response_text = raw_output
+        # Engines return text, an action dict (a tool call they caught) or a generator of either.
+        if isinstance(raw_output, (str, dict)):
+            response_text = ToolRegistry.as_text(raw_output)
         else:
-            response_text = "".join([str(chunk) for chunk in raw_output if chunk])
+            response_text = "".join(ToolRegistry.as_text(chunk) for chunk in raw_output if chunk)
 
         func.debug(f"Non-streaming response received: '{response_text[:100]}...'")
         self.brain_hub.add_history_message("assistant", response_text)
@@ -371,7 +410,7 @@ class ChatService:
             options["max_tokens"] = options["max_new_tokens"] = max_tokens
         return options
 
-    async def chat_completion(self, request: ChatCompletionRequest):
+    async def chat_completion(self, request: ChatCompletionRequest, viewer=None):
         """
         Main entry point for handling chat completion requests.
 
@@ -401,17 +440,32 @@ class ChatService:
         _, session_file, target_session_id = self.session_router.build_session_path(
             request
         )
+        exists = Path(session_file).is_file()
+        if viewer is not None and not viewer.can_write(self._session_owner(session_file) if exists else None, exists):
+            # An unpaired browser may only continue the sessions it created.
+            raise HTTPException(status_code=403, detail="This session belongs to another device. Pair this device to use it.")
         self.session_router.route_memory(
             self.brain_hub, request, session_file, target_session_id
         )
+        if viewer is not None and viewer.owner and not self.brain_hub.history.get("owner"):
+            self.brain_hub.history["owner"] = viewer.owner   # saved with the next message
 
         # Off the event loop: a swap may wait for running generations, which the loop drives.
         lease = await asyncio.to_thread(self._resolve_brain, request)
         try:
             return await self._complete(request, lease)
         except BaseException:
-            lease.release()
+            if not getattr(lease, "detached", False):
+                lease.release()
             raise
+
+    @staticmethod
+    def _session_owner(session_file) -> Optional[str]:
+        try:
+            with open(session_file, "r", encoding="utf-8") as f:
+                return (json.load(f) or {}).get("owner")
+        except Exception:
+            return None
 
     async def _complete(self, request: ChatCompletionRequest, lease: ModelLease):
         """Runs the chat turn on the model held by ``lease`` (released by the caller on error)."""
@@ -433,9 +487,21 @@ class ChatService:
         if getattr(request, "stream", False):
             return await self.response_handler.stream_response(formatted_messages, options, images, lease=lease)
 
-        try:
+        def generate():
+            # The worker thread owns the lease: it is released when the generation really ends,
+            # even if this request is cancelled while waiting for it.
             with lease:
                 return self.response_handler.non_stream_response(formatted_messages, options, images)
+
+        try:
+            # Off the event loop: generating takes seconds to minutes, and the loop must keep
+            # serving other requests (health, stats, other chats) meanwhile.
+            return await asyncio.shield(asyncio.ensure_future(asyncio.to_thread(generate)))
+        except asyncio.CancelledError:
+            lease.detached = True  # still held by generate(); the caller must not release it
+            raise
+        except HTTPException:
+            raise
         except Exception as e:
             func.error(f"Inference Error during non-streaming chat completion: {e}")
             raise HTTPException(status_code=500, detail=str(e))

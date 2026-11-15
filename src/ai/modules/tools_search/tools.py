@@ -2,6 +2,7 @@
 
 import os
 import re
+import shutil
 import subprocess
 from typing import Any, Dict, List
 
@@ -89,19 +90,22 @@ def smart_search(**kwargs) -> Dict[str, Any]:
                     if match_found:
                         all_matched_filenames.append(_sanitize_output_path(full_item_path))
 
-        grep_cmd = ["grep", "-E", "-n", "-i", "-r", "-H", "-C", "1", "-I"]
-        for ex in exclude_list:
-            if "/" not in ex and "\\" not in ex:
-                grep_cmd.append(f"--exclude-dir={ex}")
-        grep_cmd.extend([raw_pattern, full_path])
-        
-        grep_res = subprocess.run(grep_cmd, capture_output=True, text=True)
         all_raw_lines = []
-        if grep_res.returncode <= 1:
-            for line in grep_res.stdout.splitlines():
-                filepath_part = line.split(":")[0].split("-")[0]
-                if not is_excluded(filepath_part):
-                    all_raw_lines.append(line)
+        if shutil.which("grep"):
+            grep_cmd = ["grep", "-E", "-n", "-i", "-r", "-H", "-C", "1", "-I"]
+            for ex in exclude_list:
+                if "/" not in ex and "\\" not in ex:
+                    grep_cmd.append(f"--exclude-dir={ex}")
+            grep_cmd.extend([raw_pattern, full_path])
+            grep_res = subprocess.run(grep_cmd, capture_output=True, text=True)
+            if grep_res.returncode <= 1:
+                for line in grep_res.stdout.splitlines():
+                    filepath_part = line.split(":")[0].split("-")[0]
+                    if not is_excluded(filepath_part):
+                        all_raw_lines.append(line)
+        else:
+            # No grep (e.g. Windows): same output format, in Python
+            all_raw_lines = _python_grep(raw_pattern, full_path, is_excluded)
 
         total_file_matches = len(all_matched_filenames)
         total_content_matches = len(all_raw_lines)
@@ -129,6 +133,53 @@ def smart_search(**kwargs) -> Dict[str, Any]:
         }
     except Exception as e:
         return {"status": "FAILED", "error": str(e)}
+
+
+def _python_grep(pattern: str, root: str, is_excluded, context: int = 1) -> list:
+    """
+    ``grep -E -n -i -r -H -C 1 -I`` in Python: ``path:N:text`` for matches, ``path-N-text`` for
+    context lines, ``--`` between groups. Binary files (a NUL byte near the start) are skipped.
+    """
+    import re
+    try:
+        regex = re.compile(pattern, re.IGNORECASE)
+    except re.error:
+        regex = re.compile(re.escape(pattern), re.IGNORECASE)
+
+    if os.path.isfile(root):
+        paths = [root]
+    else:
+        paths = []
+        for directory, dirs, files in os.walk(root):
+            dirs[:] = sorted(d for d in dirs if not is_excluded(os.path.join(directory, d)))
+            paths += [os.path.join(directory, f) for f in sorted(files)]
+
+    out = []
+    for path in paths:
+        if is_excluded(path):
+            continue
+        try:
+            with open(path, "rb") as f:
+                if b"\0" in f.read(8192):
+                    continue
+            with open(path, "r", encoding="utf-8", errors="replace") as f:
+                lines = f.read().splitlines()
+        except OSError:
+            continue
+        hits = [i for i, line in enumerate(lines) if regex.search(line)]
+        if not hits:
+            continue
+        shown, last = set(hits), -2
+        for i in hits:
+            for j in range(max(0, i - context), min(len(lines), i + context + 1)):
+                shown.add(j)
+        for j in sorted(shown):
+            if out and j > last + 1:  # new group (or new file)
+                out.append("--")
+            sep = ":" if j in hits else "-"
+            out.append(f"{path}{sep}{j + 1}{sep}{lines[j]}")
+            last = j
+    return out
 
 
 @tool

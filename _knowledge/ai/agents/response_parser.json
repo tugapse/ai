@@ -1,0 +1,65 @@
+{
+  "component": {
+    "name": "ResponseParser",
+    "source_path": "/ai/agents/response_parser.py",
+    "doc_path": "/ai/agents/response_parser.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "This service class, ResponseParser, is the core data ingestion layer responsible for transforming raw, unstructured text output from an LLM into a structured Python dictionary. It specifically parses the proprietary JARVIS Plain Text Protocol, identified by 'y '____@' tokens. Its logic handles complex parsing of fields like thought, notes, and tool definitions, employing specialized sanitization routines for YAML to correct common generative model formatting errors."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/agents/response_parser.py#ResponseParser",
+      "label": "Class",
+      "name": "ResponseParser",
+      "signature": ""
+    },
+    {
+      "id": "/ai/agents/response_parser.py#_parse_key_value_block",
+      "label": "Method",
+      "name": "_parse_key_value_block",
+      "signature": "def _parse_key_value_block(self, text: str) -> Dict[str, str]"
+    },
+    {
+      "id": "/ai/agents/response_parser.py#_sanitize_yaml",
+      "label": "Method",
+      "name": "_sanitize_yaml",
+      "signature": "def _sanitize_yaml(self, yaml_str: str) -> str"
+    },
+    {
+      "id": "/ai/agents/response_parser.py#_parse_tool_block",
+      "label": "Method",
+      "name": "_parse_tool_block",
+      "signature": "def _parse_tool_block(self, tool_header: str, content: str) -> Dict[str, Any]"
+    },
+    {
+      "id": "/ai/agents/response_parser.py#parse",
+      "label": "Method",
+      "name": "parse",
+      "signature": "def parse(self, raw_string: str) -> Dict[str, Any]"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/agents/response_parser.py",
+      "target": "/ai/agents/response_parser.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/response_parser.py",
+      "target": "/ai/agents/response_parser.py",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "re",
+      "yaml",
+      "typing",
+      "ai.functions"
+    ],
+    "has_side_effects": true
+  }
+}

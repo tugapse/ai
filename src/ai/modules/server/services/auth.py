@@ -28,6 +28,10 @@ from ai.config import ProgramSetting
 from ai.services.directory_manager import DirectoryManager
 
 COOKIE_NAME = "jarvis_session"
+# Random id per browser (not a secret, not a login): an unpaired browser only sees its own chat
+# sessions. Stored hashed in the session files ("owner").
+CLIENT_ID_COOKIE = "jarvis_client"
+CLIENT_ID_TTL = 365 * 24 * 3600
 CLIENT_HEADER = "x-jarvis-client"
 PAIRING_TTL = 120
 PAIRING_MAX_ATTEMPTS = 5
@@ -227,6 +231,20 @@ class AuthService:
             self.store.save()
         return device
 
+    def peek_device(self, cookie: Optional[str], authorization: Optional[str]) -> Optional[dict]:
+        """
+        The paired device behind a request, or None — without rate limits, audit or renewal.
+        Used to decide what an open route shows (e.g. all chat sessions vs. this browser's own).
+        """
+        bearer = authorization or ""
+        token = bearer[len("Bearer "):].strip() if bearer.startswith("Bearer ") else (cookie or "")
+        if not token:
+            return None
+        device = self.store.by_token(token)
+        if device is None or device["expires_at"] <= self.clock():
+            return None
+        return device
+
     def list_devices(self, current_id: Optional[str] = None) -> List[dict]:
         return [{"device_id": d["device_id"], "name": d["name"], "created": d["created"],
                  "last_used": d["last_used"], "expires_at": d["expires_at"],
@@ -251,3 +269,8 @@ class AuthService:
                 f.write(json.dumps(record, ensure_ascii=False) + "\n")
         except Exception as e:
             func.error(f"Auth: audit write failed: {e}")
+
+
+def owner_key(client_id: Optional[str]) -> Optional[str]:
+    """What a session file stores for the browser that created it (a hash of its client id)."""
+    return hashlib.sha256(client_id.encode()).hexdigest()[:32] if client_id else None

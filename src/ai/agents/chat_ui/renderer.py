@@ -7,6 +7,10 @@ without a terminal.
 """
 
 import json
+import os
+import re
+import shutil
+import textwrap
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Tuple
@@ -22,6 +26,7 @@ RED = "\033[38;5;167m"
 GREEN = "\033[38;5;108m"
 CYAN = "\033[38;5;110m"
 GREY = "\033[38;5;245m"
+USER_BG = "\033[48;5;236m"
 
 BULLET = "⏺"
 ELBOW = "⎿"
@@ -41,6 +46,7 @@ class LiveState:
     phase: str = ""
     iteration: int = 0
     max_iterations: int = 0
+    tool: str = ""               # tool currently running, with its argument summary
     tokens: int = 0              # tokens in the current model call
     turn_tokens: int = 0         # tokens in the whole turn
     turn_steps: int = 0
@@ -73,6 +79,25 @@ def _indent(text: str, prefix: str = "  ") -> str:
     return "\n".join(prefix + line if line else line for line in lines)
 
 
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def visible_len(text: str) -> int:
+    return len(_ANSI_RE.sub("", text))
+
+
+def terminal_width(default: int = 100) -> int:
+    try:
+        return max(40, shutil.get_terminal_size((default, 24)).columns)
+    except Exception:
+        return default
+
+
+def _display_path(text: str) -> str:
+    """Paths are shown relative to the AI root: '@ROOT/' adds nothing on screen."""
+    return str(text).replace("@ROOT/", "")
+
+
 def format_tokens(count: int) -> str:
     return f"{count / 1000:.1f}k" if count >= 1000 else str(count)
 
@@ -93,7 +118,7 @@ def summarize_params(tool: str, params: Dict[str, Any]) -> str:
     for key in ("path", "file_path", "pattern", "query", "url"):
         if key in params and params[key]:
             extra = len(params) - 1
-            main = _truncate(params[key], MAX_ARG_LEN)
+            main = _truncate(_display_path(params[key]), MAX_ARG_LEN)
             return main if extra <= 0 or key != "path" else f"{main}, +{extra}"
     parts = []
     for key, value in params.items():
@@ -101,6 +126,20 @@ def summarize_params(tool: str, params: Dict[str, Any]) -> str:
             value = json.dumps(value, ensure_ascii=False)
         parts.append(f"{key}={value}")
     return _truncate(", ".join(parts), MAX_ARG_LEN)
+
+
+_ERROR_LINE_RE = re.compile(r"\b(fatal|error|erro|failed|not found|denied|no such)\b", re.IGNORECASE)
+
+
+def _key_error_line(stderr: Any) -> str:
+    """The line of a command's stderr that explains the failure (warnings often come first)."""
+    lines = [line.strip() for line in str(stderr or "").splitlines() if line.strip()]
+    if not lines:
+        return ""
+    for line in lines:
+        if _ERROR_LINE_RE.search(line):
+            return line
+    return lines[-1]
 
 
 def summarize_result(result: Any) -> Tuple[bool, str]:
@@ -112,7 +151,10 @@ def summarize_result(result: Any) -> Tuple[bool, str]:
     ok = status in ("SUCCESS", "OK")
 
     if not ok:
-        detail = result.get("error") or result.get("message") or result.get("result") or ""
+        detail = (result.get("error") or result.get("message") or _key_error_line(result.get("stderr"))
+                  or result.get("result") or result.get("stdout") or "")
+        if not detail and result.get("returncode") not in (None, 0):
+            detail = f"exit code {result['returncode']}"
         return False, f"{status}" + (f" · {_truncate(detail, MAX_RESULT_LEN)}" if detail else "")
 
     payload = None
@@ -121,7 +163,7 @@ def summarize_result(result: Any) -> Tuple[bool, str]:
             payload = result[key]
             break
     if payload is None:
-        return True, status
+        return True, ""  # a green bullet already says it worked
 
     if isinstance(payload, (list, tuple)):
         return True, f"{len(payload)} items"
@@ -135,73 +177,206 @@ def summarize_result(result: Any) -> Tuple[bool, str]:
 
 
 # ---------------------------------------------------------------- committed output
+#
+# Visual language:
+#   user message   full-width shaded block           (what you said)
+#   step header    ✻ title · phase                   (what the agent set out to do)
+#     narration    dim, indented under the step      (what it says while working)
+#     ⏺ tool(args) → result, one line, indented      (what it did)
+#   answer         ⏺ text, bright, spaced            (what it tells you)
+#   turn summary   ✻ Done in … closes the turn
 
-def render_user_message(text: str) -> str:
-    lines = text.rstrip().splitlines() or [""]
-    first = f"{GREY}>{RESET} {BOLD}{lines[0]}{RESET}"
-    rest = [f"  {BOLD}{line}{RESET}" for line in lines[1:]]
-    return "\n" + "\n".join([first] + rest)
+def render_user_message(text: str, width: Optional[int] = None) -> str:
+    width = (width or terminal_width()) - 1  # never touch the last column (avoids a double wrap)
+    rows = []
+    for i, line in enumerate(text.rstrip().splitlines() or [""]):
+        wrapped = textwrap.wrap(line, width - 4, replace_whitespace=False, drop_whitespace=False) or [""]
+        for j, part in enumerate(wrapped):
+            marker = f"{GREY}>{RESET}{USER_BG}" if i == 0 and j == 0 else " "
+            pad = " " * max(0, width - 3 - len(part))
+            rows.append(f"{USER_BG} {marker} {BOLD}{part}{RESET}{USER_BG}{pad}{RESET}")
+    return "\n" + "\n".join(rows)
+
+
+def render_message(text: str, narration: bool = False, width: Optional[int] = None) -> str:
+    """An agent message (Markdown): dim narration under the current step, or a spaced answer."""
+    from ai.agents.chat_ui.markdown import render_markdown
+
+    width = (width or terminal_width()) - 1
+    if narration:
+        lines = render_markdown(text.strip(), width - 2, base=GREY)
+        return "\n".join(f"  {line}" if line else "" for line in lines)
+    lines = render_markdown(text.strip(), width - 2)
+    head = f"\n{TerminalUI.TEXT}{BULLET}{RESET} {lines[0]}"
+    return head + "".join(f"\n  {line}" if line else "\n" for line in lines[1:])
+
+
+def render_tool_line(tool: str, params: Dict[str, Any], result: Any = None, has_result: bool = False) -> str:
+    """'⏺ tool(args) → summary' on one line; the bullet is green, or red on failure."""
+    args = summarize_params(tool, params or {})
+    call = f"{BOLD}{tool}{RESET}{GREY}({args}){RESET}" if args else f"{BOLD}{tool}{RESET}"
+    if not has_result:
+        return f"  {GREEN}{BULLET}{RESET} {call}"
+    ok, summary = summarize_result(result)
+    if ok:
+        tail = f" {GREY}→ {summary}{RESET}" if summary else ""
+        return f"  {GREEN}{BULLET}{RESET} {call}{tail}"
+    return f"  {RED}{BULLET}{RESET} {call}\n    {GREY}{ELBOW}{RESET}  {RED}{summary}{RESET}"
 
 
 def render_event(event: AgentEvent) -> Optional[str]:
-    """Converts an orchestrator event into committed output, or None if it is live-only."""
+    """Converts an orchestrator event into committed output, or None if it is live-only.
+
+    Stateless; ``TranscriptFormatter`` adds the grouping used by the chat.
+    """
     t = event.type
     if t == AgentEventType.MESSAGE:
-        body = event.text.strip()
-        lines = body.splitlines() or [""]
-        head = f"\n{TerminalUI.TEXT}{BULLET}{RESET} {lines[0]}"
-        return head + ("\n" + _indent("\n".join(lines[1:])) if len(lines) > 1 else "")
+        return render_message(event.text, narration=bool(event.data.get("narration")))
     if t == AgentEventType.THOUGHT:
-        return f"\n{GREY}{ITALIC}✻ {_indent(event.text.strip()).lstrip()}{RESET}"
+        return f"{GREY}{ITALIC}{_indent('∴ ' + event.text.strip(), '  ')}{RESET}"
     if t == AgentEventType.QUESTION:
         return f"\n{CYAN}? {event.text.strip()}{RESET}"
     if t == AgentEventType.TOOL_CALL:
-        tool = event.data.get("tool", "?")
-        args = summarize_params(tool, event.data.get("params", {}))
-        return f"\n{GREEN}{BULLET}{RESET} {BOLD}{tool}{RESET}({args})"
+        return render_tool_line(event.data.get("tool", "?"), event.data.get("params", {}))
     if t == AgentEventType.TOOL_RESULT:
         tool = event.data.get("tool", "?")
-        ok, summary = summarize_result(event.data.get("result"))
-        status = (event.data.get("result") or {}).get("status", "") if isinstance(event.data.get("result"), dict) else ""
-        color = GREY if ok else RED
-        # Refused calls never produced a TOOL_CALL line, so name the tool.
-        prefix = f"{RED}{BULLET}{RESET} {BOLD}{tool}{RESET}\n" if status in ("DENIED", "UNAUTHORIZED") else ""
-        return f"{prefix}  {GREY}{ELBOW}{RESET}  {color}{summary}{RESET}"
-    if t == AgentEventType.SPECIALIST:
-        return f"\n{CYAN}{BULLET}{RESET} specialist {BOLD}{event.data.get('tool')}{RESET} generating…"
+        result = event.data.get("result")
+        status = result.get("status", "") if isinstance(result, dict) else ""
+        if status in ("DENIED", "UNAUTHORIZED", "NEEDS_APPROVAL"):
+            # Refused calls never produced a TOOL_CALL line, so name the tool.
+            return render_tool_line(tool, event.data.get("params", {}), result, has_result=True)
+        ok, summary = summarize_result(result)
+        if ok and not summary:
+            return None
+        return f"    {GREY}{ELBOW}{RESET}  {GREY if ok else RED}{summary}{RESET}"
     if t == AgentEventType.INFO:
         if event.text == "Pipeline execution finished.":
             return None  # the turn summary covers this
-        return f"{GREY}· {event.text}{RESET}"
+        return f"{GREY}  · {event.text}{RESET}"
     if t == AgentEventType.ERROR:
         return f"{RED}✗ {event.text}{RESET}"
     if t == AgentEventType.HEADER:
         if event.data.get("resumed") is not None:
             return None  # session start/resume headers are noise in chat mode
         subtitle = event.data.get("subtitle", "")
-        return f"{RED}── {event.text}{(' · ' + subtitle) if subtitle else ''}{RESET}"
+        return f"\n{RED}── {event.text}{(' · ' + subtitle) if subtitle else ''}{RESET}"
     return None  # STATUS / LLM_REQUEST are live-only
 
 
 def render_status_line(agent: str, status: str, phase: str = "") -> str:
-    """Committed line for the agent's reported status (manifest.current_priority)."""
-    phase_txt = f"{DIM}[{phase}]{RESET}{GREY} " if phase else ""
-    return f"\n{TerminalUI.PRIMARY}✻{RESET} {GREY}{phase_txt}{status.strip()}{RESET}"
+    """Step header: the agent's reported status (manifest.current_priority)."""
+    phase_txt = f"  {GREY}· {phase}{RESET}" if phase else ""
+    return f"\n{TerminalUI.PRIMARY}✻{RESET} {TerminalUI.TEXT}{status.strip()}{RESET}{phase_txt}"
 
 
-def render_turn_summary(reason: str, state: LiveState) -> str:
+class TranscriptFormatter:
+    """Groups the event stream into steps for the chat transcript.
+
+    A tool call is held back until its result arrives so both fit on one line; any
+    other output (or ``flush``) prints the held call on its own first.
+    """
+
+    def __init__(self):
+        self._pending: Optional[Tuple[str, Dict[str, Any]]] = None
+        self._phase = ""
+
+    def reset(self) -> None:
+        self._pending = None
+        self._phase = ""
+
+    def flush(self) -> Optional[str]:
+        if self._pending is None:
+            return None
+        tool, params = self._pending
+        self._pending = None
+        return render_tool_line(tool, params)
+
+    def status(self, agent: str, text: str, phase: str = "") -> str:
+        # The phase is shown when it changes, not repeated on every step.
+        shown = phase if phase and phase != self._phase else ""
+        self._phase = phase or self._phase
+        return self._join(self.flush(), render_status_line(agent, text, shown))
+
+    def feed(self, event: AgentEvent) -> Optional[str]:
+        t = event.type
+        if t == AgentEventType.TOOL_CALL:
+            held = self.flush()
+            self._pending = (event.data.get("tool", "?"), event.data.get("params", {}) or {})
+            return held
+        if t == AgentEventType.TOOL_RESULT and self._pending and self._pending[0] == event.data.get("tool", "?"):
+            tool, params = self._pending
+            self._pending = None
+            return render_tool_line(tool, params, event.data.get("result"), has_result=True)
+        text = render_event(event)
+        if text is None:
+            return None
+        return self._join(self.flush(), text)
+
+    @staticmethod
+    def _join(first: Optional[str], second: Optional[str]) -> Optional[str]:
+        parts = [p for p in (first, second) if p]
+        return "\n".join(parts) if parts else None
+
+
+def render_turn_summary(reason: str, state: LiveState, width: Optional[int] = None) -> str:
+    """A rule that closes the turn: everything above it is the past."""
     stats = f"{format_duration(state.elapsed())} · {state.turn_steps} step{'s' if state.turn_steps != 1 else ''} · {format_tokens(state.turn_tokens)} tokens"
-    if reason == "cancelled":
-        return f"  {GREY}{ELBOW}{RESET}  {RED}Interrupted{RESET} {GREY}· {stats}{RESET}"
-    if reason == "awaiting_user":
-        return f"{GREY}  (waiting for your reply · {stats}){RESET}"
-    if reason == "error":
-        return f"{RED}✗ Turn ended with an error{RESET} {GREY}· {stats}{RESET}"
-    if reason == "api_error":
-        return f"{RED}✗ Model API unavailable{RESET} {GREY}· {stats}{RESET}"
-    if reason == "max_iterations":
-        return f"{RED}✗ Iteration budget exhausted{RESET} {GREY}· {stats}{RESET}"
-    return f"{GREY}✻ Done in {stats}{RESET}"
+    labels = {
+        "cancelled": (RED, "✗ Interrupted"),
+        "awaiting_user": (CYAN, "? Waiting for your reply"),
+        "error": (RED, "✗ Turn ended with an error"),
+        "api_error": (RED, "✗ Model API unavailable"),
+        "max_iterations": (RED, "✗ Iteration budget exhausted"),
+    }
+    color, label = labels.get(reason, (GREEN, "✓ Done in"))
+    sep = " " if label.endswith(" in") else " · "
+    text = f" {color}{label}{RESET}{GREY}{sep}{stats} "
+    width = min((width or terminal_width()) - 1, 100)
+    rule = "─" * max(3, width - 3 - visible_len(text))
+    return f"\n{GREY}──{text}{rule}{RESET}"
+
+
+ROBOT_ART = [
+    "    ╷    ",
+    " ╭──┴──╮ ",
+    " │ ◉ ◉ │ ",
+    " │ ╶─╴ │ ",
+    " ╰─┬─┬─╯ ",
+    "╭──┴─┴──╮",
+]
+ROBOT_WIDTH = max(len(line) for line in ROBOT_ART)
+
+
+def _robot_rows():
+    eye = f"{CYAN}◉{TerminalUI.PRIMARY}"
+    return [f"{TerminalUI.PRIMARY}{line.ljust(ROBOT_WIDTH).replace('◉', eye)}{RESET}" for line in ROBOT_ART]
+
+
+def render_banner(model: str, pipeline: str, session_id: str, cwd: str, width: Optional[int] = None) -> str:
+    """Welcome card shown when the chat opens."""
+    home = os.path.expanduser("~")
+    if cwd.startswith(home):
+        cwd = "~" + cwd[len(home):]
+    inner = min((width or terminal_width()) - 2, 76) - 2
+    title = f" {TerminalUI.PRIMARY}✻{RESET} {BOLD}JARVIS{RESET} {GREY}agent{RESET} "
+    rows = [
+        "",
+        f"  {GREY}model    {RESET} {model}",
+        f"  {GREY}pipeline {RESET} {pipeline}",
+        f"  {GREY}session  {RESET} {session_id[:8]}",
+        f"  {GREY}cwd      {RESET} {_truncate(cwd, inner - 13 - (ROBOT_WIDTH + 4 if inner >= 52 else 0))}",
+        "",
+    ]
+    # A small robot on the right, when there is room for it.
+    if inner >= 52:
+        rows = [row + " " * max(0, inner - visible_len(row) - ROBOT_WIDTH - 3) + art + "   "
+                for row, art in zip(rows, _robot_rows())]
+    border = "\033[38;5;240m"
+    top = f"{border}╭─{RESET}{title}{border}{'─' * max(0, inner - 1 - visible_len(title))}╮{RESET}"
+    body = [f"{border}│{RESET}{row}{' ' * max(0, inner - visible_len(row))}{border}│{RESET}" for row in rows]
+    bottom = f"{border}╰{'─' * inner}╯{RESET}"
+    hint = f"  {GREY}/help commands · @file attach · esc interrupt · ctrl+d exit{RESET}"
+    return "\n".join([top, *body, bottom, hint])
 
 
 # ---------------------------------------------------------------- live area
@@ -222,9 +397,14 @@ def render_live_line(state: LiveState, frame: int) -> str:
     if state.tokens:
         details.append(f"{format_tokens(state.tokens)} tok")
     details.append("esc to interrupt")
-    task = f"\n  {GREY}{ELBOW}  {_truncate(state.task, 90)}{RESET}" if state.task and not state.cancelling else ""
+    sub = []
+    if state.task and not state.cancelling:
+        sub.append(f"  {GREY}{ELBOW}  {_truncate(state.task, 90)}{RESET}")
+    if state.tool and not state.cancelling:
+        sub.append(f"  {GREY}   {GREEN}{BULLET}{RESET} {GREY}{_truncate(state.tool, 86)}{RESET}")
+    task = "".join("\n" + line for line in sub)
     queued = f"\n  {GREY}queued: {_truncate(state.queued[0], 80)}{' (+' + str(len(state.queued) - 1) + ')' if len(state.queued) > 1 else ''}{RESET}" if state.queued else ""
-    return f"{TerminalUI.PRIMARY}{spinner} {label}{RESET} {GREY}({' · '.join(details)}){RESET}{task}{queued}"
+    return f"\n{TerminalUI.PRIMARY}{spinner} {label}{RESET} {GREY}({' · '.join(details)}){RESET}{task}{queued}"
 
 
 def render_status_bar(model: str, session_id: str, pipeline: str, state: LiveState, hint: str = "") -> str:
@@ -238,17 +418,15 @@ def render_status_bar(model: str, session_id: str, pipeline: str, state: LiveSta
 
 def render_transcript(entries, session_id: str, request: str = "") -> str:
     """Recent conversation shown when a chat opens on an existing session."""
-    lines = [f"{GREY}── resumed session {session_id[:8]}{(' · ' + _truncate(request, 60)) if request else ''} ──{RESET}"]
+    lines = [f"\n{GREY}── resumed session {session_id[:8]}{(' · ' + _truncate(request, 60)) if request else ''} ──{RESET}"]
     if not entries:
         lines.append(f"{GREY}  (no messages to show){RESET}")
     for entry in entries:
         if entry.get("role") == "user":
-            lines.append(render_user_message(entry.get("text", "")).lstrip("\n"))
+            lines.append(render_user_message(entry.get("text", "")))
         else:
-            text = str(entry.get("text", "")).strip()
-            body = text.splitlines() or [""]
-            lines.append(f"{TerminalUI.TEXT}{BULLET}{RESET} {body[0]}" + ("\n" + _indent("\n".join(body[1:])) if len(body) > 1 else ""))
-    lines.append(f"{GREY}──{RESET}")
+            lines.append(render_message(str(entry.get("text", ""))))
+    lines.append(f"\n{GREY}── end of history ──{RESET}")
     return "\n".join(lines)
 
 
@@ -257,5 +435,5 @@ def render_permission(tool: str, params: Dict[str, Any]) -> str:
 
     lines = [f"{TerminalUI.WARN}{BOLD}Permission required{RESET}"]
     lines += describe_tool_request(tool, params)
-    lines.append(f"  {GREEN}[y]{RESET} allow   {GREEN}[a]{RESET} allow all '{tool}' this session   {RED}[n]{RESET} deny {GREY}(esc){RESET}")
+    lines.append(f"  {GREEN}[y]{RESET} allow   {GREEN}[a]{RESET} always (see above)   {RED}[n]{RESET} deny {GREY}(esc){RESET}")
     return "\n".join(lines)

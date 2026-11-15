@@ -1,9 +1,13 @@
+from typing import Optional
+
 import ollama
 from tqdm import tqdm
-import sys
 
+from ai.core.llms.api_retry import wrap_error
 from ai.core.llms.base_llm import BaseModel, ModelParams
 import ai.functions as func
+
+PROVIDER = "Ollama"
 
 
 class OllamaModel(BaseModel):
@@ -77,24 +81,28 @@ class OllamaModel(BaseModel):
         self.stop_generation_event.clear()
 
         if stream:
-            return self._stream_chat(new_messages)
+            return self._stream_chat(new_messages, gen_options)
 
         try:
             response = self.model.chat(model=self.model_name, messages=new_messages,
-                                       stream=False, options=gen_options)
+                                       stream=False, options=gen_options, keep_alive=self.keep_alive)
             return response['message']['content']
         except Exception as e:
-            func.error(f"\nCRITICAL ERROR: An unexpected error occurred during Ollama (non-streaming) generation: {e}")
-            import traceback
-            traceback.print_exc()
-            sys.exit(1)
+            # Raised, not sys.exit: a server answers this request with an error and keeps serving;
+            # the CLI reports LLMAPIError and keeps the chat alive.
+            err = wrap_error(e, PROVIDER, attempts=1)
+            func.error(f"[{PROVIDER}] {err.user_message()}")
+            raise err from e
 
-    def _stream_chat(self, new_messages: list):
+    def _stream_chat(self, new_messages: list, gen_options: Optional[dict] = None):
         """Yields response chunks. Kept apart so chat() is not a generator when stream=False."""
+        produced = False
         try:
-            response = self.model.chat(model=self.model_name, messages=new_messages,
-                                       stream=True, options=self.options, keep_alive=self.keep_alive)
+            response = self.model.chat(model=self.model_name, messages=new_messages, stream=True,
+                                       options=gen_options if gen_options is not None else self.options,
+                                       keep_alive=self.keep_alive)
             for chunks in response:
+                produced = True
                 yield chunks['message']['content']
                 if self.stop_generation_event.is_set():
                     func.log("INFO: Ollama generation interrupted by stop event.")
@@ -108,10 +116,9 @@ class OllamaModel(BaseModel):
                 except Exception as e:
                     func.log(f"WARNING: Error closing Ollama stream: {e}")
         except Exception as e:
-            func.error(f"\nCRITICAL ERROR: An unexpected error occurred during Ollama generation: {e}")
-            import traceback
-            traceback.print_exc()
-            sys.exit(1)
+            err = wrap_error(e, PROVIDER, attempts=1, partial=produced)
+            func.error(f"[{PROVIDER}] {err.user_message()}")
+            raise err from e
 
     def list(self):
         """

@@ -1,0 +1,110 @@
+{
+  "component": {
+    "name": "commands",
+    "source_path": "/ai/agents/chat_ui/commands.py",
+    "doc_path": "/ai/agents/chat_ui/commands.json",
+    "type": "module"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module centralizes the definition and dispatching of all slash commands available in the agent chat UI. It registers commands like /help, /clear, and /resume into a global COMMANDS dictionary, linking names to specific handler functions. Handlers execute application logic, interacting heavily with AgentChatApp to manage state, display output via app.write, and perform filesystem operations. It serves as the primary command interface layer for user interaction with the core agent system."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/agents/chat_ui/commands.py#Command",
+      "label": "Class",
+      "name": "Command",
+      "signature": "def Command(name: str, help: str, handler: Callable[[\"AgentChatApp\", str], None], allowed_while_busy: bool = False)"
+    },
+    {
+      "id": "/ai/agents/chat_ui/commands.py#_help",
+      "label": "Function",
+      "name": "_help",
+      "signature": "def _help(app: \"AgentChatApp\", arg: str) -> None"
+    },
+    {
+      "id": "/ai/agents/chat_ui/commands.py#_clear",
+      "label": "Function",
+      "name": "_clear",
+      "signature": "def _clear(app: \"AgentChatApp\", arg: str) -> None"
+    },
+    {
+      "id": "/ai/agents/chat_ui/commands.py#_session",
+      "label": "Function",
+      "name": "_session",
+      "signature": "def _session(app: \"AgentChatApp\", arg: str) -> None"
+    },
+    {
+      "id": "/ai/agents/chat_ui/commands.py#_resume",
+      "label": "Function",
+      "name": "_resume",
+      "signature": "def _resume(app: \"AgentChatApp\", arg: str) -> None"
+    },
+    {
+      "id": "/ai/agents/chat_ui/commands.py#_pipeline",
+      "label": "Function",
+      "name": "_pipeline",
+      "signature": "def _pipeline(app: \"AgentChatApp\", arg: str) -> None"
+    },
+    {
+      "id": "/ai/agents/chat_ui/commands.py#_tools",
+      "label": "Function",
+      "name": "_tools",
+      "signature": "def _tools(app: \"AgentChatApp\", arg: str) -> None"
+    },
+    {
+      "id": "/ai/agents/chat_ui/commands.py#_thoughts",
+      "label": "Function",
+      "name": "_thoughts",
+      "signature": "def _thoughts(app: \"AgentChatApp\", arg: str) -> None"
+    },
+    {
+      "id": "/ai/agents/chat_ui/commands.py#_exit",
+      "label": "Function",
+      "name": "_exit",
+      "signature": "def _exit(app: \"AgentChatApp\", arg: str) -> None"
+    },
+    {
+      "id": "/ai/agents/chat_ui/commands.py#COMMANDS",
+      "label": "Variable",
+      "name": "COMMANDS",
+      "signature": "COMMANDS: Dict[str, Command] = {...}"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/agents/chat_ui/commands.py",
+      "target": "/ai/agents/chat_ui/app.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/chat_ui/commands.py",
+      "target": "/ai/config.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/chat_ui/commands.py",
+      "target": "/ai/agents/session_manager.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/chat_ui/commands.py",
+      "target": "/ai/agents/chat_ui/renderer.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/chat_ui/commands.py",
+      "target": "/ai/agents/chat_ui/session_picker.py",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "os",
+      "uuid",
+      "dataclasses",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "component": {
+    "name": "__init__",
+    "source_path": "/ai/services/__init__.py",
+    "doc_path": "/ai/services/__init__.json",
+    "type": "module"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module serves as the package initializer for the 'services' directory, defining it as a recognizable Python package. Its architectural role is to act as a namespace boundary, organizing and exposing the service layer functionalities. It does not contain executable logic but facilitates seamless importing of service implementations defined in sibling modules."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/services/__init__.py#__init__",
+      "label": "Module",
+      "name": "__init__",
+      "signature": "N/A"
+    }
+  ],
+  "graph_edges": [],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [],
+    "has_side_effects": false
+  }
+}

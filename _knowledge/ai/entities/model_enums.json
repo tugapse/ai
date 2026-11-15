@@ -1,0 +1,39 @@
+{
+  "component": {
+    "name": "model_enums",
+    "source_path": "/ai/entities/model_enums.py",
+    "doc_path": "/ai/entities/model_enums.json",
+    "type": "module"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module centralizes and defines canonical enumerated types for the AI system, acting as a core data model vocabulary. It defines EngineType, ModelType, and InferenceBackend, providing strict identifiers for engine types (e.g., HUGGINGFACE), model architectures (e.g., CAUSAL_LM), and computational backends (e.g., GPU_CUDA). It ensures consistent system-wide categorization and routing logic across various services."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/entities/model_enums.py#EngineType",
+      "label": "Class",
+      "name": "EngineType",
+      "signature": "class EngineType(Enum):"
+    },
+    {
+      "id": "/ai/entities/model_enums.py#ModelType",
+      "label": "Class",
+      "name": "ModelType",
+      "signature": "class ModelType(Enum):"
+    },
+    {
+      "id": "/ai/entities/model_enums.py#InferenceBackend",
+      "label": "Class",
+      "name": "InferenceBackend",
+      "signature": "class InferenceBackend(Enum):"
+    }
+  ],
+  "graph_edges": [],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "enum"
+    ],
+    "has_side_effects": false
+  }
+}

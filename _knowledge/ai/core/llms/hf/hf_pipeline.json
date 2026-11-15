@@ -1,0 +1,48 @@
+{
+  "component": {
+    "name": "HFPipelineMixin",
+    "source_path": "/ai/core/llms/hf/hf_pipeline.py",
+    "doc_path": "/ai/core/llms/hf/hf_pipeline.json",
+    "type": "interface"
+  },
+  "vector_memory": {
+    "semantic_summary": "HFPipelineMixin serves as a crucial service layer for integrating Hugging Face (HF) LLMs into the application. Its primary functions involve normalizing conversational history by ensuring roles alternate correctly using _ensure_alternating_roles. It then prepares the final, tokenizable input tensors via _prepare_input, intelligently falling back to manual string formatting if the tokenizer lacks the apply_chat_template method. It bridges application message structures to HF-specific input requirements."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/core/llms/hf/hf_pipeline.py#HFPipelineMixin",
+      "label": "Class",
+      "name": "HFPipelineMixin",
+      "signature": ""
+    },
+    {
+      "id": "/ai/core/llms/hf/hf_pipeline.py#_ensure_alternating_roles",
+      "label": "Method",
+      "name": "_ensure_alternating_roles",
+      "signature": "def _ensure_alternating_roles(self, messages: list) -> list"
+    },
+    {
+      "id": "/ai/core/llms/hf/hf_pipeline.py#_prepare_input",
+      "label": "Method",
+      "name": "_prepare_input",
+      "signature": "def _prepare_input(self, messages: list)"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/core/llms/hf/hf_pipeline.py",
+      "target": "/ai/functions.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/core/llms/hf/hf_pipeline.py",
+      "target": "/ai/core/llms/base_llm/base_llm.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [],
+    "has_side_effects": true
+  }
+}

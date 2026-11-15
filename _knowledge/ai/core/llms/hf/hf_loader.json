@@ -1,0 +1,48 @@
+{
+  "component": {
+    "name": "HFModelLoaderMixin",
+    "source_path": "/ai/core/llms/hf/hf_loader.py",
+    "doc_path": "/ai/core/llms/hf/hf_loader.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "This mixin abstracts the complex logic for loading Large Language Models (LLMs) from the Hugging Face Hub. It manages model instantiation, dynamically applying quantization configurations (4-bit or 8-bit via BitsAndBytesConfig) based on runtime options. The core method, _load_llm_params, implements a robust caching strategy, first attempting local file loading and falling back to remote downloading if the cache is unavailable."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/core/llms/hf/hf_loader.py#HFModelLoaderMixin",
+      "label": "Class",
+      "name": "HFModelLoaderMixin",
+      "signature": "class HFModelLoaderMixin:"
+    },
+    {
+      "id": "/ai/core/llms/hf/hf_loader.py#_load_llm_params",
+      "label": "Method",
+      "name": "_load_llm_params",
+      "signature": "def _load_llm_params(self, **kwargs):"
+    },
+    {
+      "id": "/ai/core/llms/hf/hf_loader.py#init_pytorch_cuda",
+      "label": "Method",
+      "name": "init_pytorch_cuda",
+      "signature": "def init_pytorch_cuda(self):"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/core/llms/hf/hf_loader.py",
+      "target": "/ai/functions.md",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "torch",
+      "requests.exceptions",
+      "huggingface_hub",
+      "bitsandbytes"
+    ],
+    "has_side_effects": true
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "component": {
+    "name": "ThinkingAnimationHandler",
+    "source_path": "/ai/extras/think_parser.py",
+    "doc_path": "/ai/extras/think_parser.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "This component manages the visual state and display logic for LLM thinking indicators, triggered by <think> tags in streaming output. It functions as a state machine, tracking transitions from normal output to an active thinking state. It handles dynamic terminal drawing, supports multiple indicator modes (dots, spinner, progressbar), and interfaces with a Logging Manager to record thinking events."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/extras/think_parser.py#ThinkingAnimationHandler",
+      "label": "Class",
+      "name": "ThinkingAnimationHandler",
+      "signature": ""
+    },
+    {
+      "id": "/ai/extras/think_parser.py#process_token_and_thinking_state",
+      "label": "Method",
+      "name": "process_token_and_thinking_state",
+      "signature": "process_token_and_thinking_state(self, raw_token_string: str) -> tuple[bool, str]"
+    },
+    {
+      "id": "/ai/extras/think_parser.py#get_max_thinking_indicator_length",
+      "label": "Method",
+      "name": "get_max_thinking_indicator_length",
+      "signature": "get_max_thinking_indicator_length(self) -> int"
+    },
+    {
+      "id": "/ai/extras/think_parser.py#print_think",
+      "label": "Method",
+      "name": "print_think",
+      "signature": "print_think(self, message, **kargs)"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/extras/think_parser.py",
+      "target": "/ai/functions.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/extras/think_parser.py",
+      "target": "/ai/extras/thinking_log_manager.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "re"
+    ],
+    "has_side_effects": true
+  }
+}

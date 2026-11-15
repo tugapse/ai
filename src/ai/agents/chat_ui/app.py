@@ -6,6 +6,7 @@ terminal scrollback):
 
     ...committed output (messages, tool calls) printed above...
     ✻ MASTER thinking… (12s · step 3/300 · 412 tok · esc to interrupt)   <- live area
+      ⎿  current task / running tool
     ╭──────────────────────────────────────────────╮
     │ > _                                          │                     <- input
     ╰──────────────────────────────────────────────╯
@@ -58,6 +59,11 @@ class AgentChatCompleter(Completer):
 
     def get_completions(self, document: Document, complete_event) -> Iterable[Completion]:
         text = document.text_before_cursor
+        if not text.strip() and complete_event.completion_requested:
+            # Ctrl+Space on an empty prompt: show the commands.
+            for name, cmd in self.commands.items():
+                yield Completion(name, start_position=-len(text), display_meta=cmd.help)
+            return
         if text.startswith("/") and " " not in text:
             for name, cmd in self.commands.items():
                 if name.startswith(text):
@@ -206,7 +212,7 @@ class AgentChatApp:
         def _submit(event):
             buf = self.input.buffer
             if buf.complete_state and buf.complete_state.current_completion:
-                buf.apply_completion(buf.complete_state.current_completion)
+                self._apply_completion(buf, buf.complete_state.current_completion)
                 return
             text = buf.text
             if not text.strip():
@@ -214,6 +220,24 @@ class AgentChatApp:
             buf.append_to_history()
             buf.reset()
             self.submit(text)
+
+        @kb.add("c-space", filter=typing)
+        def _complete(event):
+            # Ctrl+Space opens the suggestions (prompt_toolkit's default starts an emacs
+            # selection instead, which looks like the prompt froze).
+            buf = self.input.buffer
+            if buf.complete_state:
+                buf.complete_next()
+            else:
+                buf.start_completion(select_first=False)
+
+        @kb.add("tab", filter=typing & Condition(lambda: self.input.buffer.complete_state is not None))
+        def _tab(event):
+            buf = self.input.buffer
+            state = buf.complete_state
+            completion = state.current_completion or (state.completions[0] if state.completions else None)
+            if completion is not None:
+                self._apply_completion(buf, completion)
 
         @kb.add("c-j", filter=typing)
         @kb.add("escape", "enter", filter=typing)
@@ -259,6 +283,13 @@ class AgentChatApp:
             self._answer_permission(PERMISSION_NO)
 
         return kb
+
+    @staticmethod
+    def _apply_completion(buf, completion) -> None:
+        buf.apply_completion(completion)
+        if completion.text.endswith(os.sep):
+            # Picked a folder: keep browsing inside it.
+            buf.start_completion(select_first=False)
 
     # ---------------------------------------------------------------- rendering
 
@@ -325,6 +356,7 @@ class AgentChatApp:
             return
         self.write(R.render_user_message(text))
         prompt = expand_mentions(text)
+        self.io.formatter.reset()
         self.state.start_turn()
         self._turn_seq += 1
         self._active_turn = self._turn_seq
@@ -363,11 +395,13 @@ class AgentChatApp:
         self.invalidate()
 
     def _end_turn(self, reason: str) -> None:
+        self.io.flush()
         self.write(R.render_turn_summary(reason, self.state))
         self.state.busy = False
         self.state.cancelling = False
         self.state.phase = ""
         self.state.task = ""
+        self.state.tool = ""
         self.worker = None
         self._active_turn = None
 
@@ -446,13 +480,7 @@ class AgentChatApp:
 
     def banner(self) -> str:
         model = getattr(self.orchestrator.llm_connector.llm, "model_name", "") or "?"
-        return "\n".join([
-            f"{R.TerminalUI.PRIMARY}✻{R.RESET} {R.BOLD}JARVIS agent chat{R.RESET}",
-            f"  {R.GREY}model{R.RESET}    {model}",
-            f"  {R.GREY}pipeline{R.RESET} {self.pipeline.replace('.json', '')}   {R.GREY}session{R.RESET} {self.session_id[:8]}",
-            f"  {R.GREY}cwd{R.RESET}      {os.getcwd()}",
-            f"  {R.GREY}/help for commands · esc interrupts · ctrl+d exits{R.RESET}",
-        ])
+        return R.render_banner(str(model), self.pipeline.replace(".json", ""), self.session_id, os.getcwd())
 
     async def run_async(self, initial_message: Optional[str] = None) -> None:
         self.loop = asyncio.get_running_loop()
@@ -464,7 +492,7 @@ class AgentChatApp:
                 self.loop.call_soon(self.submit, initial_message)
             await self.app.run_async()
         await asyncio.get_running_loop().run_in_executor(None, self.orchestrator.close)
-        print(f"{R.GREY}Session {self.session_id} saved. Resume with: ai --agent --session-id {self.session_id}{R.RESET}")
+        print(f"{R.GREY}Session {self.session_id} saved. Resume with: ai agent --session-id {self.session_id}{R.RESET}")
 
     def run(self, initial_message: Optional[str] = None) -> None:
         asyncio.run(self.run_async(initial_message))
@@ -472,6 +500,6 @@ class AgentChatApp:
 
 def run_agent_chat(prog, pipeline: str = "default.json", session_id: Optional[str] = None,
                    directory_manager=None, initial_message: Optional[str] = None) -> None:
-    """Entry point used by the CLI (``ai --agent`` on an interactive terminal)."""
+    """Entry point used by the CLI (``ai agent`` on an interactive terminal)."""
     app = AgentChatApp(prog, pipeline=pipeline, session_id=session_id, directory_manager=directory_manager)
     app.run(initial_message)

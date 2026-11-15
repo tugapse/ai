@@ -1,0 +1,80 @@
+{
+  "component": {
+    "name": "sessions",
+    "source_path": "/ai/modules/server/routers/sessions.py",
+    "doc_path": "/ai/modules/server/routers/sessions.json",
+    "type": "controller"
+  },
+  "vector_memory": {
+    "semantic_summary": "This component acts as a RESTful API controller for managing user sessions, exposing endpoints for CRUD-like operations. It delegates core logic to the injected `session_manager` service, handling path parsing, input validation, and access control via `require_device`. It manages filesystem interactions by catching specific exceptions like `SessionNotFoundError` and mapping them to appropriate HTTP status codes."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/server/routers/sessions.py#APIRouter",
+      "label": "Class",
+      "name": "APIRouter",
+      "signature": "N/A"
+    },
+    {
+      "id": "/ai/modules/server/routers/sessions.py#get_sessions",
+      "label": "Function",
+      "name": "get_sessions",
+      "signature": "async def get_sessions(request: Request, session_folder: Optional[str] = None)"
+    },
+    {
+      "id": "/ai/modules/server/routers/sessions.py#get_session_content",
+      "label": "Function",
+      "name": "get_session_content",
+      "signature": "async def get_session_content(request: Request, session_path: str)"
+    },
+    {
+      "id": "/ai/modules/server/routers/sessions.py#update_session_title",
+      "label": "Function",
+      "name": "update_session_title",
+      "signature": "async def update_session_title(request: Request, session_path: str, payload: UpdateSessionRequest)"
+    },
+    {
+      "id": "/ai/modules/server/routers/sessions.py#update_session_content",
+      "label": "Function",
+      "name": "update_session_content",
+      "signature": "async def update_session_content(request: Request, session_path: str, payload: UpdateSessionRequest)"
+    },
+    {
+      "id": "/ai/modules/server/routers/sessions.py#delete_session",
+      "label": "Function",
+      "name": "delete_session",
+      "signature": "async def delete_session(request: Request, session_path: str)"
+    },
+    {
+      "id": "/ai/modules/server/routers/sessions.py#session_manager",
+      "label": "Variable",
+      "name": "session_manager",
+      "signature": "N/A"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/server/routers/sessions.py",
+      "target": "/ai/modules/server/routers/auth.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/server/routers/sessions.py",
+      "target": "/ai/modules/server/schemas.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/server/routers/sessions.py",
+      "target": "/ai/modules/server/services/session_manager.md",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "fastapi",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

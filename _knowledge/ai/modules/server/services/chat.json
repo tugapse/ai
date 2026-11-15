@@ -1,0 +1,186 @@
+{
+  "component": {
+    "name": "chat",
+    "source_path": "/ai/modules/server/services/chat.py",
+    "doc_path": "/ai/modules/server/services/chat.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "This component orchestrates the entire chat interaction lifecycle, acting as the primary high-level service layer. It manages session persistence by routing memory via ChatSessionRouter, resolves the necessary AI model and system prompt via BrainHub, and handles message formatting using ChatMessageFormatter. It supports both synchronous and streaming LLM responses via ChatResponseHandler, ensuring proper history saving after every turn."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/server/services/chat.py#ChatSessionRouter",
+      "label": "Class",
+      "name": "ChatSessionRouter",
+      "signature": "def __init__(self, session_root_dir: Path, config: Dict[str, Any])"
+    },
+    {
+      "id": "/ai/modules/server/services/chat.py#ChatSessionRouter.build_session_path",
+      "label": "Method",
+      "name": "build_session_path",
+      "signature": "def build_session_path(self, request: ChatCompletionRequest) -> tuple[Path, Path, str]"
+    },
+    {
+      "id": "/ai/modules/server/services/chat.py#ChatSessionRouter.route_memory",
+      "label": "Method",
+      "name": "route_memory",
+      "signature": "def route_memory(self, brain_hub: BrainHub, request: ChatCompletionRequest, session_file: Path, target_session_id: str)"
+    },
+    {
+      "id": "/ai/modules/server/services/chat.py#ChatMessageFormatter",
+      "label": "Class",
+      "name": "ChatMessageFormatter",
+      "signature": "def format_messages(messages: List[Any]) -> tuple[List[Dict[str, str]], str]"
+    },
+    {
+      "id": "/ai/modules/server/services/chat.py#ChatResponseHandler",
+      "label": "Class",
+      "name": "ChatResponseHandler",
+      "signature": "def __init__(self, brain_hub: BrainHub)"
+    },
+    {
+      "id": "/ai/modules/server/services/chat.py#ChatResponseHandler._ensure_llm_available",
+      "label": "Method",
+      "name": "_ensure_llm_available",
+      "signature": "def _ensure_llm_available(self, context: str)"
+    },
+    {
+      "id": "/ai/modules/server/services/chat.py#ChatResponseHandler.stream_response",
+      "label": "Method",
+      "name": "stream_response",
+      "signature": "async def stream_response(self, formatted_messages: List[Dict[str, str]], options: Optional[Dict[str, Any]] = None, images: Optional[list] = None, lease: Optional[ModelLease] = None)"
+    },
+    {
+      "id": "/ai/modules/server/services/chat.py#ChatResponseHandler.non_stream_response",
+      "label": "Method",
+      "name": "non_stream_response",
+      "signature": "def non_stream_response(self, formatted_messages: List[Dict[str, str]], options: Optional[Dict[str, Any]] = None, images: Optional[list] = None)"
+    },
+    {
+      "id": "/ai/modules/server/services/chat.py#ChatService",
+      "label": "Class",
+      "name": "ChatService",
+      "signature": "def __init__(self, brain_hub: BrainHub, session_root_dir: Path, config: Dict[str, Any])"
+    },
+    {
+      "id": "/ai/modules/server/services/chat.py#ChatService._resolve_system_prompt",
+      "label": "Method",
+      "name": "_resolve_system_prompt",
+      "signature": "def _resolve_system_prompt(self, system_prompt: Optional[str]) -> Optional[str]"
+    },
+    {
+      "id": "/ai/modules/server/services/chat.py#ChatService._ensure_no_agent_run",
+      "label": "Method",
+      "name": "_ensure_no_agent_run",
+      "signature": "def _ensure_no_agent_run(self)"
+    },
+    {
+      "id": "/ai/modules/server/services/chat.py#ChatService._resolve_brain",
+      "label": "Method",
+      "name": "_resolve_brain",
+      "signature": "def _resolve_brain(self, request: ChatCompletionRequest)"
+    },
+    {
+      "id": "/ai/modules/server/services/chat.py#ChatService._decode_images",
+      "label": "Method",
+      "name": "_decode_images",
+      "signature": "def _decode_images(self, image_urls: List[str]) -> list"
+    },
+    {
+      "id": "/ai/modules/server/services/chat.py#ChatService.generation_options",
+      "label": "Method",
+      "name": "generation_options",
+      "signature": "def generation_options(request) -> Dict[str, Any]"
+    },
+    {
+      "id": "/ai/modules/server/services/chat.py#ChatService.chat_completion",
+      "label": "Method",
+      "name": "chat_completion",
+      "signature": "async def chat_completion(self, request: ChatCompletionRequest)"
+    },
+    {
+      "id": "/ai/modules/server/services/chat.py#ChatService._complete",
+      "label": "Method",
+      "name": "_complete",
+      "signature": "async def _complete(self, request: ChatCompletionRequest, lease: ModelLease)"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/server/services/chat.py",
+      "target": "/ai/modules/server/services/chat.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/services/chat.py",
+      "target": "/ai/modules/server/services/chat.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/services/chat.py",
+      "target": "/ai/modules/server/services/chat.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/services/chat.py",
+      "target": "/ai/modules/server/services/chat.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/services/chat.py",
+      "target": "/ai/modules/server/services/chat.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/services/chat.py",
+      "target": "/ai/modules/server/services/chat.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/services/chat.py",
+      "target": "/ai/modules/server/services/chat.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/services/chat.py",
+      "target": "/ai/modules/server/services/chat.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/services/chat.py",
+      "target": "/ai/modules/server/services/chat.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/services/chat.py",
+      "target": "/ai/modules/server/services/chat.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/services/chat.py",
+      "target": "/ai/modules/server/services/chat.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/services/chat.py",
+      "target": "/ai/modules/server/services/chat.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "pathlib",
+      "asyncio",
+      "os",
+      "json",
+      "typing",
+      "fastapi",
+      "PIL",
+      "base64",
+      "io"
+    ],
+    "has_side_effects": true
+  }
+}

@@ -14,7 +14,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import ai.program  # noqa: F401  (startup import order, avoids a circular import)
 
 
 @pytest.fixture

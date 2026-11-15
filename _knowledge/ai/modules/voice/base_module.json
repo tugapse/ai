@@ -1,0 +1,99 @@
+{
+  "component": {
+    "name": "BaseVoiceModule",
+    "source_path": "/ai/modules/voice/base_module.py",
+    "doc_path": "/ai/modules/voice/base_module.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "BaseVoiceModule serves as the core service layer orchestrating the entire Text-to-Speech (TTS) pipeline. It manages asynchronous data flow between a generation thread and a playback thread using internal queues. Responsibilities include hardware initialization via PyAudio, volume scaling, and ensuring complete audio buffer draining via the `collect_audio` method. It acts as a high-level coordinator, decoupling inference logic from physical audio output."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/voice/base_module.py#BaseVoiceModule",
+      "label": "Class",
+      "name": "BaseVoiceModule",
+      "signature": "class BaseVoiceModule(ABC):"
+    },
+    {
+      "id": "/ai/modules/voice/base_module.py#_silence_stderr",
+      "label": "Method",
+      "name": "_silence_stderr",
+      "signature": "def _silence_stderr(self):"
+    },
+    {
+      "id": "/ai/modules/voice/base_module.py#_init_audio_hardware",
+      "label": "Method",
+      "name": "_init_audio_hardware",
+      "signature": "def _init_audio_hardware(self):"
+    },
+    {
+      "id": "/ai/modules/voice/base_module.py#_run_inference",
+      "label": "Method",
+      "name": "_run_inference",
+      "signature": "@abstractmethod def _run_inference(self, text: str) -> np.ndarray:"
+    },
+    {
+      "id": "/ai/modules/voice/base_module.py#process_token",
+      "label": "Method",
+      "name": "process_token",
+      "signature": "def process_token(self, text: str):"
+    },
+    {
+      "id": "/ai/modules/voice/base_module.py#abort",
+      "label": "Method",
+      "name": "abort",
+      "signature": "def abort(self):"
+    },
+    {
+      "id": "/ai/modules/voice/base_module.py#collect_audio",
+      "label": "Method",
+      "name": "collect_audio",
+      "signature": "def collect_audio(self):"
+    },
+    {
+      "id": "/ai/modules/voice/base_module.py#shutdown",
+      "label": "Method",
+      "name": "shutdown",
+      "signature": "def shutdown(self):"
+    },
+    {
+      "id": "/ai/modules/voice/base_module.py#__init__",
+      "label": "Method",
+      "name": "__init__",
+      "signature": "def __init__(self, sample_rate: int = 24000, device_index: Optional[int] = None, volume: float = 1.0):"
+    },
+    {
+      "id": "/ai/modules/voice/base_module.py#_generation_loop",
+      "label": "Method",
+      "name": "_generation_loop",
+      "signature": "def _generation_loop(self):"
+    },
+    {
+      "id": "/ai/modules/voice/base_module.py#_playback_loop",
+      "label": "Method",
+      "name": "_playback_loop",
+      "signature": "def _playback_loop(self):"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/voice/base_module.py",
+      "target": "/ai/functions.md",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "numpy",
+      "pyaudio",
+      "contextlib",
+      "sys",
+      "os",
+      "threading",
+      "queue"
+    ],
+    "has_side_effects": true
+  }
+}

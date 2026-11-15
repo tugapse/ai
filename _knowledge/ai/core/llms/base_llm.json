@@ -1,0 +1,161 @@
+{
+  "component": {
+    "name": "BaseModel",
+    "source_path": "/ai/core/llms/base_llm.py",
+    "doc_path": "/ai/core/llms/base_llm.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "This component defines the abstract foundation for all Language Model interactions, serving as the core service layer for the LLM subsystem. It manages the lifecycle, context tracking (via TokenCountInfo), and state of LLM instances, providing standardized interfaces for both standard chat and structured JSON generation. It handles critical logic like system prompt injection, asynchronous streaming via threading, and hardware device detection for inference.",
+    "domain_responsibilities": "LLM Abstraction, State Management, Context Orchestration, Inference Interface Definition"
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/core/llms/base_llm.py#TokenCountInfo",
+      "label": "Class",
+      "name": "TokenCountInfo",
+      "signature": "class TokenCountInfo()"
+    },
+    {
+      "id": "/ai/core/llms/base_llm.py#ModelParams",
+      "label": "Class",
+      "name": "ModelParams",
+      "signature": "class ModelParams(**kargs)"
+    },
+    {
+      "id": "/ai/core/llms/base_llm.py#BaseModel",
+      "label": "Class",
+      "name": "BaseModel",
+      "signature": "class BaseModel(model_name: str, system_prompt: str = \"\", **kargs)"
+    },
+    {
+      "id": "/ai/core/llms/base_llm.py#BaseModel.create_message",
+      "label": "Static Method",
+      "name": "create_message",
+      "signature": "create_message(role: str, content: str) -> Dict[str, str]"
+    },
+    {
+      "id": "/ai/core/llms/base_llm.py#BaseModel.get_system_info",
+      "label": "Method",
+      "name": "get_system_info",
+      "signature": "get_system_info() -> str"
+    },
+    {
+      "id": "/ai/core/llms/base_llm.py#BaseModel.check_system_prompt",
+      "label": "Method",
+      "name": "check_system_prompt",
+      "signature": "check_system_prompt(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]"
+    },
+    {
+      "id": "/ai/core/llms/base_llm.py#BaseModel.chat",
+      "label": "Method",
+      "name": "chat",
+      "signature": "chat(messages: list, images: list = [], stream: bool = True, options: object = {})"
+    },
+    {
+      "id": "/ai/core/llms/base_llm.py#BaseModel.generate_structured",
+      "label": "Method",
+      "name": "generate_structured",
+      "signature": "generate_structured(messages: list, schema: object, images: list = [], options: object = {})"
+    },
+    {
+      "id": "/ai/core/llms/base_llm.py#handle_sentinel",
+      "label": "Method",
+      "name": "handle_sentinel",
+      "signature": "handle_sentinel(content: str, is_intercepting: bool, sentinel_buffer: str)"
+    },
+    {
+      "id": "/ai/core/llms/base_llm.py#init_pytorch_cuda",
+      "label": "Method",
+      "name": "init_pytorch_cuda",
+      "signature": "init_pytorch_cuda() -> None"
+    },
+    {
+      "id": "/ai/core/llms/base_llm.py#_prepare_input",
+      "label": "Method",
+      "name": "_prepare_input",
+      "signature": "_prepare_input(messages: List[Dict[str, Any]]) -> pt.Tensor"
+    },
+    {
+      "id": "/ai/core/llms/base_llm.py#add_event",
+      "label": "Method",
+      "name": "add_event",
+      "signature": "add_event(event_name: str, listener: Callable) -> None"
+    },
+    {
+      "id": "/ai/core/llms/base_llm.py#trigger",
+      "label": "Method",
+      "name": "trigger",
+      "signature": "trigger(event_name: str, data: Any = None) -> None"
+    },
+    {
+      "id": "/ai/core/llms/base_llm.py#clean_cache",
+      "label": "Method",
+      "name": "clean_cache",
+      "signature": "clean_cache() -> None"
+    },
+    {
+      "id": "/ai/core/llms/base_llm.py#is_gpu_available",
+      "label": "Method",
+      "name": "is_gpu_available",
+      "signature": "is_gpu_available() -> bool"
+    },
+    {
+      "id": "/ai/core/llms/base_llm.py#request_shutdown",
+      "label": "Method",
+      "name": "request_shutdown",
+      "signature": "request_shutdown() -> None"
+    },
+    {
+      "id": "/ai/core/llms/base_llm.py#join_generation_thread",
+      "label": "Method",
+      "name": "join_generation_thread",
+      "signature": "join_generation_thread(timeout: float = 0.0) -> None"
+    },
+    {
+      "id": "/ai/core/llms/base_llm.py#unload",
+      "label": "Method",
+      "name": "unload",
+      "signature": "unload() -> None"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/core/llms/base_llm.py",
+      "target": "/ai/core/llms/base_llm.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/core/llms/base_llm.py",
+      "target": "/ai/config.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/core/llms/base_llm.py",
+      "target": "/ai/config.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/core/llms/base_llm.py",
+      "target": "/ai/functions.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/core/llms/base_llm.py",
+      "target": "/ai/entities/model_enums.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/core/llms/base_llm.py",
+      "target": "/ai/tools/tool_registry.md",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "torch"
+    ],
+    "has_side_effects": true
+  }
+}

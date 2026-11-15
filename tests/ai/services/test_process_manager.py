@@ -130,3 +130,32 @@ def test_list_instances_keeps_unlocked_file_of_live_process(tmp_path):
 
 def test_list_instances_missing_directory(tmp_path):
     assert ProcessManager.list_instances(str(tmp_path / "nope")) == []
+
+
+def test_registry_works_without_fcntl(tmp_path, monkeypatch):
+    """Windows has no fcntl: start, list and shutdown still work (liveness via the PID only)."""
+    import ai.services.process_manager as pm
+    monkeypatch.setattr(pm, "fcntl", None)
+
+    manager = ProcessManager(DummyDirectoryManager(tmp_path))
+    ProcessManager.set_state("mode", "chat")
+    manager.start()
+
+    dead = subprocess.Popen([sys.executable, "-c", "pass"])
+    dead.wait()
+    stale = tmp_path / "pids" / f"{dead.pid}.pid"
+    stale.write_text("pid: 1\n")
+
+    instances = ProcessManager.list_instances(str(tmp_path / "pids"))
+    assert [i["pid"] for i in instances] == [str(manager.process_id)]
+    assert not stale.exists()
+    manager.shutdown()
+
+
+def test_windows_liveness_never_calls_os_kill(monkeypatch):
+    """On Windows os.kill(pid, 0) would terminate the process: it must never be used there."""
+    import ai.services.process_manager as pm
+    monkeypatch.setattr(pm.os, "name", "nt")
+    monkeypatch.setattr(pm, "_windows_process_running", lambda pid: True)
+    monkeypatch.setattr(pm.os, "kill", lambda *a: (_ for _ in ()).throw(AssertionError("os.kill used")))
+    assert ProcessManager.is_process_running(12345) is True

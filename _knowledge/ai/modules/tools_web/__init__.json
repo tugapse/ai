@@ -1,0 +1,50 @@
+{
+  "component": {
+    "name": "tools_web",
+    "source_path": "/ai/modules/tools_web/__init__.py",
+    "doc_path": "/ai/modules/tools_web/__init__.json",
+    "type": "module"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module serves as the primary entry point for web-related functionalities, aggregating web search and page reading capabilities into a cohesive unit. It encapsulates the logic to instantiate and provide a standardized ToolModule instance to the core AI engine. Architecturally, it acts as a service layer, abstracting complex data retrieval mechanisms for higher-level controllers. It is designed to be enabled or disabled via the TOOLS_WEB_ENABLED configuration."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/tools_web/__init__.py#ToolModule",
+      "label": "Type",
+      "name": "ToolModule",
+      "signature": "N/A"
+    },
+    {
+      "id": "/ai/modules/tools_web/__init__.py#TOOLS",
+      "label": "Variable",
+      "name": "TOOLS",
+      "signature": "list[callable]"
+    },
+    {
+      "id": "/ai/modules/tools_web/__init__.py#create_module",
+      "label": "Function",
+      "name": "create_module",
+      "signature": "create_module() -> ToolModule"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/tools_web/__init__.py",
+      "target": "/ai/modules/base_module.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/tools_web/__init__.py",
+      "target": "/ai/modules/tools_web/tools.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [
+      "TOOLS_WEB_ENABLED"
+    ],
+    "external_dependencies": [],
+    "has_side_effects": false
+  }
+}

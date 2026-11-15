@@ -1,0 +1,79 @@
+{
+  "component": {
+    "name": "Events",
+    "source_path": "/ai/core/events.py",
+    "doc_path": "/ai/core/events.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "This component implements a centralized, publish-subscribe event management system for the AI architecture. It allows decoupled communication by managing the registration, triggering, and removal of listeners for specific events. The core functionality relies on an internal dictionary mapping event names to lists of callback functions. It serves as a crucial service layer, enabling non-blocking reactions to system state changes across various subsystems."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/core/events.py#Events",
+      "label": "Class",
+      "name": "Events",
+      "signature": "class Events:"
+    },
+    {
+      "id": "/ai/core/events.py#Events.terminate",
+      "label": "Variable",
+      "name": "terminate",
+      "signature": "terminate (bool)"
+    },
+    {
+      "id": "/ai/core/events.py#Events.running_command",
+      "label": "Variable",
+      "name": "running_command",
+      "signature": "running_command (bool)"
+    },
+    {
+      "id": "/ai/core/events.py#Events.events",
+      "label": "Variable",
+      "name": "events",
+      "signature": "events (dict)"
+    },
+    {
+      "id": "/ai/core/events.py#Events.__init__",
+      "label": "Method",
+      "name": "__init__",
+      "signature": "def __init__(self):"
+    },
+    {
+      "id": "/ai/core/events.py#Events._register_event",
+      "label": "Method",
+      "name": "_register_event",
+      "signature": "def _register_event(self, event_name: str):"
+    },
+    {
+      "id": "/ai/core/events.py#Events._unregister_event",
+      "label": "Method",
+      "name": "_unregister_event",
+      "signature": "def _unregister_event(self, event_name: str):"
+    },
+    {
+      "id": "/ai/core/events.py#Events.trigger",
+      "label": "Method",
+      "name": "trigger",
+      "signature": "def trigger(self, event_name: str, data=None):"
+    },
+    {
+      "id": "/ai/core/events.py#Events.add_event",
+      "label": "Method",
+      "name": "add_event",
+      "signature": "def add_event(self, event_name: str, listener):"
+    },
+    {
+      "id": "/ai/core/events.py#Events.remove_event",
+      "label": "Method",
+      "name": "remove_event",
+      "signature": "def remove_event(self, event_name: str, listener):"
+    }
+  ],
+  "graph_edges": [],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [],
+    "has_side_effects": false
+  }
+}

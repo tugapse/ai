@@ -148,12 +148,22 @@ class TestCommandHandling:
         mock_chat_dependencies["func"].out.assert_called_with(ANY)
 
     def test_run_command_triggers_event(self, chat_instance: Chat):
-        """Tests that other commands trigger the EVENT_COMMAND_STARTED."""
+        """Tests that other commands trigger the EVENT_COMMAND_STARTED when something listens to it."""
         command_text = "/some_other_command"
+        chat_instance.events[chat_instance.EVENT_COMMAND_STARTED] = [lambda data: None]
         chat_instance.run_command(command_text)
         
         assert chat_instance.running_command is True
         chat_instance.trigger.assert_called_once_with(chat_instance.EVENT_COMMAND_STARTED, command_text)
+
+    def test_unknown_command_without_listener_does_not_block(self, chat_instance: Chat, mock_chat_dependencies):
+        """With no command handler, an unknown command is reported and the prompt comes back."""
+        chat_instance.events.pop(chat_instance.EVENT_COMMAND_STARTED, None)
+        chat_instance.run_command("/nope")
+
+        assert chat_instance.running_command is False
+        chat_instance.trigger.assert_not_called()
+        mock_chat_dependencies["func"].out.assert_called_with(ANY)
 
 class TestChatInteraction:
     def test_send_chat_triggers_event(self, chat_instance: Chat):
@@ -323,16 +333,19 @@ class TestPrefixCompleter:
         assert completions[0].text == '.env'
 
     @patch('ai.chat.chat.os')
-    def test_file_completion_no_match_on_at_only(self, mock_os, completer):
-        """Tests that no completions are returned for just the '@' symbol."""
-        scandir_return = [self._create_mock_entry('main.py', is_dir=False)]
+    def test_file_completion_lists_folder_on_at_only(self, mock_os, completer):
+        """A bare '@' lists the current folder: folders first, hidden entries skipped."""
+        scandir_return = [
+            self._create_mock_entry('main.py', is_dir=False),
+            self._create_mock_entry('.git', is_dir=True),
+            self._create_mock_entry('src', is_dir=True),
+        ]
         self._setup_mock_os(mock_os, scandir_return=scandir_return)
 
         doc = Document('@', cursor_position=1)
-        event = CompleteEvent()
-        completions = list(completer.get_completions(doc, event))
+        completions = list(completer.get_completions(doc, CompleteEvent()))
 
-        assert len(completions) == 0
+        assert [c.text for c in completions] == ['src/', 'main.py']
 
     @patch('ai.chat.chat.os')
     def test_file_completion_permission_error(self, mock_os, completer):

@@ -1,0 +1,97 @@
+{
+  "component": {
+    "name": "Chat",
+    "source_path": "/ai/chat/chat.py",
+    "doc_path": "/ai/chat/chat.json",
+    "type": "controller"
+  },
+  "vector_memory": {
+    "semantic_summary": "The Chat component serves as the primary conversational controller, managing the entire dialogue lifecycle, state, and user interaction loop via prompt_toolkit. It orchestrates workflows by differentiating between standard chat messages, defined commands (e.g., /clear), and agent task activation (/agent). It handles complex inputs by staging file attachments (@) and triggering events like EVENT_CHAT_SENT or EVENT_AGENT_RUN_REQUESTED to specialized services."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/chat/chat.py#ChatRoles",
+      "label": "Class",
+      "name": "ChatRoles",
+      "signature": "N/A"
+    },
+    {
+      "id": "/ai/chat/chat.py#PrefixCompleter",
+      "label": "Class",
+      "name": "PrefixCompleter",
+      "signature": "def __init__(self, commands: list[str]):"
+    },
+    {
+      "id": "/ai/chat/chat.py#Chat",
+      "label": "Class",
+      "name": "Chat",
+      "signature": "def __init__(self, commands: Optional[list[str]] = None, agents: Optional[list[str]] = None):"
+    },
+    {
+      "id": "/ai/chat/chat.py#Chat.update_suggestions",
+      "label": "Method",
+      "name": "update_suggestions",
+      "signature": "def update_suggestions(self, commands: Optional[list[str]] = None, agents: Optional[list[str]] = None):"
+    },
+    {
+      "id": "/ai/chat/chat.py#Chat.loop",
+      "label": "Method",
+      "name": "loop",
+      "signature": "def loop(self):"
+    },
+    {
+      "id": "/ai/chat/chat.py#Chat.send_chat",
+      "label": "Method",
+      "name": "send_chat",
+      "signature": "def send_chat(self, message_content: str):"
+    },
+    {
+      "id": "/ai/chat/chat.py#Chat.run_command",
+      "label": "Method",
+      "name": "run_command",
+      "signature": "def run_command(self, message):"
+    },
+    {
+      "id": "/ai/chat/chat.py#Chat.terminate_chat",
+      "label": "Method",
+      "name": "terminate_chat",
+      "signature": "def terminate_chat(self):"
+    },
+    {
+      "id": "/ai/chat/chat.py#PrefixCompleter.get_completions",
+      "label": "Method",
+      "name": "get_completions",
+      "signature": "def get_completions(self, document, complete_event):"
+    },
+    {
+      "id": "/ai/chat/chat.py#PrefixCompleter._file_completion",
+      "label": "Method",
+      "name": "_file_completion",
+      "signature": "def _file_completion(self, query: str):"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/chat/chat.py",
+      "target": "/ai/functions.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/chat/chat.py",
+      "target": "/ai/core/events.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/chat/chat.py",
+      "target": "/ai/core/llms/base_llm.md",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "prompt_toolkit"
+    ],
+    "has_side_effects": true
+  }
+}

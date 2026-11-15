@@ -9,7 +9,6 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-import ai.program  # noqa: F401  (startup import order, avoids a circular import)
 from ai.core.llms import api_retry as R
 from ai.core.llms.api_retry import LLMAPIError, RetryPolicy, call_with_retry, is_transient, stream_with_retry
 from google.genai import errors as genai_errors

@@ -1,0 +1,26 @@
+{
+  "component": {
+    "name": "__init__",
+    "source_path": "/ai/modules/voice/__init__.py",
+    "doc_path": "/ai/modules/voice/__init__.json",
+    "type": "module"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module serves as the primary package initialization point for all voice-related functionalities within the AI system. It functions as a high-level namespace controller, organizing and exposing the interfaces provided by specific voice sub-modules. Its architectural role is to allow core system services to reliably import and interact with the entire voice stack.",
+    "semantic_summary_2": "The component defines the entry point for voice processing components. It structures the package namespace, facilitating organized access to various voice interaction modules for the core AI services."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/voice/__init__.py#__init__",
+      "label": "Module",
+      "name": "__init__",
+      "signature": "N/A"
+    }
+  ],
+  "graph_edges": [],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [],
+    "has_side_effects": false
+  }
+}

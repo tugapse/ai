@@ -1,5 +1,5 @@
 """
-Agent runs over HTTP: the same pipelines, tasks and tools as ``ai --agent``, driven by a web client.
+Agent runs over HTTP: the same pipelines, tasks and tools as ``ai agent``, driven by a web client.
 
 One run at a time: it shares the server's loaded model. A run is a background thread that
 runs ``AgentOrchestrator.run_loop``; its events go to an append-only log (each with a ``seq``)
@@ -417,6 +417,8 @@ class AgentRunService:
         with self._lock:
             if self.busy:
                 raise AgentApiError(409, "An agent run is already in progress.")
+            if getattr(self.brain_hub, "knowledge_building", False):
+                raise AgentApiError(409, "A knowledge build is using the model; try again when it ends.")
             # Load and claim the model in one step under the hub lock, so no chat swaps it in between.
             with self.brain_hub._lock:
                 if model:

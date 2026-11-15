@@ -1,0 +1,77 @@
+{
+  "component": {
+    "name": "ChatIO",
+    "source_path": "/ai/agents/chat_ui/bridge.py",
+    "doc_path": "/ai/agents/chat_ui/bridge.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "ChatIO acts as a critical Adapter/Facade layer, bridging the asynchronous worker thread with the synchronous/asynchronous chat UI loop. It manages state mutations via LiveState, routes events using the emit method, and handles blocking interactions like permission requests by safely executing UI coroutines from the worker thread. Its primary role is to ensure robust, thread-safe communication and rendering feedback between execution contexts."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/agents/chat_ui/bridge.py#ChatIO",
+      "label": "Class",
+      "name": "ChatIO",
+      "signature": "class ChatIO(AgentIO):"
+    },
+    {
+      "id": "/ai/agents/chat_ui/bridge.py#emit",
+      "label": "Method",
+      "name": "emit",
+      "signature": "def emit(self, event: AgentEvent) -> None:"
+    },
+    {
+      "id": "/ai/agents/chat_ui/bridge.py#on_token",
+      "label": "Method",
+      "name": "on_token",
+      "signature": "def on_token(self, token: str) -> None:"
+    },
+    {
+      "id": "/ai/agents/chat_ui/bridge.py#request_permission",
+      "label": "Method",
+      "name": "request_permission",
+      "signature": "def request_permission(self, tool: str, params: Dict[str, Any]) -> str:"
+    },
+    {
+      "id": "/ai/agents/chat_ui/bridge.py#request_user_input",
+      "label": "Method",
+      "name": "request_user_input",
+      "signature": "def request_user_input(self, agent: str, prompt: str) -> str:"
+    },
+    {
+      "id": "/ai/agents/chat_ui/bridge.py#_drain_output",
+      "label": "Method",
+      "name": "_drain_output",
+      "signature": "def _drain_output() -> None:"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/agents/chat_ui/bridge.py",
+      "target": "/ai/agents/agent_io.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/chat_ui/bridge.py",
+      "target": "/ai/agents/chat_ui/renderer.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/chat_ui/bridge.py",
+      "target": "/ai/agents/agent_io.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "asyncio",
+      "concurrent.futures",
+      "sys",
+      "time",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

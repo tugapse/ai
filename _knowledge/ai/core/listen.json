@@ -1,0 +1,95 @@
+{
+  "component": {
+    "name": "Microphone",
+    "source_path": "/ai/core/listen.py",
+    "doc_path": "/ai/core/listen.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "The Microphone class serves as a dedicated service layer for capturing raw audio input from a hardware microphone. It manages the PyAudio interface, running the capture process in an internal thread to record audio chunks for a specified duration. Its core responsibility is to provide the raw audio frames, which can then be saved to a WAV file or passed to a callback for further AI processing."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/core/listen.py#Microphone",
+      "label": "Class",
+      "name": "Microphone",
+      "signature": "class Microphone(AsyncExecutor):"
+    },
+    {
+      "id": "/ai/core/listen.py#__init__",
+      "label": "Method",
+      "name": "__init__",
+      "signature": "def __init__(self, max_record_seconds=RECORD_SECONDS, start_recording_text=\"Start recording...\", recording_text=\"{b_ color}* Recording {s_color}{time} : {max_seconds} {b_color}seconds (press enter to stop recording)\", end_recording_text=\"Recording ended.\") -> None:"
+    },
+    {
+      "id": "/ai/core/listen.py#_check_input",
+      "label": "Method",
+      "name": "_check_input",
+      "signature": "def _check_input(self):"
+    },
+    {
+      "id": "/ai/core/listen.py#_run_thread",
+      "label": "Method",
+      "name": "_run_thread",
+      "signature": "def _run_thread(self):"
+    },
+    {
+      "id": "/ai/core/listen.py#run",
+      "label": "Method",
+      "name": "run",
+      "signature": "def run(self, auto_start=True, wait=True, **kargs):"
+    },
+    {
+      "id": "/ai/core/listen.py#start_recording",
+      "label": "Method",
+      "name": "start_recording",
+      "signature": "def start_recording(self, callback=None):"
+    },
+    {
+      "id": "/ai/core/listen.py#stop_recording",
+      "label": "Method",
+      "name": "stop_recording",
+      "signature": "def stop_recording(self):"
+    },
+    {
+      "id": "/ai/core/listen.py#save_as_wave",
+      "label": "Method",
+      "name": "save_as_wave",
+      "signature": "def save_as_wave(self, filename):"
+    },
+    {
+      "id": "/ai/core/listen.py#is_recording",
+      "label": "Method",
+      "name": "is_recording",
+      "signature": "def is_recording(self):"
+    },
+    {
+      "id": "/ai/core/listen.py#output_requested",
+      "label": "Method",
+      "name": "output_requested",
+      "signature": "def output_requested(self):"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/core/listen.py",
+      "target": "/ai/chat/command_executor.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/core/listen.py",
+      "target": "/ai/color.md",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "pyaudio",
+      "wave",
+      "threading",
+      "time"
+    ],
+    "has_side_effects": true
+  }
+}

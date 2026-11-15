@@ -38,22 +38,36 @@ class ChatCommandInterceptor:
             - command_text (str): The text of the command to handle.
         """
         parts = command_text.split()
-        command = parts[0]
-
-        if command in ['/save', '/load', '/list']:
-            # Handle save, load, or list commands
-            if command_text.startswith('/save'):
-                self.save_session(parts[1])
-            elif command_text.startswith('/load'):
-                self.load_session(parts[1])
-            elif command_text.startswith('/list'):
+        command = parts[0] if parts else ""
+        try:
+            if command in ("/save", "/load"):
+                name = self._session_name(parts[1] if len(parts) > 1 else "")
+                if not name:
+                    func.out(f"Usage: {command} NAME", level="WARNING")
+                elif command == "/save":
+                    self.save_session(name)
+                else:
+                    self.load_session(name)
+            elif command == "/list":
                 self.list_sessions()
-        elif command in self.extra_commands:
-            self.handle_extra_command(command_text)
-        else:
-            func.out("Invalid Command")
+            elif command in self.extra_commands:
+                self.handle_extra_command(command_text)
+            else:
+                func.out(f"Unknown command: {command}. Commands: {', '.join(self.COMMANDS)}", level="WARNING")
+        except Exception as e:
+            func.error(f"{command} failed: {e}")
+        finally:
+            self.chat.terminate_command()
 
-        self.chat.terminate_command()
+    COMMANDS = ("/save NAME", "/load NAME", "/list", "/clear", "/agent")
+
+    @staticmethod
+    def _session_name(raw: str) -> str:
+        """A file name inside the sessions folder: no folders ('../x' -> 'x'), '.json' added."""
+        name = os.path.basename((raw or "").strip().replace("\\", "/"))
+        if not name or name in (".", ".."):
+            return ""
+        return name if name.endswith(".json") else f"{name}.json"
     
     def handle_extra_command(self, command:str):
         """
@@ -102,7 +116,10 @@ class ChatCommandInterceptor:
         """
         Lists all chat sessions stored in the root folder.
         """
-        files_list = [file for file in os.listdir(self.root_folder) if os.path.isfile(os.path.join(self.root_folder, file))]
+        if not os.path.isdir(self.root_folder):
+            func.out("No saved chat sessions yet. Save one with /save NAME.")
+            return
+        files_list = sorted(file for file in os.listdir(self.root_folder) if os.path.isfile(os.path.join(self.root_folder, file)))
         func.out("Chat sessions : ")
         for file in files_list:
             func.out(Color.PURPLE + " - " + file + Color.RESET)

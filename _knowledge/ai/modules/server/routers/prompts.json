@@ -1,0 +1,80 @@
+{
+  "component": {
+    "name": "prompts",
+    "source_path": "/ai/modules/server/routers/prompts.py",
+    "doc_path": "/ai/modules/server/routers/prompts.json",
+    "type": "controller"
+  },
+  "vector_memory": {
+    "semantic_summary": "This FastAPI router component manages all API endpoints for user-defined prompts, acting as the primary controller layer for prompt persistence. It exposes CRUD operations for prompts, relying heavily on the `prompt_manager` service to handle filesystem interactions. It translates specific service layer exceptions (like NotFound or InvalidPath) into appropriate HTTP status codes for external clients."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/server/routers/prompts.py#router",
+      "label": "Variable",
+      "name": "router",
+      "signature": "APIRouter()"
+    },
+    {
+      "id": "/ai/modules/server/routers/prompts.py#get_prompts",
+      "label": "Function",
+      "name": "get_prompts",
+      "signature": "async def get_prompts(request: Request, prompt_folder: Optional[str] = None)"
+    },
+    {
+      "id": "/ai/modules/server/routers/prompts.py#get_prompt_content",
+      "label": "Function",
+      "name": "get_prompt_content",
+      "signature": "async def get_prompt_content(request: Request, prompt_path: str)"
+    },
+    {
+      "id": "/ai/modules/server/routers/prompts.py#get_model_configs",
+      "label": "Function",
+      "name": "get_model_configs",
+      "signature": "async def get_model_configs(request: Request, folder: Optional[str] = None)"
+    },
+    {
+      "id": "/ai/modules/server/routers/prompts.py#create_prompt",
+      "label": "Function",
+      "name": "create_prompt",
+      "signature": "async def create_prompt(request: Request, payload: PromptCreateRequest)"
+    },
+    {
+      "id": "/ai/modules/server/routers/prompts.py#update_prompt_content",
+      "label": "Function",
+      "name": "update_prompt_content",
+      "signature": "async def update_prompt_content(request: Request, prompt_path: str, payload: PromptUpdateRequest)"
+    },
+    {
+      "id": "/ai/modules/server/routers/prompts.py#delete_prompt",
+      "label": "Function",
+      "name": "delete_prompt",
+      "signature": "async def delete_prompt(request: Request, prompt_path: str)"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/server/routers/prompts.py",
+      "target": "/ai/modules/server/routers/auth.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/server/routers/prompts.py",
+      "target": "/ai/modules/server/schemas.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/server/routers/prompts.py",
+      "target": "/ai/modules/server/services/prompt_manager.md",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "fastapi",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

@@ -1,0 +1,143 @@
+{
+  "component": {
+    "name": "app",
+    "source_path": "/ai/modules/server/app.py",
+    "doc_path": "/ai/modules/server/app.json",
+    "type": "controller"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module serves as the core bootstrap and orchestration layer for the FastAPI backend API server. It initializes critical application components such as SessionManager, PromptManager, ChatService, and BrainHub, wiring them into the FastAPI application state. It defines public interfaces like chat_completions, health, and model management endpoints, controlling the entire request lifecycle and service interaction for the AI system."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/server/app.py#create_app",
+      "label": "Function",
+      "name": "create_app",
+      "signature": "def create_app(brain_hub: BrainHub, config: Dict[str, Any], modules: Any = None, auth: Any = None) -> FastAPI"
+    },
+    {
+      "id": "/ai/modules/server/app.py#chat_completions",
+      "label": "Function",
+      "name": "chat_completions",
+      "signature": "async def chat_completions(request: Request, payload: ChatCompletionRequest)"
+    },
+    {
+      "id": "/ai/modules/server/app.py#health",
+      "label": "Function",
+      "name": "health",
+      "signature": "async def health(request: Request)"
+    },
+    {
+      "id": "/ai/modules/server/app.py#stats",
+      "label": "Function",
+      "name": "stats",
+      "signature": "async def stats()"
+    },
+    {
+      "id": "/ai/modules/server/app.py#unload_model",
+      "label": "Function",
+      "name": "unload_model",
+      "signature": "async def unload_model(request: Request, device: dict = Depends(require_device))"
+    },
+    {
+      "id": "/ai/modules/server/app.py#shutdown",
+      "label": "Function",
+      "name": "shutdown",
+      "signature": "async def shutdown(background_tasks: BackgroundTasks, device: dict = Depends(require_device))"
+    },
+    {
+      "id": "/ai/modules/server/app.py#SameHostCORSMiddleware",
+      "label": "Class",
+      "name": "SameHostCORSMiddleware",
+      "signature": "class SameHostCORSMiddleware(CORSMiddleware):"
+    },
+    {
+      "id": "/ai/modules/server/app.py#_allowed_origins",
+      "label": "Function",
+      "name": "_allowed_origins",
+      "signature": "def _allowed_origins(config) -> list"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/server/app.py",
+      "target": "/ai/modules/server/services/session_manager.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/app.py",
+      "target": "/ai/modules/server/services/prompt_manager.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/app.py",
+      "target": "/ai/modules/server/services/chat.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/app.py",
+      "target": "/ai/modules/server/brain_hub.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/app.py",
+      "target": "/ai/modules/server/services/auth.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/app.py",
+      "target": "/ai/modules/server/services/agent_runs.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/app.py",
+      "target": "/ai/modules/server/routers/sessions.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/app.py",
+      "target": "/ai/modules/server/routers/prompts.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/app.py",
+      "target": "/ai/modules/server/routers/agent.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/app.py",
+      "target": "/ai/modules/server/routers/auth.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/app.py",
+      "target": "/ai/modules/server/schemas.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/app.py",
+      "target": "/ai/modules/server/middleware.md",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/modules/server/app.py",
+      "target": "/ai/modules/server/services/frontend.md",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "pathlib",
+      "json",
+      "asyncio",
+      "contextvars",
+      "urllib.parse",
+      "fastapi",
+      "fastapi.staticfiles",
+      "fastapi.middleware.cors",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

@@ -1,0 +1,251 @@
+{
+  "component": {
+    "name": "CliArgs",
+    "source_path": "/ai/cli_args.py",
+    "doc_path": "/ai/cli_args.json",
+    "type": "controller"
+  },
+  "vector_memory": {
+    "semantic_summary": "CliArgs is the primary command-line interface (CLI) dispatcher for the JARVIS application, acting as the central orchestrator for system initialization and mode routing. It analyzes user arguments to determine if the application should run as a Server (BrainHub), a Client (Agent), or a Standalone mode. It coordinates various services like DirectoryManager and ProgramConfig to bootstrap the correct execution context, managing complex workflows such as tool creation, server startup, and agent session management."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/cli_args.py#CliArgs",
+      "label": "Class",
+      "name": "CliArgs",
+      "signature": "N/A"
+    },
+    {
+      "id": "/ai/cli_args.py#parse_args",
+      "label": "Method",
+      "name": "parse_args",
+      "signature": "def parse_args(self, prog, args, args_parser: argparse.ArgumentParser, directory_manager: DirectoryManager) -> None"
+    },
+    {
+      "id": "/ai/cli_args.py#_check_nhandle_frontend",
+      "label": "Method",
+      "name": "_check_nhandle_frontend",
+      "signature": "def _check_nhandle_frontend(self, args)"
+    },
+    {
+      "id": "/ai/cli_args.py#_check_nhandle_totp_setup",
+      "label": "Method",
+      "name": "_check_nhandle_totp_setup",
+      "signature": "def _check_nhandle_totp_setup(self, args)"
+    },
+    {
+      "id": "/ai/cli_args.py#_check_nhandle_create_tool",
+      "label": "Method",
+      "name": "_check_nhandle_create_tool",
+      "signature": "def _check_nhandle_create_tool(self, args, directory_manager: DirectoryManager)"
+    },
+    {
+      "id": "/ai/cli_args.py#_handle_server_mode",
+      "label": "Method",
+      "name": "_handle_server_mode",
+      "signature": "def _handle_server_mode(self, prog:Program, args)"
+    },
+    {
+      "id": "/ai/cli_args.py#_handle_local_direct_mode",
+      "label": "Method",
+      "name": "_handle_local_direct_mode",
+      "signature": "def _handle_local_direct_mode(self, prog, args,directory_manager:DirectoryManager)"
+    },
+    {
+      "id": "/ai/cli_args.py#_handle_agent_mode",
+      "label": "Method",
+      "name": "_handle_agent_mode",
+      "signature": "def _handle_agent_mode(self, prog:Program, args, directory_manager:DirectoryManager)"
+    },
+    {
+      "id": "/ai/cli_args.py#_resolve_resume_session",
+      "label": "Method",
+      "name": "_resolve_resume_session",
+      "signature": "def _resolve_resume_session(self, args) -> Optional[str]"
+    },
+    {
+      "id": "/ai/cli_args.py#_handle_agent_chat",
+      "label": "Method",
+      "name": "_handle_agent_chat",
+      "signature": "def _handle_agent_chat(self, prog: Program, args, directory_manager: DirectoryManager, pipeline_path: str)"
+    },
+    {
+      "id": "/ai/cli_args.py#_check_nhandle_config_generation",
+      "label": "Method",
+      "name": "_check_nhandle_config_generation",
+      "signature": "def _check_nhandle_config_generation(self, prog, args, parser: argparse.ArgumentParser, directory_manager: DirectoryManager)"
+    },
+    {
+      "id": "/ai/cli_args.py#_is_print_chat",
+      "label": "Method",
+      "name": "_is_print_chat",
+      "signature": "def _is_print_chat(self, args)"
+    },
+    {
+      "id": "/ai/cli_args.py#_is_install",
+      "label": "Method",
+      "name": "_is_install",
+      "signature": "def _is_install(self, args)"
+    },
+    {
+      "id": "/ai/cli_args.py#_is_list_models",
+      "label": "Method",
+      "name": "_is_list_models",
+      "signature": "def _is_list_models(self, args)"
+    },
+    {
+      "id": "/ai/cli_args.py#_has_output_files",
+      "label": "Method",
+      "name": "_has_output_files",
+      "signature": "def _has_output_files(self, prog, args)"
+    },
+    {
+      "id": "/ai/cli_args.py#_has_folder",
+      "label": "Method",
+      "name": "_has_folder",
+      "signature": "def _has_folder(self, prog, args)"
+    },
+    {
+      "id": "/ai/cli_args.py#_has_file",
+      "label": "Method",
+      "name": "_has_file",
+      "signature": "def _has_file(self, prog, args)"
+    },
+    {
+      "id": "/ai/cli_args.py#_has_image",
+      "label": "Method",
+      "name": "_has_image",
+      "signature": "def _has_image(self, prog, args)"
+    },
+    {
+      "id": "/ai/cli_args.py#_has_task_file",
+      "label": "Method",
+      "name": "_has_task_file",
+      "signature": "def _has_task_file(self, prog, args)"
+    },
+    {
+      "id": "/ai/cli_args.py#_has_task",
+      "label": "Method",
+      "name": "_has_task",
+      "signature": "def _has_task(self, prog, args)"
+    },
+    {
+      "id": "/ai/cli_args.py#_has_message",
+      "label": "Method",
+      "name": "_has_message",
+      "signature": "def _has_message(self, prog, args)"
+    },
+    {
+      "id": "/ai/cli_args.py#_check_nhandle_list_sessions",
+      "label": "Method",
+      "name": "_check_nhandle_list_sessions",
+      "signature": "def _check_nhandle_list_sessions(self, args)"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/cli_args.py",
+      "target": "/ai/cli_args.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/cli_args.py",
+      "target": "/ai/agents/session_manager.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/cli_args.py",
+      "target": "/ai/modules/server/brain_hub.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/cli_args.py",
+      "target": "/ai/services/directory_manager.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/cli_args.py",
+      "target": "/ai/config.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/cli_args.py",
+      "target": "/ai/agents/agent.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/cli_args.py",
+      "target": "/ai/tools/tool_loader.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/cli_args.py",
+      "target": "/ai/functions.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/cli_args.py",
+      "target": "/ai/core/llms/base_llm.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/cli_args.py",
+      "target": "/ai/direct.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/cli_args.py",
+      "target": "/ai/stdin_reader.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/cli_args.py",
+      "target": "/ai/modules/server/services/frontend.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/cli_args.py",
+      "target": "/ai/modules/server/services/auth.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/cli_args.py",
+      "target": "/ai/modules/server/services/totp.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/cli_args.py",
+      "target": "/ai/program.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/cli_args.py",
+      "target": "/ai/services/process_manager.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/cli_args.py",
+      "target": "/ai/model_config_manager.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/cli_args.py",
+      "target": "/ai/entities/model_enums.md",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "argparse",
+      "subprocess",
+      "pathlib",
+      "uuid",
+      "traceback",
+      "re",
+      "json",
+      "qrcode"
+    ],
+    "has_side_effects": true
+  }
+}

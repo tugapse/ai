@@ -1,0 +1,56 @@
+{
+  "component": {
+    "name": "HandlerManager",
+    "source_path": "/ai/extras/handler_manager.py",
+    "doc_path": "/ai/extras/handler_manager.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "The HandlerManager orchestrates the token processing pipeline, acting as a gatekeeper between core logic and the presentation layer. Its primary role is to manage the AI's 'Thinking' state by delegating token analysis to the ThinkingAnimationHandler. If the handler detects an ongoing thought process, the manager suppresses the output to the user interface. It relies on the ThinkingLogManager for state logging and controls display based on initialization parameters."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/extras/handler_manager.py#HandlerManager",
+      "label": "Class",
+      "name": "HandlerManager",
+      "signature": "class HandlerManager:"
+    },
+    {
+      "id": "/ai/extras/handler_manager.py#__init__",
+      "label": "Method",
+      "name": "__init__",
+      "signature": "def __init__(self, log_manager: ThinkingLogManager, thinking_mode: str = \"progressbar\", enable_thinking_display: bool = True, show_thinking_animation: bool = False)"
+    },
+    {
+      "id": "/ai/extras/handler_manager.py#process_token_chain",
+      "label": "Method",
+      "name": "process_token_chain",
+      "signature": "def process_token_chain(self, initial_token: str) -> Tuple[bool, str, Optional[str]]:"
+    },
+    {
+      "id": "/ai/extras/handler_manager.py#self.thinking_handler",
+      "label": "Variable",
+      "name": "self.thinking_handler",
+      "signature": "ThinkingAnimationHandler"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/extras/handler_manager.py",
+      "target": "/ai/extras/think_parser.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/extras/handler_manager.py",
+      "target": "/ai/extras/thinking_log_manager.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

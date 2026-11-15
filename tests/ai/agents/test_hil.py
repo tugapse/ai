@@ -5,7 +5,6 @@ import time
 
 import pytest
 
-import ai.program  # noqa: F401  (startup import order, avoids a circular import)
 from ai.config import ProgramConfig, ProgramSetting
 from ai.agents.agent_io import AgentEventType, PERMISSION_YES, PERMISSION_NO
 from ai.agents.tool_preview import describe_tool_request
@@ -37,6 +36,12 @@ class TestNonInteractiveCommands:
         result = agent_tools.execute_command(command="cat /dev/tty", path="@ROOT", timeout=10)
         assert time.monotonic() - start < 5
         assert result["status"] == "FAILED"
+
+    def test_messages_in_english_whatever_the_locale(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("LC_ALL", "pt_PT.UTF-8")
+        monkeypatch.setenv("LANGUAGE", "pt_PT:pt")
+        result = agent_tools.execute_command(command="echo $LC_MESSAGES-$LC_ALL-$LANGUAGE-$LANG", path="@ROOT")
+        assert result["stdout"].strip() == "C---pt_PT.UTF-8"
 
     def test_pager_and_editor_env(self, tmp_path):
         result = agent_tools.execute_command(command="echo $GIT_PAGER $PAGER $GIT_EDITOR $GIT_TERMINAL_PROMPT", path="@ROOT")
@@ -82,6 +87,56 @@ PIPELINE = {
         "prompt_file_path": "m.md",
     }},
 }
+
+
+class TestOneShotHilTools:
+    """The pipeline's oneshot_hil_tools: the only tools that need approval in one-shot runs."""
+
+    PIPE = {**PIPELINE, "oneshot_hil_tools": ["execute_command"]}
+    STEPS = [
+        {"action": {"tool_name": "write_file", "tool_parameters": {"path": "a.txt", "content": "x"}}},
+        {"action": {"tool_name": "execute_command", "tool_parameters": {"command": "git tag v1"}}},
+        {"action": {"agent_target": "STOP"}},
+    ]
+
+    def _io(self, can_ask, permission=PERMISSION_YES):
+        io = RecordingIO(permission=permission)
+        io.one_shot, io.can_ask_permission = True, can_ask
+        return io
+
+    def test_listed_tool_stops_the_run_without_a_terminal(self, hil_tools):
+        hil_tools(["execute_command", "write_file"])
+        io = self._io(can_ask=False)
+        orch, conn, reg = make_orchestrator(list(self.STEPS), io=io, pipeline=self.PIPE)
+        result = orch.run_loop("go", "s-os1")
+        assert result.reason == "awaiting_user" and "approval" in result.message
+        assert [n for n, _ in reg.executed] == ["write_file"]   # not listed: ran without asking
+        assert io.permission_requests == []
+        statuses = [e.data["result"]["status"] for e in io.events if e.type == AgentEventType.TOOL_RESULT]
+        assert statuses[-1] == "NEEDS_APPROVAL"
+        assert len(conn.requests) == 2  # stopped right there
+
+    def test_listed_tool_asks_with_a_terminal(self, hil_tools):
+        hil_tools([])
+        io = self._io(can_ask=True)
+        orch, _, reg = make_orchestrator(list(self.STEPS), io=io, pipeline=self.PIPE)
+        assert orch.run_loop("go", "s-os2").reason == "done"
+        assert [t for t, _ in io.permission_requests] == ["execute_command"]
+        assert [n for n, _ in reg.executed] == ["write_file", "execute_command"]
+
+    def test_without_the_key_hil_tools_still_applies(self, hil_tools):
+        hil_tools(["write_file"])
+        io = self._io(can_ask=True)
+        orch, _, _ = make_orchestrator(list(self.STEPS), io=io, pipeline=PIPELINE)
+        orch.run_loop("go", "s-os3")
+        assert [t for t, _ in io.permission_requests] == ["write_file"]
+
+    def test_ignored_outside_one_shot(self, hil_tools):
+        hil_tools(["write_file"])
+        io = RecordingIO(permission=PERMISSION_YES)  # the interactive chat
+        orch, _, _ = make_orchestrator(list(self.STEPS), io=io, pipeline=self.PIPE)
+        orch.run_loop("go", "s-os4")
+        assert [t for t, _ in io.permission_requests] == ["write_file"]
 
 
 class TestHilToolsSetting:
@@ -242,3 +297,11 @@ def test_tool_with_user_target_still_runs():
     result = orch.run_loop("go", "s-user-tool")
     assert result.reason == "awaiting_user"
     assert reg.executed == [("read_file", {"path": "a"})]
+
+
+def test_wrapper_tags_are_stripped_from_reply():
+    from ai.agents.agent_orchestrator import _strip_wrapper_tags
+    assert _strip_wrapper_tags("<response_to_user>\nAll done.\n</response_to_user>") == "All done."
+    assert _strip_wrapper_tags(None) == ""
+    assert _strip_wrapper_tags("<CDATA[\nFailed.\n]]>") == "Failed."
+    assert _strip_wrapper_tags("<![CDATA[ok]]>") == "ok"

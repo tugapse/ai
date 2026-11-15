@@ -1,0 +1,18 @@
+{
+  "component": {
+    "name": "__init__",
+    "source_path": "/ai/modules/__init__.py",
+    "doc_path": "/ai/modules/__init__.json",
+    "type": "module"
+  },
+  "vector_memory": {
+    "semantic_summary": "This component acts as the package initializer for the ai/modules directory, serving as a central entry point for core AI functionalities. Its primary architectural role is to consolidate and expose specialized services from various sub-modules. It facilitates clean imports for higher-level components, abstracting the granular internal structure of individual AI modules."
+  },
+  "graph_nodes": [],
+  "graph_edges": [],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [],
+    "has_side_effects": false
+  }
+}

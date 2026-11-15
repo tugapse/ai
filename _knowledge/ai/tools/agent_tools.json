@@ -1,0 +1,144 @@
+{
+  "component": {
+    "name": "agent_tools",
+    "source_path": "/ai/tools/agent_tools.py",
+    "doc_path": "/ai/tools/agent_tools.json",
+    "type": "module"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module acts as a backward-compatibility shim, maintaining legacy import patterns for built-in tools and the PROJECT_ROOT variable. It aggregates functionality from specialized, modern tool modules (filesystem, search, shell, web, notify) into a centralized registry, AVAILABLE_TOOLS. It also implements _CompatModule to intercept and forward PROJECT_ROOT state changes for older consumers, ensuring application continuity during migration."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/tools/agent_tools.py#_CompatModule",
+      "label": "Class",
+      "name": "_CompatModule",
+      "signature": "class _CompatModule(types.ModuleType):"
+    },
+    {
+      "id": "/ai/tools/agent_tools.py#PROJECT_ROOT",
+      "label": "Variable",
+      "name": "PROJECT_ROOT",
+      "signature": "property PROJECT_ROOT"
+    },
+    {
+      "id": "/ai/tools/agent_tools.py#AVAILABLE_TOOLS",
+      "label": "Variable",
+      "name": "AVAILABLE_TOOLS",
+      "signature": "AVAILABLE_TOOLS = {fn.__name__: fn for fn in (...)}"
+    },
+    {
+      "id": "/ai/tools/agent_tools.py#read_dir",
+      "label": "Function",
+      "name": "read_dir",
+      "signature": "read_dir()"
+    },
+    {
+      "id": "/ai/tools/agent_tools.py#read_file",
+      "label": "Function",
+      "name": "read_file",
+      "signature": "read_file()"
+    },
+    {
+      "id": "/ai/tools/agent_tools.py#read_files",
+      "label": "Function",
+      "name": "read_files",
+      "signature": "read_files()"
+    },
+    {
+      "id": "/ai/tools/agent_tools.py#write_file",
+      "label": "Function",
+      "name": "write_file",
+      "signature": "write_file()"
+    },
+    {
+      "id": "/ai/tools/agent_tools.py#patch_file",
+      "label": "Function",
+      "name": "patch_file",
+      "signature": "patch_file()"
+    },
+    {
+      "id": "/ai/tools/agent_tools.py#delete_file",
+      "label": "Function",
+      "name": "delete_file",
+      "signature": "delete_file()"
+    },
+    {
+      "id": "/ai/tools/agent_tools.py#smart_search",
+      "label": "Function",
+      "name": "smart_search",
+      "signature": "smart_search()"
+    },
+    {
+      "id": "/ai/tools/agent_tools.py#grep_file",
+      "label": "Function",
+      "name": "grep_file",
+      "signature": "grep_file()"
+    },
+    {
+      "id": "/ai/tools/agent_tools.py#execute_command",
+      "label": "Function",
+      "name": "execute_command",
+      "signature": "execute_command()"
+    },
+    {
+      "id": "/ai/tools/agent_tools.py#web_search",
+      "label": "Function",
+      "name": "web_search",
+      "signature": "web_search()"
+    },
+    {
+      "id": "/ai/tools/agent_tools.py#web_read",
+      "label": "Function",
+      "name": "web_read",
+      "signature": "web_read()"
+    },
+    {
+      "id": "/ai/tools/agent_tools.py#send_notification",
+      "label": "Function",
+      "name": "send_notification",
+      "signature": "send_notification()"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/tools/agent_tools.py",
+      "target": "/ai/tools/base.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/tools/agent_tools.py",
+      "target": "/ai/modules/tools_filesystem/tools.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/tools/agent_tools.py",
+      "target": "/ai/modules/tools_search/tools.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/tools/agent_tools.py",
+      "target": "/ai/modules/tools_shell/tools.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/tools/agent_tools.py",
+      "target": "/ai/modules/tools_web/tools.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/tools/agent_tools.py",
+      "target": "/ai/modules/tools_notify/tools.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "subprocess",
+      "sys",
+      "types"
+    ],
+    "has_side_effects": true
+  }
+}

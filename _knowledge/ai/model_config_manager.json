@@ -1,0 +1,77 @@
+{
+  "component": {
+    "name": "ModelConfigManager",
+    "source_path": "/ai/model_config_manager.py",
+    "doc_path": "/ai/model_config_manager.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "ModelConfigManager serves as the core configuration service for managing model settings within the AI infrastructure. It centralizes the lifecycle of model configurations, providing standardized methods to generate defaults for various model types (Ollama, Causal LM, GGUF). The class handles file I/O for loading and saving configurations using JSON serialization, ensuring consistent parameter management across different model architectures."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/model_config_manager.py#ModelConfigManager",
+      "label": "Class",
+      "name": "ModelConfigManager",
+      "signature": "class ModelConfigManager:"
+    },
+    {
+      "id": "/ai/model_config_manager.py#generate_default_config",
+      "label": "Static Method",
+      "name": "generate_default_config",
+      "signature": "generate_default_config(model_name: str, model_type: ModelType) -> dict"
+    },
+    {
+      "id": "/ai/model_config_manager.py#load_config",
+      "label": "Static Method",
+      "name": "load_config",
+      "signature": "load_config(filepath: str) -> dict"
+    },
+    {
+      "id": "/ai/model_config_manager.py#save_config",
+      "label": "Static Method",
+      "name": "save_config",
+      "signature": "save_config(config: dict, filepath: str)"
+    },
+    {
+      "id": "/ai/model_config_manager.py#_generate_gguf_config",
+      "label": "Static Method",
+      "name": "_generate_gguf_config",
+      "signature": "_generate_gguf_config(model_name)"
+    },
+    {
+      "id": "/ai/model_config_manager.py#_generate_causal_lm_config",
+      "label": "Static Method",
+      "name": "_generate_causal_lm_config",
+      "signature": "_generate_causal_lm_config(model_name)"
+    },
+    {
+      "id": "/ai/model_config_manager.py#_generate_ollama_config",
+      "label": "Static Method",
+      "name": "_generate_ollama_config",
+      "signature": "_generate_ollama_config(model_name)"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/model_config_manager.py",
+      "target": "/ai/entities/model_enums.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/model_config_manager.py",
+      "target": "/ai/functions.md",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "json",
+      "os",
+      "sys",
+      "argparse"
+    ],
+    "has_side_effects": true
+  }
+}

@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ai"
-version = "3.8.1"
+version = "3.9.0"
 authors = [
   { name="Fabio Almeida", email="tugapse@gmail.com" },
 ]
 description = "A modular sentinel integrating local agentic reasoning with persistent vector memory."
 readme = "README.md"
 
-requires-python = ">=3.8, <3.14"
+requires-python = ">=3.10, <3.14"
 
 dependencies = [
     "accelerate",
@@ -23,6 +23,8 @@ dependencies = [
     "llama_cpp_python",
     "numpy",
     "ollama",
+    "prompt_toolkit",
+    "pygments",
     "tqdm",
     "transformers",
     "anyio<4.15.0",

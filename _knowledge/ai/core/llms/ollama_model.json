@@ -1,0 +1,82 @@
+{
+  "component": {
+    "name": "OllamaModel",
+    "source_path": "/ai/core/llms/ollama_model.py",
+    "doc_path": "/ai/core/llms/ollama_model.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "OllamaModel serves as the primary service layer for interacting with a local Ollama language model server. It encapsulates the complexity of the `ollama` client, managing model lifecycle, pulling models, and executing both synchronous and streaming chat interactions. It inherits from BaseModel, providing a standardized LLM interface for conversational AI within the application architecture."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/core/llms/ollama_model.py#OllamaModel",
+      "label": "Class",
+      "name": "OllamaModel",
+      "signature": "class OllamaModel(BaseModel):"
+    },
+    {
+      "id": "/ai/core/llms/ollama_model.py#__init__",
+      "label": "Method",
+      "name": "__init__",
+      "signature": "def __init__(self, model_name, system_prompt=\"\", host=None, keep_alive=False,model_params=None,**kargs):"
+    },
+    {
+      "id": "/ai/core/llms/ollama_model.py#join_generation_thread",
+      "label": "Method",
+      "name": "join_generation_thread",
+      "signature": "def join_generation_thread(self, timeout: float = 60.0):"
+    },
+    {
+      "id": "/ai/core/llms/ollama_model.py#chat",
+      "label": "Method",
+      "name": "chat",
+      "signature": "def chat(self, messages: list, images:list[str] = None, stream: bool = True, options: object = {}):"
+    },
+    {
+      "id": "/ai/core/llms/ollama_model.py#_stream_chat",
+      "label": "Method",
+      "name": "_stream_chat",
+      "signature": "def _stream_chat(self, new_messages: list):"
+    },
+    {
+      "id": "/ai/core/llms/ollama_model.py#list",
+      "label": "Method",
+      "name": "list",
+      "signature": "def list(self):"
+    },
+    {
+      "id": "/ai/core/llms/ollama_model.py#pull",
+      "label": "Method",
+      "name": "pull",
+      "signature": "def pull(self, model_name, stream=True):"
+    },
+    {
+      "id": "/ai/core/llms/ollama_model.py#__pull_model",
+      "label": "Method",
+      "name": "__pull_model",
+      "signature": "def __pull_model(self,model_name,ollama_inst):"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/core/llms/ollama_model.py",
+      "target": "/ai/core/llms/base_llm.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/core/llms/ollama_model.py",
+      "target": "/ai/functions.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "ollama",
+      "tqdm",
+      "sys"
+    ],
+    "has_side_effects": true
+  }
+}

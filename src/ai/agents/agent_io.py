@@ -29,7 +29,6 @@ class AgentEventType(str, Enum):
     QUESTION = "question"        # Agent targets USER and wants an answer
     TOOL_CALL = "tool_call"      # A tool is about to run
     TOOL_RESULT = "tool_result"  # A tool finished (or was refused)
-    SPECIALIST = "specialist"    # A specialist sub-model is generating content
     INFO = "info"                # Step / informational log line
     ERROR = "error"              # Something went wrong
 
@@ -57,9 +56,14 @@ class AgentIO:
         blocking_user_input: When True, a USER-targeted question is answered
             inline via ``request_user_input`` and the loop keeps going. When
             False, the loop ends the turn and returns ``awaiting_user`` so the
-            caller can collect the answer as the next chat message.
+            caller can collect the answer as the next chat message. An empty
+            answer ends the turn too.
     """
     blocking_user_input: bool = True
+    # One-shot runs (``ai agent -m``/``-t``) use the pipeline's ``oneshot_hil_tools`` when it has one.
+    one_shot: bool = False
+    # Whether request_permission can actually reach a person.
+    can_ask_permission: bool = True
 
     def emit(self, event: AgentEvent) -> None:
         """Receives an orchestrator event."""
@@ -69,7 +73,7 @@ class AgentIO:
         return PERMISSION_NO
 
     def request_user_input(self, agent: str, prompt: str) -> str:
-        """Asks the user a question and returns the answer (blocking mode only)."""
+        """Asks the user a question and returns the answer (blocking mode only). An empty answer ends the turn."""
         return ""
 
 
@@ -96,9 +100,6 @@ class ConsoleIO(AgentIO):
             # Gated tools were already announced by the authorization box.
             if not event.data.get("gated"):
                 TerminalUI.agent_step(f"Executing tool: {event.data.get('tool')} with params: {event.data.get('params')}")
-        elif t == AgentEventType.SPECIALIST:
-            TerminalUI.clear_line()
-            func.out(f"{Color.NORMAL_CYAN} Specialist: {event.data.get('tool')}{Color.RESET}")
         elif t == AgentEventType.INFO:
             TerminalUI.log_step(event.text, event.data.get("status", "INFO"))
         elif t == AgentEventType.ERROR:
@@ -112,8 +113,8 @@ class ConsoleIO(AgentIO):
         for line in describe_tool_request(tool, params):
             func.out(line)
         func.out(f"{Color.RESET}")
-        choice = input("Allow? ( y / n / (a)ll): ").lower().strip()
-        if choice in ("a", "all"):
+        choice = input("Allow? ( y / n / (a)lways ): ").lower().strip()
+        if choice in ("a", "all", "always"):
             return PERMISSION_ALWAYS
         if choice in ("y", "yes"):
             return PERMISSION_YES

@@ -1,0 +1,45 @@
+{
+  "component": {
+    "name": "PromptLoader",
+    "source_path": "/ai/services/prompt_loader.py",
+    "doc_path": "/ai/services/prompt_loader.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "PromptLoader is a crucial service component responsible for managing the entire lifecycle of system prompt retrieval. It implements a tiered loading strategy, checking explicit configuration paths first, then configured template directories, and finally falling back to hardcoded defaults. It integrates with TemplateInjection to ensure the final prompt is fully processed and ready for the AI pipeline."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/services/prompt_loader.py#PromptLoader",
+      "label": "Class",
+      "name": "PromptLoader",
+      "signature": ""
+    },
+    {
+      "id": "/ai/services/prompt_loader.py#load_system_prompt",
+      "label": "Method",
+      "name": "load_system_prompt",
+      "signature": "load_system_prompt(config: ProgramConfig, system_file_setting: str) -> str"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/services/prompt_loader.py",
+      "target": "/ai/services/prompt_loader.md",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/services/prompt_loader.py",
+      "target": "/ai/core/template_injection.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "os",
+      "pathlib"
+    ],
+    "has_side_effects": true
+  }
+}

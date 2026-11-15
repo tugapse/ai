@@ -1,0 +1,31 @@
+{
+  "component": {
+    "name": "__init__",
+    "source_path": "/ai/core/llms/__init__.py",
+    "doc_path": "/ai/core/llms/__init__.json",
+    "type": "module"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module serves as the entry point for the LLM management subsystem, critically implementing a lazy-loading strategy to prevent CUDA context collisions in PyTorch environments. Its primary role is managing model loading by deferring instantiation of specific model classes. This architectural decision ensures that the LLM service layer can select and load the correct backend model without premature deep learning framework initialization conflicts."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/core/llms/__init__.py#ModelManager",
+      "label": "Class",
+      "name": "ModelManager",
+      "signature": "N/A"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/core/llms/__init__.py",
+      "target": "/ai/core/llms/model_manager.md",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [],
+    "has_side_effects": false
+  }
+}

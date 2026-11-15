@@ -1,0 +1,174 @@
+{
+  "component": {
+    "name": "GGUFImageLLM",
+    "source_path": "/ai/core/llms/gguf_model.py",
+    "doc_path": "/ai/core/llms/gguf_model.json",
+    "type": "class"
+  },
+  "vector_memory": {
+    "semantic_summary": "GGUFImageLLM is the core inference engine responsible for running Large Language Models using the GGUF format via llama-cpp bindings. It manages the entire model lifecycle, including downloading, loading, and safe unloading of weights, while supporting multimodal inputs via vision projectors. It provides standardized chat and resource management APIs, abstracting low-level llama.cpp details for higher-level orchestration."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/core/llms/gguf_model.py#GGUFImageLLM",
+      "label": "Class",
+      "name": "GGUFImageLLM",
+      "signature": "class GGUFImageLLM(BaseModel):"
+    },
+    {
+      "id": "/ai/core/llms/gguf_model.py#_null_log_callback",
+      "label": "Function",
+      "name": "_null_log_callback",
+      "signature": "def _null_log_callback(level, message, user_data):"
+    },
+    {
+      "id": "/ai/core/llms/gguf_model.py#_gpu_oom_in",
+      "label": "Function",
+      "name": "_gpu_oom_in",
+      "signature": "def _gpu_oom_in(log_text: str) -> bool:"
+    },
+    {
+      "id": "/ai/core/llms/gguf_model.py#_load_llm_params",
+      "label": "Method",
+      "name": "_load_llm_params",
+      "signature": "def _load_llm_params(self, **kwargs) -> None:"
+    },
+    {
+      "id": "/ai/core/llms/gguf_model.py#_check_gpu_headroom",
+      "label": "Method",
+      "name": "_check_gpu_headroom",
+      "signature": "def _check_gpu_headroom(self, headroom_mb: int, load_kwargs: dict, model_path: str = \"\") -> None:"
+    },
+    {
+      "id": "/ai/core/llms/gguf_model.py#_generate_in_thread",
+      "label": "Method",
+      "name": "_generate_in_thread",
+      "signature": "def _generate_in_thread(self, messages: List[Dict[str, str]], gen_options: dict, output_queue: queue.Queue):"
+    },
+    {
+      "id": "/ai/core/llms/gguf_model.py#_update_token_metrics",
+      "label": "Method",
+      "name": "_update_token_metrics",
+      "signature": "def _update_token_metrics(self, messages: List[Dict[str, str]], gen_options: dict):"
+    },
+    {
+      "id": "/ai/core/llms/gguf_model.py#get_message_tokens",
+      "label": "Method",
+      "name": "get_message_tokens",
+      "signature": "def get_message_tokens(self, messages: List[Dict[str, str]]) -> int:"
+    },
+    {
+      "id": "/ai/core/llms/gguf_model.py#_download",
+      "label": "Method",
+      "name": "_download",
+      "signature": "def _download(self, filename: str) -> str:"
+    },
+    {
+      "id": "/ai/core/llms/gguf_model.py#_load_vision_handler",
+      "label": "Method",
+      "name": "_load_vision_handler",
+      "signature": "def _load_vision_handler(self):"
+    },
+    {
+      "id": "/ai/core/llms/gguf_model.py#image_to_data_url",
+      "label": "Static Method",
+      "name": "image_to_data_url",
+      "signature": "def image_to_data_url(image) -> str:"
+    },
+    {
+      "id": "/ai/core/llms/gguf_model.py#load_images",
+      "label": "Method",
+      "name": "load_images",
+      "signature": "def load_images(self, images: list) -> dict:"
+    },
+    {
+      "id": "/ai/core/llms/gguf_model.py#_attach_images",
+      "label": "Method",
+      "name": "_attach_images",
+      "signature": "def _attach_images(self, messages: list, images: list) -> list:"
+    },
+    {
+      "id": "/ai/core/llms/gguf_model.py#chat",
+      "label": "Method",
+      "name": "chat",
+      "signature": "def chat(self, messages: list, images: list = None, stream: bool = True, options: dict = {}):"
+    },
+    {
+      "id": "/ai/core/llms/gguf_model.py#_stream_chat",
+      "label": "Method",
+      "name": "_stream_chat",
+      "signature": "def _stream_chat(self, safe_messages: list, current_options: dict):"
+    },
+    {
+      "id": "/ai/core/llms/gguf_model.py#_sync_chat",
+      "label": "Method",
+      "name": "_sync_chat",
+      "signature": "def _sync_chat(self, safe_messages: list, current_options: dict, applied_max_new_tokens: int):"
+    },
+    {
+      "id": "/ai/core/llms/gguf_model.py#list",
+      "label": "Method",
+      "name": "list",
+      "signature": "def list(self) -> list:"
+    },
+    {
+      "id": "/ai/core/llms/gguf_model.py#request_shutdown",
+      "label": "Method",
+      "name": "request_shutdown",
+      "signature": "def request_shutdown(self):"
+    },
+    {
+      "id": "/ai/core/llms/gguf_model.py#unload",
+      "label": "Method",
+      "name": "unload",
+      "signature": "def unload(self):"
+    },
+    {
+      "id": "/ai/core/llms/gguf_model.py#__del__",
+      "label": "Method",
+      "name": "__del__",
+      "signature": "def __del__(self, _is_finalizing=sys.is_finalizing):"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/core/llms/gguf_model.py",
+      "target": "/ai/core/llms/base_llm.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/core/llms/gguf_model.py",
+      "target": "/ai/functions.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/core/llms/gguf_model.py",
+      "target": "/ai/core/llms/base_llm.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/core/llms/gguf_model.py",
+      "target": "/ai/core/llms/load_errors.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/core/llms/gguf_model.py",
+      "target": "/ai/color.py",
+      "relation": "imports"
+    },
+    {
+      "source": "/ai/core/llms/gguf_model.py",
+      "target": "/ai/tools/tool_registry.py",
+      "relation": "imports"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "huggingface_hub",
+      "llama_cpp",
+      "torch"
+    ],
+    "has_side_effects": true
+  }
+}

@@ -1,0 +1,126 @@
+{
+  "component": {
+    "name": "ProcessManager",
+    "source_path": "/ai/services/process_manager.py",
+    "doc_path": "/ai/services/process_manager.json",
+    "type": "service"
+  },
+  "vector_memory": {
+    "semantic_summary": "The ProcessManager is a critical service layer component responsible for tracking the lifecycle and state persistence of running JARVIS instances. It enforces process exclusivity by utilizing file locking (fcntl.flock) on PID files located in a designated directory. It provides APIs for querying instance status, serializing/deserializing state, and managing the registration and graceful shutdown of local process instances."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/services/process_manager.py#ProcessManager",
+      "label": "Class",
+      "name": "ProcessManager",
+      "signature": ""
+    },
+    {
+      "id": "/ai/services/process_manager.py#ProcessManager.is_process_running",
+      "label": "Method",
+      "name": "is_process_running",
+      "signature": "is_process_running(pid: int) -> bool"
+    },
+    {
+      "id": "/ai/services/process_manager.py#ProcessManager.get_current_process_id",
+      "label": "Method",
+      "name": "get_current_process_id",
+      "signature": "get_current_process_id() -> int"
+    },
+    {
+      "id": "/ai/services/process_manager.py#ProcessManager.serialize",
+      "label": "Method",
+      "name": "serialize",
+      "signature": "serialize(state: Dict[str, str]) -> str"
+    },
+    {
+      "id": "/ai/services/process_manager.py#ProcessManager.parse",
+      "label": "Method",
+      "name": "parse",
+      "signature": "parse(text: str) -> Dict[str, str]"
+    },
+    {
+      "id": "/ai/services/process_manager.py#ProcessManager.set_state",
+      "label": "Method",
+      "name": "set_state",
+      "signature": "set_state(key, value)"
+    },
+    {
+      "id": "/ai/services/process_manager.py#ProcessManager.list_instances",
+      "label": "Method",
+      "name": "list_instances",
+      "signature": "list_instances(pid_directory: str) -> List[Dict[str, str]]"
+    },
+    {
+      "id": "/ai/services/process_manager.py#ProcessManager.__init__",
+      "label": "Method",
+      "name": "__init__",
+      "signature": "__init__(directory_manager: DirectoryManager)"
+    },
+    {
+      "id": "/ai/services/process_manager.py#ProcessManager.write",
+      "label": "Method",
+      "name": "write",
+      "signature": "write(content)"
+    },
+    {
+      "id": "/ai/services/process_manager.py#ProcessManager.start",
+      "label": "Method",
+      "name": "start",
+      "signature": "start()"
+    },
+    {
+      "id": "/ai/services/process_manager.py#ProcessManager.shutdown",
+      "label": "Method",
+      "name": "shutdown",
+      "signature": "shutdown()"
+    },
+    {
+      "id": "/ai/services/process_manager.py#_INSTALL_PATH",
+      "label": "Variable",
+      "name": "_INSTALL_PATH",
+      "signature": ""
+    },
+    {
+      "id": "/ai/services/process_manager.py#FIELDS",
+      "label": "Variable",
+      "name": "FIELDS",
+      "signature": ""
+    },
+    {
+      "id": "/ai/services/process_manager.py#_state",
+      "label": "Variable",
+      "name": "_state",
+      "signature": ""
+    },
+    {
+      "id": "/ai/services/process_manager.py#_instance",
+      "label": "Variable",
+      "name": "_instance",
+      "signature": ""
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/services/process_manager.py",
+      "target": "/ai/services/directory_manager.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/services/process_manager.py",
+      "target": "/ai/functions.py",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "os",
+      "fcntl",
+      "datetime",
+      "pathlib",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

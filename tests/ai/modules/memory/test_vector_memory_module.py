@@ -44,47 +44,59 @@ class TestVectorMemoryModule(unittest.TestCase):
         self.assertEqual(self.module_wrapper.kwargs, {"some_kwarg": "value"})
 
     def test_get_instance_before_initialization(self):
-        """Test that getting the instance before initialization returns None and logs an error."""
-        instance = self.module_wrapper.get_instance()
-        self.assertIsNone(instance)
-        self.mock_functions.log.assert_called_once_with(
-            "Attempted to use VectorMemory before it was initialized.", level="ERROR"
-        )
+        """Getting the instance before initialization returns None."""
+        self.assertIsNone(self.module_wrapper.get_instance())
+
+    def _instances_with_scope(self):
+        def make(**kwargs):
+            inst = Mock(name="VectorMemoryInstance")
+            inst.scope_key = kwargs["scope_key"]
+            return inst
+        self.mock_vector_memory.side_effect = make
 
     def test_successful_initialization(self):
-        """Test that initialize() creates and configures the VectorMemory instance."""
-        self.assertIsNone(self.module_wrapper._instance)
+        """initialize() creates the VectorMemory with the scope and the module kwargs."""
+        self.module_wrapper.initialize(self.session_id, self.mock_connector, scope_key="project:/x")
 
-        self.module_wrapper.initialize(self.session_id, self.mock_connector)
-
-        # Assert that the underlying VectorMemory was instantiated with the correct arguments
         self.mock_vector_memory.assert_called_once_with(
             session_id=self.session_id,
             llm=self.mock_connector,
             db_path=self.db_path,
-            some_kwarg="value"  # FIX: The kwargs from __init__ must be passed down.
+            scope_key="project:/x",
+            some_kwarg="value",
         )
-
         self.assertTrue(self.module_wrapper._is_initialized)
-        self.assertIsNotNone(self.module_wrapper._instance)
-        self.assertEqual(self.module_wrapper.get_instance(), self.mock_vector_memory.return_value)
+        self.assertIs(self.module_wrapper.get_instance(), self.mock_vector_memory.return_value)
 
-        self.mock_functions.log.assert_any_call(f"Initializing VectorMemory for session {self.session_id}...")
-        self.mock_functions.log.assert_any_call("VectorMemoryModule initialized successfully.")
-
-    def test_idempotent_initialization(self):
-        """Test that calling initialize() multiple times does not re-create the instance."""
+    def test_scope_defaults_to_session(self):
         self.module_wrapper.initialize(self.session_id, self.mock_connector)
-        first_instance = self.module_wrapper.get_instance()
-        
+        self.assertEqual(self.mock_vector_memory.call_args.kwargs["scope_key"], self.session_id)
+
+    def test_same_scope_reuses_instance(self):
+        """A new session in the same scope keeps the instance and updates its session id."""
+        self._instances_with_scope()
+        self.module_wrapper.initialize(self.session_id, self.mock_connector, scope_key="project:/x")
+        first = self.module_wrapper.get_instance()
+
+        self.module_wrapper.initialize("other-session-id", Mock(), scope_key="project:/x")
+
         self.assertEqual(self.mock_vector_memory.call_count, 1)
+        self.assertIs(self.module_wrapper.get_instance(), first)
+        self.assertEqual(first.session_id, "other-session-id")
 
-        self.module_wrapper.initialize("other-session-id", Mock())
+    def test_other_scope_opens_new_instance(self):
+        self._instances_with_scope()
+        self.module_wrapper.initialize(self.session_id, self.mock_connector, scope_key="project:/x")
+        first = self.module_wrapper.get_instance()
+        self.module_wrapper.initialize(self.session_id, self.mock_connector, scope_key="project:/y")
+        self.assertEqual(self.mock_vector_memory.call_count, 2)
+        self.assertIsNot(self.module_wrapper.get_instance(), first)
 
-        self.assertEqual(self.mock_vector_memory.call_count, 1)
-        self.assertIs(self.module_wrapper.get_instance(), first_instance)
-
-        self.mock_functions.log.assert_called_with("VectorMemoryModule is already initialized.", level="WARN")
+    def test_failed_initialization_leaves_module_inactive(self):
+        self.mock_vector_memory.side_effect = ImportError("chromadb is not installed")
+        self.module_wrapper.initialize(self.session_id, self.mock_connector)
+        self.assertIsNone(self.module_wrapper.get_instance())
+        self.assertFalse(self.module_wrapper.is_active)
 
     def test_shutdown(self):
         """Test that shutdown() resets the module's state."""

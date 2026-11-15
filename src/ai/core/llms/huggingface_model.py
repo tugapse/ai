@@ -18,12 +18,15 @@ from huggingface_hub.errors import RepositoryNotFoundError, GatedRepoError
 import requests.exceptions
 
 import ai.functions as func
+from ai.core.llms.api_retry import LLMAPIError
 from ai.core.llms.base_llm import BaseModel, ModelParams
 from ai.core.events import Events
 from ai.color import Color
 from ai.tools.tool_registry import ToolRegistry
 
 from .hf import HFModelLoaderMixin, HFPipelineMixin, HFEngineMixin
+
+PROVIDER = "HuggingFace"
 
 
 class HuggingFaceModel(HFModelLoaderMixin, HFPipelineMixin, HFEngineMixin, BaseModel):
@@ -72,30 +75,29 @@ class HuggingFaceModel(HFModelLoaderMixin, HFPipelineMixin, HFEngineMixin, BaseM
             except ImportError:
                 func.log("TurboQuant: Module not found. To enable, pip install turboquant. Defaulting to standard cache.")
 
+        # Load failures raise (never sys.exit): ModelOrchestrator.load exits the CLI itself, and a
+        # server reports ModelLoadError and keeps running with its current model.
         try:
             self._load_llm_params()
         except GatedRepoError as e:
-            func.error(f"ERROR: Failed to load gated model '{self.model_name}'. Access denied or not authenticated. Details: {e}")
             self.model = None
             self.tokenizer = None
-            sys.exit(1)
-        except RepositoryNotFoundError:
-            func.error(f"ERROR: Model '{self.model_name}' not found on Hugging Face Hub. Check spelling.")
+            raise RuntimeError(f"Failed to load gated model '{self.model_name}'. Access denied or not authenticated. Details: {e}") from e
+        except RepositoryNotFoundError as e:
             self.model = None
             self.tokenizer = None
-            sys.exit(1)
+            raise RuntimeError(f"Model '{self.model_name}' not found on Hugging Face Hub. Check spelling.") from e
         except requests.exceptions.HTTPError as e:
-            func.error(f"ERROR: Could not download model files for '{self.model_name}'. Check network, disk space, or proxy settings. Details: {e}")
             self.model = None
             self.tokenizer = None
-            sys.exit(1)
+            raise RuntimeError(f"Could not download model files for '{self.model_name}'. Check network, disk space, or proxy settings. Details: {e}") from e
         except Exception as e:
             func.error(f"CRITICAL ERROR: Model initialization failed for {self.model_name}: {e}")
             import traceback
             traceback.print_exc()
             self.model = None
             self.tokenizer = None
-            sys.exit(1)
+            raise
 
     def chat(self, messages: list, images: list[str] = [], stream: bool = True, options: object = {}):
         """
@@ -238,8 +240,13 @@ class HuggingFaceModel(HFModelLoaderMixin, HFPipelineMixin, HFEngineMixin, BaseM
                 func.debug("Chat method streaming block finished.")
 
             if not self.error_queue.empty():
+                # The generation thread failed (it ends the streamer, so the loop above stopped):
+                # raise, so the server reports it and the CLI shows it, instead of a silently
+                # truncated reply.
                 error_message = self.error_queue.get()
                 func.log(f"ERROR: Error received from generation thread after streaming: {error_message}")
+                summary = error_message.split("\nTraceback:")[0].strip()
+                raise LLMAPIError(summary, provider=PROVIDER, partial=bool(full_content))
 
         else:
             func.debug("Entering non-streaming (synchronous) generation path.")
@@ -261,9 +268,11 @@ class HuggingFaceModel(HFModelLoaderMixin, HFPipelineMixin, HFEngineMixin, BaseM
                     f"\nSuggestion: Try reducing 'temperature', disable sampling (`do_sample=False`), or ensure bitsandbytes is correctly installed."
                 )
                 func.error(error_message)
-                sys.exit(1)
+                # Raised, not sys.exit: a server must answer this request with an error and keep
+                # serving; the CLI reports LLMAPIError and keeps the chat alive.
+                raise LLMAPIError(error_message, provider=PROVIDER) from e
             except Exception as e:
                 func.error(f"CRITICAL ERROR: An unexpected error occurred during model generation: {e}")
                 import traceback
                 traceback.print_exc()
-                sys.exit(1)
+                raise LLMAPIError(f"generation failed: {e}", provider=PROVIDER) from e

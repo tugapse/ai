@@ -24,9 +24,28 @@ class ContextSentinel:
         self.max_tokens = max_tokens
         self.buffer = buffer  # Safety buffer to prevent hitting hard limits
         self.last_pressure: float = 0.0  # Last measured context pressure (0..1+), for UIs
-        
+        self._warned_unmeasurable = False
 
-    def enforce_limits(self, agent_name: str, memory_manager: Any, payload: Dict[str, Any], vector_memory: Optional[Any] = None) -> Tuple[Dict[str, Any], bool]:
+    def current_limits(self) -> Tuple[int, int]:
+        """
+        (context window, output reserve) read from the connector on every check, so a model that
+        reports its real window only after loading, or a model swap, is picked up. The reserve is
+        capped at half the window: a large max_new_tokens must not leave no room to measure.
+        """
+        window, reserve = self.max_tokens, self.buffer
+        try:
+            window = int(self.connector.get_context_limit() or window)
+        except Exception:
+            pass
+        try:
+            reserve = int(self.connector.get_max_tokens() or reserve)
+        except Exception:
+            pass
+        return window, max(0, min(reserve, window // 2))
+
+
+    def enforce_limits(self, agent_name: str, memory_manager: Any, payload: Dict[str, Any], vector_memory: Optional[Any] = None,
+                       overhead_chars: int = 0, keep_recent_results: int = 2) -> Tuple[Dict[str, Any], bool]:
         """
         Calculates context pressure based on payload size and performs in-place memory surgery if the threshold is exceeded.
 
@@ -42,14 +61,19 @@ class ContextSentinel:
         Returns:
             Tuple[Dict[str, Any], bool]: A tuple containing the potentially modified payload and a boolean indicating if compression/pruning occurred.
         """
-        # Heuristic: 4 characters per token
-        est_tokens = len(json.dumps(payload)) / 3.2
-        delta = (self.max_tokens - self.buffer )
-        pressure = est_tokens / delta if delta > 0 else 1
-        self.last_pressure = pressure
-
+        # Heuristic: ~3.2 characters per token. The system prompt and tool descriptions sent with
+        # the payload (overhead_chars) count too.
+        est_tokens = (len(json.dumps(payload, default=str)) + max(0, int(overhead_chars or 0))) / 3.2
+        window, reserve = self.current_limits()
+        delta = window - reserve
         if delta <= 0:
+            if not self._warned_unmeasurable:
+                func.log(f"Sentinel: cannot measure context pressure (window {window}, reserve {reserve}); disabled.", level="WARN")
+                self._warned_unmeasurable = True
+            self.last_pressure = 0.0
             return payload, False
+        pressure = est_tokens / delta
+        self.last_pressure = pressure
 
 
         if pressure < self.threshold:
@@ -59,9 +83,16 @@ class ContextSentinel:
 
         agent_memory = memory_manager.get_agent_memory(agent_name)
 
+        # The most recent tool results stay whole (the agent is working with them; summarizing them
+        # makes it repeat the call). Only older heavy results are distilled.
+        keep = max(0, int(keep_recent_results or 0))
+        current = [i for i, m in enumerate(agent_memory.messages_received)
+                   if m.get("from") == "SYSTEM" and "result" in m]
+        protected = set(current[-keep:]) if keep else set()
+
         # Process active turn messages
         for i, msg in enumerate(agent_memory.messages_received):
-            if msg.get("from") == "SYSTEM" and "result" in msg:
+            if msg.get("from") == "SYSTEM" and "result" in msg and i not in protected:
                 # Trigger distillation for heavy outputs (code/logs)
                 if len(json.dumps(msg["result"])) > 2000:
                     distilled = self._summarize_data(msg["result"])
@@ -76,13 +107,22 @@ class ContextSentinel:
 
                     # Update source memory with high-level facts
                     agent_memory.messages_received[i]["result"] = {
-                        "status": "SUCCESS",
+                        "status": msg["result"].get("status", "SUCCESS") if isinstance(msg["result"], dict) else "SUCCESS",
                         "summary": distilled,
-                        "metadata": "Raw code moved to LTM by Sentinel."
+                        "note": ("The full output was summarized to save context; this summary IS the result. "
+                                 "Do not repeat the same call: work from the summary, and when you need exact "
+                                 "lines use grep_file or read_file with start_line/end_line"
+                                 + (", or query_memory." if vector_memory else "."))
                     }
 
-        # Prune conversation history to the last 3 turns
-        agent_memory.history = agent_memory.history[-3:]
+        # Prune conversation history to the last 3 entries, plus the latest tool results still
+        # needed to keep `keep_recent_results` of them (counting the ones of this turn)
+        history = agent_memory.history
+        still_needed = max(0, keep - len(protected))
+        result_idx = [i for i, m in enumerate(history) if isinstance(m, dict) and "result" in m]
+        keep_idx = set(result_idx[-still_needed:]) if still_needed else set()
+        keep_idx.update(range(max(0, len(history) - 3), len(history)))
+        agent_memory.history = [m for i, m in enumerate(history) if i in keep_idx]
 
         # Rebuild payload to reflect the new lean state
         payload["recent_outcomes"] = []

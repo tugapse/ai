@@ -1,0 +1,68 @@
+{
+  "component": {
+    "name": "AgentIO",
+    "source_path": "/ai/agents/agent_io.py",
+    "doc_path": "/ai/agents/agent_io.json",
+    "type": "interface"
+  },
+  "vector_memory": {
+    "semantic_summary": "AgentIO defines the core I/O abstraction layer for the agent orchestrator, decoupling core logic from specific interaction mechanisms. It establishes contracts for emitting standardized AgentEvent objects and requesting necessary inputs like permissions or user answers. ConsoleIO is the primary concrete implementation, handling terminal rendering and blocking input for one-shot runs. This component ensures architectural separation between orchestration and presentation."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/agents/agent_io.py#AgentEventType",
+      "label": "Enum",
+      "name": "AgentEventType",
+      "signature": "Enum"
+    },
+    {
+      "id": "/ai/agents/agent_io.py#AgentEvent",
+      "label": "Class",
+      "name": "AgentEvent",
+      "signature": "dataclass AgentEvent(type: AgentEventType, agent: Optional[str] = None, text: str = \"\", data: Dict[str, Any] = field(default_factory=dict))"
+    },
+    {
+      "id": "/ai/agents/agent_io.py#AgentIO",
+      "label": "Class",
+      "name": "AgentIO",
+      "signature": "class AgentIO: blocking_user_input: bool = True"
+    },
+    {
+      "id": "/ai/agents/agent_io.py#ConsoleIO",
+      "label": "Class",
+      "name": "ConsoleIO",
+      "signature": "class ConsoleIO(AgentIO): blocking_user_input = True"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/agents/agent_io.py",
+      "target": "/ai/agents/terminal_ui.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/agent_io.py",
+      "target": "/ai/functions.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/agent_io.py",
+      "target": "/ai/color.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/agents/agent_io.py",
+      "target": "/ai/agents/tool_preview.py",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "dataclasses",
+      "enum",
+      "typing"
+    ],
+    "has_side_effects": true
+  }
+}

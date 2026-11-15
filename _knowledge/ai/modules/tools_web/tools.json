@@ -1,0 +1,76 @@
+{
+  "component": {
+    "name": "tools",
+    "source_path": "/ai/modules/tools_web/tools.py",
+    "doc_path": "/ai/modules/tools_web/tools.json",
+    "type": "module"
+  },
+  "vector_memory": {
+    "semantic_summary": "This module provides web access utilities, encapsulating two primary functions: `web_search` and `web_read`. It interfaces with DuckDuckGo for search queries and performs direct HTTP fetching and HTML parsing for content extraction. It acts as a service layer, abstracting network complexity while handling parsing, error checking (like bot blocking), and content cleanup for readability."
+  },
+  "graph_nodes": [
+    {
+      "id": "/ai/modules/tools_web/tools.py#_DuckDuckGoParser",
+      "label": "Class",
+      "name": "_DuckDuckGoParser",
+      "signature": "class _DuckDuckGoParser(HTMLParser):"
+    },
+    {
+      "id": "/ai/modules/tools_web/tools.py#_clean_result_url",
+      "label": "Function",
+      "name": "_clean_result_url",
+      "signature": "def _clean_result_url(href: str) -> str"
+    },
+    {
+      "id": "/ai/modules/tools_web/tools.py#parse_search_results",
+      "label": "Function",
+      "name": "parse_search_results",
+      "signature": "def parse_search_results(html: str, max_results: int) -> List[Dict[str, str]]"
+    },
+    {
+      "id": "/ai/modules/tools_web/tools.py#web_search",
+      "label": "Function",
+      "name": "web_search",
+      "signature": "def web_search(**kwargs) -> Dict[str, Any]"
+    },
+    {
+      "id": "/ai/modules/tools_web/tools.py#_TextExtractor",
+      "label": "Class",
+      "name": "_TextExtractor",
+      "signature": "class _TextExtractor(HTMLParser):"
+    },
+    {
+      "id": "/ai/modules/tools_web/tools.py#html_to_text",
+      "label": "Function",
+      "name": "html_to_text",
+      "signature": "def html_to_text(html: str) -> tuple[str, str]"
+    },
+    {
+      "id": "/ai/modules/tools_web/tools.py#web_read",
+      "label": "Function",
+      "name": "web_read",
+      "signature": "def web_read(**kwargs) -> Dict[str, Any]"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source": "/ai/modules/tools_web/tools.py",
+      "target": "/ai/modules/tools_web/tools.py",
+      "relation": "depends_on"
+    },
+    {
+      "source": "/ai/modules/tools_web/tools.py",
+      "target": "/ai/modules/tools_web/tools.py",
+      "relation": "depends_on"
+    }
+  ],
+  "metadata": {
+    "environment_variables": [],
+    "external_dependencies": [
+      "requests",
+      "html",
+      "urllib.parse"
+    ],
+    "has_side_effects": true
+  }
+}
