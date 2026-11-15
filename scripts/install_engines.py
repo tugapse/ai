@@ -23,6 +23,11 @@ CONFIG_FILE = os.environ.get(
 )
 VENV_DIR = os.environ.get("AI_VENV_PATH", os.path.join(BASE_DIR, ".venv"))
 
+# llama-cpp-python is pinned to a version known to work with this release.
+# The 0.3.37 prebuilt CUDA wheels are compiled with AVX-512 and crash with
+# "Illegal instruction" on CPUs without it (e.g. Intel 12th-14th gen).
+LLAMA_CPP_VERSION = "0.3.36"
+
 SYSTEM_REQS = {
     "gguf": {
         "binary": "gcc",
@@ -108,7 +113,7 @@ class SystemDiagnostics:
         return True
 
 ENGINES = [
-    {"id": "gguf", "name": "Llama-CPP GGUF", "deps": ["llama-cpp-python", "huggingface-hub", "numpy"]},
+    {"id": "gguf", "name": "Llama-CPP GGUF", "deps": [f"llama-cpp-python=={LLAMA_CPP_VERSION}", "huggingface-hub", "numpy"]},
     {"id": "transformers", "name": "Transformers (HF)", "deps": ["torch", "transformers", "accelerate", "huggingface-hub", "bitsandbytes", "autoawq", "turboquant", "gptqmodel"]},
     {"id": "ollama", "name": "Ollama (Local API)", "deps": ["ollama", "requests"]},
     {"id": "openai", "name": "OpenAI (Cloud API)", "deps": ["openai"]},

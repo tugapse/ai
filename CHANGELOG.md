@@ -1,5 +1,10 @@
 # Changelog
 
+## [v3.9.1] - 2026-11-15
+
+###  Bug Fixes
+- fix(install): Pin llama-cpp-python to 0.3.36
+
 ## [v3.9.0] - 2026-11-15
 
 ###  Features
