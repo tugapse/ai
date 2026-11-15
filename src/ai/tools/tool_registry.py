@@ -133,11 +133,34 @@ class ToolRegistry:
 
         try:
             p = params if isinstance(params, dict) else {}
+            p = self._coerce_params(name, p)
             func.log(f"Calling tool [{name}] with: {p}")
             return self._tools[name](**p)
         except Exception as e:
             func.debug(f"Tool execution failed: {e}")
             return {"status": "FAILED", "error": str(e)}
+
+    def _coerce_params(self, name: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Converts string values to the type the tool's docstring declares (integer / boolean).
+
+        Models (and the XML response format) send every value as text, e.g. timeout="180";
+        a tool doing arithmetic on it would fail. Values that do not convert are left as they are.
+        """
+        try:
+            props = self.parse_docstring_to_schema(name, self._tools[name])["parameters"]["properties"]
+        except Exception:
+            return params
+        out = dict(params)
+        for key, value in params.items():
+            if not isinstance(value, str) or key not in props:
+                continue
+            kind, text = props[key].get("type"), value.strip()
+            if kind == "integer" and re.fullmatch(r"[+-]?\d+", text):
+                out[key] = int(text)
+            elif kind == "boolean" and text.lower() in ("true", "false", "yes", "no", "1", "0"):
+                out[key] = text.lower() in ("true", "yes", "1")
+        return out
 
     def get_all_tools(self) -> dict:
         """

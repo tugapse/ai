@@ -261,9 +261,16 @@ def write_file(**kwargs) -> Dict[str, Any]:
         status SUCCESS and the written path, or status FAILED with the reason. A 'warning' means a
         .py/.json file no longer parses: read it and fix it.
     """
+    if "content" not in kwargs or kwargs.get("content") is None:
+        return {"status": "FAILED", "error": "No content given: nothing was written. Pass the complete file "
+                                             "content, or use patch_file to change part of a file."}
     try:
         full_path = _resolve_path(kwargs)
-        content, unescaped = _fix_escapes(kwargs.get("content") or "")
+        content, unescaped = _fix_escapes(str(kwargs.get("content")))
+        if not content.strip() and os.path.isfile(full_path) and os.path.getsize(full_path) > 0:
+            # An empty write over a real file is almost always a lost parameter, not intent.
+            return {"status": "FAILED", "error": "Refusing to replace a non-empty file with empty content. "
+                                                 "Use patch_file to change it, or delete_file to remove it."}
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
         with open(full_path, "w", encoding="utf-8") as f:
             f.write(content)

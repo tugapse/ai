@@ -176,3 +176,22 @@ def test_builtin_providers_follow_the_contract():
     store.ingest_documents("t", [{"component": {"name": "m", "source_path": "/a/m.py"},
                                   "vector_memory": {"semantic_summary": "Module m."}}])
     assert "search_knowledge" in reg.register_category(store.tools)
+
+
+def test_string_params_are_coerced_to_declared_types():
+    def wait(**kwargs):
+        """
+        Waits.
+
+        Args:
+            timeout (int, optional): Seconds.
+            loud (bool, optional): Beep.
+            label (string, optional): Text.
+        """
+        return {"status": "SUCCESS", **kwargs}
+
+    reg = fresh_registry()
+    reg._tools["wait"] = wait
+    out = reg.execute_tool("wait", {"timeout": "180", "loud": "true", "label": "42"})
+    assert out["timeout"] == 180 and out["loud"] is True and out["label"] == "42"
+    assert reg.execute_tool("wait", {"timeout": "soon"})["timeout"] == "soon"

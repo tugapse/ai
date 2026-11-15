@@ -480,3 +480,24 @@ class TestDocstringsAreAgentFacing:
         for name, params in (("write_file", ["content"]), ("patch_file", ["search", "replace"])):
             doc = tools[name].__doc__
             assert "CDATA" in doc, name
+
+
+class TestWriteFileGuards:
+    """A lost 'content' parameter once wiped a 367-line CHANGELOG."""
+
+    def test_missing_content_writes_nothing(self, project):
+        from ai.modules.tools_filesystem.tools import write_file
+        (project / "a.md").write_text("keep me")
+        assert write_file(path="@ROOT/a.md")["status"] == "FAILED"
+        assert (project / "a.md").read_text() == "keep me"
+
+    def test_empty_content_does_not_replace_a_real_file(self, project):
+        from ai.modules.tools_filesystem.tools import write_file
+        (project / "a.md").write_text("keep me")
+        assert write_file(path="@ROOT/a.md", content="  \n")["status"] == "FAILED"
+        assert (project / "a.md").read_text() == "keep me"
+
+    def test_empty_new_file_is_allowed(self, project):
+        from ai.modules.tools_filesystem.tools import write_file
+        assert write_file(path="@ROOT/empty.txt", content="")["status"] == "SUCCESS"
+        assert (project / "empty.txt").read_text() == ""

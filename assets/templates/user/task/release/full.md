@@ -89,16 +89,34 @@ not, stop and report which one.
 If the user's message names a version, use that one instead. The tag is `{prefix}{X.Y.Z}`.
 
 ## 5. Checkpoint: confirm with the user
-Before changing anything, hand control back to the user with a short summary:
-- the conventions you found (branches, tag prefix, git-flow or plain git, version files, changelog);
+Before changing anything, hand control back to the user with a short summary. Start it with the
+release values, written out in full, because every later step uses them:
+
+```
+RELEASE VALUES
+production  = master
+development = develop
+version     = 1.5.0          (X.Y.Z, no prefix)
+tag         = v1.5.0         (prefix + version: a VERSION, never a branch name)
+release     = release/v1.5.0
+git-flow    = yes
+commit msg  = chore(release): Bump version to 1.5.0 and update CHANGELOG
+```
+
+Then:
+- the conventions you found (version files, changelog);
 - the previous tag, the new version and why (major/minor/patch);
 - the changelog block you are going to add;
 - the steps you will run next (6 to 10).
 Wait for the user to confirm. If the user's original message already says to go ahead without
 confirming, skip this checkpoint.
 
+From here on, `{tag}` is always the **tag** from the release values (e.g. `v1.5.0`). It is never
+`develop`, `master` or any other branch name. Check each command against the release values before
+sending it.
+
 ## 6. Start the release branch
-- With git-flow: `git flow release start {tag}`
+- With git-flow: `git flow release start {tag}` (e.g. `git flow release start v1.5.0`)
 - Plain git fallback: `git checkout -b release/{tag} {development}`
 - Check that `git rev-parse --abbrev-ref HEAD` now prints `release/{tag}`.
 
@@ -110,8 +128,13 @@ For `package.json`, prefer `npm version {X.Y.Z} --no-git-tag-version` (it also u
 `package-lock.json`). For `Cargo.toml`, also refresh `Cargo.lock` if it is tracked
 (`cargo update -p {crate name} --offline`, or mention it in the report if that fails).
 
-**Changelog:** insert the new block above the previous release (right after the title and any intro
-text), with today's date from `date +%F`.
+**Changelog:** insert the new block above the previous release, with today's date from `date +%F`.
+- Read only the **first 40 lines** of the changelog. That is enough to see the format. Do not page
+  through the whole file.
+- Never use `write_file` on an existing changelog. Use `patch_file` like this:
+  - `search` = the heading line of the previous release, exactly as it is in the file
+    (e.g. `## [v1.4.2] - 2026-01-31`);
+  - `replace` = the new block, a blank line, then that same heading line again.
 - If the changelog exists, **copy the format of the previous release blocks exactly**: heading
   style, group names and their order, spacing, emoji, and any extra line they always have (for
   example a final `- chore(release): Bump version to {X.Y.Z}` entry).
@@ -138,12 +161,15 @@ changelog after editing to check the result.
 
 ## 8. Commit the release changes
 - `git add` only the version files and the changelog you changed.
-- `git commit -m "{release commit message from step 1}"`
+- `git commit -m "{commit msg}"` with the commit message from the release values, e.g.
+  `git commit -m "chore(release): Bump version to 1.5.0 and update CHANGELOG"`.
 - Check with `git show --stat HEAD` that no other file is part of the commit.
 
 ## 9. Finish the release
 **With git-flow:**
 - `GIT_EDITOR=true GIT_MERGE_AUTOEDIT=no git flow release finish -m "{tag}" {tag}`
+  e.g. `GIT_EDITOR=true GIT_MERGE_AUTOEDIT=no git flow release finish -m "v1.5.0" v1.5.0`.
+  The `-m "{tag}"` is required: without it the tag cannot be created and the release stops halfway.
 - Some git-flow versions write the tag message twice (`v1.2.0 v1.2.0`). Check with
   `git tag -n1 {tag}`. If it is duplicated, fix it while the tag is still local:
   1. Check that `git rev-parse "{tag}^{commit}"` and `git rev-parse {production}` print the same hash.
@@ -171,6 +197,10 @@ Run these and include their output in the report:
 - `git branch --list 'release/*'` → empty
 
 ## 11. Report
+The release is done **only if every check in step 10 passed**. If any check failed, or any command in
+steps 6 to 9 failed, the report must say the release is NOT complete, which step failed, and the
+current state of the repository. Never report success otherwise.
+
 Finish with a short report: the version released, the conventions used, the changelog block, the
 verification results, anything odd you noticed (without fixing it), and the commands the user
 should run to publish (do **not** run them):
