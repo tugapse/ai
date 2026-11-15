@@ -333,16 +333,19 @@ class TestPrefixCompleter:
         assert completions[0].text == '.env'
 
     @patch('ai.chat.chat.os')
-    def test_file_completion_no_match_on_at_only(self, mock_os, completer):
-        """Tests that no completions are returned for just the '@' symbol."""
-        scandir_return = [self._create_mock_entry('main.py', is_dir=False)]
+    def test_file_completion_lists_folder_on_at_only(self, mock_os, completer):
+        """A bare '@' lists the current folder: folders first, hidden entries skipped."""
+        scandir_return = [
+            self._create_mock_entry('main.py', is_dir=False),
+            self._create_mock_entry('.git', is_dir=True),
+            self._create_mock_entry('src', is_dir=True),
+        ]
         self._setup_mock_os(mock_os, scandir_return=scandir_return)
 
         doc = Document('@', cursor_position=1)
-        event = CompleteEvent()
-        completions = list(completer.get_completions(doc, event))
+        completions = list(completer.get_completions(doc, CompleteEvent()))
 
-        assert len(completions) == 0
+        assert [c.text for c in completions] == ['src/', 'main.py']
 
     @patch('ai.chat.chat.os')
     def test_file_completion_permission_error(self, mock_os, completer):

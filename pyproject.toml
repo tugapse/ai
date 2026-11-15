@@ -23,6 +23,7 @@ dependencies = [
     "llama_cpp_python",
     "numpy",
     "ollama",
+    "pygments",
     "tqdm",
     "transformers",
     "anyio<4.15.0",

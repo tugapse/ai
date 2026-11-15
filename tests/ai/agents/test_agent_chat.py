@@ -305,7 +305,7 @@ class TestRenderer:
         assert R.summarize_result({"status": "SUCCESS", "result": [1, 2]}) == (True, "2 items")
         ok, text = R.summarize_result({"status": "FAILED", "error": "boom"})
         assert not ok and "boom" in text
-        assert R.summarize_result({"status": "SUCCESS"}) == (True, "SUCCESS")
+        assert R.summarize_result({"status": "SUCCESS"}) == (True, "")
 
     def test_render_event_types(self):
         msg = R.render_event(AgentEvent(AgentEventType.MESSAGE, "MASTER", "line1\nline2"))
@@ -331,7 +331,66 @@ class TestRenderer:
         state.start_turn()
         assert "Done" in R.render_turn_summary("done", state)
         assert "Interrupted" in R.render_turn_summary("cancelled", state)
-        assert "waiting for your reply" in R.render_turn_summary("awaiting_user", state)
+        assert "waiting for your reply" in R.render_turn_summary("awaiting_user", state).lower()
+
+
+class TestCompleter:
+    def test_ctrl_space_on_empty_prompt_lists_commands(self):
+        from prompt_toolkit.completion import CompleteEvent
+        from prompt_toolkit.document import Document
+        from ai.agents.chat_ui.app import AgentChatCompleter
+        from ai.agents.chat_ui.commands import COMMANDS
+        completer = AgentChatCompleter(COMMANDS)
+        assert list(completer.get_completions(Document(""), CompleteEvent())) == []
+        names = [c.text for c in completer.get_completions(Document(""), CompleteEvent(completion_requested=True))]
+        assert "/help" in names
+
+    def test_bare_at_lists_current_folder(self, tmp_path, monkeypatch):
+        from prompt_toolkit.completion import CompleteEvent
+        from prompt_toolkit.document import Document
+        from ai.agents.chat_ui.app import AgentChatCompleter
+        (tmp_path / "src").mkdir(); (tmp_path / "a.txt").write_text("x"); (tmp_path / ".hidden").write_text("x")
+        monkeypatch.chdir(tmp_path)
+        texts = [c.text for c in AgentChatCompleter({}).get_completions(Document("look at @"), CompleteEvent())]
+        assert texts == ["src/", "a.txt"]
+
+
+class TestTranscriptFormatter:
+    def _plain(self, text):
+        return R._ANSI_RE.sub("", text or "")
+
+    def test_tool_call_and_result_share_one_line(self):
+        f = R.TranscriptFormatter()
+        assert f.feed(AgentEvent(AgentEventType.TOOL_CALL, data={"tool": "read_file", "params": {"path": "@ROOT/a.py"}})) is None
+        line = self._plain(f.feed(AgentEvent(AgentEventType.TOOL_RESULT, data={"tool": "read_file", "result": {"status": "SUCCESS", "result": "x\ny"}})))
+        assert "read_file(a.py) → 2 lines" in line and "\n" not in line and "@ROOT" not in line
+
+    def test_held_call_flushed_by_other_output(self):
+        f = R.TranscriptFormatter()
+        f.feed(AgentEvent(AgentEventType.TOOL_CALL, data={"tool": "delegate", "params": {}}))
+        out = self._plain(f.feed(AgentEvent(AgentEventType.MESSAGE, "SUB", "working", {"narration": True})))
+        assert out.index("delegate") < out.index("working")
+        assert f.flush() is None
+
+    def test_failure_and_phase_shown_once(self):
+        f = R.TranscriptFormatter()
+        f.feed(AgentEvent(AgentEventType.TOOL_CALL, data={"tool": "x", "params": {}}))
+        assert "boom" in self._plain(f.feed(AgentEvent(AgentEventType.TOOL_RESULT, data={"tool": "x", "result": {"status": "FAILED", "error": "boom"}})))
+        assert "Impl" in self._plain(f.status("M", "Step 1", "Impl"))
+        assert "Impl" not in self._plain(f.status("M", "Step 2", "Impl"))
+
+    def test_narration_vs_answer(self):
+        narration = self._plain(R.render_message("doing it", narration=True))
+        answer = self._plain(R.render_message("All done"))
+        assert narration == "  doing it" and answer.startswith("\n" + R.BULLET)
+
+    def test_user_block_and_banner_fit_width(self):
+        block = R.render_user_message("hello " * 30, width=60)
+        assert all(R.visible_len(row) == 59 for row in block.strip("\n").split("\n"))
+        banner = R.render_banner("gemma4", "default", "f9c078ce-1", "/tmp", width=60)
+        assert len({R.visible_len(row) for row in banner.split("\n")[:-1]}) == 1
+        wide = R.render_banner("m", "default", "s", "/very/long/" * 20, width=100)
+        assert len({R.visible_len(row) for row in wide.split("\n")[:-1]}) == 1 and "◉" in wide
 
 
 # ---------------------------------------------------------------- bridge
@@ -430,6 +489,15 @@ class TestAgentChatAppHeadless:
                 chat.io.write = out.append
                 asyncio.run(scenario(chat, pipe))
         return chat, built, "\n".join(out)
+
+    def test_ctrl_space_opens_completion_not_selection(self, monkeypatch):
+        from prompt_toolkit.buffer import Buffer
+        calls = []
+        monkeypatch.setattr(Buffer, "start_selection", lambda self, *a, **k: calls.append("selection"))
+        orig = Buffer.start_completion
+        monkeypatch.setattr(Buffer, "start_completion", lambda self, *a, **k: (calls.append("completion"), orig(self, *a, **k)))
+        chat, _, _ = self._run(monkeypatch, [], ["hello ", "\x00", "\x03"])
+        assert "completion" in calls and "selection" not in calls
 
     def test_send_message_and_exit(self, monkeypatch):
         chat, built, output = self._run(

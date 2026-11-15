@@ -44,7 +44,7 @@ class OneShotIO(ChatIO):
 
     def write(self, text: str) -> None:
         if not self.color:
-            text = ANSI_ESCAPE.sub("", text)
+            text = "\n".join(line.rstrip() for line in ANSI_ESCAPE.sub("", text).split("\n"))
         self.out.write(text + "\n")
         self.out.flush()
 
@@ -95,6 +95,7 @@ def run_one_shot(prog, prompt: str, pipeline: str = "default.json", session_id: 
         session_id = session_id or str(uuid.uuid4())
         result = orchestrator.run_loop(user_prompt=prompt, session_id=session_id)
         reason = getattr(result, "reason", "error")
+        io.flush()
         io.write(R.render_turn_summary("done" if reason == "awaiting_user" else reason, io.state))
         if reason in ("awaiting_user", "api_error"):
             # The session is saved: the same conversation continues with --resume.

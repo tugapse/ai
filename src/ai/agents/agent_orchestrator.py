@@ -624,7 +624,9 @@ class AgentOrchestrator(Events):
         if msg:
             # The same answer repeated on a later step is not shown again.
             if msg.strip() != (self._last_message or "").strip():
-                self.emit(AgentEventType.MESSAGE, agent, msg)
+                # Said alongside a tool call: progress narration, not an answer to the user.
+                has_tool = bool(tool_name) and str(tool_name).upper() != "NULL"
+                self.emit(AgentEventType.MESSAGE, agent, msg, narration=has_tool and target != USER_TARGET)
             self._last_message = msg
 
         self.memory.update_agent_history_and_notes(agent, response)

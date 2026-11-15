@@ -14,7 +14,7 @@ import time
 from typing import Any, Callable, Dict, Optional
 
 from ai.agents.agent_io import AgentEvent, AgentEventType, AgentIO, PERMISSION_NO
-from ai.agents.chat_ui.renderer import LiveState, render_event, render_status_line
+from ai.agents.chat_ui.renderer import LiveState, TranscriptFormatter, summarize_params
 
 
 class ChatIO(AgentIO):
@@ -45,6 +45,7 @@ class ChatIO(AgentIO):
         self.permission_handler = permission_handler
         self.loop = loop
         self._pending_permission: Optional[concurrent.futures.Future] = None
+        self.formatter = TranscriptFormatter()
 
     # ---------------------------------------------------------------- events
 
@@ -65,15 +66,29 @@ class ChatIO(AgentIO):
             state.tokens = 0
             state.turn_steps += 1
             state.phase = "thinking"
+            state.tool = ""
         elif t == AgentEventType.TOOL_CALL:
-            state.phase = f"running {event.data.get('tool')}"
+            tool = event.data.get("tool", "?")
+            args = summarize_params(tool, event.data.get("params", {}) or {})
+            state.phase = f"running {tool}"
+            state.tool = f"{tool}({args})" if args else tool
+        elif t == AgentEventType.TOOL_RESULT:
+            state.tool = ""
 
-        text = render_event(event)
-        if t == AgentEventType.STATUS and event.data.get("fresh"):
-            text = render_status_line(event.agent or state.agent, event.text, event.data.get("phase", ""))
+        if t == AgentEventType.STATUS:
+            text = self.formatter.status(event.agent or state.agent, event.text, event.data.get("phase", "")) if event.data.get("fresh") else None
+        else:
+            text = self.formatter.feed(event)
         if text is not None:
             self.write(text)
         self.invalidate()
+
+    def flush(self) -> None:
+        """Prints a tool call still waiting for its result (e.g. the turn was interrupted)."""
+        self.state.tool = ""
+        text = self.formatter.flush()
+        if text is not None:
+            self.write(text)
 
     def on_token(self, token: str) -> None:
         """Per-token callback from the LLM connector."""
@@ -87,6 +102,7 @@ class ChatIO(AgentIO):
         if self.permission_handler is None or self.loop is None or self.state.cancelling:
             return PERMISSION_NO
         self.state.phase = "waiting for permission"
+        self.state.tool = ""
         self._drain_output()
         future = asyncio.run_coroutine_threadsafe(self.permission_handler(tool, params), self.loop)
         self._pending_permission = future

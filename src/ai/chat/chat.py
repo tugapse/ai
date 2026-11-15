@@ -85,24 +85,27 @@ class PrefixCompleter(Completer):
             return
 
         try:
+            entries = []
             for entry in os.scandir(search_dir):
-                if not partial_name and not has_trailing_sep:
+                # Hidden entries only when the user starts typing a dot.
+                if entry.name.startswith('.') and not partial_name.startswith('.'):
                     continue
-                
-                if not partial_name.startswith('.') and entry.name.startswith('.') and entry.name != '.' and entry.name != '..':
-                    continue
-                
                 if entry.name.startswith(partial_name):
-                    full_path = os.path.join(dirname, entry.name)
-                    
-                    # If it's a directory, ensure it ends with a separator for the next Tab press
-                    if entry.is_dir():
-                        display_path = full_path + os.sep
-                        yield Completion(display_path, start_position=-len(query))
-                    else:
-                        yield Completion(full_path, start_position=-len(query))
-        except PermissionError:
-            pass
+                    try:
+                        is_dir = entry.is_dir()
+                    except OSError:
+                        is_dir = False
+                    entries.append((not is_dir, entry.name.lower(), entry.name, is_dir))
+        except OSError:
+            return
+
+        # Folders first, then files, alphabetically. A bare '@' lists the current folder.
+        for _, _, name, is_dir in sorted(entries):
+            full_path = os.path.join(dirname, name)
+            # Folders end with a separator so the next completion browses inside them.
+            yield Completion(full_path + os.sep if is_dir else full_path,
+                             start_position=-len(query),
+                             display=name + os.sep if is_dir else name)
 
 
 
