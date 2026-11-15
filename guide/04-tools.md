@@ -311,6 +311,21 @@ Tips:
 - Return `{"status": "SUCCESS", ...}` or `{"status": "FAILED", "error": "..."}`.
 - Add your tool to `HIL_TOOLS` if it changes things.
 
+### Examples: my own tools
+
+The tools I write for myself live in their own repo,
+[jarvis-user-tools](https://github.com/tugapse/jarvis-user-tools). They aren't part of JARVIS and
+don't ship with it: they're mine, built for my setup, and public in case they're useful as examples
+or as tools. For now there's `project_hub`, which manages the Kanban boards of
+[Project Hub](https://github.com/tugapse/project-hub) (a device-code login, then projects, tasks
+and checklists).
+
+I clone it next to this repo and link the files into the tools folder, so a `git pull` updates them:
+
+```bash
+ln -s ~/Code/jarvis-user-tools/tools/*.py ~/Ai/user/tools/
+```
+
 ---
 
 ## Code map
