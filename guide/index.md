@@ -3,8 +3,7 @@
 This guide explains how JARVIS works, one layer at a time. The [README](../README.md) is the place to
 start; this is where the details live.
 
-> Written from the code in November 2026 (v3.8.1). Code issues found along the way are listed in
-> [`FINDINGS.md`](../FINDINGS.md).
+> Written from the code in November 2026 (v3.8.1).
 
 ## How it fits together
 

@@ -176,8 +176,6 @@ http://localhost:8000; see `docs/README.md`). See
 
 - `README.md` — the front page.
 - `guide/` — this guide, one page per layer.
-- `DOCUMENTATION_PLAN.md` — the plan and status of the docs work.
-- `FINDINGS.md` — code issues found while documenting, to fix later.
 - `CHANGELOG.md` — release notes.
 
 When you change behaviour, update the guide page for that layer (and its settings table).
