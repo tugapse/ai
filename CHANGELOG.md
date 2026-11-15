@@ -1,5 +1,27 @@
 # Changelog
 
+## [v3.9.0] - 2026-11-15
+
+### Features
+- feat(agents): Reply to agent questions in one-shot runs
+- feat(agents): Agent-friendly sampling, English command output, clearer failures
+- feat(agents): oneshot_hil_tools pipeline key and release task fixes
+- feat(templates): Make the release task project-agnostic
+- feat(templates): Add a full git-flow release task (everything except push)
+- feat(agent-chat): cleaner transcript, Markdown answers and @ completion fixes
+- feat: CLI sub-commands, layered docs and a round of stability fixes
+- feat(agents): knowledge base, long-term memory, tool categories and edit safety
+- feat(server): Relay mode, agents run here and inference on the Brain Server
+
+### Maintenance
+- chore(gemini): Add lite model configuration
+- chore: Keep FINDINGS.md and DOCUMENTATION_PLAN.md as local notes
+- fix(tools): Coerce tool params to their types and guard write_file
+- build: declare prompt_toolkit as a dependency
+- update prompts
+- (chore) Add knowledge
+- update knowledge
+
 ## [v3.8.1] - 2026-11-14
 
 ###  Bug Fixes
