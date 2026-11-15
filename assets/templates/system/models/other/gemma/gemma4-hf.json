@@ -4,11 +4,9 @@
   "model_properties": {
     "max_new_tokens": 8192,
     "do_sample": true,
-    "temperature": 0.1,
+    "temperature": 1.0,
     "top_p": 0.95,
-    "top_k": 10,
-    "presence_penalty": 1.5,
-    "frequency_penalty": 1.2,
+    "top_k": 64,
     "quantization_bits": 8
   }
 }

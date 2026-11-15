@@ -7,7 +7,7 @@
     "n_gpu_layers": 6,
     "n_ctx": 24000,
     "verbose": false,
-    "max_new_tokens": 15096,
+    "max_new_tokens": 8192,
     "temperature": 0.3,
     "top_p": 0.95,
     "top_k": 64,
