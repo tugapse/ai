@@ -161,3 +161,24 @@ def test_api_error_prints_resume_hint(monkeypatch):
     assert "Connection refused\nSession saved" in text
     assert "Model API unavailable" in text
     assert "ai agent --resume s-api" in text
+
+
+def test_stop_for_approval_prints_how_to_resume(monkeypatch):
+    from test_agent_chat import PIPELINE
+    out = _io.StringIO()
+    io = OneShotIO(out=out, interactive=False)
+    orch, _, reg = make_orchestrator([
+        {"action": {"tool_name": "read_file", "tool_parameters": {"path": "a"}}},
+        {"action": {"tool_name": "execute_command", "tool_parameters": {"command": "git push"}}},
+    ], io=io, pipeline={**PIPELINE, "oneshot_hil_tools": ["execute_command"]})
+    orch.close = lambda: None
+    monkeypatch.setattr("ai.agents.agent.build_orchestrator", lambda *a, **k: orch)
+
+    result = run_one_shot(prog=None, prompt="ship it", session_id="s-stop", io=io)
+
+    text = out.getvalue()
+    assert result.reason == "awaiting_user"
+    assert reg.executed == [("read_file", {"path": "a"})]
+    assert "execute_command(git push)" in text and "waiting for the user's approval" in text
+    assert "approve and continue: ai agent --resume s-stop" in text
+    assert "--msg" not in text

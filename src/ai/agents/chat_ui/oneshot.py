@@ -40,6 +40,8 @@ class OneShotIO(ChatIO):
         self.read = read
         self.interactive = sys.stdin.isatty() if interactive is None else interactive
         self.color = bool(getattr(self.out, "isatty", lambda: False)())
+        self.one_shot = True
+        self.can_ask_permission = self.interactive
         super().__init__(R.LiveState(), self.write, lambda: None)
 
     def write(self, text: str) -> None:
@@ -97,7 +99,10 @@ def run_one_shot(prog, prompt: str, pipeline: str = "default.json", session_id: 
         reason = getattr(result, "reason", "error")
         io.flush()
         io.write(R.render_turn_summary("done" if reason == "awaiting_user" else reason, io.state))
-        if reason in ("awaiting_user", "api_error"):
+        if getattr(orchestrator, "_approval_stop", None):
+            # Stopped before a tool listed in oneshot_hil_tools: approve it in the interactive chat.
+            io.write(f"{R.GREY}  approve and continue: ai agent --resume {session_id}{R.RESET}")
+        elif reason in ("awaiting_user", "api_error"):
             # The session is saved: the same conversation continues with --resume.
             io.write(f"{R.GREY}  continue: ai agent --resume {session_id} --msg \"...\"{R.RESET}")
         return result

@@ -306,6 +306,9 @@ class TestRenderer:
         ok, text = R.summarize_result({"status": "FAILED", "error": "boom"})
         assert not ok and "boom" in text
         assert R.summarize_result({"status": "SUCCESS"}) == (True, "")
+        ok, text = R.summarize_result({"status": "FAILED", "stdout": "", "stderr": "syntax error", "returncode": 2})
+        assert not ok and "syntax error" in text
+        assert "exit code 2" in R.summarize_result({"status": "FAILED", "stderr": "", "returncode": 2})[1]
 
     def test_render_event_types(self):
         msg = R.render_event(AgentEvent(AgentEventType.MESSAGE, "MASTER", "line1\nline2"))

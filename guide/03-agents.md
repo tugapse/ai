@@ -155,6 +155,7 @@ and who it can hand work to. Three ship with JARVIS (in `system/pipelines/`):
 | `entry_point` | The agent that receives your message (default `MASTER`). |
 | `max_iterations` | Max steps per turn (default 300, like the shipped pipelines). |
 | `knowledge` | Optional: extra knowledge sources for this pipeline. |
+| `oneshot_hil_tools` | Optional: in one-shot runs (`ai agent -m` / `-t`), the only tools that need approval; see [Approvals](#approvals-human-in-the-loop). |
 | `agents.<NAME>.role` | `management` gets your message as its objective; `labor` gets the task it was handed. |
 | `agents.<NAME>.prompt_file` | System prompt, relative to `system-prompt/`: `user/system-prompt/` is checked first, then `system/system-prompt/` (or an absolute path). |
 | `agents.<NAME>.tools` | Tools this agent may call. Anything else is refused. |
@@ -198,6 +199,27 @@ When asked, you can answer:
   - `write_file`, `patch_file`, `delete_file`: that tool in the same folder and the folders below it;
   - `enable_mcp_server`: never remembered;
   - any other tool (e.g. an MCP server with `auto_allow: false`): the whole tool.
+
+### One-shot runs
+
+A one-shot run (`ai agent -m "..."` or `ai agent -t TASK`) normally uses `HIL_TOOLS` too. With no
+terminal to ask (a script, a pipe, cron), those tools are denied.
+
+A pipeline can set its own list for one-shot runs instead:
+
+```json
+"oneshot_hil_tools": ["execute_command", "delete_file"]
+```
+
+With this key, in a one-shot run:
+- tools **in the list** need approval. With a terminal you are asked as usual. Without one, the run
+  **stops** before the tool, saves the session and prints
+  `approve and continue: ai agent --resume <id>`. Resume it in the chat to approve the call;
+- tools **not in the list** run without asking, even if they are in `HIL_TOOLS`;
+- `enable_mcp_server` and the tools of MCP servers with `auto_allow: false` still need approval.
+
+The interactive chat and the web UI ignore this key and keep using `HIL_TOOLS`. An empty list
+(`[]`) lets a one-shot run use every tool without asking.
 
 From the web UI, tools in `SERVER_TOTP_TOOLS` can also require an authenticator code (see the
 [Server](07-server.md#security)).

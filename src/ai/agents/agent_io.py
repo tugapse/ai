@@ -59,6 +59,10 @@ class AgentIO:
             caller can collect the answer as the next chat message.
     """
     blocking_user_input: bool = True
+    # One-shot runs (``ai agent -m``/``-t``) use the pipeline's ``oneshot_hil_tools`` when it has one.
+    one_shot: bool = False
+    # Whether request_permission can actually reach a person.
+    can_ask_permission: bool = True
 
     def emit(self, event: AgentEvent) -> None:
         """Receives an orchestrator event."""

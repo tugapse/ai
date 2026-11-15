@@ -137,7 +137,10 @@ def summarize_result(result: Any) -> Tuple[bool, str]:
     ok = status in ("SUCCESS", "OK")
 
     if not ok:
-        detail = result.get("error") or result.get("message") or result.get("result") or ""
+        detail = (result.get("error") or result.get("message") or result.get("stderr")
+                  or result.get("result") or result.get("stdout") or "")
+        if not detail and result.get("returncode") not in (None, 0):
+            detail = f"exit code {result['returncode']}"
         return False, f"{status}" + (f" · {_truncate(detail, MAX_RESULT_LEN)}" if detail else "")
 
     payload = None
@@ -225,7 +228,7 @@ def render_event(event: AgentEvent) -> Optional[str]:
         tool = event.data.get("tool", "?")
         result = event.data.get("result")
         status = result.get("status", "") if isinstance(result, dict) else ""
-        if status in ("DENIED", "UNAUTHORIZED"):
+        if status in ("DENIED", "UNAUTHORIZED", "NEEDS_APPROVAL"):
             # Refused calls never produced a TOOL_CALL line, so name the tool.
             return render_tool_line(tool, event.data.get("params", {}), result, has_result=True)
         ok, summary = summarize_result(result)

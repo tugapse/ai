@@ -1,4 +1,5 @@
 import os
+import re
 import copy
 import json
 import threading
@@ -51,6 +52,14 @@ STAGNATION_STOP = 5
 GATED_TOOLS = ["execute_command"]
 
 
+_WRAPPER_TAG_RE = re.compile(r"</?response_to_user\s*>|<!?\[?CDATA\[|\]\]>", re.IGNORECASE)
+
+
+def _strip_wrapper_tags(text: Any) -> str:
+    """Small models sometimes repeat the <response_to_user> tags (or a CDATA wrapper) inside the field."""
+    return _WRAPPER_TAG_RE.sub("", str(text or "")).strip()
+
+
 def get_hil_tools() -> List[str]:
     """Returns the tools that need human approval, from the HIL_TOOLS setting."""
     try:
@@ -85,6 +94,8 @@ class AgentOrchestrator(Events):
     """
     EVENT_BEFORE_LLM_REQUEST = "before_llm_request"
     EVENT_AFTER_LLM_REQUEST = "after_llm_request"
+    # Set when a one-shot run stops before a tool that needs approval (see oneshot_hil_tools).
+    _approval_stop: Optional[tuple] = None
 
     def __init__(self, llm_connector: LLMConnector, tool_registry: ToolRegistry, pipeline_config: Dict[str, Any], module_registry: ModuleRegistry, io: Optional[AgentIO] = None):
         """
@@ -195,6 +206,7 @@ class AgentOrchestrator(Events):
         """
         self.cancel_event.clear()
         self._awaiting_user: Optional[str] = None
+        self._approval_stop: Optional[tuple] = None
         self._last_message = ""
         self._idle_turns: Dict[str, int] = {}
         self._turn_changed = []
@@ -620,7 +632,7 @@ class AgentOrchestrator(Events):
             if ProgramConfig.get_current().get(ProgramSetting.AGENT_THOUGHT, False): 
                 self.emit(AgentEventType.THOUGHT, agent, thought)
 
-        msg = response.get("response_to_user", "")
+        msg = _strip_wrapper_tags(response.get("response_to_user", ""))
         if msg:
             # The same answer repeated on a later step is not shown again.
             if msg.strip() != (self._last_message or "").strip():
@@ -688,6 +700,8 @@ class AgentOrchestrator(Events):
         # (it used to be silently skipped while the agent reported it as done).
         if tool_name:
             self._handle_tool_execution(tool_name, params or {}, agent, config)
+            if self._approval_stop is not None:
+                return agent  # stopped for approval: that note is what the user needs to see
         question = action.get("message_to_target")
         prompt = question or msg or "Clarification required."
         # If the agent only handed control back after answering, its response was
@@ -751,7 +765,19 @@ class AgentOrchestrator(Events):
                       result={"status": "UNAUTHORIZED", "error": f"'{tool_name}' is not allowed for {agent}"})
             return False
 
+        self._approval_stop = None
         if not self._gatekeeper(tool_name, params, agent):
+            if self._approval_stop is not None:
+                note = (f"Stopped before running {tool_name}: in one-shot mode it needs the user's approval "
+                        f"(oneshot_hil_tools in the pipeline). Resume the session interactively to approve it.")
+                self.memory.add_message_to_agent(agent, {"from": "SYSTEM", "message": (
+                    f"{tool_name} did not run: the run stopped to wait for the user's approval. "
+                    f"When the user resumes, call it again if it is still needed.")})
+                self.emit(AgentEventType.TOOL_RESULT, agent, tool=tool_name, params=params,
+                          result={"status": "NEEDS_APPROVAL", "error": "waiting for the user's approval"})
+                self.emit(AgentEventType.INFO, agent, note)
+                self._awaiting_user = note
+                return False
             self.memory.add_message_to_agent(agent, {"from": "USER", "message": "Access Denied."})
             self.emit(AgentEventType.TOOL_RESULT, agent, tool=tool_name, params=params,
                       result={"status": "DENIED", "error": "User denied execution."})
@@ -1050,12 +1076,19 @@ class AgentOrchestrator(Events):
             return False  # turn was interrupted: never prompt or run anything more
 
         bridge = getattr(self, "mcp_bridge", None)
-        needs_approval = (tool in get_hil_tools() or tool in ALWAYS_GATED_TOOLS
+        oneshot_tools = self._oneshot_hil_tools()
+        gated = oneshot_tools if oneshot_tools is not None else get_hil_tools()
+        needs_approval = (tool in gated or tool in ALWAYS_GATED_TOOLS
                           or bool(bridge is not None and bridge.requires_approval(tool)))
         always_asks = tool in ALWAYS_GATED_TOOLS
         if not needs_approval or (not always_asks and approval_scope.is_allowed(tool, params, self.auto_authorized_tools)):
             self.emit(AgentEventType.TOOL_CALL, agent, tool=tool, params=params, gated=False)
             return True
+
+        if oneshot_tools is not None and getattr(self.io, "can_ask_permission", True) is False:
+            # One-shot with nobody to ask: stop here instead of denying and letting the agent carry on.
+            self._approval_stop = (tool, params)
+            return False
 
         choice = self.io.request_permission(tool, params)
 
@@ -1068,6 +1101,13 @@ class AgentOrchestrator(Events):
             self.emit(AgentEventType.TOOL_CALL, agent, tool=tool, params=params, gated=True)
             return True
         return False
+
+    def _oneshot_hil_tools(self) -> Optional[List[str]]:
+        """The pipeline's ``oneshot_hil_tools`` during a one-shot run, else None (use HIL_TOOLS)."""
+        if getattr(self.io, "one_shot", False) is not True:
+            return None
+        tools = (getattr(self, "pipeline_config", None) or {}).get("oneshot_hil_tools")
+        return list(tools) if isinstance(tools, (list, tuple)) else None
 
     @staticmethod
     def _targets_for_prompt(agent: str, config: Dict[str, Any]) -> List[str]:
