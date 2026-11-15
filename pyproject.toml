@@ -23,6 +23,7 @@ dependencies = [
     "llama_cpp_python",
     "numpy",
     "ollama",
+    "prompt_toolkit",
     "pygments",
     "tqdm",
     "transformers",
