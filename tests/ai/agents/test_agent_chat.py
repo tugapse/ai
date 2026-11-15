@@ -309,6 +309,8 @@ class TestRenderer:
         ok, text = R.summarize_result({"status": "FAILED", "stdout": "", "stderr": "syntax error", "returncode": 2})
         assert not ok and "syntax error" in text
         assert "exit code 2" in R.summarize_result({"status": "FAILED", "stderr": "", "returncode": 2})[1]
+        warn_first = "Branches 'master' and 'origin/master' have diverged.\nfatal: no tag message?\nFatal: Tagging failed."
+        assert "no tag message" in R.summarize_result({"status": "FAILED", "stderr": warn_first, "returncode": 1})[1]
 
     def test_render_event_types(self):
         msg = R.render_event(AgentEvent(AgentEventType.MESSAGE, "MASTER", "line1\nline2"))

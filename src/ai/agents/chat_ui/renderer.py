@@ -128,6 +128,20 @@ def summarize_params(tool: str, params: Dict[str, Any]) -> str:
     return _truncate(", ".join(parts), MAX_ARG_LEN)
 
 
+_ERROR_LINE_RE = re.compile(r"\b(fatal|error|erro|failed|not found|denied|no such)\b", re.IGNORECASE)
+
+
+def _key_error_line(stderr: Any) -> str:
+    """The line of a command's stderr that explains the failure (warnings often come first)."""
+    lines = [line.strip() for line in str(stderr or "").splitlines() if line.strip()]
+    if not lines:
+        return ""
+    for line in lines:
+        if _ERROR_LINE_RE.search(line):
+            return line
+    return lines[-1]
+
+
 def summarize_result(result: Any) -> Tuple[bool, str]:
     """Returns (ok, short description) for a tool result."""
     if not isinstance(result, dict):
@@ -137,7 +151,7 @@ def summarize_result(result: Any) -> Tuple[bool, str]:
     ok = status in ("SUCCESS", "OK")
 
     if not ok:
-        detail = (result.get("error") or result.get("message") or result.get("stderr")
+        detail = (result.get("error") or result.get("message") or _key_error_line(result.get("stderr"))
                   or result.get("result") or result.get("stdout") or "")
         if not detail and result.get("returncode") not in (None, 0):
             detail = f"exit code {result['returncode']}"

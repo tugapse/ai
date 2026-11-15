@@ -37,6 +37,12 @@ class TestNonInteractiveCommands:
         assert time.monotonic() - start < 5
         assert result["status"] == "FAILED"
 
+    def test_messages_in_english_whatever_the_locale(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("LC_ALL", "pt_PT.UTF-8")
+        monkeypatch.setenv("LANGUAGE", "pt_PT:pt")
+        result = agent_tools.execute_command(command="echo $LC_MESSAGES-$LC_ALL-$LANGUAGE-$LANG", path="@ROOT")
+        assert result["stdout"].strip() == "C---pt_PT.UTF-8"
+
     def test_pager_and_editor_env(self, tmp_path):
         result = agent_tools.execute_command(command="echo $GIT_PAGER $PAGER $GIT_EDITOR $GIT_TERMINAL_PROMPT", path="@ROOT")
         assert result["stdout"].split() == ["cat", "cat", "true", "0"]

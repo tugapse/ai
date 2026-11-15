@@ -111,6 +111,10 @@ Then:
 Wait for the user to confirm. If the user's original message already says to go ahead without
 confirming, skip this checkpoint.
 
+When the user replies with a confirmation ("yes", "ok", "confirmed", "go ahead", …), the checkpoint
+is done: continue with step 6 using the release values you showed, possibly with the corrections the
+user gave. Do not show the summary again and do not ask again.
+
 From here on, `{tag}` is always the **tag** from the release values (e.g. `v1.5.0`). It is never
 `develop`, `master` or any other branch name. Check each command against the release values before
 sending it.
@@ -156,8 +160,12 @@ For `package.json`, prefer `npm version {X.Y.Z} --no-git-tag-version` (it also u
 ```
 
 Group the subjects by their type: `feat` → features, `fix` → bug fixes, everything else (including
-subjects without a conventional type) → maintenance. Leave out empty groups. Read the top of the
-changelog after editing to check the result.
+subjects without a conventional type) → maintenance. Leave out empty groups.
+
+After editing, read the top of the changelog and compare the new block with the previous release
+block, line by line: same heading style, same group headings (spacing included), and the same fixed
+lines (if the previous block ends its Maintenance group with `- chore(release): Bump version to …`,
+yours must end with `- chore(release): Bump version to {X.Y.Z}`). Fix any difference with patch_file.
 
 ## 8. Commit the release changes
 - `git add` only the version files and the changelog you changed.
@@ -166,14 +174,15 @@ changelog after editing to check the result.
 - Check with `git show --stat HEAD` that no other file is part of the commit.
 
 ## 9. Finish the release
-**With git-flow:**
-- `GIT_EDITOR=true GIT_MERGE_AUTOEDIT=no git flow release finish -m "{tag}" {tag}`
+**With git-flow** (all three sub-steps are part of this step, do not skip 9b and 9c):
+- **9a.** `GIT_EDITOR=true GIT_MERGE_AUTOEDIT=no git flow release finish -m "{tag}" {tag}`
   e.g. `GIT_EDITOR=true GIT_MERGE_AUTOEDIT=no git flow release finish -m "v1.5.0" v1.5.0`.
   The `-m "{tag}"` is required: without it the tag cannot be created and the release stops halfway.
-- Some git-flow versions write the tag message twice (`v1.2.0 v1.2.0`). Check with
-  `git tag -n1 {tag}`. If it is duplicated, fix it while the tag is still local:
+- **9b.** Run `git tag -n1 {tag}`. git-flow often writes the message twice (`v1.5.0          v1.5.0 v1.5.0`).
+- **9c.** If the message is duplicated, fix it while the tag is still local:
   1. Check that `git rev-parse "{tag}^{commit}"` and `git rev-parse {production}` print the same hash.
   2. `git tag -f -a {tag} -m "{tag}" {production}`
+  3. Run `git tag -n1 {tag}` again: the message must now appear once.
 
 **Plain git fallback:**
 1. `git checkout {production}`
@@ -186,7 +195,14 @@ changelog after editing to check the result.
 If a merge reports a conflict, stop and report it. Do not resolve conflicts on your own.
 
 ## 10. Verify
-Run these and include their output in the report:
+This step is **mandatory**, even when everything looked fine. You may run it as one command:
+
+```
+git rev-parse --abbrev-ref HEAD; git status --porcelain; git tag -n1 {tag}; git describe --tags --abbrev=0 {production}; git branch --list 'release/*'; git log --oneline -3 {production}; git log --oneline -3 {development}
+```
+
+Plus the version check, e.g. `git show {production}:pyproject.toml | grep -n "{X.Y.Z}"`.
+Expected results:
 - `git rev-parse --abbrev-ref HEAD` → the development branch
 - `git status --porcelain` → empty
 - `git tag -n1 {tag}` → the tag message appears once
@@ -197,6 +213,7 @@ Run these and include their output in the report:
 - `git branch --list 'release/*'` → empty
 
 ## 11. Report
+You may only write the report **after** running step 10, and the report must quote its output.
 The release is done **only if every check in step 10 passed**. If any check failed, or any command in
 steps 6 to 9 failed, the report must say the release is NOT complete, which step failed, and the
 current state of the repository. Never report success otherwise.

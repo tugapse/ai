@@ -67,6 +67,8 @@ _NON_INTERACTIVE_ENV = {
     "DEBIAN_FRONTEND": "noninteractive",
     "PIP_NO_INPUT": "1",
     "CI": "1",
+    # Messages in English whatever the user's locale: models read English errors far better.
+    "LC_MESSAGES": "C",
 }
 
 
@@ -88,6 +90,11 @@ def _run_non_interactive(command: str, cwd: str, timeout: float):
     """
     env = os.environ.copy()
     env.update(_NON_INTERACTIVE_ENV)
+    # LC_ALL would override LC_MESSAGES and LANGUAGE would translate anyway: keep the user's
+    # encoding (LC_ALL -> LANG) and drop both so the messages really come out in English.
+    if env.get("LC_ALL"):
+        env["LANG"] = env.pop("LC_ALL")
+    env.pop("LANGUAGE", None)
 
     popen_kwargs: Dict[str, Any] = dict(
         shell=True, cwd=cwd, env=env,
