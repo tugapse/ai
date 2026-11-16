@@ -1,5 +1,15 @@
 # Changelog
 
+## [v3.10.0] - 2026-11-16
+
+###  Features
+- feat(knowledge): Document every text file when no extensions are given
+
+###  Maintenance
+- chore(models): Recommended sampling and sane output limits in model templates
+- chore(models): Add the qwen3 chat model
+- docs(tools): Point to my own user tools in jarvis-user-tools
+
 ## [v3.9.1] - 2026-11-15
 
 ###  Bug Fixes
