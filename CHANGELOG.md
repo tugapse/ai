@@ -5,6 +5,9 @@
 ###  Features
 - feat(knowledge): Document every text file when no extensions are given
 
+###  Bug Fixes
+- fix(models): Qwen 3.5 sampling and no thinking in the qwen3 chat config
+
 ###  Maintenance
 - chore(models): Recommended sampling and sane output limits in model templates
 - chore(models): Add the qwen3 chat model
