@@ -1,0 +1,16 @@
+{
+  "model_name": "Qwen 3.5estou ",
+  "model_type": "gguf",
+  "model_properties": {
+    "gguf_filename": "Qwen3.5-9B-Q5_K_S.gguf",
+    "model_repo_id": "unsloth/Qwen3.5-9B-GGUF",
+    "n_gpu_layers": -1,
+    "n_ctx": 8192,
+    "max_new_tokens": 4096,
+    "temperature": 1.0,
+    "top_p": 0.95,
+    "top_k": 64,
+    "presence_penalty": 0,
+    "frequency_penalty": 0
+  }
+}
