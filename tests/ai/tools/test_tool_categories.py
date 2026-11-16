@@ -138,6 +138,22 @@ def test_user_tools_load_as_categories(tmp_path):
     assert reg.category_of("git_status") == "git"
 
 
+def test_user_tools_load_again_in_the_same_registry(tmp_path):
+    """Every agent run imports the user files again (new class objects) into the singleton registry."""
+    (tmp_path / "git_tools.py").write_text(USER_FILE)
+    reg = fresh_registry()
+    load_and_register_user_tools(reg, str(tmp_path))
+    load_and_register_user_tools(reg, str(tmp_path))
+    assert reg.category_tools("git") == ["git_status"]
+
+
+def test_another_class_cannot_take_a_category_name(tmp_path):
+    (tmp_path / "git_tools.py").write_text(USER_FILE)
+    (tmp_path / "other_git.py").write_text(USER_FILE.replace("git_status", "git_log"))
+    with pytest.raises(ImportError, match="already used by GitTools"):
+        load_and_register_user_tools(fresh_registry(), str(tmp_path))
+
+
 def test_user_tool_without_category_is_refused(tmp_path):
     (tmp_path / "loose.py").write_text(USER_FILE + '''
 @tool
