@@ -61,7 +61,7 @@ class ToolRegistry:
         """
         tools = validate_category(category)
         current = self._categories.get(category.name)
-        if current is not None and type(current) is not type(category):
+        if current is not None and not self._same_category_class(current, category):
             raise ToolCategoryError(
                 f"Category name '{category.name}' is already used by {type(current).__name__}.")
         for name in tools:
@@ -76,6 +76,16 @@ class ToolRegistry:
             self._tool_category[name] = category.name
         func.debug(f"Tool category registered: {category.name} ({', '.join(tools)})")
         return tools
+
+    @staticmethod
+    def _same_category_class(a: ToolCategory, b: ToolCategory) -> bool:
+        """
+        True when both come from the same class definition. User tool files are imported again
+        for every agent run, which creates a new class object each time; the registry is a
+        singleton, so module + qualified name is what identifies the class.
+        """
+        ta, tb = type(a), type(b)
+        return ta is tb or (ta.__module__, ta.__qualname__) == (tb.__module__, tb.__qualname__)
 
     def unregister_category(self, name: str) -> None:
         """Removes a category and its tools."""
