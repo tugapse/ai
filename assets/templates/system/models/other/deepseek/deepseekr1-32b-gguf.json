@@ -7,12 +7,12 @@
     "n_gpu_layers": 8,
     "n_ctx": 20192,
     "verbose": false,
-    "max_new_tokens": 4096,
-    "temperature": 0.5,
-    "top_p": 0.9,
+    "max_new_tokens": 8192,
+    "temperature": 0.6,
+    "top_p": 0.95,
     "top_k": 40,
-    "presence_penalty": 1.1,
-    "frequency_penalty": 1.1,
+    "presence_penalty": 0,
+    "frequency_penalty": 0,
     "chat_format": null,
     "override_system_by_user_template": false
   }

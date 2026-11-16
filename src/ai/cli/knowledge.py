@@ -40,7 +40,7 @@ def register(subparsers, parent):
     build.add_argument("--mode", dest="kb_mode", metavar="MODE",
                        help="missing | changed (default) | all | diff[:branch]")
     build.add_argument("--only", dest="kb_only", choices=["docs", "knowledge"], help="Generate only docs or only knowledge")
-    build.add_argument("--ext", dest="kb_ext", metavar="EXTS", help="Source extensions, comma separated (default KNOWLEDGE_EXTENSIONS or py)")
+    build.add_argument("--ext", dest="kb_ext", metavar="EXTS", help="Source extensions, comma separated, or 'all' for every text file (default: the last build's, then KNOWLEDGE_EXTENSIONS, then all)")
     build.add_argument("--files", dest="kb_files", metavar="FILES", help="Only these files, comma separated")
     build.add_argument("--max", dest="kb_max", type=int, metavar="N", help="Stop after N files")
     build.add_argument("--force", dest="kb_force", action="store_true", help="Regenerate files that are up to date")
@@ -102,7 +102,7 @@ def registry_command(prog, args, directory_manager) -> None:
     if build:
         cfg = resolve_build_config(project, registry)
         status = KnowledgeBuilder(cfg).status(limit=5)
-        func.out(f"  Build: {cfg.source_root} ({', '.join(cfg.extensions)}) -> {cfg.output_dir}")
+        func.out(f"  Build: {cfg.source_root} ({cfg.extensions_label}) -> {cfg.output_dir}")
         for kind in ("docs", "knowledge"):
             st = status[kind]
             func.out(f"    {kind}: {st['ok']}/{status['source_files']} ok, {st['missing']} missing, "
@@ -138,7 +138,7 @@ def build(prog, args, directory_manager) -> None:
         "kinds": [args.kb_only] if args.kb_only else None,
     }
     cfg = service.build_config(project, **overrides)
-    func.out(f"{Color.CYAN}Building knowledge{Color.RESET}: {cfg.source_root} ({', '.join(cfg.extensions)}) -> {cfg.output_dir}")
+    func.out(f"{Color.CYAN}Building knowledge{Color.RESET}: {cfg.source_root} ({cfg.extensions_label}) -> {cfg.output_dir}")
     started = time.time()
 
     def progress(event):

@@ -7,14 +7,15 @@
     "n_gpu_layers": 10,
     "n_ctx": 24000,
     "verbose": false,
-    "max_new_tokens": 4096,
+    "max_new_tokens": 8192,
     "temperature": 0.7,
-    "top_p": 0.5,
-    "top_k": 50,
-    "presence_penalty": 1,
-    "frequency_penalty": 1,
-    
-    "enable_thinking":false,
-    "chat_template_kwargs": {"enable_thinking": false}
+    "top_p": 0.8,
+    "top_k": 20,
+    "presence_penalty": 0,
+    "frequency_penalty": 0,
+    "enable_thinking": false,
+    "chat_template_kwargs": {
+      "enable_thinking": false
+    }
   }
 }

@@ -7,11 +7,11 @@
     "n_gpu_layers": 9,
     "n_ctx": 18000,
     "verbose": false,
-    "max_new_tokens": 4096,
-    "temperature": 0.7,
-    "top_p": 0.5,
-    "top_k": 50,
-    "presence_penalty": 1,
-    "frequency_penalty": 1
+    "max_new_tokens": 8192,
+    "temperature": 1.0,
+    "top_p": 0.95,
+    "top_k": 64,
+    "presence_penalty": 0,
+    "frequency_penalty": 0
   }
 }

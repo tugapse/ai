@@ -236,7 +236,7 @@ matching engine is installed with `ai install`".
 | `KNOWLEDGE_ENABLED` | `true` | Knowledge module. |
 | `KNOWLEDGE_SOURCES` | `[]` | Extra sources for every project: paths or `{"id", "path", "kind": "auto\|knowledge\|docs"}`. |
 | `KNOWLEDGE_OUTPUT_DIR` | `<root>/knowledge` | Where `ai knowledge build` writes. |
-| `KNOWLEDGE_EXTENSIONS` | `["py"]` | Source extensions to document. |
+| `KNOWLEDGE_EXTENSIONS` | every text file | Source extensions to document; `["all"]` = every text file. |
 | `KNOWLEDGE_AUTO_UPDATE` | `true` | Regenerate the knowledge of files an agent changed. |
 | `KNOWLEDGE_AUTO_UPDATE_MAX` | `5` | Max files regenerated per run. |
 | `KNOWLEDGE_SEMANTIC` | installed | Embedding search for knowledge (keyword search otherwise). |

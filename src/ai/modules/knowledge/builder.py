@@ -36,6 +36,21 @@ TASKS = {
 MODES = ("missing", "changed", "all", "diff", "files")
 SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv", "dist", "build", ".mypy_cache", ".pytest_cache"}
 STATE_FILE = ".state.json"
+ALL_EXTENSIONS = ("all", "*")   # --ext all / *: every text file (an empty extension list)
+MAX_FILE_BYTES = 256 * 1024     # all-files mode: bigger files are skipped (generated, data, dumps)
+IGNORED_FILES = {
+    "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock", "pipfile.lock", "uv.lock",
+    "cargo.lock", "composer.lock", "gemfile.lock", "go.sum", "packages.lock.json", ".ds_store",
+}
+IGNORED_SUFFIXES = (".min.js", ".min.css", ".map", ".lock", ".log", ".pyc", ".pyo", ".tsbuildinfo")
+BINARY_EXTENSIONS = {
+    "png", "jpg", "jpeg", "gif", "bmp", "ico", "webp", "avif", "tif", "tiff", "psd", "blend", "fbx", "glb",
+    "pdf", "zip", "gz", "tgz", "bz2", "xz", "7z", "rar", "jar", "war", "whl", "egg",
+    "so", "dll", "dylib", "exe", "bin", "o", "a", "lib", "class", "wasm", "pyd",
+    "mp3", "wav", "ogg", "flac", "mp4", "mkv", "mov", "avi", "webm",
+    "ttf", "otf", "woff", "woff2", "eot", "db", "sqlite", "sqlite3", "db-shm", "db-wal",
+    "gguf", "safetensors", "pt", "pth", "onnx", "npy", "npz", "pkl", "parquet",
+}
 CHARS_PER_TOKEN = 3.2
 DOC_SEPARATOR = "\n\n# --- END OF DOCUMENTATION CONTEXT --- #\n\n"
 
@@ -48,15 +63,27 @@ LLMCall = Callable[[List[Dict[str, str]], str], str]  # (messages, system_prompt
 class BuildConfig:
     project: str
     source_root: str                 # absolute
-    extensions: List[str]
+    extensions: List[str]            # empty: every text file
     output_dir: str                  # absolute: <output>/docs and <output>/knowledge
     kinds: Tuple[str, ...] = KINDS
+    # Sources whose output keeps the full file name (foo.ts -> foo.ts.md) because another source
+    # has the same name without extension (foo.html). Filled by KnowledgeBuilder.scan().
+    full_name_targets: set = field(default_factory=set)
+
+    @property
+    def all_files(self) -> bool:
+        return not self.extensions
+
+    @property
+    def extensions_label(self) -> str:
+        return ", ".join(self.extensions) if self.extensions else "all text files"
 
     def kind_dir(self, kind: str) -> str:
         return os.path.join(self.output_dir, kind)
 
     def target_rel(self, kind: str, rel: str) -> str:
-        return os.path.splitext(rel)[0] + TASKS[kind][1]
+        base = rel if rel in self.full_name_targets else os.path.splitext(rel)[0]
+        return base + TASKS[kind][1]
 
     def target_path(self, kind: str, rel: str) -> str:
         return os.path.join(self.kind_dir(kind), self.target_rel(kind, rel))
@@ -80,12 +107,21 @@ def _norm_exts(exts: Iterable[str]) -> List[str]:
     return out
 
 
+def _resolve_exts(value: Any) -> Optional[List[str]]:
+    """Extension list from a setting; [] = all files ('all' or '*'), None = not set."""
+    if value is None:
+        return None
+    exts = _norm_exts([value] if isinstance(value, str) else value)
+    return [] if any(e in ALL_EXTENSIONS for e in exts) else exts
+
+
 def resolve_build_config(project: str, registry: Optional[KnowledgeRegistry] = None, config: Any = None,
                          source_root: Optional[str] = None, extensions: Optional[Iterable[str]] = None,
                          output_dir: Optional[str] = None, kinds: Optional[Iterable[str]] = None) -> BuildConfig:
     """
     Build settings for a project: explicit values, then the project's registry entry, then config,
-    then defaults (source root 'src' when it exists, extensions ['py'], output <root>/knowledge/<slug>).
+    then defaults (source root 'src' when it exists, every text file, output <root>/knowledge/<slug>).
+    Extensions 'all' or '*' (or an empty list) mean every text file.
     """
     project = project_key(project)
     saved = registry.build_config(project) if registry else {}
@@ -102,7 +138,12 @@ def resolve_build_config(project: str, registry: Optional[KnowledgeRegistry] = N
         root = "src" if os.path.isdir(os.path.join(project, "src")) else "."
     root = root if os.path.isabs(root) else os.path.join(project, root)
 
-    exts = _norm_exts(extensions or saved.get("extensions") or cfg("KNOWLEDGE_EXTENSIONS") or ["py"])
+    exts = _resolve_exts(extensions) if extensions else None
+    if exts is None and "extensions" in saved:
+        exts = _resolve_exts(saved.get("extensions"))
+    if exts is None:
+        exts = _resolve_exts(cfg("KNOWLEDGE_EXTENSIONS") or None)
+    exts = exts or []
 
     out = output_dir or saved.get("output")
     if not out:
@@ -233,6 +274,17 @@ def _sha(path: str) -> str:
     return h.hexdigest()
 
 
+class _IgnoredPaths(set):
+    """Paths from git's ignore list; a path is ignored when it or one of its folders is listed."""
+
+    def __contains__(self, rel: object) -> bool:
+        rel = str(rel)
+        if set.__contains__(self, rel):
+            return True
+        parts = rel.split("/")
+        return any(set.__contains__(self, "/".join(parts[:i])) for i in range(1, len(parts)))
+
+
 class KnowledgeBuilder:
     """Generates docs and component knowledge for a project's source files."""
 
@@ -249,15 +301,64 @@ class KnowledgeBuilder:
 
     # ------------------------------------------------------------------ files
     def scan(self) -> List[str]:
-        """Source files (paths relative to the source root), sorted."""
-        root, exts = self.config.source_root, set(self.config.extensions)
+        """
+        Source files (paths relative to the source root), sorted. With no extensions: every text
+        file that git doesn't ignore, skipping hidden files, binaries, lockfiles and files over
+        MAX_FILE_BYTES.
+        """
+        root = self.config.source_root
+        output = self.config.output_dir + os.sep
+        ignored = self._git_ignored(root) if self.config.all_files else set()
         out = []
         for dirpath, dirnames, filenames in os.walk(root):
-            dirnames[:] = sorted(d for d in dirnames if d not in SKIP_DIRS and not d.startswith("."))
+            dirnames[:] = sorted(d for d in dirnames if d not in SKIP_DIRS and not d.startswith(".")
+                                 and not (os.path.join(dirpath, d) + os.sep).startswith(output))
             for name in filenames:
-                if name.rsplit(".", 1)[-1].lower() in exts:
-                    out.append(os.path.relpath(os.path.join(dirpath, name), root).replace(os.sep, "/"))
-        return sorted(out)
+                rel = os.path.relpath(os.path.join(dirpath, name), root).replace(os.sep, "/")
+                if rel not in ignored and self._wanted(os.path.join(dirpath, name)):
+                    out.append(rel)
+        out.sort()
+        self._mark_name_clashes(out)
+        return out
+
+    def _wanted(self, path: str) -> bool:
+        name = os.path.basename(path)
+        ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+        if not self.config.all_files:
+            return ext in self.config.extensions
+        lower = name.lower()
+        if lower.startswith(".") or lower in IGNORED_FILES or lower.endswith(IGNORED_SUFFIXES) or ext in BINARY_EXTENSIONS:
+            return False
+        try:
+            if os.path.getsize(path) > MAX_FILE_BYTES:
+                return False
+            with open(path, "rb") as f:
+                return b"\0" not in f.read(8192)
+        except OSError:
+            return False
+
+    @staticmethod
+    def _git_ignored(root: str) -> set:
+        """Root-relative paths git ignores (empty when root isn't in a git repo)."""
+        try:
+            out = subprocess.run(["git", "-C", root, "ls-files", "--others", "--ignored", "--exclude-standard",
+                                  "--directory", "--no-empty-directory"],
+                                 capture_output=True, text=True, timeout=30)
+        except Exception:
+            return set()
+        if out.returncode != 0:
+            return set()
+        ignored = set()
+        for line in out.stdout.splitlines():
+            ignored.add(line.rstrip("/"))
+        return _IgnoredPaths(ignored)
+
+    def _mark_name_clashes(self, files: List[str]) -> None:
+        """Sources sharing a name without extension (foo.ts, foo.html) keep their full name in the output."""
+        by_stem: Dict[str, List[str]] = {}
+        for rel in files:
+            by_stem.setdefault(os.path.splitext(rel)[0], []).append(rel)
+        self.config.full_name_targets = {rel for group in by_stem.values() if len(group) > 1 for rel in group}
 
     def to_rel(self, path: str) -> Optional[str]:
         """Source-root-relative path for a user/agent path (absolute, @ROOT/..., project- or source-relative)."""
@@ -269,7 +370,7 @@ class KnowledgeBuilder:
             c = os.path.normpath(os.path.abspath(c))
             if os.path.isfile(c) and (c + os.sep).startswith(self.config.source_root + os.sep):
                 rel = os.path.relpath(c, self.config.source_root).replace(os.sep, "/")
-                if rel.rsplit(".", 1)[-1].lower() in self.config.extensions:
+                if self._wanted(c):
                     return rel
         return None
 
@@ -353,7 +454,7 @@ class KnowledgeBuilder:
         """Coverage of the project's knowledge."""
         files = self.scan()
         out: Dict[str, Any] = {"project": self.config.project, "source_root": self.config.source_root,
-                               "extensions": self.config.extensions, "output": self.config.output_dir,
+                               "extensions": self.config.extensions or ["all"], "output": self.config.output_dir,
                                "source_files": len(files)}
         for kind in KINDS:
             buckets: Dict[str, List[str]] = {"ok": [], "missing": [], "outdated": [], "error": []}

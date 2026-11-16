@@ -70,7 +70,7 @@ class ProgramSetting(Enum):
     KNOWLEDGE_INJECT_TOP_K = "KNOWLEDGE_INJECT_TOP_K"        # Components injected into the agent payload (0 = off)
     KNOWLEDGE_INJECT_MAX_CHARS = "KNOWLEDGE_INJECT_MAX_CHARS"  # Character budget of the injected knowledge
     KNOWLEDGE_OUTPUT_DIR = "KNOWLEDGE_OUTPUT_DIR"            # Where generated knowledge goes (default <root>/knowledge/<project>)
-    KNOWLEDGE_EXTENSIONS = "KNOWLEDGE_EXTENSIONS"            # Source extensions to document (default ["py"])
+    KNOWLEDGE_EXTENSIONS = "KNOWLEDGE_EXTENSIONS"            # Source extensions to document; unset or ["all"] = every text file
     KNOWLEDGE_AUTO_UPDATE = "KNOWLEDGE_AUTO_UPDATE"          # Regenerate knowledge of files changed in a run (default true)
     KNOWLEDGE_AUTO_UPDATE_MAX = "KNOWLEDGE_AUTO_UPDATE_MAX"  # Files regenerated per run (default 5)
     SERVER_HOST = "SERVER_HOST"    

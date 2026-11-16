@@ -1,5 +1,18 @@
 # Changelog
 
+## [v3.10.0] - 2026-11-16
+
+###  Features
+- feat(knowledge): Document every text file when no extensions are given
+
+###  Bug Fixes
+- fix(models): Qwen 3.5 sampling and no thinking in the qwen3 chat config
+
+###  Maintenance
+- chore(models): Recommended sampling and sane output limits in model templates
+- chore(models): Add the qwen3 chat model
+- docs(tools): Point to my own user tools in jarvis-user-tools
+
 ## [v3.9.1] - 2026-11-15
 
 ###  Bug Fixes
@@ -7,7 +20,7 @@
 
 ## [v3.9.0] - 2026-11-15
 
-### Features
+###  Features
 - feat(agents): Reply to agent questions in one-shot runs
 - feat(agents): Agent-friendly sampling, English command output, clearer failures
 - feat(agents): oneshot_hil_tools pipeline key and release task fixes
@@ -18,14 +31,17 @@
 - feat(agents): knowledge base, long-term memory, tool categories and edit safety
 - feat(server): Relay mode, agents run here and inference on the Brain Server
 
-### Maintenance
+###  Bug Fixes
+- fix(tools): Coerce tool params to their types and guard write_file
+
+###  Maintenance
 - chore(gemini): Add lite model configuration
 - chore: Keep FINDINGS.md and DOCUMENTATION_PLAN.md as local notes
-- fix(tools): Coerce tool params to their types and guard write_file
 - build: declare prompt_toolkit as a dependency
 - update prompts
 - (chore) Add knowledge
 - update knowledge
+- chore(release): Bump version to 3.9.0
 
 ## [v3.8.1] - 2026-11-14
 

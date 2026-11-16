@@ -121,7 +121,8 @@ take part. → [Agents](guide/03-agents.md)
 
 **Tools.** Built-in categories (filesystem, search, shell, web, notify, knowledge, memory), MCP
 servers (shipped disabled: `ai mcp enable NAME`) and your own Python tools in
-`<AI dir>/user/tools/` (`ai tools create NAME` makes a skeleton). → [Tools](guide/04-tools.md)
+`<AI dir>/user/tools/` (`ai tools create NAME` makes a skeleton). Mine live in
+[jarvis-user-tools](https://github.com/tugapse/jarvis-user-tools). → [Tools](guide/04-tools.md)
 
 **Knowledge & memory.** `ai knowledge build` has the model document a project once (a summary,
 symbols and dependencies per file), so agents start from that instead of exploring from scratch.
