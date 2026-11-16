@@ -1,5 +1,10 @@
 # Changelog
 
+## [v3.10.1] - 2026-11-16
+
+###  Bug Fixes
+- fix(tools): User tools load again on every agent run of the server
+
 ## [v3.10.0] - 2026-11-16
 
 ###  Features
