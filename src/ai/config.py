@@ -83,6 +83,7 @@ class ProgramSetting(Enum):
     SERVER_TOTP_TOOLS = "SERVER_TOTP_TOOLS"              # Tools whose approval needs an authenticator code
     SERVER_RELAY_URL = "SERVER_RELAY_URL"          # Brain Server URL: --server runs agents here, inference there
     SERVER_AGENT_WORKDIR = "SERVER_AGENT_WORKDIR"  # Folder web agent runs work in (default ~/Ai/workspace)
+    SERVER_IDLE_UNLOAD_MINUTES = "SERVER_IDLE_UNLOAD_MINUTES"  # Unload the model after this many idle minutes (0 = never)
 
     def __str__(self) -> str:
         """Returns the string value associated with the enum member."""
