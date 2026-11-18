@@ -40,6 +40,8 @@ Big models need a big GPU, and loading one takes time and memory. The server loa
 
 The model it loads first is the usual default (`MODEL_CONFIG_NAME` / `--model`); requests can ask
 for another model config and the server swaps safely (see [Sharing one model](#sharing-one-model)).
+Without `--model` it can start empty and load on the first request. After
+`SERVER_IDLE_UNLOAD_MINUTES` (default 15) without use it unloads the model to free the GPU.
 
 Open `http://<server-ip>:9999` in a browser for the web UI.
 
@@ -207,6 +209,7 @@ FastAPI also serves interactive docs at `/docs` (OpenAPI).
 | `SERVER_ALLOWED_ORIGINS` | `http://localhost:4200` | CORS origins (the frontend dev server). |
 | `SERVER_RELAY_URL` | — | Relay mode target. |
 | `SERVER_AGENT_WORKDIR` | `<root>/system/workspace` | Default folder for web agent runs. |
+| `SERVER_IDLE_UNLOAD_MINUTES` | `15` | Unload the model after this many minutes without use, freeing the GPU; the next request loads it again. `0` = never. Ignored in relay mode. |
 | `SERVER_FRONTEND_DIR` / `SERVER_FRONTEND_VERSION` | — / bundled | Which web UI build to serve. |
 | `SERVER_TOTP_ENABLED` | `false` | Require authenticator codes. |
 | `SERVER_TOTP_TOOLS` | `execute_command`, `delete_file` | Tools that need a code. |

@@ -1,5 +1,6 @@
 import os
 import threading
+import time
 import weakref
 from typing import Callable, List, Optional
 import ai.functions as func
@@ -51,6 +52,8 @@ class BrainHub:
     RELAY_TIMEOUT = 5.0          # seconds for the Brain Server's model list / health
     RELAY_CACHE_SECONDS = 10.0   # the remote model list is reused this long
     RELAY_SESSION_FOLDER = "relay"  # where the Brain Server keeps the history of relayed calls
+    IDLE_UNLOAD_DEFAULT_MINUTES = 15  # SERVER_IDLE_UNLOAD_MINUTES when unset
+    IDLE_CHECK_SECONDS = 30.0         # how often the idle unloader looks
 
     def __init__(self, config: ProgramConfig, relay_url: Optional[str] = None):
         """
@@ -78,6 +81,10 @@ class BrainHub:
         self.knowledge_building = False  # a knowledge build (server API) uses the model
         self._swap_target: Optional[str] = None
         self._cancel_hooks: List[Callable[[], None]] = []
+        self._clock = time.monotonic
+        self._last_activity = self._clock()  # last load, generation start/end or agent start/end
+        self._idle_stop = threading.Event()
+        self._idle_thread: Optional[threading.Thread] = None
         self.history = self.new_history(None, "default", None)
         
 
@@ -288,6 +295,8 @@ class BrainHub:
 
     def _publish_activity(self) -> None:
         """Mirrors the hub state into the process registry (an agent run publishes its own lines)."""
+        # Every change of use (load, generation start/end, agent start/end) is activity.
+        self._last_activity = self._clock()
         if self._agent_running:
             return
         if self.busy:
@@ -455,6 +464,84 @@ class BrainHub:
             except Exception as e:
                 func.error(f"BrainHub: Unload of {model_id or 'unknown'} failed: {e}")
             return model_id
+
+    # --- idle unload ----------------------------------------------------------------------
+
+    def idle_unload_seconds(self) -> float:
+        """
+        Idle time after which the loaded model is unloaded (SERVER_IDLE_UNLOAD_MINUTES,
+        default 15). 0 = never. Always 0 in relay mode: there is no local model to free.
+        """
+        if self.relay_url:
+            return 0.0
+        value = None
+        try:
+            value = self.config.get(ProgramSetting.SERVER_IDLE_UNLOAD_MINUTES) if self.config is not None else None
+        except Exception:
+            value = None
+        if isinstance(value, bool) or not isinstance(value, (int, float, str)) or value == "":
+            value = self.IDLE_UNLOAD_DEFAULT_MINUTES
+        try:
+            minutes = float(value)
+        except ValueError:
+            func.error(f"BrainHub: invalid SERVER_IDLE_UNLOAD_MINUTES '{value}'; "
+                       f"using {self.IDLE_UNLOAD_DEFAULT_MINUTES}.")
+            minutes = self.IDLE_UNLOAD_DEFAULT_MINUTES
+        return max(0.0, minutes * 60.0)
+
+    def unload_if_idle(self, idle_seconds: Optional[float] = None) -> Optional[str]:
+        """
+        Unloads the model when nothing has used it for ``idle_seconds`` (default: the setting).
+        Never while it is in use, swapping or building knowledge; the next request loads it again.
+
+        Returns:
+            The key of the unloaded model, or None when nothing was unloaded.
+        """
+        limit = self.idle_unload_seconds() if idle_seconds is None else idle_seconds
+        if limit <= 0:
+            return None
+        with self._lock:
+            if self.orchestrator.llm is None or self.busy or self._swap_target or self.knowledge_building:
+                return None
+            idle = self._clock() - self._last_activity
+            if idle < limit:
+                return None
+            key = self.unload_brain()
+            if key:
+                func.out(f"BrainHub: idle {int(idle // 60)} min, unloaded {key}.")
+                ProcessManager.set_state("model", "")
+            self._publish_activity()
+            return key
+
+    def start_idle_unloader(self) -> bool:
+        """
+        Starts the background thread that calls ``unload_if_idle`` every IDLE_CHECK_SECONDS.
+        Does nothing when the setting is 0, in relay mode, or when it already runs.
+
+        Returns:
+            True when the thread runs.
+        """
+        limit = self.idle_unload_seconds()
+        if limit <= 0:
+            return False
+        if self._idle_thread and self._idle_thread.is_alive():
+            return True
+        self._idle_stop.clear()
+
+        def loop():
+            while not self._idle_stop.wait(self.IDLE_CHECK_SECONDS):
+                try:
+                    self.unload_if_idle(limit)
+                except Exception as e:  # the unloader must never die on one bad check
+                    func.error(f"BrainHub: idle unload check failed: {e}")
+
+        self._idle_thread = threading.Thread(target=loop, name="brain-idle-unload", daemon=True)
+        self._idle_thread.start()
+        func.out(f"BrainHub: the model is unloaded after {limit / 60:g} idle minutes.")
+        return True
+
+    def stop_idle_unloader(self) -> None:
+        self._idle_stop.set()
 
     @staticmethod
     def is_loadable(config_data: dict) -> bool:

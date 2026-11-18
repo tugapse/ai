@@ -132,7 +132,9 @@ class CliArgs:
                         func.error(f"Neural Load Failed: {e}. Starting in STANDBY.")
                 else:
                     func.out(f"{Color.CYAN}[*] Neural Hub: Standby Mode. Awaiting Neural Link...{Color.RESET}")
-                
+                # Frees the GPU after SERVER_IDLE_UNLOAD_MINUTES without use (not in relay mode).
+                brain_hub.start_idle_unloader()
+
                 # Tool modules (filesystem, shell, web, ...) back the /api/v1/agent runs.
                 if prog.modules:
                     try:

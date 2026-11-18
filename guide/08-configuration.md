@@ -273,6 +273,7 @@ matching engine is installed with `ai install`".
 | `SERVER_ALLOWED_ORIGINS` | `localhost:4200` | Browser origins allowed by CORS. |
 | `SERVER_RELAY_URL` | — | Brain Server for relay mode (same as `ai server --relay`). |
 | `SERVER_AGENT_WORKDIR` | `<root>/system/workspace` | Default folder for agents started from the web. |
+| `SERVER_IDLE_UNLOAD_MINUTES` | `15` | Minutes without use before the Brain Server unloads its model (`0` = never; not in relay mode). |
 | `SERVER_FRONTEND_DIR` | — | Folder with a jarvis-web build; wins over the bundled one. |
 | `SERVER_FRONTEND_VERSION` | bundled | Cached web UI version to serve (`ai server frontend use`). |
 | `SERVER_TOTP_ENABLED` | `false` | Require authenticator codes (run `ai server totp-setup` first). |
