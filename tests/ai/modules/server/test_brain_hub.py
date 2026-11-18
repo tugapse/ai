@@ -292,3 +292,93 @@ class TestGpuFull:
         with pytest.raises(ModelLoadError, match="Failed to load model .small.: full"):
             hub.get_brain("small", "")
         assert hub.orchestrator.llm is None and hub.current_model_id is None
+
+
+class TestIdleUnload:
+    """SERVER_IDLE_UNLOAD_MINUTES: a model nobody uses is unloaded; the next request loads it again."""
+
+    @pytest.fixture
+    def clock(self, hub):
+        now = [1000.0]
+        hub._clock = lambda: now[0]
+        hub._last_activity = now[0]
+        return now
+
+    def test_idle_model_is_unloaded(self, hub, loads, clock):
+        small = hub.get_brain("small", "")
+        clock[0] += 61
+        assert hub.unload_if_idle(60) == "small"
+        assert small.unloaded == 1 and hub.orchestrator.llm is None and hub.current_model_id is None
+
+    def test_recent_activity_keeps_the_model(self, hub, loads, clock):
+        small = hub.get_brain("small", "")
+        clock[0] += 59
+        assert hub.unload_if_idle(60) is None and small.unloaded == 0
+
+    def test_generation_end_restarts_the_idle_time(self, hub, loads, clock):
+        lease = hub.acquire("small", "")
+        clock[0] += 500
+        lease.release()
+        clock[0] += 30
+        assert hub.unload_if_idle(60) is None
+
+    def test_model_in_use_is_never_unloaded(self, hub, loads, clock):
+        lease = hub.acquire("small", "")
+        clock[0] += 10_000
+        assert hub.unload_if_idle(60) is None
+        lease.release()
+
+    def test_agent_run_and_knowledge_build_keep_the_model(self, hub, loads, clock):
+        hub.get_brain("small", "")
+        hub.agent_running = True
+        clock[0] += 10_000
+        assert hub.unload_if_idle(60) is None
+        hub.agent_running = False
+        hub.knowledge_building = True
+        clock[0] += 10_000
+        assert hub.unload_if_idle(60) is None
+
+    def test_no_model_is_a_no_op(self, hub, loads, clock):
+        clock[0] += 10_000
+        assert hub.unload_if_idle(60) is None
+
+    def test_next_request_loads_it_again(self, hub, loads, clock):
+        hub.get_brain("small", "")
+        clock[0] += 61
+        hub.unload_if_idle(60)
+        llm = hub.get_brain("small", "")
+        assert llm is loads[1] and hub.current_model_id == "small"
+
+    def test_zero_disables_it(self, hub, loads, clock):
+        hub.get_brain("small", "")
+        clock[0] += 10_000
+        assert hub.unload_if_idle(0) is None
+
+    @pytest.mark.parametrize("value, seconds", [
+        (None, 15 * 60), ("", 15 * 60), (5, 300), ("2.5", 150), (0, 0), (-3, 0), ("abc", 15 * 60),
+    ])
+    def test_setting(self, loads, value, seconds):
+        config = MagicMock()
+        config.get.return_value = value
+        assert BrainHub(config).idle_unload_seconds() == seconds
+
+    def test_relay_mode_never_unloads(self, loads):
+        config = MagicMock()
+        config.get.return_value = 5
+        hub = BrainHub(config, relay_url="http://brain:9999")
+        assert hub.idle_unload_seconds() == 0 and hub.start_idle_unloader() is False
+
+    def test_background_thread_unloads(self, loads, monkeypatch):
+        config = MagicMock()
+        config.get.return_value = 0.001  # 0.06 s
+        hub = BrainHub(config)
+        monkeypatch.setattr(hub, "IDLE_CHECK_SECONDS", 0.02)
+        small = hub.get_brain("small", "")
+        try:
+            assert hub.start_idle_unloader() is True
+            deadline = time.monotonic() + 2
+            while hub.orchestrator.llm is not None and time.monotonic() < deadline:
+                time.sleep(0.02)
+            assert small.unloaded == 1 and hub.current_model_id is None
+        finally:
+            hub.stop_idle_unloader()
