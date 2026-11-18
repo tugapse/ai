@@ -1,5 +1,10 @@
 # Changelog
 
+## [v3.11.0] - 2026-11-18
+
+###  Features
+- feat(server): Unload the model after SERVER_IDLE_UNLOAD_MINUTES without use
+
 ## [v3.10.1] - 2026-11-16
 
 ###  Bug Fixes
