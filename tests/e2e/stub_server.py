@@ -14,6 +14,7 @@ files, task, images, history) instead of what a model happened to answer.
     1. the oldest file in STATE_DIR/replies/ (consumed: a scripted turn, e.g. an agent tool call)
     2. STATE_DIR/reply.txt (kept: the same answer every time)
     3. STUB_REPLY ("STUB_OK")
+  STATE_DIR/delay.txt (seconds), when present, delays every answer
 - GET /api/health, GET /api/v1/model-configs: minimal answers, enough for clients and relays
 - stops on SIGTERM / SIGINT
 
@@ -25,6 +26,7 @@ import os
 import signal
 import sys
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 STUB_REPLY = os.environ.get("STUB_REPLY", "STUB_OK")
@@ -68,11 +70,22 @@ class Handler(BaseHTTPRequestHandler):
             self._json(400, {"detail": "invalid JSON"})
             return
         self._record(payload)
+        self._delay()
         reply = self._next_reply()
         if payload.get("stream"):
             self._stream(reply)
         else:
             self._json(200, {"choices": [{"message": {"role": "assistant", "content": reply}}]})
+
+    def _delay(self):
+        """STATE_DIR/delay.txt (seconds): wait before answering, e.g. to interrupt a run mid-request."""
+        path = os.path.join(self.state_dir, "delay.txt")
+        try:
+            with open(path, encoding="utf-8") as f:
+                seconds = float(f.read().strip() or 0)
+        except (OSError, ValueError):
+            return
+        time.sleep(max(0.0, min(seconds, 120.0)))
 
     def _next_reply(self):
         with Handler.lock:
