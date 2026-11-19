@@ -231,8 +231,15 @@ class TestCliAgentMode:
         import sys
         from ai.cli_args import CliArgs
 
+        from ai.agents.agent_orchestrator import TurnResult
+
         calls = []
-        monkeypatch.setattr(oneshot, "run_one_shot", lambda prog, prompt, **kw: calls.append((prompt, kw)))
+
+        def fake_run(prog, prompt, **kw):
+            calls.append((prompt, kw))
+            return TurnResult(reason="awaiting_user")
+
+        monkeypatch.setattr(oneshot, "run_one_shot", fake_run)
         monkeypatch.setattr(sys, "stdin", _io.StringIO(""))
         args = argparse.Namespace(resume=None, task_file=None, task=None, msg="run the tests",
                                   pipeline=None, output_file=None, session_id="s-cli")
@@ -240,7 +247,42 @@ class TestCliAgentMode:
             CliArgs()._handle_agent_mode(prog=None, args=args, directory_manager=None)
 
         assert exit_info.value.code == 0
-        assert calls == [("run the tests", {"pipeline": "default.json", "session_id": "s-cli", "directory_manager": None})]
+        assert calls == [("run the tests", {"pipeline": "default.json", "session_id": "s-cli",
+                                            "directory_manager": None, "full_access": False})]
+
+    @pytest.mark.parametrize("reason, code", [
+        ("done", 0), ("awaiting_user", 0), ("cancelled", 130),
+        ("error", 1), ("api_error", 1), ("max_iterations", 1), ("something_new", 1),
+    ])
+    def test_exit_code_follows_how_the_run_ended(self, monkeypatch, reason, code):
+        import argparse
+        import sys
+        from ai.agents.agent_orchestrator import TurnResult
+        from ai.cli_args import CliArgs
+
+        monkeypatch.setattr(oneshot, "run_one_shot", lambda prog, prompt, **kw: TurnResult(reason=reason))
+        monkeypatch.setattr(sys, "stdin", _io.StringIO(""))
+        args = argparse.Namespace(resume=None, task_file=None, task=None, msg="hi",
+                                  pipeline=None, output_file=None, session_id="s", full_access=True)
+        with pytest.raises(SystemExit) as exit_info:
+            CliArgs()._handle_agent_mode(prog=None, args=args, directory_manager=None)
+        assert exit_info.value.code == code
+
+    def test_orchestrator_error_exits_1(self, monkeypatch):
+        import argparse
+        import sys
+        from ai.cli_args import CliArgs
+
+        def boom(prog, prompt, **kw):
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(oneshot, "run_one_shot", boom)
+        monkeypatch.setattr(sys, "stdin", _io.StringIO(""))
+        args = argparse.Namespace(resume=None, task_file=None, task=None, msg="hi",
+                                  pipeline=None, output_file=None, session_id="s")
+        with pytest.raises(SystemExit) as exit_info:
+            CliArgs()._handle_agent_mode(prog=None, args=args, directory_manager=None)
+        assert exit_info.value.code == 1
 
 
 def test_api_error_prints_resume_hint(monkeypatch):

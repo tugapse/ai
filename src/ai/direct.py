@@ -38,7 +38,8 @@ def ask(
     hide_think_anim: bool = False,
     print_output: bool = True,
     stream: bool = True,
-    on_token: Optional[Callable[[str], None]] = None
+    on_token: Optional[Callable[[str], None]] = None,
+    images: Optional[list] = None,
 ) -> None:
     """
     Executes a single LLM request (Direct Task).
@@ -57,6 +58,7 @@ def ask(
         stream: If True, processes the response token by token instead of waiting for the full response.
         on_token: Optional callback invoked with every sanitized token (including thinking tokens),
             used by interactive UIs to show live progress.
+        images: Image paths for the last user message; each engine attaches them its own way.
     """
     start_time = time()
     first_token_time = None
@@ -88,7 +90,7 @@ def ask(
         func.write_to_file(output_filename, "")
 
     try:
-        output = llm.chat(messages, stream=stream)
+        output = llm.chat(messages, images=images, stream=stream) if images else llm.chat(messages, stream=stream)
         # A whole reply (stream=False) is one token; iterating a str/dict would split it.
         tokens = [output] if isinstance(output, (str, dict)) else output
         for raw_token in tokens:

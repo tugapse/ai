@@ -80,7 +80,8 @@ over a system one with the same name. Subfolders are fine.
 
 The default model is `MODEL_CONFIG_NAME` in `config.json` (initially `default.json`).
 
-`ai models generate` writes the new file to `user/models/`.
+`ai models generate` writes the new file to `user/models/`; it refuses to replace an existing one
+unless you add `--force`.
 
 **Shipped configs** (in `system/models/`):
 

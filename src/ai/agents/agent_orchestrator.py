@@ -96,6 +96,8 @@ class AgentOrchestrator(Events):
     EVENT_AFTER_LLM_REQUEST = "after_llm_request"
     # Set when a one-shot run stops before a tool that needs approval (see oneshot_hil_tools).
     _approval_stop: Optional[tuple] = None
+    # --full-access / --yes: gated tools run without asking, except ALWAYS_GATED_TOOLS.
+    full_access: bool = False
 
     def __init__(self, llm_connector: LLMConnector, tool_registry: ToolRegistry, pipeline_config: Dict[str, Any], module_registry: ModuleRegistry, io: Optional[AgentIO] = None):
         """
@@ -1081,6 +1083,9 @@ class AgentOrchestrator(Events):
         needs_approval = (tool in gated or tool in ALWAYS_GATED_TOOLS
                           or bool(bridge is not None and bridge.requires_approval(tool)))
         always_asks = tool in ALWAYS_GATED_TOOLS
+        if needs_approval and not always_asks and self.full_access:
+            self.emit(AgentEventType.TOOL_CALL, agent, tool=tool, params=params, gated=False, full_access=True)
+            return True
         if not needs_approval or (not always_asks and approval_scope.is_allowed(tool, params, self.auto_authorized_tools)):
             self.emit(AgentEventType.TOOL_CALL, agent, tool=tool, params=params, gated=False)
             return True

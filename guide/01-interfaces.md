@@ -149,13 +149,13 @@ ai COMMAND --help            help for one command
 
 | Command | What it does |
 | :--- | :--- |
-| `ai agent` | Agent chat; with `-m`/`-t`, one turn then exit. Options: `--resume [ID]` (`-r`), `--pipeline NAME` (`-ppl`), `--session-id ID`, `--knowledge PATH` (`-kb`, repeatable). Takes the options below too. |
+| `ai agent` | Agent chat; with `-m`/`-t`, one turn then exit. Options: `--resume [ID]` (`-r`), `--pipeline NAME` (`-ppl`), `--session-id ID`, `--knowledge PATH` (`-kb`, repeatable), `--full-access` / `--yes` (tools run without asking, see [Full access](03-agents.md#full-access---full-access---yes)). Takes the options below too. |
 | `ai sessions list` | Saved agent sessions of this folder. |
 | `ai knowledge build [SRC]` | Generate knowledge for this folder. Options: `--mode missing\|changed\|all\|diff[:branch]`, `--only docs\|knowledge`, `--ext`, `--files`, `--max`, `--force`, `-md MODEL`. |
 | `ai knowledge list` | Knowledge registered for this folder, and coverage. |
 | `ai knowledge forget ID` | Stop loading a knowledge source for this folder. |
 | `ai models list` | Available model configs (user and system). |
-| `ai models generate NAME --type TYPE` | New model config in `user/models/`. Types: `ollama`, `causal_lm`, `seq2seq_lm`, `gguf`, `gemini`, `openai`, `jarvis`. |
+| `ai models generate NAME --type TYPE` | New model config in `user/models/`. Types: `ollama`, `causal_lm`, `seq2seq_lm`, `gguf`, `gemini`, `openai`, `jarvis`. An existing config is kept unless you add `--force`. |
 | `ai tools create NAME` | Skeleton for your own tool in `user/tools/`. |
 | `ai mcp list` / `enable NAME` / `disable NAME` | MCP servers (browser, GitHub…): shipped disabled, turn on what you use. |
 | `ai server` | Start the Brain Server. `--relay URL`: run here, inference on the Brain Server at URL. `--modules ...`: server sub-modules. |

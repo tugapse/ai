@@ -222,6 +222,24 @@ With this key, in a one-shot run:
 The interactive chat and the web UI ignore this key and keep using `HIL_TOOLS`. An empty list
 (`[]`) lets a one-shot run use every tool without asking.
 
+### Full access (`--full-access`, `--yes`)
+
+`ai agent --full-access` (or `--yes`) runs the tools of `HIL_TOOLS` and `oneshot_hil_tools`
+without asking, for that run only, in the chat and in one-shot runs, with or without a terminal.
+A red line at the start says the run has full access. `enable_mcp_server` still asks every time
+(without a terminal it is denied), because it installs and starts outside code. `config.json` is
+not changed, and the web UI and the server keep their approvals (and TOTP codes).
+
+```bash
+./run.sh agent --yes -m "run the tests and fix what fails"
+```
+
+### Exit codes
+
+A one-shot run exits `0` when the agent answered (or waits for your next message), `1` when it
+failed (an error, an API error, too many iterations, an unknown `--resume` id or `--pipeline`) and
+`130` when it was cancelled.
+
 When an agent hands control back to you in a one-shot run (it has a question, or it is done):
 - **with a terminal**, you are asked for a reply. Type it and the run goes on in the same
   session; press Ctrl+C (or Ctrl+D) to end the run. An empty line is not taken as an answer. The

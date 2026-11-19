@@ -128,6 +128,33 @@ function test_agent_permission_denied_without_terminal() {
     expect "the agent is told access was denied" "len(reqs) == 2 and 'Access Denied' in $AGENT_INPUT" || return 1
 }
 
+function test_agent_full_access() {
+    local term="$STUB_ROOT/term.txt" code flag
+    mkdir -p "$AGENT_WORK"
+    for flag in --full-access --yes; do
+        stub_reset; code=0
+        rm -f "$AGENT_WORK/created_with_full_access"
+        stub_reply_next "$(agent_turn_tool execute_command '<command>touch @ROOT/created_with_full_access</command>')"
+        stub_reply_always "$(agent_turn_final AGENT_DONE_MARKER)"
+        agent_cli "$term" "$flag" -m "run a command" < /dev/null || code=$?
+        expect_exit_ok "$code" "$term" || return 1
+        expect_text "$term" "full access: tools run without asking" "$flag announces full access" || return 1
+        expect_text "$term" "denied: no terminal" "$flag asks for no permission" absent || return 1
+        if [ ! -e "$AGENT_WORK/created_with_full_access" ]; then
+            echo -e "      -> ${RED}❌ FAILED: with $flag the command did not run${NC}"
+            return 1
+        fi
+        echo -e "      -> ${GREEN}Verified: with $flag the gated command ran${NC}"
+        TEST_CASES=$((TEST_CASES + 1))
+    done
+    # enable_mcp_server always asks, even with full access: without a terminal it is denied.
+    stub_reset; code=0
+    stub_reply_next "$(agent_turn_tool enable_mcp_server '<name>cli-tests-server</name>')"
+    stub_reply_always "$(agent_turn_final AGENT_DONE_MARKER)"
+    agent_cli "$term" --full-access -m "enable a server" < /dev/null || code=$?
+    expect_text "$term" "denied: no terminal" "enable_mcp_server still asks with --full-access" || return 1
+}
+
 function test_agent_errors() {
     local term="$STUB_ROOT/term.txt" code
     stub_reset; code=0
@@ -158,5 +185,6 @@ function run_category_5() {
     run_test "Agent Session (--session-id, --resume)" "A session carries history; --resume continues it; another id starts empty." test_agent_session
     run_test "Agent Permission (no terminal)" "A gated tool (execute_command) is denied without a terminal and does not run." test_agent_permission_denied_without_terminal
     run_test "Agent Errors (--resume, --pipeline)" "Unknown session or pipeline fails and sends nothing." test_agent_errors
-    known_issue "Agent Failure Exit Code" "A run that ends in an error should exit non-zero; today it exits 0." test_agent_failure_exit_code
+    run_test "Agent Full Access (--full-access, --yes)" "Gated tools run without a terminal; enabling an MCP server still asks." test_agent_full_access
+    run_test "Agent Failure Exit Code" "A run that ends in an error exits non-zero." test_agent_failure_exit_code
 }

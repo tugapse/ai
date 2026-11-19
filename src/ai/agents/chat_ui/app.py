@@ -101,8 +101,9 @@ class AgentChatApp:
     """Interactive multi-turn chat with the agent orchestrator."""
 
     def __init__(self, prog, pipeline: str = "default.json", session_id: Optional[str] = None,
-                 directory_manager=None, history: Optional[History] = None):
+                 directory_manager=None, history: Optional[History] = None, full_access: bool = False):
         self.prog = prog
+        self.full_access = bool(full_access)
         self.pipeline = pipeline
         self.directory_manager = directory_manager
         self.session_id = session_id or str(uuid.uuid4())
@@ -142,6 +143,7 @@ class AgentChatApp:
 
         orchestrator = build_orchestrator(self.prog, pipeline, io=self.io, directory_manager=self.directory_manager)
         orchestrator.llm_connector.on_token = self.io.on_token
+        orchestrator.full_access = getattr(self, "full_access", False)
         return orchestrator
 
     def _make_history(self) -> History:
@@ -491,6 +493,8 @@ class AgentChatApp:
         self.io.loop = self.loop
         with patch_stdout(raw=True):
             self.write(self.banner())
+            if self.full_access:
+                self.write(f"{R.RED}  full access: tools run without asking for permission{R.RESET}")
             self.show_history()
             if initial_message:
                 self.loop.call_soon(self.submit, initial_message)
@@ -503,7 +507,8 @@ class AgentChatApp:
 
 
 def run_agent_chat(prog, pipeline: str = "default.json", session_id: Optional[str] = None,
-                   directory_manager=None, initial_message: Optional[str] = None) -> None:
+                   directory_manager=None, initial_message: Optional[str] = None, full_access: bool = False) -> None:
     """Entry point used by the CLI (``ai agent`` on an interactive terminal)."""
-    app = AgentChatApp(prog, pipeline=pipeline, session_id=session_id, directory_manager=directory_manager)
+    app = AgentChatApp(prog, pipeline=pipeline, session_id=session_id, directory_manager=directory_manager,
+                       full_access=full_access)
     app.run(initial_message)

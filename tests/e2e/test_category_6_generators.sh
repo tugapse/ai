@@ -33,7 +33,6 @@ function test_models_generate() {
 }
 
 function test_models_generate_other_types() {
-    # seq2seq_lm, gemini, openai and jarvis have no template: today they write "{}" with exit 0.
     generate_types seq2seq_lm gemini openai jarvis || return 1
     rm -f "$STUB_HOME"/user/models/cli_gen_*.json
 }
@@ -88,21 +87,30 @@ function test_tools_create() {
 }
 
 function test_models_generate_keeps_existing() {
-    local term="$STUB_ROOT/term.txt" code=0 file="$STUB_HOME/user/models/cli_keep.json"
+    local term="$STUB_ROOT/term.txt" code=0 file="$STUB_HOME/user/models/cli_keep.json" kept
+    rm -f "$file"
     stub_cli "$term" models generate cli_keep --type gguf || code=$?
     python3 -I -c "import json,sys; p=sys.argv[1]; d=json.load(open(p)); d['EDITED_BY_TEST']=True; json.dump(d, open(p,'w'))" "$file"
     code=0
     stub_cli "$term" models generate cli_keep --type gguf || code=$?
-    local kept
+    expect_code nonzero "$code" "$term" "generating an existing config again fails" || return 1
+    expect_text "$term" "already exists.*--force" "the error points to --force" || return 1
     kept=$(python3 -I -c "import json,sys; print(json.load(open(sys.argv[1])).get('EDITED_BY_TEST', False))" "$file")
-    rm -f "$file"
-    if [ "$kept" = "True" ] || [ "$code" -ne 0 ]; then
-        echo -e "      -> ${GREEN}Verified: an existing model config is not overwritten silently${NC}"
-        TEST_CASES=$((TEST_CASES + 1))
-        return 0
+    if [ "$kept" != "True" ]; then
+        echo -e "      -> ${RED}❌ FAILED: the existing config was changed${NC}"; return 1
     fi
-    echo -e "      -> ${RED}❌ FAILED: models generate overwrote an existing config without asking (exit 0)${NC}"
-    return 1
+    echo -e "      -> ${GREEN}Verified: the existing config is kept${NC}"
+    TEST_CASES=$((TEST_CASES + 1))
+    code=0
+    stub_cli "$term" models generate cli_keep --type jarvis --force || code=$?
+    expect_code 0 "$code" "$term" "--force replaces it" || return 1
+    if python3 -I -c "import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if d['model_type']=='jarvis' and 'EDITED_BY_TEST' not in d else 1)" "$file"; then
+        echo -e "      -> ${GREEN}Verified: --force wrote the new config${NC}"
+        TEST_CASES=$((TEST_CASES + 1))
+    else
+        echo -e "      -> ${RED}❌ FAILED: --force did not replace the config${NC}"; return 1
+    fi
+    rm -f "$file"
 }
 
 function test_config_reset() {
@@ -124,9 +132,9 @@ function test_config_reset() {
 function run_category_6() {
     echo -e "\n${GREEN}### Category 6: Commands that write files (models generate, tools create, config reset) ###${NC}"
     run_test "Models Generate" "models generate writes a valid gguf/ollama/causal_lm config, listed afterwards." test_models_generate
-    known_issue "Models Generate (other types)" "seq2seq_lm, gemini, openai and jarvis should get a config (or be refused); today they write {} with exit 0." test_models_generate_other_types
+    run_test "Models Generate (other types)" "seq2seq_lm, gemini, openai and jarvis get a valid config too." test_models_generate_other_types
     run_test "Models Generate (bad type)" "An unknown --type exits 2 and writes nothing." test_models_generate_bad_type
     run_test "Tools Create" "tools create writes a valid skeleton and never overwrites an existing tool." test_tools_create
     run_test "Config Reset" "config reset puts config.json back to the defaults." test_config_reset
-    known_issue "Models Generate Overwrite" "models generate should not overwrite an existing config silently (tools create refuses)." test_models_generate_keeps_existing
+    run_test "Models Generate Overwrite" "An existing config is kept unless --force is given." test_models_generate_keeps_existing
 }

@@ -1,5 +1,7 @@
 import os
 import argparse
+
+import pytest
 from unittest.mock import MagicMock, patch
 
 # Imports adjusted for PYTHONPATH=src
@@ -57,12 +59,14 @@ class TestCliConfig:
         with patch('ai.services.config_helper.func.get_root_directory', return_value='/fake/root'):
             expected_path = os.path.join('/fake/root', 'system', 'system-prompt', 'non_existent_prompt.md')
 
-            CliConfig.apply_cli_args_to_config(self.config, self.args)
+            # A missing prompt is an error: the CLI stops instead of using another prompt.
+            with pytest.raises(SystemExit) as exit_info:
+                CliConfig.apply_cli_args_to_config(self.config, self.args)
 
-            # Config should not be changed
+            assert exit_info.value.code == 1
             assert self.config.get(ProgramSetting.SYSTEM_PROMPT_FILE) == original_prompt_file
             mock_exists.assert_called_with(expected_path)
-            mock_func.log.assert_called_with(f"System prompt file '{expected_path}' for '--system non_existent_prompt' not found. Ignoring CLI override.", level="WARNING")
+            mock_func.error.assert_called_with(f"System prompt 'non_existent_prompt' not found: {expected_path}")
 
 
     @patch('os.path.exists', return_value=False)
@@ -77,10 +81,12 @@ class TestCliConfig:
 
         original_prompt_file = self.config.get(ProgramSetting.SYSTEM_PROMPT_FILE)
 
-        CliConfig.apply_cli_args_to_config(self.config, self.args)
+        with pytest.raises(SystemExit) as exit_info:
+            CliConfig.apply_cli_args_to_config(self.config, self.args)
 
+        assert exit_info.value.code == 1
         assert self.config.get(ProgramSetting.SYSTEM_PROMPT_FILE) == original_prompt_file
         mock_exists.assert_called_with(self.args.system_file)
-        mock_func.log.assert_called_with(f"System prompt file '{self.args.system_file}' for '--system-file' not found. Ignoring CLI override.", level="WARNING")
+        mock_func.error.assert_called_with(f"System prompt file not found: {self.args.system_file}")
 
    

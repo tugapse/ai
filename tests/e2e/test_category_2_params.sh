@@ -97,6 +97,24 @@ function test_stub_image() {
         "[m for m in r['messages'] if m.get('role') == 'user'][-1]['images'][0].startswith('data:image/png;base64,')" || return 1
 }
 
+function test_stub_image_missing() {
+    stub_reset
+    local term="$STUB_ROOT/term.txt" code=0
+    stub_cli "$term" -i "$STUB_ROOT/no-such.png" -m "describe" || code=$?
+    expect_code nonzero "$code" "$term" "-i with a missing image fails" || return 1
+    expect_text "$term" "Image not found" "the error names the missing image" || return 1
+    expect_text "$term" "Traceback" "no Python traceback" absent || return 1
+    expect_no_request "nothing is sent to the model" || return 1
+}
+
+function test_stub_session_id_warns() {
+    stub_reset
+    local term="$STUB_ROOT/term.txt" code=0
+    stub_cli "$term" --session-id "some-id" -m "hi" || code=$?
+    expect_exit_ok "$code" "$term" || return 1
+    expect_text "$term" "--session-id only applies to 'ai agent'" "the CLI says --session-id is ignored here" || return 1
+}
+
 function test_stub_folder_and_ext() {
     stub_reset
     local term="$STUB_ROOT/term.txt" dir="$STUB_ROOT/project" code=0
@@ -186,5 +204,7 @@ function run_category_2() {
     run_test "Task File (-tf)" "-tf sends the task file text." test_stub_task_file
     run_test "Folder + Extensions (-D, -e)" "-D loads the folder recursively; -e filters by extension." test_stub_folder_and_ext
     run_test "All Together (-sf -f -t -m -o)" "Every part reaches the model in one request." test_stub_all_together
-    known_issue "Image (-i)" "-i should attach the image as a data URL; with a jarvis model it crashes (no load_images)." test_stub_image
+    run_test "Image (-i)" "-i attaches the image to the last user message as a data URL." test_stub_image
+    run_test "Image Missing (-i)" "-i with a missing file fails cleanly and sends nothing." test_stub_image_missing
+    run_test "Session Id outside agent" "--session-id without 'ai agent' warns that it is ignored." test_stub_session_id_warns
 }

@@ -202,7 +202,8 @@ class CliArgs:
             found_path = os.path.join(user_tasks_dir, task_name)
             
             if not os.path.exists(found_path):
-                raise FileNotFoundError(f"Task template '{args.task}' not found.")
+                func.error(f"Task template '{args.task}' not found in {user_tasks_dir}.")
+                sys.exit(1)
             _task = func.read_file(found_path)
 
         user_input = taskfile or _task 
@@ -227,15 +228,26 @@ class CliArgs:
         func.log(f"Session: {session_id}")
 
         try:
-            run_one_shot(prog, user_input, pipeline=pipeline_path, session_id=session_id,
-                         directory_manager=directory_manager)
+            result = run_one_shot(prog, user_input, pipeline=pipeline_path, session_id=session_id,
+                                  directory_manager=directory_manager,
+                                  full_access=getattr(args, "full_access", False))
         except ValueError as e:
             func.error(f"{e} Aborting.")
             sys.exit(1)
         except Exception as e:
             func.error(f"Orchestrator Error: {e}")
             func.error(traceback.format_exc())
-        sys.exit(0)
+            sys.exit(1)
+        sys.exit(self.agent_exit_code(getattr(result, "reason", "error")))
+
+    # Why a one-shot agent run ended -> its exit code: 0 answered (or waits for the user's next
+    # message), 1 failed, 130 cancelled (like Ctrl+C).
+    AGENT_EXIT_CODES = {"done": 0, "awaiting_user": 0, "cancelled": 130}
+
+    @classmethod
+    def agent_exit_code(cls, reason: str) -> int:
+        """The exit code of a one-shot agent run that ended with ``reason``."""
+        return cls.AGENT_EXIT_CODES.get(reason, 1)
 
     def _resolve_resume_session(self, args) -> Optional[str]:
         """
@@ -292,6 +304,7 @@ class CliArgs:
                 pipeline=pipeline_path,
                 session_id=args.session_id,
                 directory_manager=directory_manager,
+                full_access=getattr(args, "full_access", False),
             )
         except ValueError as e:
             func.error(f"{e} Aborting.")
@@ -372,7 +385,7 @@ class CliArgs:
 
         :param prog: The main program instance.
         :param args: The parsed command-line arguments containing comma-separated image paths.
-        :raises FileNotFoundError: If any specified image path does not exist.
+        :raises SystemExit: If an image path does not exist (exit code 1).
         """
         if args.image:
             for file_path in args.image.split(","):
@@ -380,7 +393,8 @@ class CliArgs:
                 if os.path.exists(path):
                     prog.chat.images.append(path)
                 else:
-                    raise FileNotFoundError(f"Image not found: {path}")
+                    func.error(f"Error: Image not found > {path}")
+                    sys.exit(1)
 
     def _has_task_file(self, prog, args):
         """
@@ -398,7 +412,7 @@ class CliArgs:
 
         :param prog: The main program instance.
         :param args: The parsed command-line arguments containing the task name (e.g., 'summary').
-        :raises FileNotFoundError: If the specified task template file does not exist.
+        :raises SystemExit: If the task template does not exist (exit code 1).
         """
         if args.task:
             task_name = f"{args.task.replace('.md', '')}.md"
@@ -406,7 +420,8 @@ class CliArgs:
             found_path = os.path.join(user_tasks_dir, task_name)
             
             if not os.path.exists(found_path):
-                raise FileNotFoundError(f"Task template '{args.task}' not found.")
+                func.error(f"Task template '{args.task}' not found in {user_tasks_dir}.")
+                sys.exit(1)
 
             prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, func.read_file(found_path)))
             
@@ -424,15 +439,19 @@ class CliArgs:
         if has_piped_input:
             prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, piped_input))
 
-        if prog.chat.images:
-            message = prog.llm.load_images(prog.chat.images)
-            prog.chat.messages.append(message)
-
         if args.msg:
             prog.chat._add_message(BaseModel.create_message(ChatRoles.USER, args.msg))
-        
+
         should_ask = has_piped_input or args.msg or args.task or args.task_file
-        
+
+        if should_ask and getattr(args, "session_id", None):
+            # Only agent runs keep a session; a direct question always starts fresh.
+            func.out(f"{Color.YELLOW}[ * ] --session-id only applies to 'ai agent'; ignored here.{Color.RESET}")
+
+        if prog.chat.images and should_ask and not getattr(prog.llm, "supports_vision", False):
+            func.error(f"Model '{prog.llm.model_name}' cannot read images (-i needs a vision model).")
+            sys.exit(1)
+
         if should_ask:
             func.log("Starting direct ask.")
             ask(
@@ -441,7 +460,8 @@ class CliArgs:
                 write_to_file=prog.write_to_file,
                 output_filename=prog.output_filename,
                 hide_think_anim=args.no_think_anim,
-                print_output=args.no_out != True
+                print_output=args.no_out != True,
+                images=list(prog.chat.images) or None,
             )
             sys.exit(0)
             

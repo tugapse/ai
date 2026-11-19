@@ -39,9 +39,13 @@ function test_missing_system_prompt_fails() {
     stub_reset; code=0
     stub_cli "$term" -sf "$STUB_ROOT/nope.md" -m "hi" || code=$?
     expect_code nonzero "$code" "$term" "-sf with a missing file fails" || return 1
+    expect_text "$term" "System prompt file not found" "-sf names the missing file" || return 1
+    expect_no_request "-sf: nothing is sent to the model" || return 1
     stub_reset; code=0
     stub_cli "$term" -s "no_such_prompt" -m "hi" || code=$?
     expect_code nonzero "$code" "$term" "-s with an unknown name fails" || return 1
+    expect_text "$term" "System prompt 'no_such_prompt' not found" "-s names the missing prompt" || return 1
+    expect_no_request "-s: nothing is sent to the model" || return 1
 }
 
 function test_missing_model_config() {
@@ -73,6 +77,6 @@ function run_category_3() {
     run_test "Missing Inputs" "-f, -tf, -D and -t with a missing path or name fail and send nothing." test_missing_inputs
     run_test "Missing Model Config (-md)" "A model config that does not exist fails with a clear error." test_missing_model_config
     run_test "Unreachable Brain Server" "A chat whose server is down exits non-zero." test_brain_unreachable
-    known_issue "Missing System Prompt (-s, -sf)" "A missing -sf file or -s name should fail; today it is ignored with exit 0." test_missing_system_prompt_fails
-    known_issue "Unknown Task Message (-t)" "An unknown task should be reported without a Python traceback." test_missing_task_is_not_a_traceback
+    run_test "Missing System Prompt (-s, -sf)" "A missing -sf file or -s name fails and sends nothing." test_missing_system_prompt_fails
+    run_test "Unknown Task Message (-t)" "An unknown task is reported without a Python traceback." test_missing_task_is_not_a_traceback
 }

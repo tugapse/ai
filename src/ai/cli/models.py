@@ -11,7 +11,7 @@ DESCRIPTION = """Model configs live in user/models/ (yours, win) and system/mode
   ai -md agents/lite -m "hi"           use one for a run
 """
 
-DEFAULTS = {"list_models": False, "generate_config": None, "model_type": None}
+DEFAULTS = {"list_models": False, "generate_config": None, "model_type": None, "force": False}
 
 LEGACY = {
     "--list-models": "ai models list", "-l": "ai models list",
@@ -30,6 +30,7 @@ def register(subparsers, parent):
                            usage="%(prog)s NAME --type TYPE")
     generate.add_argument("generate_config", metavar="NAME", help="File name (.json optional)")
     generate.add_argument("--type", dest="model_type", choices=_TYPES, required=True, help="Provider type")
+    generate.add_argument("--force", action="store_true", help="Replace the config if it already exists")
 
 
 def add_legacy(parser):
@@ -116,12 +117,17 @@ def generate_config(prog, args, directory_manager) -> None:
         func.ensure_directory_exists(models_dir)
 
         full_filepath = os.path.join(models_dir, config_filename)
-        new_config = ModelConfigManager.generate_default_config(model_name=args.generate_config, model_type=model_type_enum)
+        if os.path.exists(full_filepath) and not getattr(args, "force", False):
+            func.error(f"Model config already exists: {full_filepath} (use --force to replace it)")
+            sys.exit(1)
+        model_name = config_filename[:-len(".json")]
+        new_config = ModelConfigManager.generate_default_config(model_name=model_name, model_type=model_type_enum)
 
         ModelConfigManager.save_config(new_config, full_filepath) 
         print(format_text(f"\nConfiguration saved to: {full_filepath}", Color.GREEN))
     except Exception as e:
         func.error(f"Config generation failed: {e}")
+        sys.exit(1)
     sys.exit(0)
 
 
