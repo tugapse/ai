@@ -174,6 +174,45 @@ class TestHilToolsSetting:
         assert [t for t, _ in io.permission_requests] == ["execute_command"]
 
 
+class TestFullAccess:
+    """--full-access / --yes: gated tools run without asking, even in a one-shot run with no terminal."""
+
+    STEPS = [
+        {"action": {"tool_name": "write_file", "tool_parameters": {"path": "a.txt", "content": "x"}}},
+        {"action": {"tool_name": "execute_command", "tool_parameters": {"command": "ls"}}},
+        {"action": {"agent_target": "STOP"}},
+    ]
+
+    def test_gated_tools_run_without_asking(self, hil_tools):
+        hil_tools(["execute_command", "write_file"])
+        io = RecordingIO(permission=PERMISSION_NO)  # would deny if it were asked
+        orch, _, reg = make_orchestrator(list(self.STEPS), io=io, pipeline=PIPELINE)
+        orch.full_access = True
+        assert orch.run_loop("go", "s-fa1").reason == "done"
+        assert io.permission_requests == []
+        assert [n for n, _ in reg.executed] == ["write_file", "execute_command"]
+        calls = [e for e in io.events if e.type == AgentEventType.TOOL_CALL]
+        assert calls and all(e.data.get("full_access") for e in calls)
+
+    def test_one_shot_without_terminal_does_not_stop(self, hil_tools):
+        hil_tools(["execute_command"])
+        io = RecordingIO(permission=PERMISSION_NO)
+        io.one_shot, io.can_ask_permission = True, False
+        pipe = {**PIPELINE, "oneshot_hil_tools": ["execute_command"]}
+        orch, _, reg = make_orchestrator(list(self.STEPS), io=io, pipeline=pipe)
+        orch.full_access = True
+        assert orch.run_loop("go", "s-fa2").reason == "done"
+        assert [n for n, _ in reg.executed] == ["write_file", "execute_command"]
+
+    def test_off_by_default(self, hil_tools):
+        hil_tools(["execute_command"])
+        io = RecordingIO(permission=PERMISSION_NO)
+        orch, _, reg = make_orchestrator(list(self.STEPS), io=io, pipeline=PIPELINE)
+        orch.run_loop("go", "s-fa3")
+        assert [t for t, _ in io.permission_requests] == ["execute_command"]
+        assert [n for n, _ in reg.executed] == ["write_file"]
+
+
 class TestUserHandBack:
     def test_hand_back_without_question_does_not_print_generic_prompt(self):
         io = RecordingIO()

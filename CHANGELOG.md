@@ -1,5 +1,23 @@
 # Changelog
 
+## [v3.12.0] - 2026-11-19
+
+###  Features
+- feat(agent): Add --full-access/--yes: tools run without asking for that run (enabling an MCP server still asks)
+- feat(agent): One-shot agent runs exit 1 on error and 130 when cancelled
+
+###  Bug Fixes
+- fix(cli): -i works with every engine, including jarvis clients; a missing image is an error
+- fix(cli): A missing -s/-sf system prompt is an error instead of being ignored
+- fix(cli): An unknown -t task is reported without a Python traceback
+- fix(cli): --session-id outside ai agent warns that it is ignored
+- fix(models): models generate has templates for every type and keeps an existing config unless --force
+
+###  Maintenance
+- test(cli): CLI integration tests run against a stub Brain Server instead of a model (no GPU)
+- test(cli): Agent mode tests with scripted agent turns
+- test(cli): Tests for models generate, tools create and config reset
+
 ## [v3.11.0] - 2026-11-18
 
 ###  Features

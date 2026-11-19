@@ -1,6 +1,7 @@
 # services/config_applier.py
 
 import os
+import sys
 import argparse
 from typing import Optional
 
@@ -43,7 +44,8 @@ class CliConfig:
                 config.set(ProgramSetting.SYSTEM_PROMPT_FILE, filepath)
                 func.debug(f"CLI override: System prompt file set to '{filepath}' (from --system)") 
             else:
-                func.log(f"System prompt file '{filepath}' for '--system {args.system}' not found. Ignoring CLI override.", level="WARNING") 
+                func.error(f"System prompt '{args.system}' not found: {filepath}")
+                sys.exit(1)
 
         if args.system_file:
             filepath = args.system_file
@@ -51,7 +53,8 @@ class CliConfig:
                 config.set(ProgramSetting.SYSTEM_PROMPT_FILE, filepath)
                 func.debug(f"CLI override: System prompt file set to '{filepath}' (from --system-file)") 
             else:
-                func.log(f"System prompt file '{filepath}' for '--system-file' not found. Ignoring CLI override.", level="WARNING") 
+                func.error(f"System prompt file not found: {filepath}")
+                sys.exit(1)
 
         if hasattr(args, "print_log") and args.print_log is not None:
             config.set(ProgramSetting.PRINT_LOG,  args.print_log)

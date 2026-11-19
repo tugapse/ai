@@ -31,6 +31,8 @@ def _add_options(group, hidden: bool = False):
     group.add_argument("--pipeline", "-ppl", type=str, metavar="NAME",
                        help=h("Pipeline to use (default: default)"))
     group.add_argument("--session-id", type=str, metavar="ID", help=h("Start or continue the session with this id"))
+    group.add_argument("--full-access", "--yes", dest="full_access", action="store_true",
+                       help=h("Run tools without asking for permission (enabling an MCP server still asks)"))
     group.add_argument("--knowledge", "-kb", action="append", metavar="PATH",
                        help=h("Knowledge folder (component JSON and/or Markdown docs); repeatable, remembered for this folder"))
 

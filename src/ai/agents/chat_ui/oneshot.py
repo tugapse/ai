@@ -146,9 +146,13 @@ def _prompt_preview(prompt: str) -> str:
 
 
 def run_one_shot(prog, prompt: str, pipeline: str = "default.json", session_id: Optional[str] = None,
-                 directory_manager=None, io: Optional[OneShotIO] = None):
+                 directory_manager=None, io: Optional[OneShotIO] = None, full_access: bool = False):
     """
     Runs one agent request to completion with chat-style output.
+
+    Args:
+        full_access: Gated tools run without asking (--full-access / --yes), except the ones
+            that always ask (enabling an MCP server).
 
     Returns:
         The orchestrator's RunResult.
@@ -162,6 +166,9 @@ def run_one_shot(prog, prompt: str, pipeline: str = "default.json", session_id: 
     io = io or OneShotIO()
     orchestrator = build_orchestrator(prog, pipeline, io=io, directory_manager=directory_manager)
     orchestrator.llm_connector.on_token = io.on_token
+    orchestrator.full_access = bool(full_access)
+    if full_access:
+        io.write(f"{R.RED}  full access: tools run without asking for permission{R.RESET}")
     io.auto_reply = (getattr(orchestrator, "pipeline_config", None) or {}).get("oneshot_auto_reply") or None
     try:
         io.write(R.render_user_message(_prompt_preview(prompt)))

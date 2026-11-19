@@ -28,15 +28,81 @@ class ModelConfigManager:
         Returns:
             dict: A dictionary representing the default model configuration.
         """
-        config = {}
-        if model_type == ModelType.OLLAMA:
-            config = ModelConfigManager._generate_ollama_config(model_name)
-        elif model_type == ModelType.CAUSAL_LM:
-            config = ModelConfigManager._generate_causal_lm_config(model_name)
-        elif model_type == ModelType.GGUF:
-            config = ModelConfigManager._generate_gguf_config(model_name)
-        
-        return config
+        generators = {
+            ModelType.OLLAMA: ModelConfigManager._generate_ollama_config,
+            ModelType.CAUSAL_LM: ModelConfigManager._generate_causal_lm_config,
+            ModelType.GGUF: ModelConfigManager._generate_gguf_config,
+            ModelType.SEQ2SEQ_LM: ModelConfigManager._generate_seq2seq_lm_config,
+            ModelType.GEMINI: ModelConfigManager._generate_gemini_config,
+            ModelType.OPEN_AI: ModelConfigManager._generate_openai_config,
+            ModelType.JARVIS: ModelConfigManager._generate_jarvis_config,
+        }
+        generator = generators.get(model_type)
+        if generator is None:
+            raise ValueError(f"No config template for model type '{model_type.value}'.")
+        return generator(model_name)
+
+    @staticmethod
+    def _generate_seq2seq_lm_config(model_name):
+        """A Hugging Face encoder-decoder model (T5, BART); model_name is its repo id."""
+        return {
+            "model_name": model_name,
+            "model_type": "seq2seq_lm",
+            "model_properties": {
+                "max_new_tokens": 1024,
+                "do_sample": True,
+                "temperature": 0.9,
+                "top_p": 0.9,
+                "top_k": 50,
+                "quantization_bits": 0
+            }
+        }
+
+    @staticmethod
+    def _generate_gemini_config(model_name):
+        """A Gemini model: GEMINI_API_KEY, or vertex_ai true with gcloud credentials."""
+        return {
+            "model_name": model_name,
+            "model_type": "gemini",
+            "model_properties": {
+                "n_ctx": 1000000,
+                "vertex_ai": False,
+                "max_new_tokens": 8192,
+                "temperature": 1.0
+            }
+        }
+
+    @staticmethod
+    def _generate_openai_config(model_name):
+        """An OpenAI-compatible API (key in AI_API_KEY): base_url empty for OpenAI itself, or another provider's URL."""
+        return {
+            "model_name": model_name,
+            "model_type": "openai",
+            "model_properties": {
+                "base_url": None,
+                "n_ctx": 128000,
+                "max_new_tokens": 4096,
+                "temperature": 0.5,
+                "top_p": 0.95
+            }
+        }
+
+    @staticmethod
+    def _generate_jarvis_config(model_name):
+        """A client of a Jarvis Brain Server: server_model is the config the server loads."""
+        return {
+            "model_name": model_name,
+            "model_type": "jarvis",
+            "model_properties": {
+                "base_url": "http://127.0.0.1:9999",
+                "server_model": "default",
+                "n_ctx": 24000,
+                "max_new_tokens": 8192,
+                "temperature": 0.3,
+                "top_p": 0.95,
+                "top_k": 64
+            }
+        }
 
     @staticmethod
     def load_config(filepath: str) -> dict:
