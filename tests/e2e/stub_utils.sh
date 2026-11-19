@@ -69,7 +69,19 @@ function stub_stop() {
 
 # Forget the requests of the previous test.
 function stub_reset() {
-    rm -rf "$STUB_STATE/requests" "$STUB_STATE/last.json"
+    rm -rf "$STUB_STATE/requests" "$STUB_STATE/last.json" "$STUB_STATE/replies" "$STUB_STATE/reply.txt"
+}
+
+# stub_reply_always TEXT : every following request gets TEXT (until stub_reset).
+function stub_reply_always() {
+    printf '%s' "$1" > "$STUB_STATE/reply.txt"
+}
+
+# stub_reply_next TEXT : queues TEXT for one request; queued replies are used in order.
+function stub_reply_next() {
+    mkdir -p "$STUB_STATE/replies"
+    STUB_REPLY_SEQ=$(( ${STUB_REPLY_SEQ:-0} + 1 ))
+    printf '%s' "$1" > "$STUB_STATE/replies/$(printf '%06d' "$STUB_REPLY_SEQ").txt"
 }
 
 # --- helpers ----------------------------------------------------------------------------

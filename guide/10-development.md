@@ -99,7 +99,7 @@ AI_ASSISTANT_DIRECTORY=$(mktemp -d) ./run.sh agent
 ```bash
 ./run-tests.sh            # unit tests (default)
 ./run-tests.sh -u         # unit tests only
-./run-tests.sh -c [1-4]   # CLI integration tests (all, or one category); no model, no GPU
+./run-tests.sh -c [1-5]   # CLI integration tests (all, or one category); no model, no GPU
 ./run-tests.sh -a         # everything; -v shows every command and its output
 ```
 
@@ -109,7 +109,8 @@ request and always answers `STUB_OK`, so a test asserts what the CLI sent (syste
 task, images) and what it did with the answer (`-o`, `-q`, exit codes). Each run uses its own
 `AI_ASSISTANT_DIRECTORY` and free ports, so it never touches `~/Ai` or a running Brain Server.
 Categories: 1 informational flags and listings, 2 parameters sent to the model, 3 errors and exit
-codes, 4 server and relay. Known bugs are `known_issue` tests: skipped until fixed
+codes, 4 server and relay, 5 agent mode (the stub answers with scripted agent turns from
+`STATE/replies/`, so a test drives tool call, tool result and final answer). Known bugs are `known_issue` tests: skipped until fixed
 (`STRICT_KNOWN_ISSUES=1` makes them fail).
 
 Or directly: `.venv/bin/python -m pytest -q` (config in `pyproject.toml`: `pythonpath = ["src",

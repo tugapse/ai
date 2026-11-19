@@ -10,7 +10,10 @@ files, task, images, history) instead of what a model happened to answer.
 
 - listens on a free port on 127.0.0.1 and writes it to STATE_DIR/port
 - POST /api/v1/chat/completions: the JSON body goes to STATE_DIR/requests/NNNN.json (and
-  STATE_DIR/last.json); the answer is STUB_REPLY, streamed (SSE) or not
+  STATE_DIR/last.json); the answer, streamed (SSE) or not, is the first of:
+    1. the oldest file in STATE_DIR/replies/ (consumed: a scripted turn, e.g. an agent tool call)
+    2. STATE_DIR/reply.txt (kept: the same answer every time)
+    3. STUB_REPLY ("STUB_OK")
 - GET /api/health, GET /api/v1/model-configs: minimal answers, enough for clients and relays
 - stops on SIGTERM / SIGINT
 
@@ -65,10 +68,28 @@ class Handler(BaseHTTPRequestHandler):
             self._json(400, {"detail": "invalid JSON"})
             return
         self._record(payload)
+        reply = self._next_reply()
         if payload.get("stream"):
-            self._stream()
+            self._stream(reply)
         else:
-            self._json(200, {"choices": [{"message": {"role": "assistant", "content": STUB_REPLY}}]})
+            self._json(200, {"choices": [{"message": {"role": "assistant", "content": reply}}]})
+
+    def _next_reply(self):
+        with Handler.lock:
+            queue = os.path.join(self.state_dir, "replies")
+            if os.path.isdir(queue):
+                names = sorted(n for n in os.listdir(queue) if not n.startswith("."))
+                if names:
+                    path = os.path.join(queue, names[0])
+                    with open(path, encoding="utf-8") as f:
+                        text = f.read()
+                    os.remove(path)
+                    return text
+            fixed = os.path.join(self.state_dir, "reply.txt")
+            if os.path.isfile(fixed):
+                with open(fixed, encoding="utf-8") as f:
+                    return f.read()
+        return STUB_REPLY
 
     def _record(self, payload):
         with Handler.lock:
@@ -82,12 +103,12 @@ class Handler(BaseHTTPRequestHandler):
         with open(os.path.join(self.state_dir, "last.json"), "w", encoding="utf-8") as f:
             f.write(text)
 
-    def _stream(self):
+    def _stream(self, reply):
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-cache")
         self.end_headers()
-        chunk = {"choices": [{"delta": {"content": STUB_REPLY}}]}
+        chunk = {"choices": [{"delta": {"content": reply}}]}
         self.wfile.write(f"data: {json.dumps(chunk)}\n\n".encode())
         self.wfile.write(b"data: [DONE]\n\n")
         self.wfile.flush()

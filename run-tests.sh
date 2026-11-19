@@ -19,7 +19,7 @@ show_help() {
   echo ""
   echo "Options:"
   echo "  -u, --unit               Run only unit tests."
-  echo "  -c, --cli [CATEGORY]     Run CLI integration tests (stub server, no model). No value = all; 1-4 = one category."
+  echo "  -c, --cli [CATEGORY]     Run CLI integration tests (stub server, no model). No value = all; 1-5 = one category."
   echo "  -a, --all                Run all tests."
   echo "  -v, --verbose            Show every command and its output during tests."
   echo "  -h, --help               Display this help message and exit."
