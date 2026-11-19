@@ -236,9 +236,11 @@ not changed, and the web UI and the server keep their approvals (and TOTP codes)
 
 ### Exit codes
 
-A one-shot run exits `0` when the agent answered (or waits for your next message), `1` when it
-failed (an error, an API error, too many iterations, an unknown `--resume` id or `--pipeline`) and
-`130` when it was cancelled.
+A one-shot run exits `0` when the agent answered (or waits for your next message) and `1` when it
+failed (an error, an API error, too many iterations, an unknown `--resume` id or `--pipeline`).
+Interrupted, it exits `130` (Ctrl+C) or `143` (SIGTERM), like any other `ai` command; Ctrl+C at the
+"reply to continue" prompt only ends the run, after the answer, with `0`. Stopping a server or a
+relay (`ai server`) is its normal end and exits `0`.
 
 When an agent hands control back to you in a one-shot run (it has a question, or it is done):
 - **with a terminal**, you are asked for a reply. Type it and the run goes on in the same

@@ -145,6 +145,15 @@ def _instance_mode(args, maintenance_keys) -> str:
     return "chat"
 
 
+def signal_exit_code(signum: int, serving: bool = False) -> int:
+    """
+    The exit code after a graceful shutdown on ``signum``: 128 + the signal number (130 for
+    SIGINT, 143 for SIGTERM), the shell convention for "interrupted", so scripts can tell an
+    interrupted run from a finished one. A server (or relay) exits 0: stopping it is its normal end.
+    """
+    return 0 if serving else 128 + int(signum)
+
+
 def run():
     """
     Main execution function for the JARVIS system.
@@ -182,12 +191,14 @@ def run():
         """
         Signal handler for graceful shutdown upon receiving SIGINT or SIGTERM.
 
-        Calls the program's shutdown method, performs garbage collection, and exits.
+        Calls the program's shutdown method, performs garbage collection, and exits with
+        signal_exit_code: 130 (Ctrl+C) or 143 (SIGTERM) for an interrupted command, 0 for a
+        server, whose stop is its normal end (``systemctl stop`` must not mark it failed).
         """
         func.log(f"\n{Color.YELLOW}[ * ] Signal {signum} received. Initiating graceful shutdown...{Color.RESET}")
         prog.shutdown()
         gc.collect()
-        sys.exit(0)
+        sys.exit(signal_exit_code(signum, serving=bool(is_server or getattr(args, "relay", None))))
 
     signal.signal(signal.SIGINT, shutdown_handler)
     signal.signal(signal.SIGTERM, shutdown_handler)

@@ -69,12 +69,36 @@ function stub_stop() {
 
 # Forget the requests of the previous test.
 function stub_reset() {
-    rm -rf "$STUB_STATE/requests" "$STUB_STATE/last.json" "$STUB_STATE/replies" "$STUB_STATE/reply.txt"
+    rm -rf "$STUB_STATE/requests" "$STUB_STATE/last.json" "$STUB_STATE/replies" "$STUB_STATE/reply.txt" "$STUB_STATE/delay.txt"
 }
 
 # stub_reply_always TEXT : every following request gets TEXT (until stub_reset).
 function stub_reply_always() {
     printf '%s' "$1" > "$STUB_STATE/reply.txt"
+}
+
+# stub_delay SECONDS : every following answer waits SECONDS (until stub_reset).
+function stub_delay() {
+    printf '%s' "$1" > "$STUB_STATE/delay.txt"
+}
+
+# interrupt_cli_run SIGNAL MARKER TERMINAL_FILE ARGS... : starts the CLI (from the repo root,
+# isolated home), waits until its request reaches the stub, sends SIGNAL to the CLI's Python
+# process (found by MARKER, which must be in ARGS) and prints the CLI's exit code.
+function interrupt_cli_run() {
+    local sig="$1" marker="$2" term="$3"; shift 3
+    local pid code=0
+    AI_ASSISTANT_DIRECTORY="$STUB_HOME" $STUB_CMD "$@" > "$term" 2>&1 < /dev/null &
+    pid=$!
+    for _ in $(seq 1 240); do
+        [ -f "$STUB_STATE/last.json" ] && break
+        kill -0 "$pid" 2>/dev/null || break
+        sleep 0.25
+    done
+    sleep 0.5
+    pkill "-$sig" -f "src/ai/main.py.*$marker" 2>/dev/null || true
+    wait "$pid" || code=$?
+    echo "$code"
 }
 
 # stub_reply_next TEXT : queues TEXT for one request; queued replies are used in order.
@@ -241,8 +265,14 @@ function stop_server() {
         SERVER_PID=""
         return 1
     fi
-    wait "$SERVER_PID" 2>/dev/null || true
+    local code=0
+    wait "$SERVER_PID" 2>/dev/null || code=$?
     SERVER_PID=""
-    echo -e "      -> ${GREEN}Verified: the server stopped on SIGINT${NC}"
+    if [ "$code" -ne 0 ]; then
+        echo -e "      -> ${RED}❌ FAILED: the server exited $code on SIGINT; a server stop must exit 0${NC}"
+        tail -10 "$log"
+        return 1
+    fi
+    echo -e "      -> ${GREEN}Verified: the server stopped on SIGINT with exit 0${NC}"
     TEST_CASES=$((TEST_CASES + 1))
 }

@@ -1,5 +1,6 @@
 #!/bin/bash
-# Category 3: errors and exit codes. A failing command must exit non-zero and send nothing.
+# Category 3: errors and exit codes. A failing command must exit non-zero and send nothing;
+# an interrupted one exits 128 + the signal number.
 
 function test_unknown_flag() {
     stub_reset
@@ -71,12 +72,33 @@ function test_brain_unreachable() {
     expect_code nonzero "$code" "$term" "an unreachable Brain Server fails the command" || return 1
 }
 
+function test_interrupt_exit_codes() {
+    local term="$STUB_ROOT/term.txt" code
+    stub_reset
+    stub_delay 30
+    echo -e "   ${YELLOW}[EXEC]${NC} ai -m ... then Ctrl+C (SIGINT) while waiting for the model"
+    code=$(interrupt_cli_run INT INTERRUPT_MSG_MARKER "$term" -m "INTERRUPT_MSG_MARKER")
+    expect_code 130 "$code" "$term" "Ctrl+C during a direct question exits 130" || return 1
+    stub_reset
+    stub_delay 30
+    echo -e "   ${YELLOW}[EXEC]${NC} ai -m ... then SIGTERM while waiting for the model"
+    code=$(interrupt_cli_run TERM TERMINATE_MSG_MARKER "$term" -m "TERMINATE_MSG_MARKER")
+    expect_code 143 "$code" "$term" "SIGTERM during a direct question exits 143" || return 1
+    stub_reset
+    stub_delay 30
+    echo -e "   ${YELLOW}[EXEC]${NC} ai agent -m ... then Ctrl+C (SIGINT) while waiting for the model"
+    code=$(interrupt_cli_run INT INTERRUPT_AGENT_MARKER "$term" agent -m "INTERRUPT_AGENT_MARKER")
+    expect_code 130 "$code" "$term" "Ctrl+C during an agent run exits 130" || return 1
+    stub_reset
+}
+
 function run_category_3() {
     echo -e "\n${GREEN}### Category 3: Errors and exit codes ###${NC}"
     run_test "Unknown Flag" "An unknown flag exits 2, names the flag and sends nothing." test_unknown_flag
     run_test "Missing Inputs" "-f, -tf, -D and -t with a missing path or name fail and send nothing." test_missing_inputs
     run_test "Missing Model Config (-md)" "A model config that does not exist fails with a clear error." test_missing_model_config
     run_test "Unreachable Brain Server" "A chat whose server is down exits non-zero." test_brain_unreachable
+    run_test "Interrupted Run (Ctrl+C, SIGTERM)" "An interrupted command exits 130 (SIGINT) or 143 (SIGTERM)." test_interrupt_exit_codes
     run_test "Missing System Prompt (-s, -sf)" "A missing -sf file or -s name fails and sends nothing." test_missing_system_prompt_fails
     run_test "Unknown Task Message (-t)" "An unknown task is reported without a Python traceback." test_missing_task_is_not_a_traceback
 }
