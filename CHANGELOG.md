@@ -1,10 +1,15 @@
 # Changelog
 
+## [v3.12.1] - 2026-11-19
+
+###  Bug Fixes
+- fix(cli): An interrupted command exits 130 (Ctrl+C) or 143 (SIGTERM); a stopped server still exits 0
+
 ## [v3.12.0] - 2026-11-19
 
 ###  Features
 - feat(agent): Add --full-access/--yes: tools run without asking for that run (enabling an MCP server still asks)
-- feat(agent): One-shot agent runs exit 1 on error and 130 when cancelled
+- feat(agent): One-shot agent runs exit 1 on error
 
 ###  Bug Fixes
 - fix(cli): -i works with every engine, including jarvis clients; a missing image is an error
