@@ -104,6 +104,33 @@ function run_and_verify() {
     fi
 }
 
+# known_issue NAME DESCRIPTION FUNC : a test for a bug that is known and not fixed yet.
+# It runs like run_test, but a failure counts as skipped (so the suite stays green) and a pass
+# says the bug looks fixed, so the test can move to run_test. STRICT_KNOWN_ISSUES=1 makes a
+# failure count as failed.
+function known_issue() {
+    local test_name="$1" description="$2" func_name="$3" exit_code temp_out
+    echo -e "\n${YELLOW}======================================================================${NC}"
+    echo -e "${YELLOW}▶ KNOWN ISSUE: ${test_name}${NC}"
+    echo -e "  ${description}"
+    echo -e "${YELLOW}----------------------------------------------------------------------${NC}"
+    TESTS_TOTAL=$((TESTS_TOTAL + 1))
+    temp_out=$(mktemp)
+    if $func_name > "$temp_out" 2>&1; then exit_code=0; else exit_code=$?; fi
+    if [ "${VERBOSE:-0}" -eq 1 ]; then cat "$temp_out"; fi
+    rm -f "$temp_out"
+    if [ "$exit_code" -eq 0 ]; then
+        echo -e "   -> ${GREEN}✅ NOW PASSES: ${test_name} — the bug looks fixed; move it to run_test${NC}"
+        TESTS_PASSED=$((TESTS_PASSED + 1))
+    elif [ "${STRICT_KNOWN_ISSUES:-0}" -eq 1 ]; then
+        echo -e "   -> ${RED}❌ KNOWN ISSUE FAILED (strict): ${test_name}${NC}"
+        TESTS_FAILED=$((TESTS_FAILED + 1))
+    else
+        echo -e "   -> ${YELLOW}⚠ KNOWN ISSUE, still open: ${test_name}${NC}"
+        TESTS_SKIPPED=$((TESTS_SKIPPED + 1))
+    fi
+}
+
 function print_summary() {
     echo -e "\n======================================================================"
     echo -e "🏆 INTEGRATION TEST SUMMARY"

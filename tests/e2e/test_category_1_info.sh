@@ -1,93 +1,86 @@
 #!/bin/bash
+# Category 1: informational flags and listing commands. None of them should reach the model.
 
 function test_help_flag() {
-    local TEMP_OUT=$(mktemp)
-    echo "   [EXEC] $AI_CMD -h > \"$TEMP_OUT\""
-    
-    set +e
-    $AI_CMD -h > "$TEMP_OUT" 2>&1
-    local exit_code=$?
-    set -e
-    
-    if grep -q "JUST A REASONING VIRTUAL INTELLIGENT SENTINEL AGENTIC INTERFACE" "$TEMP_OUT" && grep -q "\[ SYSTEM READY \]" "$TEMP_OUT"; then
-        echo -e "      -> ${GREEN}Help output successfully verified${NC}"
-        TEST_CASES=$((TEST_CASES + 1))
-    else
-        echo -e "      -> ${RED}❌ FAILED: Help output verification failed${NC}"
-        echo -e "      -> Content of output file ($TEMP_OUT):"
-        cat "$TEMP_OUT" 2>/dev/null || echo "(file not found)"
-        return 1
-    fi
-    cleanup_files "$TEMP_OUT"
+    stub_reset
+    local term="$STUB_ROOT/term.txt" code=0
+    stub_cli "$term" -h || code=$?
+    expect_code 0 "$code" "$term" "-h exits cleanly" || return 1
+    expect_text "$term" "usage: .*ai" "-h prints the usage line" || return 1
+    expect_text "$term" "JUST A REASONING VIRTUAL INTELLIGENT SENTINEL AGENTIC INTERFACE" "-h prints the banner" || return 1
+    expect_text "$term" "--msg" "-h lists --msg" || return 1
+    expect_no_request "-h sends nothing to the model" || return 1
+}
+
+function test_command_help() {
+    local term="$STUB_ROOT/term.txt" code
+    for command in agent server models sessions knowledge; do
+        code=0
+        stub_cli "$term" "$command" --help || code=$?
+        expect_code 0 "$code" "$term" "ai $command --help" || return 1
+        expect_text "$term" "usage: .*$command" "ai $command --help prints its usage" || return 1
+    done
 }
 
 function test_version_flag() {
-    local TEMP_OUT=$(mktemp)
-    echo "   [EXEC] $AI_CMD -v > \"$TEMP_OUT\""
-    
-    set +e
-    $AI_CMD -v > "$TEMP_OUT" 2>&1
-    local exit_code=$?
-    set -e
-    
-    if grep -q "Version" "$TEMP_OUT"; then
-        echo -e "      -> ${GREEN}Version output successfully verified${NC}"
-        TEST_CASES=$((TEST_CASES + 1))
-    else
-        echo -e "      -> ${RED}❌ FAILED: Version output verification failed${NC}"
-        echo -e "      -> Content of output file ($TEMP_OUT):"
-        cat "$TEMP_OUT" 2>/dev/null || echo "(file not found)"
-        return 1
-    fi
-    cleanup_files "$TEMP_OUT"
-}
-
-function test_list_models() {
-    local TEMP_OUT=$(mktemp)
-    echo "   [EXEC] $AI_CMD -l > \"$TEMP_OUT\""
-    
-    set +e
-    $AI_CMD -l > "$TEMP_OUT" 2>&1
-    local exit_code=$?
-    set -e
-    
-    if [ "$exit_code" -eq 0 ]; then
-        echo -e "      -> ${GREEN}List models successfully executed${NC}"
-        TEST_CASES=$((TEST_CASES + 1))
-    else
-        echo -e "      -> ${RED}❌ FAILED: List models execution failed with exit code $exit_code${NC}"
-        echo -e "      -> Content of output file ($TEMP_OUT):"
-        cat "$TEMP_OUT" 2>/dev/null || echo "(file not found)"
-        return 1
-    fi
-    cleanup_files "$TEMP_OUT"
+    stub_reset
+    local term="$STUB_ROOT/term.txt" code=0 version
+    version=$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml | head -1)
+    stub_cli "$term" -v || code=$?
+    expect_code 0 "$code" "$term" "-v exits cleanly" || return 1
+    expect_text "$term" "Version" "-v prints a version line" || return 1
+    expect_text "$term" "${version//./\\.}" "-v prints the pyproject version ($version)" || return 1
+    expect_no_request "-v sends nothing to the model" || return 1
 }
 
 function test_show_logo() {
-    local TEMP_OUT=$(mktemp)
-    echo "   [EXEC] $AI_CMD --show-logo -v > \"$TEMP_OUT\""
-    
-    set +e
-    $AI_CMD --show-logo -v > "$TEMP_OUT" 2>&1
-    local exit_code=$?
-    set -e
-    
-    if grep -q "JARVIS" "$TEMP_OUT"; then
-        echo -e "      -> ${GREEN}Show Logo successfully verified${NC}"
-        TEST_CASES=$((TEST_CASES + 1))
-    else
-        echo -e "      -> ${RED}❌ FAILED: Show Logo verification failed${NC}"
-        echo -e "      -> Content of output file ($TEMP_OUT):"
-        cat "$TEMP_OUT" 2>/dev/null || echo "(file not found)"
-        return 1
-    fi
-    cleanup_files "$TEMP_OUT"
+    local term="$STUB_ROOT/term.txt" code=0
+    stub_cli "$term" --show-logo -v || code=$?
+    expect_code 0 "$code" "$term" "--show-logo exits cleanly" || return 1
+    expect_text "$term" "JARVIS|█" "--show-logo prints the logo" || return 1
+}
+
+function test_listings() {
+    stub_reset
+    local term="$STUB_ROOT/term.txt" code
+    for command in "models list" "sessions list" "mcp list" "knowledge list" "server frontend list"; do
+        code=0
+        # shellcheck disable=SC2086
+        stub_cli "$term" $command || code=$?
+        expect_code 0 "$code" "$term" "ai $command" || return 1
+        expect_text "$term" "Traceback" "ai $command prints no traceback" absent || return 1
+    done
+    expect_no_request "listings send nothing to the model" || return 1
+}
+
+function test_models_list_shows_configs() {
+    local term="$STUB_ROOT/term.txt" code=0
+    mkdir -p "$STUB_HOME/system/models/cli-tests"
+    cp "$STUB_MODEL" "$STUB_HOME/system/models/cli-tests/stub-listed.json"
+    stub_cli "$term" models list || code=$?
+    expect_code 0 "$code" "$term" "ai models list" || return 1
+    expect_text "$term" "cli-tests/stub-listed" "a config added to the models folder is listed" || return 1
+    expect_text "$term" "jarvis" "its model type is shown" || return 1
+    rm -rf "$STUB_HOME/system/models/cli-tests"
+}
+
+function test_legacy_flags() {
+    local term="$STUB_ROOT/term.txt" code
+    for flag in "-l" "-ls"; do
+        code=0
+        stub_cli "$term" "$flag" || code=$?
+        expect_code 0 "$code" "$term" "legacy $flag still works" || return 1
+        expect_text "$term" "Old flags still work but will go away" "legacy $flag warns it will go away" || return 1
+    done
 }
 
 function run_category_1() {
-    echo -e "\n${GREEN}### Category 1: Informational & Immediate Exit ###${NC}"
-    run_test "Help Flag (-h)" "Verifies that the help flag outputs the correct system diagnostic message." test_help_flag
-    run_test "Version Flag (-v)" "Checks if the version flag correctly displays the JARVIS version information." test_version_flag
-    run_test "List Models (-l)" "Ensures the list flag executes without errors to show available neural models." test_list_models
-    run_test "Show Logo (--show-logo)" "Tests if the show logo flag successfully prints the JARVIS ASCII art." test_show_logo
+    echo -e "\n${GREEN}### Category 1: Informational flags and listings ###${NC}"
+    run_test "Help (-h)" "-h exits 0, prints the usage and sends nothing." test_help_flag
+    run_test "Command Help (COMMAND --help)" "Each command prints its own usage." test_command_help
+    run_test "Version (-v)" "-v prints the version from pyproject.toml." test_version_flag
+    run_test "Show Logo (--show-logo)" "--show-logo prints the logo." test_show_logo
+    run_test "Listings" "models/sessions/mcp/knowledge/frontend list exit 0 without a traceback." test_listings
+    run_test "Models List" "A config in the models folder is listed with its type." test_models_list_shows_configs
+    run_test "Legacy Flags (-l, -ls)" "Old flags still work and warn that they will go away." test_legacy_flags
 }
